@@ -1,19 +1,29 @@
 # Foloo
 
-Mobile application for capturing and following up leads during in-person events.
+Foloo is a planned mobile application for capturing and following up business leads during in-person events. It is intended to prevent physical cards from being lost or processed late by supporting fast, offline-first capture and same-day follow-up.
 
-## Status
+## Current Status
 
-Project initialization / Specification-Driven Development.
+Foloo is in the Specification-Driven Development (SDD) foundation stage. The application and backend have not been implemented, and no Flutter project exists yet. The agreed product target is one Flutter codebase for iOS and Android, subject to the documented requirements and future architecture decisions.
 
-## Stack
+## Specification-Driven Development
 
-- Flutter
-- iOS
-- Android
+The business requirements are the source of truth for V1 scope. Stable `RF`, `RNF`, and `RC` identifiers connect requirements to specifications, architecture, future tests, tasks, and commits. Implementation must begin from a documented behavior and must not resolve ambiguity silently.
 
-## Documentation
+## Documentation Structure
 
-Business requirements are located in:
+- `docs/requirements/`: original, authoritative business requirements.
+- `docs/specifications/`: product/domain behavior, acceptance criteria, and traceability.
+- `docs/architecture/`: conceptual model and high-level responsibility boundaries.
+- `docs/decisions/`: open questions and the process for future ADRs.
 
-`docs/requirements/`
+## Start Here
+
+1. Read `docs/requirements/foloo-business-requirements-v1.pdf`.
+2. Read `docs/specifications/product-spec.md`.
+3. Use `docs/specifications/traceability.md` to find the relevant domain specification.
+4. Review `docs/architecture/overview.md` and `docs/architecture/domain-model.md`.
+5. Check `docs/decisions/open-questions.md` before making assumptions.
+6. Follow `AGENTS.md` before proposing or implementing any change.
+
+There are currently no build, run, or Flutter setup instructions because no application code has been created.
