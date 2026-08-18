@@ -4,7 +4,7 @@ Foloo is a planned mobile application for capturing and following up business le
 
 ## Current Status
 
-Foloo is in the Specification-Driven Development (SDD) foundation stage. The application and backend have not been implemented, and no Flutter project exists yet. The agreed product target is one Flutter codebase for iOS and Android, subject to the documented requirements and future architecture decisions.
+Foloo has an SDD foundation and an initial Flutter frontend prototype in `app/`. The prototype exercises the main capture flow locally; it is not a production implementation. Backend, OCR, transcription, persistence, synchronization, Google Sheets, email, and infrastructure are not implemented.
 
 ## Specification-Driven Development
 
@@ -26,4 +26,15 @@ The business requirements are the source of truth for V1 scope. Stable `RF`, `RN
 5. Check `docs/decisions/open-questions.md` before making assumptions.
 6. Follow `AGENTS.md` before proposing or implementing any change.
 
-There are currently no build, run, or Flutter setup instructions because no application code has been created.
+## Run the frontend prototype
+
+With Flutter available in your environment:
+
+```sh
+cd app
+flutter pub get
+flutter devices
+flutter run -d <device-id>
+```
+
+See `app/README.md` for prototype limitations and dependency rationale.
