@@ -6,18 +6,22 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/lead_draft.dart';
 import '../theme/foloo_theme.dart';
+import '../widgets/app_drawer.dart';
 import '../widgets/progress_header.dart';
 import '../widgets/section_card.dart';
 import 'lead_confirmation_screen.dart';
 
 class LeadCaptureScreen extends StatefulWidget {
-  const LeadCaptureScreen({super.key});
+  const LeadCaptureScreen({required this.onLogout, super.key});
+
+  final VoidCallback onLogout;
 
   @override
   State<LeadCaptureScreen> createState() => _LeadCaptureScreenState();
 }
 
 class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _formKey = GlobalKey<FormState>();
   final _scrollController = ScrollController();
   final _picker = ImagePicker();
@@ -239,9 +243,14 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
   Widget build(BuildContext context) {
     final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     return Scaffold(
+      key: _scaffoldKey,
+      endDrawer: AppDrawer(onLogout: widget.onLogout),
       body: Column(
         children: [
-          ProgressHeader(completed: _progress),
+          ProgressHeader(
+            completed: _progress,
+            onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+          ),
           Expanded(
             child: Form(
               key: _formKey,

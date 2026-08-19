@@ -1,6 +1,6 @@
 # Requirements Traceability Matrix
 
-Status describes documentation only. Nothing is implemented.
+Status describes specification coverage, not implementation completeness.
 
 | Requirement | Description | Specification | Status |
 | --- | --- | --- | --- |
@@ -57,4 +57,9 @@ Status describes documentation only. Nothing is implemented.
 - RF: 34 of 34 represented.
 - RNF: 8 of 8 represented.
 - RC: 5 of 5 represented.
-- Implementation status: 0 implemented; this repository is currently documentation-only.
+- Implementation status: a partial Flutter frontend prototype exists;
+  production implementation is not complete.
+
+The local demo access shell is documented in `demo-access-shell.spec.md`. It
+supports RNF-03 through RNF-06 for prototype validation but adds no RF or RC
+and is explicitly not production authentication.

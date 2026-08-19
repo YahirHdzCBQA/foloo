@@ -43,7 +43,10 @@ The user may be standing, holding a card, and operating a phone with one hand. V
 - Event-badge QR scanning.
 - Direct HubSpot or Salesforce integration.
 - Event or salesperson metrics dashboards.
-- User authentication and roles.
+- Production user authentication and roles. A local, non-authenticating
+  prototype access shell may be used for visual and navigation validation; it
+  is not a V1 authentication capability and must not store credentials, issue
+  tokens, or make network requests.
 - App Store and Play Store publication; V1 only requires internal distribution.
 
 ## Core User Flow

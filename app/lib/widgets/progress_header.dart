@@ -3,9 +3,14 @@ import 'package:flutter/material.dart';
 import '../theme/foloo_theme.dart';
 
 class ProgressHeader extends StatelessWidget {
-  const ProgressHeader({required this.completed, super.key});
+  const ProgressHeader({
+    required this.completed,
+    required this.onMenuPressed,
+    super.key,
+  });
 
   final List<bool> completed;
+  final VoidCallback onMenuPressed;
   static const labels = ['Tarjeta', 'Datos', 'Relación', 'Nota'];
 
   @override
@@ -19,23 +24,48 @@ class ProgressHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'FOLOO · CAPTURA DE LEADS',
-                style: TextStyle(
-                  color: FolooColors.paper,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 17,
-                  letterSpacing: 1.1,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'PROTOTIPO FRONTEND · SESIÓN LOCAL',
-                style: TextStyle(
-                  color: FolooColors.paper.withValues(alpha: 0.62),
-                  fontSize: 10,
-                  letterSpacing: 1.2,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'FOLOO · CAPTURA DE LEADS',
+                          style: TextStyle(
+                            color: FolooColors.paper,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 17,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'PROTOTIPO FRONTEND · SESIÓN LOCAL',
+                          style: TextStyle(
+                            color: FolooColors.paper.withValues(alpha: 0.62),
+                            fontSize: 10,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.outlined(
+                    key: const Key('hamburgerMenuButton'),
+                    tooltip: 'Abrir menú',
+                    onPressed: onMenuPressed,
+                    icon: const Icon(Icons.menu),
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                      foregroundColor: FolooColors.paper,
+                      side: BorderSide(
+                        color: FolooColors.paper.withValues(alpha: 0.62),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               Row(

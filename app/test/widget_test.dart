@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foloo/app.dart';
 import 'package:foloo/models/lead_draft.dart';
+import 'package:foloo/screens/lead_capture_screen.dart';
+import 'package:foloo/theme/foloo_theme.dart';
+
+Widget captureApp() => MaterialApp(
+  theme: FolooTheme.light,
+  home: LeadCaptureScreen(onLogout: () {}),
+);
 
 void main() {
   testWidgets('shows required validation without losing the draft', (
     tester,
   ) async {
-    await tester.pumpWidget(const FolooApp());
+    await tester.pumpWidget(captureApp());
 
     await tester.tap(find.byKey(const Key('saveLeadButton')));
     await tester.pumpAndSettle();
@@ -20,7 +26,7 @@ void main() {
   testWidgets('completes the manual capture flow and starts another lead', (
     tester,
   ) async {
-    await tester.pumpWidget(const FolooApp());
+    await tester.pumpWidget(captureApp());
 
     await tester.enterText(find.byKey(const Key('nameField')), 'Ana López');
     await tester.enterText(
@@ -67,7 +73,7 @@ void main() {
   });
 
   testWidgets('validates email and accepts a phone-only lead', (tester) async {
-    await tester.pumpWidget(const FolooApp());
+    await tester.pumpWidget(captureApp());
 
     await tester.enterText(find.byKey(const Key('nameField')), 'Luis Pérez');
     await tester.enterText(find.byKey(const Key('companyField')), 'Taller Sur');

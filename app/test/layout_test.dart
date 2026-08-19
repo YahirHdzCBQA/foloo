@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foloo/app.dart';
+import 'package:foloo/screens/lead_capture_screen.dart';
+import 'package:foloo/theme/foloo_theme.dart';
+
+Widget captureApp() => MaterialApp(
+  theme: FolooTheme.light,
+  home: LeadCaptureScreen(onLogout: () {}),
+);
 
 void main() {
   testWidgets('keeps all sections in one usable scrollable viewport', (
@@ -11,7 +17,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const FolooApp());
+    await tester.pumpWidget(captureApp());
 
     final scrollView = find.byType(SingleChildScrollView);
     expect(scrollView, findsOneWidget);
@@ -69,7 +75,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetViewInsets);
 
-    await tester.pumpWidget(const FolooApp());
+    await tester.pumpWidget(captureApp());
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     await tester.pumpAndSettle();
 
