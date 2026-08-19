@@ -43,19 +43,23 @@ class _LoginScreenState extends State<LoginScreen> {
     widget.onAuthenticated();
   }
 
-  InputDecoration _decoration({Widget? suffixIcon}) {
-    const border = OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(17)),
-      borderSide: BorderSide(color: FolooBrand.gray, width: 1.4),
+  InputDecoration _decoration(BuildContext context, {Widget? suffixIcon}) {
+    final theme = Theme.of(context);
+    final ink = theme.colorScheme.onSurface;
+    final border = OutlineInputBorder(
+      borderRadius: const BorderRadius.all(Radius.circular(17)),
+      borderSide: BorderSide(color: ink.withValues(alpha: 0.5), width: 1.4),
     );
     return InputDecoration(
       filled: true,
-      fillColor: FolooBrand.fieldFill,
+      fillColor: theme.brightness == Brightness.dark
+          ? const Color(0xFF2C2C2C)
+          : FolooBrand.fieldFill,
       border: border,
       enabledBorder: border,
-      focusedBorder: const OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(17)),
-        borderSide: BorderSide(color: FolooBrand.ink, width: 2),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: const BorderRadius.all(Radius.circular(17)),
+        borderSide: BorderSide(color: ink, width: 2),
       ),
       errorBorder: const OutlineInputBorder(
         borderRadius: BorderRadius.all(Radius.circular(17)),
@@ -74,8 +78,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     final keyboardVisible = keyboardInset > 0;
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -91,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         label: 'Foloo, meet, capture, foloo',
                         image: true,
                         child: Image.asset(
-                          FolooBrand.logoWithTagline,
+                          FolooBrand.logoFor(theme.brightness, tagline: true),
                           key: const Key('loginLogo'),
                           width: 235,
                           fit: BoxFit.contain,
@@ -105,12 +110,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              const _FieldLabel('USUARIO / CORREO'),
+                              const _FieldLabel('USUARIO'),
                               const SizedBox(height: 10),
                               TextFormField(
                                 key: const Key('loginEmailField'),
                                 controller: _email,
-                                decoration: _decoration(),
+                                decoration: _decoration(context),
                                 keyboardType: TextInputType.emailAddress,
                                 textCapitalization: TextCapitalization.none,
                                 textInputAction: TextInputAction.next,
@@ -125,6 +130,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 controller: _password,
                                 obscureText: _obscurePassword,
                                 decoration: _decoration(
+                                  context,
                                   suffixIcon: IconButton(
                                     key: const Key('passwordVisibilityButton'),
                                     tooltip: _obscurePassword
@@ -169,7 +175,7 @@ class _LoginScreenState extends State<LoginScreen> {
         padding: EdgeInsets.only(bottom: keyboardInset),
         child: DecoratedBox(
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: Colors.transparent,
             border: Border(top: BorderSide(color: Color(0xFFD5D5D5))),
           ),
           child: SafeArea(

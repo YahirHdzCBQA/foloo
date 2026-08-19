@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/screens/lead_capture_screen.dart';
 import 'package:foloo/theme/foloo_theme.dart';
 
 Widget captureApp() => MaterialApp(
   theme: FolooTheme.light,
-  home: LeadCaptureScreen(onLogout: () {}),
+  home: LeadCaptureScreen(
+    recordsCount: 0,
+    darkMode: false,
+    onLeadSaved: (lead) =>
+        DemoEventData.createSessionLead(lead: lead, sequence: 1),
+    onDestinationSelected: (_) {},
+    onAppearanceChanged: (_) {},
+    onLogout: () {},
+  ),
 );
 
 void main() {
@@ -79,10 +88,14 @@ void main() {
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('saveLeadButton')), findsNothing);
+    expect(find.byKey(const Key('saveLeadButton')), findsOneWidget);
 
     final scrollView = find.byType(SingleChildScrollView);
     expect(tester.getRect(scrollView).height, greaterThan(250));
+    expect(
+      tester.getRect(find.byKey(const Key('saveLeadButton'))).bottom,
+      lessThanOrEqualTo(844 - 300),
+    );
 
     final noteField = find.byKey(const Key('noteField'));
     await tester.scrollUntilVisible(

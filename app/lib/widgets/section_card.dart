@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
 
-import '../theme/foloo_theme.dart';
-
 class SectionCard extends StatelessWidget {
   const SectionCard({
     required this.number,
     required this.title,
     required this.child,
     this.hint,
+    this.trailing,
     super.key,
   });
 
   final String number;
   final String title;
   final String? hint;
+  final Widget? trailing;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ink = theme.colorScheme.onSurface;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -28,9 +30,9 @@ class SectionCard extends StatelessWidget {
               children: [
                 Text(
                   number,
-                  style: const TextStyle(
-                    color: FolooColors.cobalt,
-                    fontWeight: FontWeight.w800,
+                  style: TextStyle(
+                    color: ink,
+                    fontWeight: FontWeight.w900,
                     letterSpacing: 1,
                   ),
                 ),
@@ -38,17 +40,20 @@ class SectionCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title.toUpperCase(),
-                    style: Theme.of(context).textTheme.titleLarge,
+                    style: theme.textTheme.titleLarge,
                   ),
                 ),
+                ?trailing,
               ],
             ),
+            const SizedBox(height: 14),
+            Divider(height: 1, color: ink.withValues(alpha: 0.45)),
             if (hint != null) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 12),
               Text(
                 hint!,
                 style: TextStyle(
-                  color: FolooColors.ink.withValues(alpha: 0.66),
+                  color: ink.withValues(alpha: 0.62),
                   height: 1.35,
                 ),
               ),

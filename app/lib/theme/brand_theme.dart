@@ -9,4 +9,13 @@ abstract final class FolooBrand {
 
   static const logoWithTagline = 'assets/branding/foloo_logo_light_v1.png';
   static const logo = 'assets/branding/foloo_logo_light_v2.png';
+  static const logoWithTaglineOnDark = 'assets/branding/foloo_logo_dark_v1.png';
+  static const logoOnDark = 'assets/branding/foloo_logo_dark_v2.png';
+
+  static String logoFor(Brightness brightness, {bool tagline = false}) {
+    if (brightness == Brightness.dark) {
+      return tagline ? logoWithTaglineOnDark : logoOnDark;
+    }
+    return tagline ? logoWithTagline : logo;
+  }
 }

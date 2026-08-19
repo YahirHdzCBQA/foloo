@@ -32,8 +32,9 @@ must not be interpreted as RF-11 capture-person configuration.
    no credential verification occurs.
 5. The password is obscured initially and a visible control toggles its
    visibility.
-6. The lead-capture screen exposes a right-side menu with the current capture
-   destination and a logout action. It must not expose unimplemented modules.
+6. The authenticated demo shell exposes a right-side menu for the approved
+   prototype destinations: Home, Registros, Evento, Apariencia, and logout.
+   It must not expose any other unimplemented module.
 7. Logout removes the lead-capture widget subtree, discards its in-memory
    draft, and returns to a clean login screen.
 
@@ -42,8 +43,8 @@ must not be interpreted as RF-11 capture-person configuration.
 - Use the supplied Foloo light-mode logo assets on white.
 - Use brand ink `#1F1F1F`, lime `#C9FA00`, and gray `#888888` on the login and
   menu integration only.
-- Preserve the established lead-capture visual design. The only permitted
-  change there is the minimal menu trigger and drawer integration.
+- Follow `mockup-frontend-prototype.spec.md` for the approved six-screen visual
+  prototype. This does not change the production authentication boundary.
 
 ## Acceptance Criteria
 

@@ -63,3 +63,8 @@ Status describes specification coverage, not implementation completeness.
 The local demo access shell is documented in `demo-access-shell.spec.md`. It
 supports RNF-03 through RNF-06 for prototype validation but adds no RF or RC
 and is explicitly not production authentication.
+
+The six-screen, mockup-aligned UI prototype is documented in
+`mockup-frontend-prototype.spec.md`. Its session-only list and demo statuses do
+not claim completion of production persistence, synchronization, export,
+event-settings, Sheets, or email requirements.

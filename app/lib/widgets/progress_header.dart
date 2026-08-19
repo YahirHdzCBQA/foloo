@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
 
 class ProgressHeader extends StatelessWidget {
@@ -11,99 +12,130 @@ class ProgressHeader extends StatelessWidget {
 
   final List<bool> completed;
   final VoidCallback onMenuPressed;
-  static const labels = ['Tarjeta', 'Datos', 'Relación', 'Nota'];
+  static const labels = ['01 Tarjeta', '02 Datos', '03 Relación', '04 Nota'];
+
+  int get _activeIndex {
+    final firstIncomplete = completed.indexWhere((value) => !value);
+    return firstIncomplete == -1 ? labels.length - 1 : firstIncomplete;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: const Color.fromARGB(255, 58, 60, 61),
+    final theme = Theme.of(context);
+    final ink = theme.colorScheme.onSurface;
+    final surface = theme.colorScheme.surface;
+    final active = _activeIndex;
+    return Material(
+      color: surface,
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+              child: Row(
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  Image.asset(
+                    FolooBrand.logoFor(theme.brightness),
+                    width: 64,
+                    fit: BoxFit.contain,
+                  ),
+                  const Spacer(),
+                  Container(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: FolooColors.line),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          'FOLOO · CAPTURA DE LEADS',
-                          style: TextStyle(
-                            color: FolooColors.paper,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 17,
-                            letterSpacing: 1.1,
-                          ),
+                        Icon(
+                          Icons.wifi_off_rounded,
+                          size: 15,
+                          color: ink.withValues(alpha: 0.65),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(width: 7),
                         Text(
-                          'PROTOTIPO FRONTEND · SESIÓN LOCAL',
+                          'SIN CONEXIÓN',
                           style: TextStyle(
-                            color: FolooColors.paper.withValues(alpha: 0.62),
-                            fontSize: 10,
-                            letterSpacing: 1.2,
+                            color: ink.withValues(alpha: 0.72),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   IconButton.outlined(
                     key: const Key('hamburgerMenuButton'),
                     tooltip: 'Abrir menú',
                     onPressed: onMenuPressed,
-                    icon: const Icon(Icons.menu),
+                    icon: const Icon(Icons.menu_rounded),
                     style: IconButton.styleFrom(
                       minimumSize: const Size(48, 48),
-                      foregroundColor: FolooColors.paper,
-                      side: BorderSide(
-                        color: FolooColors.paper.withValues(alpha: 0.62),
-                      ),
+                      foregroundColor: ink,
+                      side: BorderSide(color: ink.withValues(alpha: 0.55)),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Row(
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+              child: Row(
                 children: List.generate(labels.length, (index) {
+                  final color = index == active
+                      ? FolooColors.lime
+                      : index < active
+                      ? ink
+                      : FolooColors.gray.withValues(alpha: 0.65);
                   return Expanded(
-                    child: Container(
-                      height: 4,
-                      margin: EdgeInsets.only(
-                        right: index == labels.length - 1 ? 0 : 4,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        right: index == labels.length - 1 ? 0 : 6,
                       ),
-                      decoration: BoxDecoration(
-                        color: completed[index]
-                            ? FolooColors.paper
-                            : FolooColors.paper.withValues(alpha: 0.22),
-                        borderRadius: BorderRadius.circular(2),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            labels[index].toUpperCase(),
+                            maxLines: 1,
+                            style: TextStyle(
+                              color: index == active
+                                  ? ink
+                                  : ink.withValues(
+                                      alpha: index < active ? 0.82 : 0.4,
+                                    ),
+                              fontSize: 8,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.55,
+                            ),
+                          ),
+                          const SizedBox(height: 7),
+                          Container(
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   );
                 }),
               ),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: labels
-                    .map(
-                      (label) => Text(
-                        label.toUpperCase(),
-                        style: TextStyle(
-                          color: FolooColors.paper.withValues(alpha: 0.68),
-                          fontSize: 9,
-                          letterSpacing: 0.7,
-                        ),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ],
-          ),
+            ),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: ink.withValues(alpha: 0.45),
+            ),
+          ],
         ),
       ),
     );

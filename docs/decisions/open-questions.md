@@ -27,6 +27,10 @@ Questions here are unresolved. They are not decisions or permission to assume be
 | OQ-A11 | What constitutes “same result” for 30-second transcription across iOS and Android? | A measurable comparison threshold/test fixture is not defined. | RF-14, acceptance criterion 7 |
 | OQ-A12 | Which privacy-notice URL/content and operational evidence are required before the first event? | Compliance content cannot be invented by implementation. | RC-01, RC-05 |
 | OQ-A13 | What happens to the required lead email when a valid lead has phone but no email? | Section 5 permits phone-only leads, while RF-27 requires an email to every lead and the success metric expects cards to have email sent. | RF-27, Section 5 validation, success metric |
+| OQ-A14 | Is `apellido` a separate extraction/domain/Sheet field, or only a presentation split of `nombre`? | The approved mockup separates Nombre and Apellido, while RF-03, Section 5, and the conceptual model define only `nombre`. | RF-03, RF-05, RF-24 |
+| OQ-A15 | Does V1 include a `solución de interés` multi-select catalog, and where is it stored/exported? | The mockup shows Scanley IMS, CBQA General, and Vision AI, but no requirement or conceptual field defines this behavior. | RF-24, Section 5 model |
+| OQ-A16 | Where does the editable, persistent RF-33/RF-34 event configuration live when the approved Evento mockup is explicitly read-only? | The visual consultation view cannot replace the required settings workflow without losing specified behavior. | RF-33, RF-34 |
+| OQ-A17 | Does confirmation return automatically after three seconds, or only when the user selects `Capturar otro ahora`? | The PDF describes an automatic return, while the requested navigation flow and current specification describe an explicit capture-another action without defining a timeout. | Core user flow, RNF-05 |
 
 ## Decisions to Capture Later as ADRs
 

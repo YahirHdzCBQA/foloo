@@ -4,7 +4,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../models/app_destination.dart';
 import '../models/lead_draft.dart';
+import '../models/session_lead.dart';
 import '../theme/foloo_theme.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/progress_header.dart';
@@ -12,8 +14,21 @@ import '../widgets/section_card.dart';
 import 'lead_confirmation_screen.dart';
 
 class LeadCaptureScreen extends StatefulWidget {
-  const LeadCaptureScreen({required this.onLogout, super.key});
+  const LeadCaptureScreen({
+    required this.recordsCount,
+    required this.darkMode,
+    required this.onLeadSaved,
+    required this.onDestinationSelected,
+    required this.onAppearanceChanged,
+    required this.onLogout,
+    super.key,
+  });
 
+  final int recordsCount;
+  final bool darkMode;
+  final SessionLead Function(LeadDraft lead) onLeadSaved;
+  final ValueChanged<AppDestination> onDestinationSelected;
+  final ValueChanged<bool> onAppearanceChanged;
   final VoidCallback onLogout;
 
   @override
@@ -26,6 +41,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
   final _scrollController = ScrollController();
   final _picker = ImagePicker();
   final _name = TextEditingController();
+  final _lastName = TextEditingController();
   final _role = TextEditingController();
   final _company = TextEditingController();
   final _email = TextEditingController();
@@ -47,7 +63,14 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
   @override
   void initState() {
     super.initState();
-    for (final controller in [_name, _company, _email, _phone, _note]) {
+    for (final controller in [
+      _name,
+      _lastName,
+      _company,
+      _email,
+      _phone,
+      _note,
+    ]) {
       controller.addListener(_refreshProgress);
     }
   }
@@ -56,7 +79,15 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
   void dispose() {
     _demoTimer?.cancel();
     _scrollController.dispose();
-    for (final controller in [_name, _role, _company, _email, _phone, _note]) {
+    for (final controller in [
+      _name,
+      _lastName,
+      _role,
+      _company,
+      _email,
+      _phone,
+      _note,
+    ]) {
       controller.dispose();
     }
     super.dispose();
@@ -104,10 +135,11 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
       if (controller.text.trim().isEmpty) controller.text = value;
     }
 
-    fillIfEmpty(_name, 'Mariana Torres');
-    fillIfEmpty(_role, 'Directora comercial');
-    fillIfEmpty(_company, 'Norte Estudio');
-    fillIfEmpty(_email, 'mariana@norte.example');
+    fillIfEmpty(_name, 'Mariana');
+    fillIfEmpty(_lastName, 'Sandoval Ruiz');
+    fillIfEmpty(_role, 'Gerente de calidad');
+    fillIfEmpty(_company, 'Grupo Lácteo del Norte');
+    fillIfEmpty(_email, 'm.sandoval@lacteosnorte.mx');
     fillIfEmpty(_phone, '55 1234 5678');
     setState(() {
       _imageMessage = 'Demo completada. Revisa y edita todos los campos.';
@@ -185,7 +217,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
     }
 
     final lead = LeadDraft(
-      name: _name.text.trim(),
+      // UI-only split: the conceptual model still has one `nombre` field.
+      name: '${_name.text.trim()} ${_lastName.text.trim()}'.trim(),
       role: _role.text.trim(),
       company: _company.text.trim(),
       email: _email.text.trim(),
@@ -196,11 +229,12 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
       note: _note.text.trim(),
       demoAudioSeconds: _hasDemoAudio ? _demoSeconds : 0,
     );
+    final record = widget.onLeadSaved(lead);
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => LeadConfirmationScreen(
-          lead: lead,
+          record: record,
           onCaptureAnother: () {
             Navigator.of(context).pop();
             _reset();
@@ -212,7 +246,15 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
 
   void _reset() {
     _demoTimer?.cancel();
-    for (final controller in [_name, _role, _company, _email, _phone, _note]) {
+    for (final controller in [
+      _name,
+      _lastName,
+      _role,
+      _company,
+      _email,
+      _phone,
+      _note,
+    ]) {
       controller.clear();
     }
     setState(() {
@@ -227,7 +269,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
       _hasDemoAudio = false;
       _demoSeconds = 0;
     });
-    _scrollController.jumpTo(0);
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
   }
 
   List<bool> get _progress => [
@@ -244,7 +286,14 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
     final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     return Scaffold(
       key: _scaffoldKey,
-      endDrawer: AppDrawer(onLogout: widget.onLogout),
+      endDrawer: AppDrawer(
+        activeDestination: AppDestination.home,
+        recordsCount: widget.recordsCount,
+        darkMode: widget.darkMode,
+        onDestinationSelected: widget.onDestinationSelected,
+        onAppearanceChanged: widget.onAppearanceChanged,
+        onLogout: widget.onLogout,
+      ),
       body: Column(
         children: [
           ProgressHeader(
@@ -261,7 +310,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
                 controller: _scrollController,
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 30),
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 520),
@@ -283,36 +332,45 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: keyboardVisible
-          ? null
-          : SafeArea(
-              top: false,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(16, 11, 16, 11),
-                decoration: const BoxDecoration(
-                  color: FolooColors.paper,
-                  border: Border(top: BorderSide(color: FolooColors.line)),
+      bottomNavigationBar: AnimatedPadding(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 160),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: SafeArea(
+          top: false,
+          child: Container(
+            padding: EdgeInsets.fromLTRB(16, 11, 16, keyboardVisible ? 8 : 11),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              border: Border(
+                top: BorderSide(
+                  color: Theme.of(context).colorScheme.onSurface
+                      .withValues(alpha: 0.35),
                 ),
-                child: Center(
-                  heightFactor: 1,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 520),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        key: const Key('saveLeadButton'),
-                        onPressed: _submit,
-                        icon: const Icon(Icons.check),
-                        label: const Text('GUARDAR LEAD'),
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(54),
-                        ),
-                      ),
-                    ),
+              ),
+            ),
+            child: Center(
+              heightFactor: 1,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    key: const Key('saveLeadButton'),
+                    onPressed: _submit,
+                    iconAlignment: IconAlignment.end,
+                    icon: const Icon(Icons.send_outlined),
+                    label: const Text('Guardar y enviar'),
                   ),
                 ),
               ),
             ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -321,7 +379,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
       key: const Key('cardSection'),
       number: '01',
       title: 'La tarjeta',
-      hint: 'Fotografía o elige una tarjeta. La lectura disponible aquí es solo una simulación de interfaz.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -362,19 +419,27 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  key: const Key('cameraButton'),
-                  onPressed: () => _pickImage(ImageSource.camera),
-                  icon: const Icon(Icons.photo_camera_outlined),
-                  label: Text(_cardBytes == null ? 'CÁMARA' : 'CAMBIAR'),
+                  key: const Key('galleryButton'),
+                  onPressed: () => _pickImage(ImageSource.gallery),
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: const Text('Elegir de galería'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(64),
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton.icon(
-                  key: const Key('galleryButton'),
-                  onPressed: () => _pickImage(ImageSource.gallery),
-                  icon: const Icon(Icons.photo_library_outlined),
-                  label: const Text('GALERÍA'),
+                  key: const Key('cameraButton'),
+                  onPressed: () => _pickImage(ImageSource.camera),
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  label: Text(
+                    _cardBytes == null ? 'Tomar foto' : 'Cambiar foto',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(64),
+                  ),
                 ),
               ),
             ],
@@ -415,49 +480,81 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
       title: 'Datos del lead',
       child: Column(
         children: [
-          TextFormField(
-            key: const Key('nameField'),
-            controller: _name,
-            decoration: const InputDecoration(labelText: 'Nombre *'),
-            textInputAction: TextInputAction.next,
-            autofillHints: const [AutofillHints.name],
-            validator: (value) => _required(value, 'El nombre es obligatorio'),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _LabeledField(
+                  label: 'NOMBRE',
+                  field: TextFormField(
+                    key: const Key('nameField'),
+                    controller: _name,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.givenName],
+                    validator: (value) =>
+                        _required(value, 'El nombre es obligatorio'),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _LabeledField(
+                  label: 'APELLIDO',
+                  field: TextFormField(
+                    key: const Key('lastNameField'),
+                    controller: _lastName,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.familyName],
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _role,
-            decoration: const InputDecoration(labelText: 'Puesto'),
-            textInputAction: TextInputAction.next,
-            autofillHints: const [AutofillHints.jobTitle],
+          const SizedBox(height: 16),
+          _LabeledField(
+            label: 'PUESTO',
+            field: TextFormField(
+              key: const Key('roleField'),
+              controller: _role,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.jobTitle],
+            ),
           ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: const Key('companyField'),
-            controller: _company,
-            decoration: const InputDecoration(labelText: 'Empresa *'),
-            textInputAction: TextInputAction.next,
-            validator: (value) => _required(value, 'La empresa es obligatoria'),
+          const SizedBox(height: 16),
+          _LabeledField(
+            label: 'EMPRESA',
+            field: TextFormField(
+              key: const Key('companyField'),
+              controller: _company,
+              textInputAction: TextInputAction.next,
+              validator: (value) =>
+                  _required(value, 'La empresa es obligatoria'),
+            ),
           ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: const Key('emailField'),
-            controller: _email,
-            decoration: const InputDecoration(labelText: 'Correo'),
-            keyboardType: TextInputType.emailAddress,
-            textCapitalization: TextCapitalization.none,
-            textInputAction: TextInputAction.next,
-            autofillHints: const [AutofillHints.email],
-            validator: _validateEmail,
+          const SizedBox(height: 16),
+          _LabeledField(
+            label: 'CORREO',
+            field: TextFormField(
+              key: const Key('emailField'),
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              textCapitalization: TextCapitalization.none,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.email],
+              validator: _validateEmail,
+            ),
           ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: const Key('phoneField'),
-            controller: _phone,
-            decoration: const InputDecoration(labelText: 'Teléfono'),
-            keyboardType: TextInputType.phone,
-            textInputAction: TextInputAction.next,
-            autofillHints: const [AutofillHints.telephoneNumber],
-            validator: _validatePhone,
+          const SizedBox(height: 16),
+          _LabeledField(
+            label: 'TELÉFONO',
+            field: TextFormField(
+              key: const Key('phoneField'),
+              controller: _phone,
+              keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.telephoneNumber],
+              validator: _validatePhone,
+            ),
           ),
         ],
       ),
@@ -469,7 +566,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
       key: const Key('relationshipSection'),
       number: '03',
       title: 'Relación',
-      hint: 'Define cómo continuar la conversación después del evento.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -500,32 +596,52 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
           ],
           const SizedBox(height: 18),
           const Text(
-            'INTERÉS',
+            'NIVEL DE INTERÉS',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 1,
             ),
           ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
-            children: InterestLevel.values
-                .map(
-                  (interest) => ChoiceChip(
-                    label: Text(interest.label),
-                    selected: _interest == interest,
-                    onSelected: (_) => setState(() => _interest = interest),
-                  ),
-                )
-                .toList(),
+          const SizedBox(height: 8),
+          Row(
+            children:
+                [
+                  InterestLevel.low,
+                  InterestLevel.medium,
+                  InterestLevel.high,
+                ].map((interest) {
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        right: interest == InterestLevel.high ? 0 : 6,
+                      ),
+                      child: _InterestChoice(
+                        interest: interest,
+                        selected: _interest == interest,
+                        onTap: () => setState(() => _interest = interest),
+                      ),
+                    ),
+                  );
+                }).toList(),
           ),
           const SizedBox(height: 14),
+          const Text(
+            'SIGUIENTE PASO',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 8),
           DropdownButtonFormField<NextStep>(
             key: const Key('nextStepField'),
             isExpanded: true,
             initialValue: _nextStep,
-            decoration: const InputDecoration(labelText: 'Siguiente paso *'),
+            decoration: const InputDecoration(
+              hintText: 'Selecciona una opción',
+            ),
             items: NextStep.values
                 .map(
                   (step) =>
@@ -551,16 +667,30 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
       key: const Key('noteSection'),
       number: '04',
       title: 'Nota de la plática',
-      hint: 'La nota escrita siempre está disponible. No hay transcripción ni acceso real al micrófono en este prototipo.',
+      trailing: _demoRecording
+          ? const Text(
+              '● GRABANDO',
+              style: TextStyle(
+                color: FolooColors.error,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
+              ),
+            )
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // TODO(BACKEND/AUDIO): Connect recording/transcription when the audio feature is implemented.
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFFAFAF7),
-              border: Border.all(color: FolooColors.line),
-              borderRadius: BorderRadius.circular(6),
+              color: Theme.of(context).colorScheme.surface,
+              border: Border.all(
+                color: Theme.of(context).colorScheme.onSurface
+                    .withValues(alpha: 0.45),
+              ),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
               children: [
@@ -573,26 +703,46 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
                     key: const Key('demoRecordButton'),
                     onPressed: _toggleDemoRecording,
                     style: IconButton.styleFrom(
-                      minimumSize: const Size(56, 56),
+                      minimumSize: const Size(64, 64),
                       backgroundColor: _demoRecording
                           ? FolooColors.error
                           : FolooColors.ink,
+                      foregroundColor: Colors.white,
                     ),
                     icon: Icon(_demoRecording ? Icons.stop : Icons.mic),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text(
-                        'GRABACIÓN SIMULADA · DEMO',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.8,
-                        ),
+                      _Waveform(active: _demoRecording),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _demoRecording
+                                  ? 'Grabación simulada'
+                                  : _hasDemoAudio
+                                  ? 'Audio demo listo'
+                                  : 'Toca para grabar',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            _formatDuration(_demoSeconds),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 5),
                       Semantics(
@@ -620,17 +770,18 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
             ),
           ],
           const SizedBox(height: 12),
-          TextFormField(
-            key: const Key('noteField'),
-            controller: _note,
-            decoration: const InputDecoration(
-              labelText: 'Texto de la nota',
-              hintText: 'Escribe aquí lo importante de la conversación.',
-              alignLabelWithHint: true,
+          _LabeledField(
+            label: 'TEXTO DE LA NOTA',
+            field: TextFormField(
+              key: const Key('noteField'),
+              controller: _note,
+              decoration: const InputDecoration(
+                hintText: 'Escribe aquí lo importante de la conversación.',
+              ),
+              minLines: 4,
+              maxLines: 7,
+              textCapitalization: TextCapitalization.sentences,
             ),
-            minLines: 4,
-            maxLines: 7,
-            textCapitalization: TextCapitalization.sentences,
           ),
         ],
       ),
@@ -663,46 +814,204 @@ class _RelationshipChoice extends StatelessWidget {
           duration: MediaQuery.disableAnimationsOf(context)
               ? Duration.zero
               : const Duration(milliseconds: 160),
-          constraints: const BoxConstraints(minHeight: 126),
-          padding: const EdgeInsets.all(12),
+          height: 148,
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: selected
-                ? FolooColors.cobalt.withValues(alpha: 0.08)
-                : const Color(0xFFFAFAF7),
-            borderRadius: BorderRadius.circular(6),
+                ? FolooColors.lime.withValues(alpha: 0.34)
+                : Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: selected ? FolooColors.cobalt : FolooColors.line,
+              color: Theme.of(context).colorScheme.onSurface,
               width: selected ? 2 : 1,
             ),
+            boxShadow: selected
+                ? const [
+                    BoxShadow(
+                      color: FolooColors.ink,
+                      offset: Offset(0, 3),
+                      blurRadius: 0,
+                    ),
+                  ]
+                : null,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
-                selected ? Icons.check_circle : Icons.circle_outlined,
-                color: selected ? FolooColors.cobalt : FolooColors.ink,
+                type == LeadType.partner
+                    ? Icons.people_outline
+                    : Icons.person_add_alt_1_outlined,
+                color: selected
+                    ? FolooColors.success
+                    : Theme.of(context).colorScheme.onSurface,
               ),
-              const SizedBox(height: 8),
+              const Spacer(),
               Text(
-                type.label.toUpperCase(),
-                style: const TextStyle(
+                type.label,
+                style: TextStyle(
                   fontWeight: FontWeight.w900,
-                  fontSize: 15,
+                  fontSize: type == LeadType.potentialCustomer ? 17 : 18,
+                  height: 1.05,
                 ),
               ),
               const SizedBox(height: 5),
               Text(
-                type == LeadType.partner
-                    ? 'Alianza, proveedor o canal'
-                    : 'Puede comprar',
+                type == LeadType.partner ? 'CANAL / ALIANZA' : 'COMPRA DIRECTA',
                 style: TextStyle(
-                  color: FolooColors.ink.withValues(alpha: 0.65),
-                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurface
+                      .withValues(alpha: 0.5),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1,
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _LabeledField extends StatelessWidget {
+  const _LabeledField({required this.label, required this.field});
+
+  final String label;
+  final Widget field;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface
+                .withValues(alpha: 0.75),
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.1,
+          ),
+        ),
+        const SizedBox(height: 8),
+        field,
+      ],
+    );
+  }
+}
+
+class _InterestChoice extends StatelessWidget {
+  const _InterestChoice({
+    required this.interest,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final InterestLevel interest;
+  final bool selected;
+  final VoidCallback onTap;
+
+  Color get color => switch (interest) {
+    InterestLevel.low => FolooColors.success,
+    InterestLevel.medium => const Color(0xFFFFD900),
+    InterestLevel.high => const Color(0xFFFF3217),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: 'Interés ${interest.label}',
+      child: InkWell(
+        key: Key('interest-${interest.name}'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 160),
+          constraints: const BoxConstraints(minHeight: 76),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected
+                  ? Theme.of(context).colorScheme.onSurface
+                  : color.withValues(alpha: 0.5),
+              width: selected ? 2 : 1,
+            ),
+            boxShadow: selected
+                ? [BoxShadow(color: color, offset: const Offset(0, 5))]
+                : null,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(height: 7),
+              Text(
+                interest.label,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Waveform extends StatelessWidget {
+  const _Waveform({required this.active});
+
+  final bool active;
+  static const heights = <double>[
+    10,
+    20,
+    14,
+    28,
+    18,
+    34,
+    12,
+    24,
+    16,
+    30,
+    13,
+    22,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active
+        ? FolooColors.error
+        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.42);
+    return SizedBox(
+      height: 34,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: heights
+            .map(
+              (height) => AnimatedContainer(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 180),
+                width: 3,
+                height: active ? height : height * 0.55,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            )
+            .toList(),
       ),
     );
   }

@@ -84,7 +84,7 @@ void main() {
     await tester.tap(find.byKey(const Key('hamburgerMenuButton')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Captura de leads'), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
     expect(find.text('Cerrar sesión'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('logoutButton')));

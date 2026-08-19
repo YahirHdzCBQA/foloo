@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/models/lead_draft.dart';
+import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/screens/lead_capture_screen.dart';
 import 'package:foloo/theme/foloo_theme.dart';
 
 Widget captureApp() => MaterialApp(
   theme: FolooTheme.light,
-  home: LeadCaptureScreen(onLogout: () {}),
+  home: LeadCaptureScreen(
+    recordsCount: 0,
+    darkMode: false,
+    onLeadSaved: (lead) =>
+        DemoEventData.createSessionLead(lead: lead, sequence: 1),
+    onDestinationSelected: (_) {},
+    onAppearanceChanged: (_) {},
+    onLogout: () {},
+  ),
 );
 
 void main() {
@@ -62,9 +71,9 @@ void main() {
     await tester.tap(find.byKey(const Key('saveLeadButton')));
     await tester.pumpAndSettle();
 
-    expect(find.text('REGISTRO COMPLETADO'), findsOneWidget);
-    expect(find.text('Ana López'), findsOneWidget);
-    expect(find.text('FOLIO DEMO · SIN GENERACIÓN REAL'), findsOneWidget);
+    expect(find.text('Lead guardado'), findsOneWidget);
+    expect(find.textContaining('Ana López'), findsOneWidget);
+    expect(find.text('EXP-260812-001'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('captureAnotherButton')));
     await tester.pumpAndSettle();
