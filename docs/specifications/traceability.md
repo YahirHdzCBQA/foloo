@@ -6,10 +6,10 @@ Status describes specification coverage, not implementation completeness.
 | --- | --- | --- | --- |
 | RF-01 | Rear camera and gallery selection | `business-card-capture.spec.md` | Specified |
 | RF-02 | Resize to 1568 px and JPEG-compress client-side | `business-card-capture.spec.md` | Specified |
-| RF-03 | Extract core and additional card fields | `business-card-capture.spec.md`; `lead-information.spec.md` | Open question (website model mismatch) |
-| RF-04 | Handle rotated, shadowed, cluttered cards | `business-card-capture.spec.md` | Specified |
-| RF-05 | Editable fields; manual corrections win | `business-card-capture.spec.md`; `lead-information.spec.md` | Specified |
-| RF-06 | Explain extraction failure and allow manual capture | `business-card-capture.spec.md` | Specified |
+| RF-03 | Extract core and additional card fields | `business-card-capture.spec.md`; `lead-information.spec.md`; `temporary-on-device-ocr.spec.md` | Open question (website model mismatch); temporary prototype |
+| RF-04 | Handle rotated, shadowed, cluttered cards | `business-card-capture.spec.md`; `temporary-on-device-ocr.spec.md` | Specified; final acceptance not claimed by temporary OCR |
+| RF-05 | Editable fields; manual corrections win | `business-card-capture.spec.md`; `lead-information.spec.md`; `temporary-on-device-ocr.spec.md` | Specified |
+| RF-06 | Explain extraction failure and allow manual capture | `business-card-capture.spec.md`; `temporary-on-device-ocr.spec.md` | Specified |
 | RF-07 | Retain original card photo and link | `business-card-capture.spec.md`; `spreadsheet-and-file-delivery.spec.md` | Specified |
 | RF-08 | Required Partner/client-potential large controls | `lead-information.spec.md` | Specified |
 | RF-09 | Interest values; medium default | `lead-information.spec.md` | Specified |
@@ -68,3 +68,7 @@ The six-screen, mockup-aligned UI prototype is documented in
 `mockup-frontend-prototype.spec.md`. Its session-only list and demo statuses do
 not claim completion of production persistence, synchronization, export,
 event-settings, Sheets, or email requirements.
+
+The user-approved `temporary-on-device-ocr.spec.md` exception enables local
+ML Kit validation without selecting the production vision architecture. It
+does not claim final RF-04 acceptance or alter the server-side boundary.

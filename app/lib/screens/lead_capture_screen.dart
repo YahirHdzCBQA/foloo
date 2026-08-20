@@ -7,7 +7,9 @@ import 'package:image_picker/image_picker.dart';
 import '../models/app_destination.dart';
 import '../models/lead_draft.dart';
 import '../models/session_lead.dart';
+import '../services/card_text_recognition_service.dart';
 import '../theme/foloo_theme.dart';
+import '../utils/business_card_parser.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/progress_header.dart';
 import '../widgets/section_card.dart';
@@ -40,6 +42,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
   final _formKey = GlobalKey<FormState>();
   final _scrollController = ScrollController();
   final _picker = ImagePicker();
+  final _textRecognitionService = CardTextRecognitionService();
+  final _cardParser = const BusinessCardParser();
   final _name = TextEditingController();
   final _lastName = TextEditingController();
   final _role = TextEditingController();
@@ -49,8 +53,17 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
   final _note = TextEditingController();
 
   Uint8List? _cardBytes;
+  String? _cardPath;
   String? _cardName;
   String? _imageMessage;
+  bool _isReadingCard = false;
+  bool _ocrFailed = false;
+  bool _nameEdited = false;
+  bool _lastNameEdited = false;
+  bool _roleEdited = false;
+  bool _companyEdited = false;
+  bool _emailEdited = false;
+  bool _phoneEdited = false;
   LeadType? _leadType;
   InterestLevel _interest = InterestLevel.medium;
   NextStep? _nextStep;
@@ -78,6 +91,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
   @override
   void dispose() {
     _demoTimer?.cancel();
+    unawaited(_textRecognitionService.close());
     _scrollController.dispose();
     for (final controller in [
       _name,
@@ -111,13 +125,17 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
       if (!mounted) return;
       setState(() {
         _cardBytes = bytes;
+        _cardPath = image.path;
         _cardName = image.name;
-        _imageMessage = 'Imagen lista. La lectura automática no está conectada en este prototipo.';
+        _imageMessage = 'Leyendo tarjeta…';
+        _ocrFailed = false;
       });
+      await _readCard(image.path);
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _imageMessage = 'No se pudo abrir la imagen. Puedes continuar capturando los datos a mano.';
+        _ocrFailed = true;
       });
     }
   }
@@ -125,25 +143,67 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
   void _removeImage() {
     setState(() {
       _cardBytes = null;
+      _cardPath = null;
       _cardName = null;
       _imageMessage = null;
+      _ocrFailed = false;
     });
   }
 
-  void _simulateReading() {
-    void fillIfEmpty(TextEditingController controller, String value) {
-      if (controller.text.trim().isEmpty) controller.text = value;
-    }
-
-    fillIfEmpty(_name, 'Mariana');
-    fillIfEmpty(_lastName, 'Sandoval Ruiz');
-    fillIfEmpty(_role, 'Gerente de calidad');
-    fillIfEmpty(_company, 'Grupo Lácteo del Norte');
-    fillIfEmpty(_email, 'm.sandoval@lacteosnorte.mx');
-    fillIfEmpty(_phone, '55 1234 5678');
+  Future<void> _readCard(String imagePath) async {
+    if (_isReadingCard) return;
     setState(() {
-      _imageMessage = 'Demo completada. Revisa y edita todos los campos.';
+      _isReadingCard = true;
+      _ocrFailed = false;
+      _imageMessage = 'Leyendo tarjeta…';
     });
+
+    try {
+      final lines = await _textRecognitionService.recognizeLines(imagePath);
+      final card = _cardParser.parse(lines);
+      if (!mounted) return;
+
+      _fillFromOcr(_name, card.name, manuallyEdited: _nameEdited);
+      _fillFromOcr(_lastName, card.lastName, manuallyEdited: _lastNameEdited);
+      _fillFromOcr(_role, card.role, manuallyEdited: _roleEdited);
+      _fillFromOcr(_company, card.company, manuallyEdited: _companyEdited);
+      _fillFromOcr(_email, card.email, manuallyEdited: _emailEdited);
+      _fillFromOcr(_phone, card.phone, manuallyEdited: _phoneEdited);
+
+      final coreFieldsDetected =
+          card.name.isNotEmpty &&
+          card.company.isNotEmpty &&
+          card.email.isNotEmpty &&
+          card.phone.isNotEmpty;
+      setState(() {
+        _imageMessage = coreFieldsDetected
+            ? 'Tarjeta leída. Revisa los datos.'
+            : 'Lectura completada. Completa los datos faltantes manualmente.';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _ocrFailed = true;
+        _imageMessage =
+            'No se pudo leer la tarjeta. Puedes continuar manualmente.';
+      });
+    } finally {
+      if (mounted) setState(() => _isReadingCard = false);
+    }
+  }
+
+  void _fillFromOcr(
+    TextEditingController controller,
+    String value, {
+    required bool manuallyEdited,
+  }) {
+    if (shouldApplyExtractedValue(
+      currentValue: controller.text,
+      extractedValue: value,
+      manuallyEdited: manuallyEdited,
+    )) {
+      controller.text = value;
+    }
   }
 
   void _toggleDemoRecording() {
@@ -259,8 +319,17 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
     }
     setState(() {
       _cardBytes = null;
+      _cardPath = null;
       _cardName = null;
       _imageMessage = null;
+      _isReadingCard = false;
+      _ocrFailed = false;
+      _nameEdited = false;
+      _lastNameEdited = false;
+      _roleEdited = false;
+      _companyEdited = false;
+      _emailEdited = false;
+      _phoneEdited = false;
       _leadType = null;
       _interest = InterestLevel.medium;
       _nextStep = null;
@@ -408,7 +477,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
                   ),
                 ),
                 TextButton.icon(
-                  onPressed: _removeImage,
+                  onPressed: _isReadingCard ? null : _removeImage,
                   icon: const Icon(Icons.delete_outline),
                   label: const Text('Quitar'),
                 ),
@@ -420,7 +489,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
               Expanded(
                 child: OutlinedButton.icon(
                   key: const Key('galleryButton'),
-                  onPressed: () => _pickImage(ImageSource.gallery),
+                  onPressed: _isReadingCard
+                      ? null
+                      : () => _pickImage(ImageSource.gallery),
                   icon: const Icon(Icons.photo_library_outlined),
                   label: const Text('Elegir de galería'),
                   style: OutlinedButton.styleFrom(
@@ -432,7 +503,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
               Expanded(
                 child: OutlinedButton.icon(
                   key: const Key('cameraButton'),
-                  onPressed: () => _pickImage(ImageSource.camera),
+                  onPressed: _isReadingCard
+                      ? null
+                      : () => _pickImage(ImageSource.camera),
                   icon: const Icon(Icons.photo_camera_outlined),
                   label: Text(
                     _cardBytes == null ? 'Tomar foto' : 'Cambiar foto',
@@ -447,10 +520,17 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
           if (_cardBytes != null) ...[
             const SizedBox(height: 10),
             ElevatedButton.icon(
-              key: const Key('simulateReadingButton'),
-              onPressed: _simulateReading,
-              icon: const Icon(Icons.auto_awesome),
-              label: const Text('SIMULAR LECTURA · DEMO'),
+              key: const Key('readCardButton'),
+              onPressed: _isReadingCard || _cardPath == null
+                  ? null
+                  : () => _readCard(_cardPath!),
+              icon: _isReadingCard
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.document_scanner_outlined),
+              label: Text(_isReadingCard ? 'LEYENDO TARJETA…' : 'LEER TARJETA'),
             ),
           ],
           if (_imageMessage != null) ...[
@@ -460,7 +540,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
               child: Text(
                 _imageMessage!,
                 style: TextStyle(
-                  color: _cardBytes == null
+                  color: _ocrFailed || _cardBytes == null
                       ? FolooColors.error
                       : FolooColors.pine,
                   fontWeight: FontWeight.w600,
@@ -491,6 +571,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
                     controller: _name,
                     textInputAction: TextInputAction.next,
                     autofillHints: const [AutofillHints.givenName],
+                    onChanged: (_) => _nameEdited = true,
                     validator: (value) =>
                         _required(value, 'El nombre es obligatorio'),
                   ),
@@ -505,6 +586,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
                     controller: _lastName,
                     textInputAction: TextInputAction.next,
                     autofillHints: const [AutofillHints.familyName],
+                    onChanged: (_) => _lastNameEdited = true,
                   ),
                 ),
               ),
@@ -518,6 +600,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
               controller: _role,
               textInputAction: TextInputAction.next,
               autofillHints: const [AutofillHints.jobTitle],
+              onChanged: (_) => _roleEdited = true,
             ),
           ),
           const SizedBox(height: 16),
@@ -527,6 +610,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
               key: const Key('companyField'),
               controller: _company,
               textInputAction: TextInputAction.next,
+              onChanged: (_) => _companyEdited = true,
               validator: (value) =>
                   _required(value, 'La empresa es obligatoria'),
             ),
@@ -541,6 +625,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
               textCapitalization: TextCapitalization.none,
               textInputAction: TextInputAction.next,
               autofillHints: const [AutofillHints.email],
+              onChanged: (_) => _emailEdited = true,
               validator: _validateEmail,
             ),
           ),
@@ -553,6 +638,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
               keyboardType: TextInputType.phone,
               textInputAction: TextInputAction.next,
               autofillHints: const [AutofillHints.telephoneNumber],
+              onChanged: (_) => _phoneEdited = true,
               validator: _validatePhone,
             ),
           ),

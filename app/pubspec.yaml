@@ -36,6 +36,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   # Prototipo: cámara/galería requeridas por RF-01.
   image_picker: ^1.2.1
+  # Excepción temporal RF-03/RF-04: OCR local sin red ni credenciales.
+  google_mlkit_text_recognition: ^0.17.1
 
 dev_dependencies:
   flutter_test:
