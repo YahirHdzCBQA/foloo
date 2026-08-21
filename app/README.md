@@ -1,56 +1,61 @@
 # Foloo Flutter Prototype
 
-Frontend prototype for the lead-capture flow. It validates layout, fields, navigation, and mobile interaction; it is not a production implementation.
+This directory contains the existing Flutter prototype. It predates the
+August 2026 Basic/Pro realignment and is not yet a conforming Basic or Pro
+implementation. Current scope lives in `../docs/specifications/current/`, not
+in this code or its tests.
 
-## SDD scope
+## What the prototype demonstrates
 
-Primary requirements represented visually by this prototype: RF-01, RF-03,
-RF-05, RF-06, RF-08 through RF-13, RF-15, RF-17 through RF-23, RF-31,
-RF-33, RF-34, and RNF-02 through RNF-06. Session-only UI does not prove
-production persistence, synchronization, export, event-settings persistence,
-or delivery behavior. Product acceptance criterion 2 can be explored manually,
-but is not proven by this prototype.
+- Local demo login and password visibility.
+- One-scroll capture with card photo/gallery, editable lead fields, two legacy
+  lead types, interest, legacy `siguientePaso`, written note and Voice Note.
+- Temporary on-device ML Kit OCR and conservative parsing.
+- Session-memory save, demo folio, confirmation and records list.
+- Local Voice Note playback from Registros.
+- Right drawer, read-only legacy Evento view and non-persisted appearance.
 
-The demo does not claim productive compliance with OCR accuracy/performance, original-image retention, audio recording/transcription/upload, local persistence, synchronization, folio generation, Sheets, email, or privacy delivery obligations.
+These pieces are implementation evidence for portions of `OCR-*`, `CAP-*`,
+`VOZ-*`, `REG-*`, `NAV-*`, `RNF-03`–`RNF-06`; they do not establish full
+acceptance. See `../docs/migration/current-implementation-gap-analysis.md`.
 
-## Device dependencies
+## Important current conflicts
 
-- `image_picker`: provides rear-camera and gallery access required to exercise RF-01. It is maintained by the Flutter team and avoids inventing a device bridge. Production adoption should still be reviewed when image preparation/storage behavior is implemented.
-- `google_mlkit_text_recognition`: temporary, on-device OCR validation for
-  RF-03/RF-04. Final structured extraction remains a backend responsibility.
-- `record`: native local microphone recording required by RF-13.
-- `audioplayers`: focused playback/pause of the local recording required by
-  RF-15.
+- Login is a local gate, not `AUT-01`/`AUT-02` authentication and persistence.
+- Leads and files are session-only, contradicting the local durability required
+  by Article 2, `AUT-08`, `CAP-15` and `SYN-01`.
+- The model has two legacy types and mandatory `siguientePaso`; Basic requires
+  three types and excludes `siguientePaso` pending `D-02`.
+- There is no event/direct origin or Basic event CRUD.
+- OCR runs on-device; production `OCR-03`/`OCR-04` extraction belongs behind
+  the Foloo backend.
+- Confirmation includes demo email rows. Basic must show no email UI at all.
+- The UI mentions future transcription. Basic `VOZ-07` forbids even implying
+  transcription; transcription is Pro-only.
+- Current theme/touch/copy rules do not fully comply with the Constitution.
 
-AAC/M4A is a proposed local implementation detail. Format, maximum duration,
-and production retention remain open in OQ-A18; upload and transcription are
-not implemented.
+Do not “fix forward” any of these without following the migration plan and
+resolving the blocking decisions.
 
-## Run
+## Existing device dependencies
+
+- `image_picker`: camera/gallery bridge.
+- `google_mlkit_text_recognition`: temporary on-device prototype exception,
+  not the approved production extraction architecture.
+- `record`: local microphone recording.
+- `audioplayers`: local Voice Note playback.
+
+AAC/M4A remains an implementation detail; production limits and retention are
+blocked by `D-11`/`RC-03`.
+
+## Run locally
 
 ```sh
 cd app
 flutter pub get
-flutter run
+flutter devices
+flutter run -d <device-id>
 ```
 
-Use `flutter devices` to list targets, then `flutter run -d <device-id>` to select one.
-
-## Demo-only behavior
-
-- Card OCR runs locally through the temporary ML Kit implementation; fields
-  remain editable and manual corrections win.
-- Voice notes record, play, pause, delete, and rerecord locally. They are not
-  uploaded or transcribed.
-- Saved leads remain only in memory for the current demo session and appear in
-  Registros. Logout or process restart clears them.
-- Demo folios use the mockup event prefix and an in-memory sequence; this is
-  not the production folio-generation algorithm.
-- Confirmation processing rows, upload states, synchronization, and CSV
-  controls are visual demonstrations and do not perform those operations.
-- Evento uses centralized mock data and is read-only. It does not fulfill the
-  editable, persistent RF-33/RF-34 settings workflow.
-- Appearance switches locally and is not persisted.
-
-There are no API calls, credentials, backend, remote transcription,
-production persistence, synchronization, Sheets, or email integrations.
+There is no backend, real authentication, durable database, synchronization,
+spreadsheet delivery, export, Pro transcription, content or email integration.

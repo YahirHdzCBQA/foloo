@@ -1,40 +1,48 @@
 # Foloo
 
-Foloo is a planned mobile application for capturing and following up business leads during in-person events. It is intended to prevent physical cards from being lost or processed late by supporting fast, offline-first capture and same-day follow-up.
+Foloo is a mobile, offline-first lead-capture product for commercial teams
+working at events. The repository contains the current Specification-Driven
+Development foundation and an existing Flutter prototype under `app/`.
 
-## Current Status
+## Product editions
 
-Foloo has an SDD foundation and an initial Flutter frontend prototype in `app/`. The prototype exercises the main capture flow locally; it is not a production implementation. Backend, OCR, transcription, persistence, synchronization, Google Sheets, email, and infrastructure are not implemented.
+- **Foloo Basic** is the complete capture nucleus defined in
+  `docs/specifications/current/01-especificacion.md`.
+- **Foloo Pro = Basic + delta** from
+  `docs/specifications/current/05-especificacion-pro.md`.
+- `docs/specifications/current/04-matriz-de-capacidades.md` is the sole source
+  of truth for which edition owns each capability.
 
-## Specification-Driven Development
+The Flutter prototype predates this realignment. It demonstrates portions of
+capture, local OCR, Voice Note, confirmation, navigation and session records,
+but is not yet an implementation of current Basic or Pro. See the gap analysis
+before using existing code as a starting point.
 
-The business requirements are the source of truth for V1 scope. Stable `RF`, `RNF`, and `RC` identifiers connect requirements to specifications, architecture, future tests, tasks, and commits. Implementation must begin from a documented behavior and must not resolve ambiguity silently.
+## SDD map
 
-## Documentation Structure
+- `docs/specifications/current/`: current official Basic/Pro package.
+- `docs/architecture/`: current conceptual boundaries and data model.
+- `docs/decisions/`: ADR process and routing to unresolved decisions.
+- `docs/migration/`: old-to-current comparison, implementation gaps and the
+  recommended migration sequence.
+- `docs/requirements/`: original historical business requirements.
+- `docs/legacy/`: superseded specifications and decisions, retained only for
+  traceability.
 
-- `docs/requirements/`: original, authoritative business requirements.
-- `docs/specifications/`: product/domain behavior, acceptance criteria, and traceability.
-- `docs/architecture/`: conceptual model and high-level responsibility boundaries.
-- `docs/decisions/`: open questions and the process for future ADRs.
+## Reading order
 
-## Start Here
+1. `00-constitucion.md`
+2. `01-especificacion.md` and `02-escenarios-de-aceptacion.md`
+3. `03-decisiones-abiertas.md`
+4. For Pro or shared scope: `04`, `05`, `06` and `07` in order
+5. Current architecture, traceability and migration documents
+6. `AGENTS.md` before proposing or implementing changes
 
-1. Read `docs/requirements/foloo-business-requirements-v1.pdf`.
-2. Read `docs/specifications/product-spec.md`.
-3. Use `docs/specifications/traceability.md` to find the relevant domain specification.
-4. Review `docs/architecture/overview.md` and `docs/architecture/domain-model.md`.
-5. Check `docs/decisions/open-questions.md` before making assumptions.
-6. Follow `AGENTS.md` before proposing or implementing any change.
+Do not treat recommendations as decisions, or the current Flutter behavior as
+product authority.
 
-## Run the frontend prototype
+## Flutter prototype
 
-With Flutter available in your environment:
-
-```sh
-cd app
-flutter pub get
-flutter devices
-flutter run -d <device-id>
-```
-
-See `app/README.md` for prototype limitations and dependency rationale.
+The app is located in `app/`. Its current capabilities and known conflicts are
+documented in `docs/migration/current-implementation-gap-analysis.md`; its
+local run instructions remain in `app/README.md`.

@@ -1,45 +1,82 @@
-# Conceptual Domain Model
+# Current Conceptual Domain Model
 
-This model transcribes Section 5 of the business requirements. It is not a SQL schema, Dart model, or final JSON schema.
+This is a navigation aid for the authoritative entity definitions in
+`../specifications/current/01-especificacion.md` §3 and the Pro delta in
+`05-especificacion-pro.md` §2. It is not a database, Dart or API schema.
 
-## Lead
+## Edition boundary
 
-| Field | Conceptual type / allowed values | Required | Origin | Validation and notes |
-| --- | --- | --- | --- | --- |
-| `folio` | text | Yes | generated | Human-readable; example `EXP-260812-001`; idempotency key. Derivation rules remain open. |
-| `fecha` | ISO date-time | Yes | automatic | Recorded automatically per lead. |
-| `evento` | text | Yes | settings | Entered once per event. |
-| `capturadoPor` | text | Yes | settings | Entered once per event. |
-| `nombre` | text | Yes | extraction or manual | Must not be empty. |
-| `puesto` | text | No | extraction or manual | No additional validation defined. |
-| `empresa` | text | Yes | extraction or manual | Must not be empty. |
-| `correo` | email | Conditionally | extraction or manual | At least one of email/phone; validate email format before sending. |
-| `telefono` | text | Conditionally | extraction or manual | At least one of phone/email; format rules are not defined. |
-| `tipo` | `Partner` \| `Cliente potencial` | Yes | selection | Mandatory choice. |
-| `interes` | `Alto` \| `Medio` \| `Bajo` | Yes | selection | Default is `Medio`. |
-| `siguientePaso` | catalog | Yes | selection | `enviar información`, `agendar llamada`, `cotizar`, `solo seguimiento`. |
-| `nota` | long text | No | voice or written | Editable transcription or manually written note. |
-| `audioSegundos` | number | No | automatic | Duration; limits are not defined. |
-| `audioUrl` | link | No | upload | Must resolve through authenticated access for authorized marketing/sales users. |
-| `tarjetaUrl` | link | No | upload | Original-card retention is RF-07 (`Debería`); access/retention are constrained by RC-03/RC-04. |
-| `estadoCorreoLead` | `enviado` \| `en cola` \| `fallido` | Yes | system | Status of lead email. |
-| `estadoCorreoMarketing` | `enviado` \| `en cola` \| `fallido` | Yes | system | Status of marketing email. |
+- Basic owns `Usuario`, `Evento` and `Lead`.
+- Pro inherits those entities and adds `Archivo de contenido`, `Plantilla de
+  correo`, and the documented Lead/Evento fields.
+- The server-provided account capability controls which Pro fields and modules
+  are active. Basic must not expose placeholder Pro fields.
 
-## Record-wide Invariants
+## Basic Usuario
 
-- `nombre` and `empresa` are required.
-- At least one of `correo` and `telefono` is required.
-- `correo`, when present for sending, has valid email format.
-- `tipo`, `interes`, and `siguientePaso` use only the defined catalogs.
-- Automated extraction never replaces a value already corrected manually.
-- The lead is persisted locally before network delivery.
-- Reuse of `folio` must not create a duplicate destination row.
+`id`, `usuario`, `nombre`, `empresa` and `plan` are required; `fotoUrl` is
+optional. `plan` is supplied by the server. Authentication and profile data
+persist as required by `AUT-02`, `AUT-04` and `AUT-05`.
 
-## Related Concepts Not Yet Fields
+## Basic Evento
 
-- RF-03 requests optional website extraction, but Section 5 and the expected extraction response omit a website field.
-- RC-02 requires opt-out to be recorded in the sheet and respected, but Section 5 has no opt-out field.
-- RC-03 requires media retention/deletion, but no retention metadata appears in Section 5.
-- RF-19/RF-22 require visible synchronization status, but no synchronization-status field appears in Section 5.
+`id`, generated `codigo`, `nombre`, `fechaInicio`, `fechaFin`, `activo` and
+logical-deletion flag `eliminado` are required; `hojaUrl` is optional. Exactly
+one event is active. Deleting is logical and never deletes the spreadsheet or
+lead data (`EVT-02`, `EVT-08`, `RC-07`).
 
-These are specification gaps, not permission to extend the model silently. They are tracked in `../decisions/open-questions.md`.
+## Basic Lead column contract
+
+The following order is authoritative for the Basic spreadsheet:
+
+| Order | Field | Required/constraint |
+|---:|---|---|
+| 1 | `folio` | required; human-readable idempotency key; generation blocked by `D-03` |
+| 2 | `fecha` | required ISO 8601 timestamp |
+| 3 | `origen` | required: `evento` or `directo` |
+| 4 | `evento` | required only for event origin |
+| 5 | `capturadoPor` | required from profile |
+| 6 | `nombre` | required |
+| 7 | `apellido` | optional |
+| 8 | `puesto` | optional |
+| 9 | `empresa` | required |
+| 10 | `correo` | required if telephone is absent; validate format when present |
+| 11 | `telefono` | required if email is absent |
+| 12 | `tipo` | required: `Cliente`, `Partner`, or `Proveedor`; no default |
+| 13 | `interes` | required: `Alto`, `Medio`, or `Bajo`; default `Medio` |
+| 14 | `nota` | optional written note |
+| 15 | `audioSegundos` | optional automatic duration |
+| 16 | `audioUrl` | optional protected uploaded link |
+| 17 | `tarjetaUrl` | optional uploaded link |
+| 18 | `estadoSync` | required: `local`, `pendiente`, or `enHoja` |
+
+`siguientePaso`, transcription and email states are not Basic fields. Audio,
+photo and notes are optional; absence never blocks a valid lead.
+
+## Pro delta
+
+Pro adds to Lead: required conditional `lugar` for direct leads, optional
+`transcripcion`, frozen `adjuntos`, `estadoTranscripcion`,
+`estadoCorreoLead`, and `estadoCorreoMarketing`. The Pro specification says
+five columns are appended while listing six lead changes; this internal
+counting conflict must be clarified before finalizing the spreadsheet schema.
+No existing Basic column may move.
+
+Pro adds `archivos` to Evento and introduces:
+
+- `Archivo de contenido`: identity, display/original names, PDF metadata,
+  server URL, optional cache path, all-events switch or event IDs, uploader and
+  creation time.
+- `Plantilla de correo`: exactly one event and one direct template per account,
+  with subject/body and audit metadata. Ownership remains blocked by `DP-03`.
+
+## Invariants and unresolved contracts
+
+- A lead is durably stored locally before any network attempt.
+- A repeated folio must not create duplicate rows, emails or attachments.
+- User corrections always win over extraction.
+- Provider calls and credentials stay behind the Foloo backend.
+- Media access is authenticated and retention is governed by `RC-03`/`D-11`.
+- Final local schema, folio concurrency, sync reconciliation, file-cache
+  limits, deletion enforcement and Pro capability downgrade require decisions
+  or ADRs. Do not infer them from the Flutter prototype.

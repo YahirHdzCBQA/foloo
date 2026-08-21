@@ -1,87 +1,88 @@
-# High-Level Architecture
+# Current High-Level Architecture
 
-This document assigns responsibilities required by business constraints without choosing frameworks, providers, databases, or cloud platforms.
+This document aligns conceptual responsibilities with the August 2026
+Basic/Pro specification. It selects no framework, provider, database, cloud or
+state-management technology.
 
-## Mobile Application
+## Product shape
 
-The future Flutter application is responsible for:
+Foloo uses one Flutter codebase for iOS and Android (`RNF-03`, `RNF-18`). Basic
+is the nucleus; Pro is a server-enabled capability delta. The account plan or
+capabilities come from the server. A disabled capability is absent from the UI,
+not locked, greyed out or advertised.
 
-- rear-camera and gallery image acquisition;
-- client-side resize to a 1568 px long side and JPEG compression;
-- editable lead input, classification, settings, notes, statuses, and event list;
-- one-handed and accessible interaction on iOS 15+ and Android 10+ from one codebase;
-- audio recording, playback, deletion, and rerecording;
-- local-first persistence before any network attempt;
-- offline queue visibility, automatic retry on connectivity recovery, and manual retry;
-- CSV export/share from event records;
-- manual card/note entry whenever remote intelligence is unavailable.
+## Mobile application responsibilities
 
-The mobile application must not contain external-service API keys, sheet credentials, or other provider secrets.
+Shared Basic/Pro responsibilities include:
 
-## Foloo Backend
+- authenticated session and locally retained profile/preferences;
+- event/direct origin selection and event CRUD with logical deletion;
+- rear-camera/gallery capture, 1568 px client preparation and editable fields;
+- one-screen, one-handed capture with local Voice Note and written fallback;
+- durable local-first lead/media storage, visible queues and retry controls;
+- records search/filter/detail, local audio playback and XLS/CSV export/share;
+- automatic/manual synchronization without duplicate folios;
+- accessible light/dark token remapping and 48 dp minimum controls.
 
-Server execution is required for:
+The app must remain useful offline. Remote OCR degrades to manual capture; all
+other Basic capture, local consultation and export remain available.
 
-- card-image extraction through a vision/classification service;
-- audio transcription through a speech-to-text service;
-- idempotent lead acceptance keyed by folio;
-- Google Sheets row creation/update and first-use header/sheet creation;
-- storing card images/audio and returning protected links;
-- sending, retrying, and tracking both emails;
-- enforcing provider credentials, media access controls, opt-out, and approved retention/deletion rules.
+Pro additionally presents server-enabled content, template, attachment,
+transcription and email states. It locally caches approved content, but does
+not send mail or call providers itself.
 
-The business requirements explicitly assign extraction, transcription, Sheets, file, and email operations to the server. Open question 2 asks whether these responsibilities live in one consolidated service; it does not remove the server-side boundary.
+## Foloo backend responsibilities
 
-## External Services
+For Basic:
 
-Provider selection remains open for:
+- authenticate and supply account/profile/capability context;
+- perform structured card extraction;
+- accept leads idempotently and reconcile synchronization;
+- store card/audio media with authenticated access;
+- create/write the correct spreadsheet destination and fixed Basic columns;
+- enforce media access, encryption and approved retention.
 
-- vision and business-card field extraction;
-- Mexican-Spanish speech-to-text;
-- protected file storage;
-- Google Sheets as the V1 spreadsheet destination;
-- transactional email delivery.
+For Pro, the backend additionally owns:
 
-Equivalent providers are acceptable only if they satisfy the documented requirements and acceptance tests. No provider is selected here.
+- content-library upload and server copies;
+- server-side Mexican-Spanish transcription after audio upload;
+- template storage/validation and variable substitution;
+- email delivery, independent retries, status and opt-out enforcement;
+- frozen attachment history and independent lead/file queues.
 
-## Conceptual Data Flow
+Basic performs no email or transcription. These are capability boundaries,
+not merely unfinished integrations.
 
-1. The user captures/selects a card; the mobile client prepares a 1568 px-long-side JPEG.
-2. If connected, the client sends the image over HTTPS to Foloo's backend for field extraction; failure/latency returns control to manual input.
-3. The user corrects fields, classifies the lead, and optionally records audio or writes a note.
-4. On submit, the complete lead and required local media are saved on-device first.
-5. The app acknowledges the record with its folio and either synchronizes or visibly queues it.
-6. The backend accepts the folio idempotently, stores media, transcribes audio asynchronously if needed, and writes one Sheets row.
-7. The backend sends the lead and marketing emails, retaining independent statuses and retrying failures.
-8. Subsequent status/data updates return to the app when connectivity allows. The exact reconciliation protocol is undecided.
+## Conceptual data flow
 
-## Offline-first Boundary
+1. The authenticated user selects event or direct origin.
+2. Card acquisition optionally requests backend extraction; failure leaves
+   manual fields usable.
+3. The user classifies the lead and optionally records audio/writes a note.
+4. Save commits the complete record and media locally before network work.
+5. The acknowledgement truthfully reports local/remote outcomes and returns
+   to capture while retaining origin; exact copy is blocked by `D-06`.
+6. The queue submits a folio idempotently. The backend stores media and writes
+   the Basic spreadsheet row.
+7. Pro-only processing may then transcribe and send emails with frozen
+   attachments; these operations never block or erase the lead.
+8. Status changes reconcile back to the device without resending completed
+   work.
 
-Available offline:
+## Security and compliance boundaries
 
-- settings already stored on device;
-- manual lead entry and classification;
-- audio recording and written notes;
-- local save, folio acknowledgement, pending visibility, event list, and locally sourced export;
-- queueing for later delivery.
+- Client traffic uses HTTPS and contains no external-service credentials.
+- Lead/media data is personal data from the moment it is stored locally.
+- Audio links require authenticated marketing/sales access; media is encrypted
+  at rest and deleted only under an approved retention policy.
+- Event deletion is logical and does not satisfy legal deletion.
+- Basic privacy-notice delivery remains blocked by `D-14`; Pro legal footer and
+  opt-out are non-editable.
 
-Requires remote service:
+## Decisions required before implementation branches
 
-- automatic card extraction;
-- transcription;
-- remote media storage and protected links;
-- Google Sheets delivery;
-- email sending and remote status confirmation.
-
-Remote unavailability may delay enrichment/integration but must not prevent or erase the local record.
-
-## Security and Compliance Boundaries
-
-- All lead transport uses HTTPS.
-- Secrets exist only on the server.
-- Sheets and media access are restricted to marketing and sales; audio links require authenticated access.
-- Opt-out and media-retention enforcement belong to backend/integration processing once their open policy details are approved.
-
-## Deferred Technology Decisions
-
-State management, local database, sync mechanism, backend framework/deployment, providers, credential management, observability, and exact API contracts require future ADRs. Nothing in this overview selects them.
+See `../decisions/open-questions.md`. Particularly consequential areas are
+folio concurrency (`D-03`), backend scope (`D-05`), acknowledgement truth
+(`D-06`), privacy delivery/retention (`D-14`, `D-11`), and all Pro file/email
+governance (`DP-01`–`DP-04`, `DP-12`). Provider and persistence choices require
+accepted ADRs; none exists currently.

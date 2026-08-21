@@ -1,74 +1,68 @@
-# Requirements Traceability Matrix
+# Current Requirements Traceability
 
-Status describes specification coverage, not implementation completeness.
+This index routes current identifiers to their authoritative specification and
+acceptance scenarios. It describes specification coverage, not implementation
+completion. `04-matriz-de-capacidades.md` always governs edition membership.
 
-| Requirement | Description | Specification | Status |
-| --- | --- | --- | --- |
-| RF-01 | Rear camera and gallery selection | `business-card-capture.spec.md` | Specified |
-| RF-02 | Resize to 1568 px and JPEG-compress client-side | `business-card-capture.spec.md` | Specified |
-| RF-03 | Extract core and additional card fields | `business-card-capture.spec.md`; `lead-information.spec.md`; `temporary-on-device-ocr.spec.md` | Open question (website model mismatch); temporary prototype |
-| RF-04 | Handle rotated, shadowed, cluttered cards | `business-card-capture.spec.md`; `temporary-on-device-ocr.spec.md` | Specified; final acceptance not claimed by temporary OCR |
-| RF-05 | Editable fields; manual corrections win | `business-card-capture.spec.md`; `lead-information.spec.md`; `temporary-on-device-ocr.spec.md` | Specified |
-| RF-06 | Explain extraction failure and allow manual capture | `business-card-capture.spec.md`; `temporary-on-device-ocr.spec.md` | Specified |
-| RF-07 | Retain original card photo and link | `business-card-capture.spec.md`; `spreadsheet-and-file-delivery.spec.md` | Specified |
-| RF-08 | Required Partner/client-potential large controls | `lead-information.spec.md` | Specified |
-| RF-09 | Interest values; medium default | `lead-information.spec.md` | Specified |
-| RF-10 | Next-step catalog | `lead-information.spec.md` | Specified |
-| RF-11 | Automatic event, capture person, timestamp | `event-settings.spec.md`; `lead-information.spec.md` | Specified |
-| RF-12 | Readable folio format | `lead-information.spec.md`; `local-persistence-and-sync.spec.md` | Open question (generation semantics) |
-| RF-13 | One-tap audio controls, timer, active indicator | `conversation-notes.spec.md`; `local-voice-note.spec.md` | Specified |
-| RF-14 | Editable Mexican-Spanish transcription | `conversation-notes.spec.md` | Specified |
-| RF-15 | Play, delete, and rerecord before send | `conversation-notes.spec.md`; `local-voice-note.spec.md` | Specified |
-| RF-16 | Upload audio and store link | `conversation-notes.spec.md`; `spreadsheet-and-file-delivery.spec.md` | Specified |
-| RF-17 | Written fallback when transcription unavailable | `conversation-notes.spec.md`; `local-voice-note.spec.md` | Specified |
-| RF-18 | Local save before any network attempt | `local-persistence-and-sync.spec.md` | Specified |
-| RF-19 | Offline queue and visible pending state | `local-persistence-and-sync.spec.md` | Specified |
-| RF-20 | Automatic and manual synchronization retry | `local-persistence-and-sync.spec.md` | Specified |
-| RF-21 | Folio idempotency; no duplicate rows | `local-persistence-and-sync.spec.md`; `spreadsheet-and-file-delivery.spec.md` | Specified |
-| RF-22 | Event lead list with count and status | `event-leads-and-export.spec.md` | Specified |
-| RF-23 | Shareable UTF-8 BOM CSV | `event-leads-and-export.spec.md` | Specified |
-| RF-24 | One fixed-order Google Sheets row per lead | `spreadsheet-and-file-delivery.spec.md`; `../architecture/domain-model.md` | Open question (required fields absent from Section 5) |
-| RF-25 | Create sheet/headers on first execution if absent | `spreadsheet-and-file-delivery.spec.md` | Specified |
-| RF-26 | Store media as files; put links in sheet | `spreadsheet-and-file-delivery.spec.md` | Specified |
-| RF-27 | Trigger lead and marketing emails | `email-follow-up.spec.md` | Specified |
-| RF-28 | Company-identified visible sender | `email-follow-up.spec.md` | Open question (sending account) |
-| RF-29 | Marketing email includes fields, note, audio link | `email-follow-up.spec.md` | Specified |
-| RF-30 | Preserve lead and retry failed email | `email-follow-up.spec.md`; `privacy-and-compliance.spec.md` | Specified |
-| RF-31 | Track three-state delivery status per email | `email-follow-up.spec.md`; `event-leads-and-export.spec.md` | Open question (marketing visibility surface) |
-| RF-32 | Email templates editable without code | `email-follow-up.spec.md` | Specified |
-| RF-33 | Event settings expose four values | `event-settings.spec.md` | Open question (`destino de datos` semantics) |
-| RF-34 | Persist settings across app restart | `event-settings.spec.md` | Specified |
-| RNF-01 | Extraction under 5 seconds or progress/manual path | `business-card-capture.spec.md` | Specified |
-| RNF-02 | Complete offline operation except manual-degraded intelligence | `business-card-capture.spec.md`; `conversation-notes.spec.md`; `local-persistence-and-sync.spec.md` | Specified |
-| RNF-03 | One codebase; iOS 15 and Android 10 minimum | `product-spec.md`; `../architecture/overview.md` | Specified |
-| RNF-04 | One-hand layout, 44 px targets, bottom primary action | `lead-information.spec.md`; `product-spec.md` | Specified |
-| RNF-05 | Visible keyboard focus, labels, reduced motion | `lead-information.spec.md` | Specified |
-| RNF-06 | API keys/credentials only on server | `business-card-capture.spec.md`; `conversation-notes.spec.md`; `spreadsheet-and-file-delivery.spec.md`; `../architecture/overview.md` | Specified |
-| RNF-07 | Lead data always uses HTTPS | `business-card-capture.spec.md`; `local-persistence-and-sync.spec.md`; `privacy-and-compliance.spec.md` | Specified |
-| RNF-08 | Verify event volume against email limits | `email-follow-up.spec.md` | Open question (expected volume/provider capacity) |
-| RC-01 | LFPDPPP notice, privacy link, contact reason | `privacy-and-compliance.spec.md`; `email-follow-up.spec.md` | Open question (approved notice URL/content) |
-| RC-02 | Clear opt-out, recorded and respected | `privacy-and-compliance.spec.md`; `email-follow-up.spec.md` | Open question (scope and model field) |
-| RC-03 | Legal-defined media retention and deletion | `privacy-and-compliance.spec.md`; `spreadsheet-and-file-delivery.spec.md` | Open question (retention period) |
-| RC-04 | Marketing/sales-only access; authenticated audio URLs | `privacy-and-compliance.spec.md`; `spreadsheet-and-file-delivery.spec.md` | Open question (access mechanism) |
-| RC-05 | Capture person gives verbal email notice | `privacy-and-compliance.spec.md`; `email-follow-up.spec.md` | Specified |
+## Basic and shared families
 
-## Coverage Summary
+| Current IDs | Area | Authoritative definition | Acceptance coverage | Decision dependencies |
+|---|---|---|---|---|
+| `AUT-01`–`AUT-09` | Login, profile and session | `current/01-especificacion.md` §6.1 | `E-01`, `E-11` | `D-09` |
+| `EVT-01`–`EVT-11` | Event CRUD and active event | §6.2 | `E-01`, `E-10` | `D-03`, `D-10` |
+| `CAP-01`–`CAP-04` | Event/direct origin | §6.3 | `E-02` | `D-03`, `D-10` |
+| `OCR-01`–`OCR-09` | Card capture and extraction | §6.4 | `E-03` | `D-05` |
+| `CAP-05`–`CAP-08` | Lead data and validation | §6.5 | `E-03`, `E-04`, `E-06` | none explicit |
+| `CAP-09`–`CAP-12` | Type and interest | §6.6 | `E-04`, `E-08` | `D-07` non-blocking |
+| `VOZ-01`–`VOZ-07` | Basic voice and written note | §6.7 | `E-05` | `D-01`, `D-11` |
+| `CAP-13`–`CAP-19` | Save and acknowledgement | §6.8 | `E-06` | `D-03`, `D-06` |
+| `SYN-01`–`SYN-08` | Local persistence and sync | §6.9 | `E-07` | `D-03`, `D-05` |
+| `SAL-01`–`SAL-04`, `SAL-11`–`SAL-12` | Basic sheet/file output | §6.10 | `E-06`, `E-07`, `E-12` | `D-03`, `D-05`, `D-10`, `D-11` |
+| `REG-01`–`REG-12` | Records, detail and export | §6.11 | `E-08`, `E-09` | `D-04` |
+| `NAV-01`–`NAV-07` | Navigation and appearance | §6.12 | `E-11`, `E-13` | none explicit |
+| `RNF-01`–`RNF-13` | Basic non-functional requirements | §7 | `E-03`, `E-05`, `E-06`, `E-07`, `E-11`–`E-13` | `D-03`, `D-05`, `D-12`; `RNF-10` reserved |
+| `RC-01`–`RC-07` | Basic privacy/compliance | §8 | `E-05`, `E-10`, `E-12` | `D-01`, `D-11`, `D-14` |
 
-- RF: 34 of 34 represented.
-- RNF: 8 of 8 represented.
-- RC: 5 of 5 represented.
-- Implementation status: a partial Flutter frontend prototype exists;
-  production implementation is not complete.
+## Pro-only delta families
 
-The local demo access shell is documented in `demo-access-shell.spec.md`. It
-supports RNF-03 through RNF-06 for prototype validation but adds no RF or RC
-and is explicitly not production authentication.
+| Current IDs | Area | Authoritative definition | Acceptance coverage | Decision dependencies |
+|---|---|---|---|---|
+| `CON-01`–`CON-16` | Content library and attachments | `current/05-especificacion-pro.md` §4 | `EP-01`–`EP-03`, `EP-08`, `EP-09` | `DP-01`, `DP-02`, `DP-09`–`DP-11` |
+| `SAL-05`–`SAL-10`, `SAL-13`–`SAL-15` | Automated email | §5 | `EP-03`, `EP-04`, `EP-06`, `EP-11` | `D-08`, `DP-02`–`DP-04`, `DP-12` |
+| `PLT-01`–`PLT-10` | Email templates | §6 | `EP-04`, `EP-07`, `EP-11` | `DP-03` |
+| `TRA-01`–`TRA-08` | Server-side transcription | §7 | `EP-05` | `DP-05`, `DP-06`; `TRA-08` explicitly blocked |
+| `CAP-20`–`CAP-21` | Pro direct lead and acknowledgement | §8 | `EP-06`, `EP-07` | `DP-07` |
+| `NAV-08` | Pro menu destinations | §8 | `EP-10` | `DP-08` |
+| `SYN-10`–`SYN-11` | Independent file/lead queues | §8 | `EP-08` | `DP-01`, `DP-12` |
+| `RNF-14`–`RNF-18` | Pro non-functional delta | §9 | `EP-09`, `EP-10`, `EP-11` | `DP-02`, `DP-05`, `DP-08`, `DP-11`, `DP-12` |
+| `RC-08`–`RC-11`; Pro variants of `RC-01`/`RC-02` | Pro compliance delta | §10 | `EP-04`, `EP-05`, `EP-11` | `D-11`, `DP-03`, `DP-12` |
 
-The six-screen, mockup-aligned UI prototype is documented in
-`mockup-frontend-prototype.spec.md`. Its session-only list and demo statuses do
-not claim completion of production persistence, synchronization, export,
-event-settings, Sheets, or email requirements.
+## Demonstrable legacy crosswalk
 
-The user-approved `temporary-on-device-ocr.spec.md` exception enables local
-ML Kit validation without selecting the production vision architecture. It
-does not claim final RF-04 acceptance or alter the server-side boundary.
+Legacy IDs are historical context only. A blank or qualified mapping means the
+new package intentionally changed or split the behavior.
+
+| Legacy ID | Current ID(s) | Migration status |
+|---|---|---|
+| `RF-01`–`RF-07` | `OCR-01`–`OCR-08` | Clarified and expanded; `OCR-09` is new. |
+| `RF-08` | `CAP-09`, `CAP-10` | Changed from two types to three. |
+| `RF-09` | `CAP-11`, `CAP-12` | Preserved and expanded into record priority rail. |
+| `RF-10` | none pending `D-02` | Removed from the current Basic model; do not implement. |
+| `RF-11` | `AUT-05`, capture metadata in §3.2 | Split between profile and lead model. |
+| `RF-12` | `CAP-17`, `D-03` | Preserved with unresolved concurrency semantics. |
+| `RF-13` | `VOZ-01` | Preserved. |
+| `RF-14` | `VOZ-07` (excluded Basic), `TRA-01`–`TRA-08` (Pro) | Moved to Pro and redefined as asynchronous server work. |
+| `RF-15` | `VOZ-02`, `REG-05`, `REG-06` | Playback preserved and expanded into records/detail. |
+| `RF-16` | `VOZ-03`, `SAL-03` | Preserved. |
+| `RF-17` | `VOZ-05`, `VOZ-06` | Clarified as independent written fallback. |
+| `RF-18`–`RF-21` | `CAP-15`, `SYN-01`–`SYN-08` | Expanded local-first lifecycle. |
+| `RF-22` | `REG-01`–`REG-08` | Expanded with search, filters and read-only detail. |
+| `RF-23` | `REG-09`–`REG-12` | Expanded from CSV to XLS/CSV and offline sharing. |
+| `RF-24`–`RF-26` | `SAL-01`–`SAL-04`, `SAL-11`, `SAL-12` | Preserved with new Basic column contract. |
+| `RF-27`–`RF-32` | `SAL-05`–`SAL-10`, `SAL-13`–`SAL-15`, `PLT-*` | Removed from Basic; Pro-only. |
+| `RF-33`, `RF-34` | `AUT-02`, `AUT-04`–`AUT-06`, `EVT-*`, `NAV-04` | Replaced by explicit profile, events and persisted preferences. |
+| legacy `RNF-01`–`RNF-08` | current `RNF-01`–`RNF-09`, `RNF-11`–`RNF-13`; Pro `RNF-15` | IDs are not numerically equivalent as a set; use the current text. |
+| legacy `RC-01`–`RC-05` | current `RC-01`–`RC-07`; Pro `RC-08`–`RC-11` | Expanded and edition-specific; Basic privacy delivery remains blocked by `D-14`. |
+
+No equivalence should be inferred beyond this table. Historical detail remains
+under `docs/legacy/` and in the original PDF.
