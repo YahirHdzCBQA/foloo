@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/app_destination.dart';
 import '../models/lead_draft.dart';
 import '../models/session_lead.dart';
+import '../services/voice_note_service.dart';
 import '../theme/foloo_theme.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_screen_header.dart';
@@ -14,6 +17,7 @@ class RecordsScreen extends StatefulWidget {
     required this.onDestinationSelected,
     required this.onAppearanceChanged,
     required this.onLogout,
+    this.voiceNoteService,
     super.key,
   });
 
@@ -22,13 +26,155 @@ class RecordsScreen extends StatefulWidget {
   final ValueChanged<AppDestination> onDestinationSelected;
   final ValueChanged<bool> onAppearanceChanged;
   final VoidCallback onLogout;
+  final VoiceNoteService? voiceNoteService;
 
   @override
   State<RecordsScreen> createState() => _RecordsScreenState();
 }
 
-class _RecordsScreenState extends State<RecordsScreen> {
+class _RecordsScreenState extends State<RecordsScreen>
+    with WidgetsBindingObserver {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  late final VoiceNoteService _voiceNoteService;
+  late final StreamSubscription<void> _playbackCompletedSubscription;
+  String? _activeAudioPath;
+  String? _busyAudioPath;
+  bool _audioPlaying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _voiceNoteService = widget.voiceNoteService ?? DeviceVoiceNoteService();
+    _playbackCompletedSubscription = _voiceNoteService.playbackCompleted.listen(
+      (_) {
+        if (!mounted) return;
+        setState(() {
+          _activeAudioPath = null;
+          _audioPlaying = false;
+        });
+      },
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant RecordsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final activePath = _activeAudioPath;
+    if (activePath != null &&
+        !widget.records.any(
+          (record) => record.lead.audioLocalPath == activePath,
+        )) {
+      unawaited(_stopAudio());
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if ((state == AppLifecycleState.inactive ||
+            state == AppLifecycleState.paused ||
+            state == AppLifecycleState.detached) &&
+        _audioPlaying) {
+      unawaited(_pauseAudio());
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _playbackCompletedSubscription.cancel();
+    unawaited(_disposeAudio());
+    super.dispose();
+  }
+
+  Future<void> _disposeAudio() async {
+    try {
+      await _voiceNoteService.stopPlayback();
+    } catch (_) {
+      // Best-effort teardown while the records screen is being disposed.
+    }
+    try {
+      await _voiceNoteService.dispose();
+    } catch (_) {
+      // Native playback resources may already be unavailable at teardown.
+    }
+  }
+
+  Future<void> _toggleAudio(SessionLead record) async {
+    final path = record.lead.audioLocalPath;
+    if (path == null || _busyAudioPath != null) return;
+    setState(() => _busyAudioPath = path);
+    try {
+      if (_activeAudioPath == path) {
+        if (_audioPlaying) {
+          await _voiceNoteService.pausePlayback();
+          if (mounted) setState(() => _audioPlaying = false);
+        } else {
+          await _voiceNoteService.resumePlayback();
+          if (mounted) setState(() => _audioPlaying = true);
+        }
+      } else {
+        await _voiceNoteService.stopPlayback();
+        await _voiceNoteService.play(path);
+        if (mounted) {
+          setState(() {
+            _activeAudioPath = path;
+            _audioPlaying = true;
+          });
+        }
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _activeAudioPath = null;
+        _audioPlaying = false;
+      });
+      _showUnavailable(
+        'No se pudo reproducir esta nota de voz local. El registro sigue disponible.',
+      );
+    } finally {
+      if (mounted) setState(() => _busyAudioPath = null);
+    }
+  }
+
+  Future<void> _pauseAudio() async {
+    try {
+      await _voiceNoteService.pausePlayback();
+      if (mounted) setState(() => _audioPlaying = false);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _activeAudioPath = null;
+          _audioPlaying = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _stopAudio() async {
+    try {
+      await _voiceNoteService.stopPlayback();
+    } catch (_) {
+      // Navigation must continue even if native playback teardown fails.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _activeAudioPath = null;
+          _audioPlaying = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _selectDestination(AppDestination destination) async {
+    await _stopAudio();
+    if (mounted) widget.onDestinationSelected(destination);
+  }
+
+  Future<void> _logout() async {
+    await _stopAudio();
+    if (mounted) widget.onLogout();
+  }
 
   void _showUnavailable(String message) {
     ScaffoldMessenger.of(context)
@@ -47,9 +193,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
         activeDestination: AppDestination.records,
         recordsCount: widget.records.length,
         darkMode: widget.darkMode,
-        onDestinationSelected: widget.onDestinationSelected,
+        onDestinationSelected: (value) => unawaited(_selectDestination(value)),
         onAppearanceChanged: widget.onAppearanceChanged,
-        onLogout: widget.onLogout,
+        onLogout: () => unawaited(_logout()),
       ),
       body: Column(
         children: [
@@ -74,6 +220,14 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     itemBuilder: (_, index) => _RecordCard(
                       key: Key('record-${widget.records[index].folio}'),
                       record: widget.records[index],
+                      audioPlaying:
+                          _activeAudioPath ==
+                              widget.records[index].lead.audioLocalPath &&
+                          _audioPlaying,
+                      audioBusy:
+                          _busyAudioPath ==
+                          widget.records[index].lead.audioLocalPath,
+                      onToggleAudio: () => _toggleAudio(widget.records[index]),
                     ),
                   ),
           ),
@@ -187,9 +341,18 @@ class _EmptyRecords extends StatelessWidget {
 }
 
 class _RecordCard extends StatelessWidget {
-  const _RecordCard({required this.record, super.key});
+  const _RecordCard({
+    required this.record,
+    required this.audioPlaying,
+    required this.audioBusy,
+    required this.onToggleAudio,
+    super.key,
+  });
 
   final SessionLead record;
+  final bool audioPlaying;
+  final bool audioBusy;
+  final VoidCallback onToggleAudio;
 
   Color _interestColor(InterestLevel interest) => switch (interest) {
     InterestLevel.low => FolooColors.success,
@@ -267,22 +430,76 @@ class _RecordCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        _StatusPill(
-                          label: record.lead.type.label.toUpperCase(),
-                          outlined: true,
+                        Expanded(
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _StatusPill(
+                                label: record.lead.type.label.toUpperCase(),
+                                outlined: true,
+                              ),
+                              _StatusPill(
+                                label: record.uploadState.label.toUpperCase(),
+                                icon: pending ? Icons.sync : Icons.check,
+                                background: pending
+                                    ? ink.withValues(alpha: 0.1)
+                                    : FolooColors.success.withValues(
+                                        alpha: 0.12,
+                                      ),
+                                foreground: pending ? ink : FolooColors.success,
+                              ),
+                              if (record.lead.hasVoiceNote)
+                                _StatusPill(
+                                  label:
+                                      'VOZ ${_formatDuration(record.lead.audioSeconds)}',
+                                  icon: Icons.graphic_eq,
+                                  background: FolooColors.lime.withValues(
+                                    alpha: 0.22,
+                                  ),
+                                  foreground: ink,
+                                ),
+                            ],
+                          ),
                         ),
-                        _StatusPill(
-                          label: record.uploadState.label.toUpperCase(),
-                          icon: pending ? Icons.sync : Icons.check,
-                          background: pending
-                              ? ink.withValues(alpha: 0.1)
-                              : FolooColors.success.withValues(alpha: 0.12),
-                          foreground: pending ? ink : FolooColors.success,
-                        ),
+                        if (record.lead.hasVoiceNote) ...[
+                          const SizedBox(width: 8),
+                          Semantics(
+                            button: true,
+                            label: audioPlaying
+                                ? 'Pausar nota de voz de ${record.lead.name}'
+                                : 'Reproducir nota de voz de ${record.lead.name}',
+                            child: IconButton.filledTonal(
+                              key: Key('recordAudio-${record.folio}'),
+                              tooltip: audioPlaying
+                                  ? 'Pausar nota de voz'
+                                  : 'Reproducir nota de voz',
+                              onPressed: audioBusy ? null : onToggleAudio,
+                              style: IconButton.styleFrom(
+                                minimumSize: const Size(44, 44),
+                                backgroundColor: audioPlaying
+                                    ? FolooColors.lime
+                                    : ink.withValues(alpha: 0.08),
+                                foregroundColor: ink,
+                              ),
+                              icon: audioBusy
+                                  ? const SizedBox.square(
+                                      dimension: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Icon(
+                                      audioPlaying
+                                          ? Icons.pause
+                                          : Icons.play_arrow,
+                                    ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],
@@ -293,6 +510,12 @@ class _RecordCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _formatDuration(int seconds) {
+    final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
+    final remainder = (seconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$remainder';
   }
 }
 

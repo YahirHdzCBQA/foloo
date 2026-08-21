@@ -7,7 +7,9 @@ import 'package:image_picker/image_picker.dart';
 import '../models/app_destination.dart';
 import '../models/lead_draft.dart';
 import '../models/session_lead.dart';
+import '../models/voice_note_state.dart';
 import '../services/card_text_recognition_service.dart';
+import '../services/voice_note_service.dart';
 import '../theme/foloo_theme.dart';
 import '../utils/business_card_parser.dart';
 import '../widgets/app_drawer.dart';
@@ -23,6 +25,7 @@ class LeadCaptureScreen extends StatefulWidget {
     required this.onDestinationSelected,
     required this.onAppearanceChanged,
     required this.onLogout,
+    this.voiceNoteService,
     super.key,
   });
 
@@ -32,12 +35,14 @@ class LeadCaptureScreen extends StatefulWidget {
   final ValueChanged<AppDestination> onDestinationSelected;
   final ValueChanged<bool> onAppearanceChanged;
   final VoidCallback onLogout;
+  final VoiceNoteService? voiceNoteService;
 
   @override
   State<LeadCaptureScreen> createState() => _LeadCaptureScreenState();
 }
 
-class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
+class _LeadCaptureScreenState extends State<LeadCaptureScreen>
+    with WidgetsBindingObserver {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _formKey = GlobalKey<FormState>();
   final _scrollController = ScrollController();
@@ -51,6 +56,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
   final _email = TextEditingController();
   final _phone = TextEditingController();
   final _note = TextEditingController();
+  late final VoiceNoteService _voiceNoteService;
+  late final StreamSubscription<void> _playbackCompletedSubscription;
 
   Uint8List? _cardBytes;
   String? _cardPath;
@@ -68,14 +75,24 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
   InterestLevel _interest = InterestLevel.medium;
   NextStep? _nextStep;
   bool _showValidation = false;
-  bool _demoRecording = false;
-  bool _hasDemoAudio = false;
-  int _demoSeconds = 0;
-  Timer? _demoTimer;
+  VoiceNoteState _voiceNote = const VoiceNoteState();
+  String? _voiceNoteMessage;
+  bool _voiceActionInProgress = false;
+  bool _voiceNoteTransferred = false;
+  Timer? _recordingTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _voiceNoteService = widget.voiceNoteService ?? DeviceVoiceNoteService();
+    _playbackCompletedSubscription = _voiceNoteService.playbackCompleted.listen(
+      (_) {
+        if (mounted && _voiceNote.isPlaying) {
+          setState(() => _voiceNote = _voiceNote.completePlayback());
+        }
+      },
+    );
     for (final controller in [
       _name,
       _lastName,
@@ -90,7 +107,10 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
 
   @override
   void dispose() {
-    _demoTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _recordingTimer?.cancel();
+    _playbackCompletedSubscription.cancel();
+    unawaited(_disposeVoiceResources());
     unawaited(_textRecognitionService.close());
     _scrollController.dispose();
     for (final controller in [
@@ -105,6 +125,41 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
       controller.dispose();
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      if (_voiceNote.isRecording) {
+        unawaited(_stopRecording());
+      } else if (_voiceNote.isPlaying) {
+        unawaited(_pausePlayback());
+      }
+    }
+  }
+
+  Future<void> _disposeVoiceResources() async {
+    try {
+      if (_voiceNote.isRecording) {
+        await _voiceNoteService.cancelRecording();
+      } else {
+        await _voiceNoteService.stopPlayback();
+      }
+      final path = _voiceNote.localPath;
+      if (!_voiceNoteTransferred && path != null) {
+        await _voiceNoteService.deleteFile(path);
+      }
+    } catch (_) {
+      // Best-effort cleanup while the widget tree is being disposed.
+    } finally {
+      try {
+        await _voiceNoteService.dispose();
+      } catch (_) {
+        // Native resources may already be unavailable during app teardown.
+      }
+    }
   }
 
   void _refreshProgress() {
@@ -206,36 +261,177 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
     }
   }
 
-  void _toggleDemoRecording() {
-    if (_demoRecording) {
-      _demoTimer?.cancel();
-      setState(() {
-        _demoRecording = false;
-        _hasDemoAudio = _demoSeconds > 0;
-      });
-      return;
+  Future<void> _toggleRecording() async {
+    if (_voiceActionInProgress) return;
+    if (_voiceNote.isRecording) {
+      await _stopRecording();
+    } else {
+      await _startRecording();
     }
-
-    setState(() {
-      _demoRecording = true;
-      _hasDemoAudio = false;
-      _demoSeconds = 0;
-    });
-    _demoTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _demoSeconds++);
-    });
   }
 
-  void _deleteDemoAudio() {
-    _demoTimer?.cancel();
+  Future<void> _startRecording() async {
+    final previous = _voiceNote;
     setState(() {
-      _demoRecording = false;
-      _hasDemoAudio = false;
-      _demoSeconds = 0;
+      _voiceActionInProgress = true;
+      _voiceNoteMessage = null;
     });
+    try {
+      await _voiceNoteService.stopPlayback();
+      final path = await _voiceNoteService.startRecording();
+      if (!mounted) {
+        await _voiceNoteService.cancelRecording();
+        return;
+      }
+      _recordingTimer?.cancel();
+      _recordingTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
+        if (!mounted) return;
+        setState(() {
+          _voiceNote = _voiceNote.updateElapsed(
+            _voiceNote.elapsed + const Duration(milliseconds: 250),
+          );
+        });
+      });
+      setState(() {
+        _voiceNote = _voiceNote.startRecording(path);
+        _voiceNoteTransferred = false;
+      });
+      if (previous.localPath != null && previous.localPath != path) {
+        try {
+          await _voiceNoteService.deleteFile(previous.localPath!);
+        } catch (_) {
+          // The new recording is valid even if stale draft cleanup must retry.
+        }
+      }
+    } on VoiceNotePermissionDeniedException {
+      if (!mounted) return;
+      setState(() {
+        _voiceNote = previous;
+        _voiceNoteMessage = 'Permiso de micrófono rechazado. Puedes continuar con la nota escrita.';
+      });
+    } catch (_) {
+      try {
+        await _voiceNoteService.cancelRecording();
+      } catch (_) {
+        // Preserve the manual fallback even when cleanup also fails.
+      }
+      if (!mounted) return;
+      setState(() {
+        _voiceNote = previous;
+        _voiceNoteMessage = 'No se pudo iniciar la grabación. Puedes continuar con la nota escrita.';
+      });
+    } finally {
+      if (mounted) setState(() => _voiceActionInProgress = false);
+    }
   }
 
-  String _formatDuration(int seconds) {
+  Future<void> _stopRecording() async {
+    if (!_voiceNote.isRecording) return;
+    _recordingTimer?.cancel();
+    final currentPath = _voiceNote.localPath;
+    try {
+      final path = await _voiceNoteService.stopRecording() ?? currentPath;
+      if (!mounted) return;
+      if (path == null) {
+        setState(() {
+          _voiceNote = const VoiceNoteState();
+          _voiceNoteMessage = 'No se pudo conservar la grabación. La nota escrita sigue disponible.';
+        });
+        return;
+      }
+      final elapsed = _voiceNote.elapsed;
+      setState(() {
+        _voiceNote = _voiceNote.finishRecording(path, elapsed);
+        _voiceNoteMessage = 'Nota de voz guardada localmente.';
+      });
+    } catch (_) {
+      try {
+        await _voiceNoteService.cancelRecording();
+        if (currentPath != null) {
+          await _voiceNoteService.deleteFile(currentPath);
+        }
+      } catch (_) {
+        // Preserve the manual fallback even when cleanup also fails.
+      }
+      if (!mounted) return;
+      setState(() {
+        _voiceNote = const VoiceNoteState();
+        _voiceNoteMessage = 'No se pudo terminar la grabación. Puedes continuar con la nota escrita.';
+      });
+    }
+  }
+
+  Future<void> _togglePlayback() async {
+    if (_voiceActionInProgress || !_voiceNote.hasRecording) return;
+    setState(() => _voiceActionInProgress = true);
+    try {
+      if (_voiceNote.isPlaying) {
+        await _pausePlayback();
+      } else if (_voiceNote.isPaused) {
+        await _voiceNoteService.resumePlayback();
+        if (mounted) setState(() => _voiceNote = _voiceNote.startPlayback());
+      } else {
+        await _voiceNoteService.play(_voiceNote.localPath!);
+        if (mounted) setState(() => _voiceNote = _voiceNote.startPlayback());
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _voiceNote = _voiceNote.completePlayback();
+          _voiceNoteMessage = 'No se pudo reproducir el audio. Puedes borrarlo o volver a grabar.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _voiceActionInProgress = false);
+    }
+  }
+
+  Future<void> _pausePlayback() async {
+    try {
+      await _voiceNoteService.pausePlayback();
+      if (mounted) setState(() => _voiceNote = _voiceNote.pausePlayback());
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _voiceNote = _voiceNote.completePlayback();
+        _voiceNoteMessage =
+            'No se pudo pausar el audio. Puedes reproducirlo de nuevo.';
+      });
+    }
+  }
+
+  Future<void> _deleteVoiceNote() async {
+    if (_voiceActionInProgress || _voiceNote.localPath == null) return;
+    setState(() => _voiceActionInProgress = true);
+    final path = _voiceNote.localPath!;
+    try {
+      if (_voiceNote.isRecording) {
+        _recordingTimer?.cancel();
+        await _voiceNoteService.cancelRecording();
+      } else {
+        await _voiceNoteService.stopPlayback();
+        await _voiceNoteService.deleteFile(path);
+      }
+      if (!mounted) return;
+      setState(() {
+        _voiceNote = const VoiceNoteState();
+        _voiceNoteMessage = 'Audio borrado. Puedes volver a grabar.';
+        _voiceNoteTransferred = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _voiceNoteMessage =
+              'No se pudo borrar el audio. Inténtalo nuevamente.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _voiceActionInProgress = false);
+    }
+  }
+
+  String _formatDuration(Duration duration) {
+    final seconds = duration.inSeconds;
     final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
     final remainder = (seconds % 60).toString().padLeft(2, '0');
     return '$minutes:$remainder';
@@ -262,8 +458,14 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
     return null;
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     FocusManager.instance.primaryFocus?.unfocus();
+    if (_voiceNote.isRecording) await _stopRecording();
+    if (_voiceNote.isPlaying || _voiceNote.isPaused) {
+      await _voiceNoteService.stopPlayback();
+      if (mounted) setState(() => _voiceNote = _voiceNote.completePlayback());
+    }
+    if (!mounted) return;
     setState(() => _showValidation = true);
     final fieldsValid = _formKey.currentState?.validate() ?? false;
     final relationshipValid = _leadType != null && _nextStep != null;
@@ -287,9 +489,11 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
       interest: _interest,
       nextStep: _nextStep!,
       note: _note.text.trim(),
-      demoAudioSeconds: _hasDemoAudio ? _demoSeconds : 0,
+      audioLocalPath: _voiceNote.hasRecording ? _voiceNote.localPath : null,
+      audioSeconds: _voiceNote.hasRecording ? _voiceNote.elapsed.inSeconds : 0,
     );
     final record = widget.onLeadSaved(lead);
+    _voiceNoteTransferred = lead.hasVoiceNote;
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -305,7 +509,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
   }
 
   void _reset() {
-    _demoTimer?.cancel();
+    _recordingTimer?.cancel();
+    unawaited(_voiceNoteService.stopPlayback());
     for (final controller in [
       _name,
       _lastName,
@@ -334,9 +539,10 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
       _interest = InterestLevel.medium;
       _nextStep = null;
       _showValidation = false;
-      _demoRecording = false;
-      _hasDemoAudio = false;
-      _demoSeconds = 0;
+      _voiceNote = const VoiceNoteState();
+      _voiceNoteMessage = null;
+      _voiceActionInProgress = false;
+      _voiceNoteTransferred = false;
     });
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
   }
@@ -347,8 +553,29 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
         _company.text.trim().isNotEmpty &&
         (_email.text.trim().isNotEmpty || _phone.text.trim().isNotEmpty),
     _leadType != null && _nextStep != null,
-    _note.text.trim().isNotEmpty || _hasDemoAudio || _demoRecording,
+    _note.text.trim().isNotEmpty ||
+        _voiceNote.hasRecording ||
+        _voiceNote.isRecording,
   ];
+
+  Future<void> _selectDestination(AppDestination destination) async {
+    if (_voiceNote.isRecording) await _stopRecording();
+    if (_voiceNote.isPlaying) await _pausePlayback();
+    if (mounted) widget.onDestinationSelected(destination);
+  }
+
+  Future<void> _logout() async {
+    if (_voiceNote.isRecording) {
+      _recordingTimer?.cancel();
+      await _voiceNoteService.cancelRecording();
+    } else {
+      await _voiceNoteService.stopPlayback();
+      if (!_voiceNoteTransferred && _voiceNote.localPath != null) {
+        await _voiceNoteService.deleteFile(_voiceNote.localPath!);
+      }
+    }
+    if (mounted) widget.onLogout();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -359,9 +586,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
         activeDestination: AppDestination.home,
         recordsCount: widget.recordsCount,
         darkMode: widget.darkMode,
-        onDestinationSelected: widget.onDestinationSelected,
+        onDestinationSelected: (value) => unawaited(_selectDestination(value)),
         onAppearanceChanged: widget.onAppearanceChanged,
-        onLogout: widget.onLogout,
+        onLogout: () => unawaited(_logout()),
       ),
       body: Column(
         children: [
@@ -744,16 +971,22 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
   }
 
   Widget _buildNoteSection() {
-    final status = _demoRecording
-        ? 'Grabando demo · ${_formatDuration(_demoSeconds)}'
-        : _hasDemoAudio
-        ? 'Audio demo detenido · ${_formatDuration(_demoSeconds)}'
-        : 'Listo para simular';
+    final status = switch (_voiceNote.phase) {
+      VoiceNotePhase.idle => 'Listo para grabar',
+      VoiceNotePhase.recording =>
+        'Grabando · ${_formatDuration(_voiceNote.elapsed)}',
+      VoiceNotePhase.recorded =>
+        'Nota de voz · ${_formatDuration(_voiceNote.elapsed)}',
+      VoiceNotePhase.playing =>
+        'Reproduciendo · ${_formatDuration(_voiceNote.elapsed)}',
+      VoiceNotePhase.paused =>
+        'Reproducción pausada · ${_formatDuration(_voiceNote.elapsed)}',
+    };
     return SectionCard(
       key: const Key('noteSection'),
       number: '04',
       title: 'Nota de la plática',
-      trailing: _demoRecording
+      trailing: _voiceNote.isRecording
           ? const Text(
               '● GRABANDO',
               style: TextStyle(
@@ -767,7 +1000,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // TODO(BACKEND/AUDIO): Connect recording/transcription when the audio feature is implemented.
+          // TODO(BACKEND/AUDIO): Upload the local voice note and connect server-side transcription.
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -782,20 +1015,30 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
               children: [
                 Semantics(
                   button: true,
-                  label: _demoRecording
-                      ? 'Detener grabación simulada'
-                      : 'Iniciar grabación simulada',
+                  label: _voiceNote.isRecording
+                      ? 'Detener grabación'
+                      : _voiceNote.hasRecording
+                      ? 'Volver a grabar'
+                      : 'Iniciar grabación',
                   child: IconButton.filled(
-                    key: const Key('demoRecordButton'),
-                    onPressed: _toggleDemoRecording,
+                    key: const Key('recordButton'),
+                    onPressed: _voiceActionInProgress ? null : _toggleRecording,
                     style: IconButton.styleFrom(
                       minimumSize: const Size(64, 64),
-                      backgroundColor: _demoRecording
+                      backgroundColor: _voiceNote.isRecording
                           ? FolooColors.error
                           : FolooColors.ink,
                       foregroundColor: Colors.white,
                     ),
-                    icon: Icon(_demoRecording ? Icons.stop : Icons.mic),
+                    icon: _voiceActionInProgress
+                        ? const SizedBox.square(
+                            dimension: 22,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Icon(_voiceNote.isRecording ? Icons.stop : Icons.mic),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -803,16 +1046,18 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _Waveform(active: _demoRecording),
+                      _Waveform(
+                        active: _voiceNote.isRecording || _voiceNote.isPlaying,
+                      ),
                       const SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
                             child: Text(
-                              _demoRecording
-                                  ? 'Grabación simulada'
-                                  : _hasDemoAudio
-                                  ? 'Audio demo listo'
+                              _voiceNote.isRecording
+                                  ? 'Micrófono activo'
+                                  : _voiceNote.hasRecording
+                                  ? 'Audio guardado localmente'
                                   : 'Toca para grabar',
                               style: const TextStyle(
                                 fontSize: 11,
@@ -821,7 +1066,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
                             ),
                           ),
                           Text(
-                            _formatDuration(_demoSeconds),
+                            _formatDuration(_voiceNote.elapsed),
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w900,
@@ -844,14 +1089,60 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
               ],
             ),
           ),
-          if (_hasDemoAudio || _demoRecording) ...[
+          if (_voiceNote.hasRecording) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                OutlinedButton.icon(
+                  key: const Key('playPauseButton'),
+                  onPressed: _voiceActionInProgress ? null : _togglePlayback,
+                  icon: Icon(
+                    _voiceNote.isPlaying ? Icons.pause : Icons.play_arrow,
+                  ),
+                  label: Text(_voiceNote.isPlaying ? 'PAUSAR' : 'REPRODUCIR'),
+                ),
+                TextButton.icon(
+                  key: const Key('rerecordButton'),
+                  onPressed: _voiceActionInProgress ? null : _startRecording,
+                  icon: const Icon(Icons.mic_none),
+                  label: const Text('VOLVER A GRABAR'),
+                ),
+                TextButton.icon(
+                  key: const Key('deleteVoiceNoteButton'),
+                  onPressed: _voiceActionInProgress ? null : _deleteVoiceNote,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('BORRAR AUDIO'),
+                ),
+              ],
+            ),
+          ],
+          if (_voiceNote.isRecording) ...[
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
-                key: const Key('deleteDemoAudioButton'),
-                onPressed: _deleteDemoAudio,
+                key: const Key('deleteVoiceNoteButton'),
+                onPressed: _voiceActionInProgress ? null : _deleteVoiceNote,
                 icon: const Icon(Icons.delete_outline),
-                label: const Text('BORRAR DEMO'),
+                label: const Text('CANCELAR Y BORRAR'),
+              ),
+            ),
+          ],
+          if (_voiceNoteMessage != null) ...[
+            const SizedBox(height: 6),
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                _voiceNoteMessage!,
+                key: const Key('voiceNoteMessage'),
+                style: TextStyle(
+                  color: _voiceNote.phase == VoiceNotePhase.idle
+                      ? FolooColors.error
+                      : Theme.of(context).colorScheme.onSurface
+                            .withValues(alpha: 0.68),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
@@ -867,6 +1158,16 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen> {
               minLines: 4,
               maxLines: 7,
               textCapitalization: TextCapitalization.sentences,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'La transcripción automática requiere el backend y aún no está disponible.',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface
+                  .withValues(alpha: 0.55),
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],

@@ -38,6 +38,9 @@ dependencies:
   image_picker: ^1.2.1
   # Excepción temporal RF-03/RF-04: OCR local sin red ni credenciales.
   google_mlkit_text_recognition: ^0.17.1
+  # RF-13/RF-15: grabación local del micrófono y revisión del archivo.
+  record: ^7.1.1
+  audioplayers: ^6.8.1
 
 dev_dependencies:
   flutter_test:

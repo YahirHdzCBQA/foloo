@@ -31,6 +31,7 @@ Questions here are unresolved. They are not decisions or permission to assume be
 | OQ-A15 | Does V1 include a `solución de interés` multi-select catalog, and where is it stored/exported? | The mockup shows Scanley IMS, CBQA General, and Vision AI, but no requirement or conceptual field defines this behavior. | RF-24, Section 5 model |
 | OQ-A16 | Where does the editable, persistent RF-33/RF-34 event configuration live when the approved Evento mockup is explicitly read-only? | The visual consultation view cannot replace the required settings workflow without losing specified behavior. | RF-33, RF-34 |
 | OQ-A17 | Does confirmation return automatically after three seconds, or only when the user selects `Capturar otro ahora`? | The PDF describes an automatic return, while the requested navigation flow and current specification describe an explicit capture-another action without defining a timeout. | Core user flow, RNF-05 |
+| OQ-A18 | Which recording container/codec, maximum duration, and local retention policy are approved for production voice notes? | RF-13/RF-15 require local recording controls, but the source requirements do not define these media constraints. The current AAC/M4A session file is a proposed implementation detail, not a backend contract. | RF-13, RF-15, RF-16, RC-03 |
 
 ## Decisions to Capture Later as ADRs
 
@@ -41,3 +42,4 @@ Questions here are unresolved. They are not decisions or permission to assume be
 - Credential/secret management and authenticated media access.
 - Email capacity plan based on approved volume.
 - Retention automation after Legal/Dirección approves a period.
+Qué tal, Ángel! Oye, estoy configurando Foloo para poder correrlo en un iPhone físico y Xcode me está bloqueando la firma porque aparece pendiente una actualización del Apple Program License Agreement. Me indica específicamente que tú, como Account Holder, necesitas aceptar el acuerdo más reciente. ¿Me ayudas aceptándolo cuando puedas? En cuanto quede, Xcode ya debería poder generar el provisioning profile y dejarme correr la app en el iPhone.

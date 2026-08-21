@@ -16,11 +16,11 @@ Status describes specification coverage, not implementation completeness.
 | RF-10 | Next-step catalog | `lead-information.spec.md` | Specified |
 | RF-11 | Automatic event, capture person, timestamp | `event-settings.spec.md`; `lead-information.spec.md` | Specified |
 | RF-12 | Readable folio format | `lead-information.spec.md`; `local-persistence-and-sync.spec.md` | Open question (generation semantics) |
-| RF-13 | One-tap audio controls, timer, active indicator | `conversation-notes.spec.md` | Specified |
+| RF-13 | One-tap audio controls, timer, active indicator | `conversation-notes.spec.md`; `local-voice-note.spec.md` | Specified |
 | RF-14 | Editable Mexican-Spanish transcription | `conversation-notes.spec.md` | Specified |
-| RF-15 | Play, delete, and rerecord before send | `conversation-notes.spec.md` | Specified |
+| RF-15 | Play, delete, and rerecord before send | `conversation-notes.spec.md`; `local-voice-note.spec.md` | Specified |
 | RF-16 | Upload audio and store link | `conversation-notes.spec.md`; `spreadsheet-and-file-delivery.spec.md` | Specified |
-| RF-17 | Written fallback when transcription unavailable | `conversation-notes.spec.md` | Specified |
+| RF-17 | Written fallback when transcription unavailable | `conversation-notes.spec.md`; `local-voice-note.spec.md` | Specified |
 | RF-18 | Local save before any network attempt | `local-persistence-and-sync.spec.md` | Specified |
 | RF-19 | Offline queue and visible pending state | `local-persistence-and-sync.spec.md` | Specified |
 | RF-20 | Automatic and manual synchronization retry | `local-persistence-and-sync.spec.md` | Specified |

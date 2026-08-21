@@ -37,14 +37,17 @@ No RC behavior is changed or implemented by this visual prototype.
 2. The first and last-name controls are a presentation-only split. On save,
    both values are recombined into the existing conceptual `nombre` field.
    No `apellido` domain or Sheet column is introduced.
-3. Audio recording, waveform, timer, and confirmation processing statuses are
-   visual/local demonstrations only.
+3. Waveform and confirmation processing statuses remain visual demonstrations.
+   Local voice recording and playback follow `local-voice-note.spec.md`; upload
+   and transcription are not implied.
 4. Saving appends a session-memory record before showing confirmation.
    Session memory is not RF-18 production persistence and is cleared on
    logout or process restart.
 5. Registros lists only records saved in the current demo session. Every new
    record remains visibly `Por subir`; the sync and CSV controls do not perform
-   remote synchronization or file export.
+   remote synchronization or file export. A record with a session-local Voice
+   Note includes the compact playback control defined by
+   `local-voice-note.spec.md`.
 6. Evento presents centralized demo event/session information as read-only
    content and returns to Home.
 7. Apariencia switches locally between light and dark themes without

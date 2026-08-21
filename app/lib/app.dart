@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import 'models/app_destination.dart';
@@ -32,11 +35,27 @@ class _FolooAppState extends State<FolooApp> {
   }
 
   void _logout() {
+    final localAudioPaths = _sessionLeads
+        .map((record) => record.lead.audioLocalPath)
+        .whereType<String>()
+        .toList(growable: false);
     setState(() {
       _demoAccessGranted = false;
       _destination = AppDestination.home;
       _sessionLeads.clear();
     });
+    for (final path in localAudioPaths) {
+      unawaited(_deleteSessionFile(path));
+    }
+  }
+
+  Future<void> _deleteSessionFile(String path) async {
+    try {
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+    } catch (_) {
+      // Session cleanup is best effort; production retention is OQ-A18/RC-03.
+    }
   }
 
   void _setAppearance(bool darkMode) {

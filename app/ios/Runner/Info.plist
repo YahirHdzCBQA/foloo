@@ -51,6 +51,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Foloo usa la cámara para fotografiar tarjetas de presentación.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Foloo usa el micrófono para grabar una nota de voz de la conversación.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Foloo accede a tus fotos para elegir una tarjeta de presentación.</string>
 	<key>UILaunchStoryboardName</key>

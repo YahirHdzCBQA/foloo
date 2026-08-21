@@ -36,7 +36,8 @@ class LeadDraft {
     required this.interest,
     required this.nextStep,
     required this.note,
-    required this.demoAudioSeconds,
+    this.audioLocalPath,
+    required this.audioSeconds,
   });
 
   final String name;
@@ -48,5 +49,8 @@ class LeadDraft {
   final InterestLevel interest;
   final NextStep nextStep;
   final String note;
-  final int demoAudioSeconds;
+  final String? audioLocalPath;
+  final int audioSeconds;
+
+  bool get hasVoiceNote => audioLocalPath?.isNotEmpty ?? false;
 }

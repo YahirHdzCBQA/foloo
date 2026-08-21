@@ -45,6 +45,25 @@ class LeadConfirmationScreen extends StatelessWidget {
                       size: 52,
                     ),
                   ),
+                  if (lead.hasVoiceNote) ...[
+                    const SizedBox(height: 12),
+                    Semantics(
+                      label:
+                          'Nota de voz guardada localmente, ${_formatDuration(lead.audioSeconds)}',
+                      child: Chip(
+                        key: const Key('confirmationVoiceNote'),
+                        avatar: const Icon(Icons.mic, size: 18),
+                        label: Text(
+                          'Nota de voz · ${_formatDuration(lead.audioSeconds)} · LOCAL',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   Text(
                     'Lead guardado',
@@ -169,6 +188,12 @@ class LeadConfirmationScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  static String _formatDuration(int seconds) {
+    final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
+    final remainder = (seconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$remainder';
   }
 }
 

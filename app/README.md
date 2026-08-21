@@ -13,11 +13,18 @@ but is not proven by this prototype.
 
 The demo does not claim productive compliance with OCR accuracy/performance, original-image retention, audio recording/transcription/upload, local persistence, synchronization, folio generation, Sheets, email, or privacy delivery obligations.
 
-## Temporary dependency
+## Device dependencies
 
 - `image_picker`: provides rear-camera and gallery access required to exercise RF-01. It is maintained by the Flutter team and avoids inventing a device bridge. Production adoption should still be reviewed when image preparation/storage behavior is implemented.
+- `google_mlkit_text_recognition`: temporary, on-device OCR validation for
+  RF-03/RF-04. Final structured extraction remains a backend responsibility.
+- `record`: native local microphone recording required by RF-13.
+- `audioplayers`: focused playback/pause of the local recording required by
+  RF-15.
 
-No package was added for audio. The recorder UI is explicitly simulated so this first prototype does not prematurely choose a recording format or plugin while duration/format/retention remain unspecified.
+AAC/M4A is a proposed local implementation detail. Format, maximum duration,
+and production retention remain open in OQ-A18; upload and transcription are
+not implemented.
 
 ## Run
 
@@ -31,8 +38,10 @@ Use `flutter devices` to list targets, then `flutter run -d <device-id>` to sele
 
 ## Demo-only behavior
 
-- “Simular lectura · Demo” fills only empty fields with mock data; existing manual edits are preserved.
-- The recorder timer is UI-only. It does not request microphone access or produce audio.
+- Card OCR runs locally through the temporary ML Kit implementation; fields
+  remain editable and manual corrections win.
+- Voice notes record, play, pause, delete, and rerecord locally. They are not
+  uploaded or transcribed.
 - Saved leads remain only in memory for the current demo session and appear in
   Registros. Logout or process restart clears them.
 - Demo folios use the mockup event prefix and an in-memory sequence; this is
@@ -43,4 +52,5 @@ Use `flutter devices` to list targets, then `flutter run -d <device-id>` to sele
   editable, persistent RF-33/RF-34 settings workflow.
 - Appearance switches locally and is not persisted.
 
-There are no API calls, credentials, backend, OCR, transcription, persistence, synchronization, Sheets, or email integrations.
+There are no API calls, credentials, backend, remote transcription,
+production persistence, synchronization, Sheets, or email integrations.
