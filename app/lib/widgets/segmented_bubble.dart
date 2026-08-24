@@ -22,6 +22,7 @@ class SegmentedBubble<T> extends StatelessWidget {
     required this.selected,
     required this.onSelected,
     this.height = 56,
+    this.selectedHorizontalInset = 10,
     super.key,
   });
 
@@ -29,13 +30,14 @@ class SegmentedBubble<T> extends StatelessWidget {
   final T selected;
   final ValueChanged<T> onSelected;
   final double height;
+  final double selectedHorizontalInset;
 
   @override
   Widget build(BuildContext context) {
     final palette = FolooPalette.of(context);
     return Container(
       height: height,
-      padding: const EdgeInsets.all(7),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: palette.paper,
         borderRadius: BorderRadius.circular(height / 2),
@@ -50,14 +52,17 @@ class SegmentedBubble<T> extends StatelessWidget {
               child: InkWell(
                 key: option.key,
                 onTap: () => onSelected(option.value),
-                borderRadius: BorderRadius.circular((height - 14) / 2),
+                borderRadius: BorderRadius.circular((height - 8) / 2),
                 child: AnimatedContainer(
                   duration: MediaQuery.disableAnimationsOf(context)
                       ? Duration.zero
                       : const Duration(milliseconds: 150),
+                  margin: EdgeInsets.symmetric(
+                    horizontal: isSelected ? selectedHorizontalInset : 0,
+                  ),
                   decoration: BoxDecoration(
                     color: isSelected ? palette.card : Colors.transparent,
-                    borderRadius: BorderRadius.circular((height - 14) / 2),
+                    borderRadius: BorderRadius.circular((height - 8) / 2),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,

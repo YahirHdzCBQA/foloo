@@ -78,7 +78,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               children: [
                 Image.asset(
                   FolooBrand.logoFor(Theme.of(context).brightness),
-                  width: 44,
+                  width: 24,
                   alignment: Alignment.centerLeft,
                 ),
                 const SizedBox(height: 26),

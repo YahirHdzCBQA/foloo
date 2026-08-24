@@ -66,7 +66,7 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
             children: [
               Image.asset(
                 FolooBrand.logoFor(Theme.of(context).brightness),
-                width: 44,
+                width: 24,
                 alignment: Alignment.centerLeft,
               ),
               const SizedBox(height: 30),
@@ -81,7 +81,8 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
                   constraints: const BoxConstraints(maxWidth: 320),
                   child: SegmentedBubble<LeadOriginKind>(
                     key: const Key('originBubble'),
-                    height: 60,
+                    height: 56,
+                    selectedHorizontalInset: 22,
                     selected: _kind,
                     onSelected: (value) => setState(() => _kind = value),
                     options: const [

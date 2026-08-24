@@ -771,24 +771,31 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 10),
-          SegmentedBubble<LeadOriginKind>(
-            key: const Key('captureOriginBubble'),
-            selected: widget.originKind,
-            onSelected: _changeOrigin,
-            options: const [
-              SegmentedBubbleOption(
-                key: Key('captureOriginEventTab'),
-                value: LeadOriginKind.event,
-                label: 'Evento',
-                leading: Icon(Icons.calendar_today_outlined, size: 15),
+          Align(
+            alignment: Alignment.center,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: SegmentedBubble<LeadOriginKind>(
+                key: const Key('captureOriginBubble'),
+                selectedHorizontalInset: 22,
+                selected: widget.originKind,
+                onSelected: _changeOrigin,
+                options: const [
+                  SegmentedBubbleOption(
+                    key: Key('captureOriginEventTab'),
+                    value: LeadOriginKind.event,
+                    label: 'Evento',
+                    leading: Icon(Icons.calendar_today_outlined, size: 15),
+                  ),
+                  SegmentedBubbleOption(
+                    key: Key('captureOriginDirectTab'),
+                    value: LeadOriginKind.direct,
+                    label: 'Lead directo',
+                    leading: Icon(Icons.person_outline, size: 16),
+                  ),
+                ],
               ),
-              SegmentedBubbleOption(
-                key: Key('captureOriginDirectTab'),
-                value: LeadOriginKind.direct,
-                label: 'Lead directo',
-                leading: Icon(Icons.person_outline, size: 16),
-              ),
-            ],
+            ),
           ),
           const SizedBox(height: 10),
           if (direct)
@@ -1163,30 +1170,36 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             ),
           ),
           const SizedBox(height: 8),
-          SegmentedBubble<InterestLevel>(
-            key: const Key('interestBubble'),
-            selected: _interest,
-            onSelected: (value) => setState(() => _interest = value),
-            options: const [
-              SegmentedBubbleOption(
-                key: Key('interest-low'),
-                value: InterestLevel.low,
-                label: 'Bajo',
-                leading: _InterestDot(color: FolooColors.interestLow),
+          Align(
+            alignment: Alignment.center,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: SegmentedBubble<InterestLevel>(
+                key: const Key('interestBubble'),
+                selected: _interest,
+                onSelected: (value) => setState(() => _interest = value),
+                options: const [
+                  SegmentedBubbleOption(
+                    key: Key('interest-low'),
+                    value: InterestLevel.low,
+                    label: 'Bajo',
+                    leading: _InterestDot(color: FolooColors.interestLow),
+                  ),
+                  SegmentedBubbleOption(
+                    key: Key('interest-medium'),
+                    value: InterestLevel.medium,
+                    label: 'Medio',
+                    leading: _InterestDot(color: FolooColors.interestMedium),
+                  ),
+                  SegmentedBubbleOption(
+                    key: Key('interest-high'),
+                    value: InterestLevel.high,
+                    label: 'Alto',
+                    leading: _InterestDot(color: FolooColors.interestHigh),
+                  ),
+                ],
               ),
-              SegmentedBubbleOption(
-                key: Key('interest-medium'),
-                value: InterestLevel.medium,
-                label: 'Medio',
-                leading: _InterestDot(color: FolooColors.interestMedium),
-              ),
-              SegmentedBubbleOption(
-                key: Key('interest-high'),
-                value: InterestLevel.high,
-                label: 'Alto',
-                leading: _InterestDot(color: FolooColors.interestHigh),
-              ),
-            ],
+            ),
           ),
         ],
       ),

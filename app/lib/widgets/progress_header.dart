@@ -37,7 +37,7 @@ class ProgressHeader extends StatelessWidget {
                 children: [
                   Image.asset(
                     FolooBrand.logoFor(theme.brightness),
-                    width: 44,
+                    width: 64,
                     fit: BoxFit.contain,
                   ),
                   const Spacer(),
