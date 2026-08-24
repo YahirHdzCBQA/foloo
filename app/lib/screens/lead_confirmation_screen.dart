@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/session_lead.dart';
 import '../theme/foloo_theme.dart';
 
-class LeadConfirmationScreen extends StatelessWidget {
+class LeadConfirmationScreen extends StatefulWidget {
   const LeadConfirmationScreen({
     required this.record,
     required this.onCaptureAnother,
@@ -14,175 +16,161 @@ class LeadConfirmationScreen extends StatelessWidget {
   final VoidCallback onCaptureAnother;
 
   @override
+  State<LeadConfirmationScreen> createState() => _LeadConfirmationScreenState();
+}
+
+class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
+  Timer? _returnTimer;
+  int _seconds = 3;
+
+  @override
+  void initState() {
+    super.initState();
+    // Demo navigation timing copied from the Basic mockup. D-06 still owns the
+    // production acknowledgement semantics.
+    _returnTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      if (_seconds <= 1) {
+        timer.cancel();
+        widget.onCaptureAnother();
+      } else {
+        setState(() => _seconds--);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _returnTimer?.cancel();
+    super.dispose();
+  }
+
+  void _captureAnother() {
+    _returnTimer?.cancel();
+    widget.onCaptureAnother();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final ink = theme.colorScheme.onSurface;
-    final lead = record.lead;
+    final palette = FolooPalette.of(context);
+    final record = widget.record;
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: palette.card,
       body: SafeArea(
-        bottom: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 54, 20, 28),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Column(
-                children: [
-                  Container(
-                    width: 92,
-                    height: 92,
-                    decoration: const BoxDecoration(
-                      color: FolooColors.lime,
-                      shape: BoxShape.circle,
-                      border: Border.fromBorderSide(
-                        BorderSide(color: FolooColors.ink, width: 2),
+          padding: const EdgeInsets.fromLTRB(20, 36, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: const BoxDecoration(
+                  color: FolooColors.lime,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: FolooColors.ink,
+                  size: 58,
+                ),
+              ),
+              const SizedBox(height: 28),
+              Text(
+                'Lead guardado',
+                style: Theme.of(context).textTheme.headlineSmall
+                    ?.copyWith(fontSize: 30),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${record.lead.fullName} · ${record.lead.company}',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: palette.inkSecondary, fontSize: 15),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                key: const Key('demoFolio'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: palette.lineStrong),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  record.folio,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: .5,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: palette.paper,
+                  borderRadius: BorderRadius.circular(FolooRadii.lg),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: palette.successTint,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.check,
+                        size: 19,
+                        color: palette.success,
                       ),
                     ),
-                    child: const Icon(
-                      Icons.check_rounded,
-                      color: FolooColors.ink,
-                      size: 52,
-                    ),
-                  ),
-                  if (lead.hasVoiceNote) ...[
-                    const SizedBox(height: 12),
-                    Semantics(
-                      label:
-                          'Nota de voz guardada localmente, ${_formatDuration(lead.audioSeconds)}',
-                      child: Chip(
-                        key: const Key('confirmationVoiceNote'),
-                        avatar: const Icon(Icons.mic, size: 18),
-                        label: Text(
-                          'Nota de voz · ${_formatDuration(lead.audioSeconds)} · LOCAL',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.5,
-                          ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'En la hoja de cálculo del evento',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
                         ),
+                      ),
+                    ),
+                    Text(
+                      _time(record.capturedAt),
+                      style: TextStyle(
+                        color: palette.inkSecondary,
+                        fontSize: 12,
                       ),
                     ),
                   ],
-                  const SizedBox(height: 24),
-                  Text(
-                    'Lead guardado',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontSize: 30,
-                    ),
-                  ),
-                  const SizedBox(height: 7),
-                  Text(
-                    '${lead.name} · ${lead.company}',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: ink.withValues(alpha: 0.62),
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Container(
-                    key: const Key('demoFolio'),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 15,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: ink.withValues(alpha: 0.5)),
-                    ),
-                    child: Text(
-                      record.folio,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: ink.withValues(alpha: 0.5)),
-                    ),
-                    child: Column(
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 13),
-                          child: Text(
-                            'ESTADOS DE MUESTRA · SIN BACKEND',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: FolooColors.gray,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                        ),
-                        // TODO(BACKEND): Replace demo processing status with real backend state.
-                        const _DemoProcessingRow(
-                          title: 'En la hoja de cálculo del evento',
-                          detail: 'Demo visual · no se escribió ninguna fila',
-                        ),
-                        _DemoProcessingRow(
-                          title: 'Correo enviado al lead',
-                          detail: lead.email.isEmpty
-                              ? 'Demo visual · lead sin correo'
-                              : '${lead.email} · sin envío real',
-                        ),
-                        const _DemoProcessingRow(
-                          title: 'Copia Admin',
-                          detail:
-                              '${DemoEventData.adminEmail} · sin envío real',
-                          last: true,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Divider(color: ink.withValues(alpha: 0.5), thickness: 2),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'REGISTRO DISPONIBLE EN ESTA SESIÓN LOCAL',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: FolooColors.gray,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.1,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: 24),
+              Text(
+                'Regresas a captura en $_seconds s',
+                style: TextStyle(color: palette.inkSecondary, fontSize: 13),
+              ),
+            ],
           ),
         ),
       ),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            border: Border(top: BorderSide(color: ink.withValues(alpha: 0.35))),
-          ),
+          color: palette.card,
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
           child: OutlinedButton.icon(
             key: const Key('captureAnotherButton'),
-            onPressed: onCaptureAnother,
+            onPressed: _captureAnother,
             icon: const Icon(Icons.person_add_alt_1_outlined),
             label: const Text('Capturar otro ahora'),
             style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(56),
               shape: const StadiumBorder(),
-              textStyle: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w900,
-              ),
+              minimumSize: const Size.fromHeight(56),
             ),
           ),
         ),
@@ -190,66 +178,6 @@ class LeadConfirmationScreen extends StatelessWidget {
     );
   }
 
-  static String _formatDuration(int seconds) {
-    final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
-    final remainder = (seconds % 60).toString().padLeft(2, '0');
-    return '$minutes:$remainder';
-  }
-}
-
-class _DemoProcessingRow extends StatelessWidget {
-  const _DemoProcessingRow({
-    required this.title,
-    required this.detail,
-    this.last = false,
-  });
-
-  final String title;
-  final String detail;
-  final bool last;
-
-  @override
-  Widget build(BuildContext context) {
-    final ink = Theme.of(context).colorScheme.onSurface;
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        border: last
-            ? null
-            : Border(bottom: BorderSide(color: ink.withValues(alpha: 0.35))),
-      ),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            radius: 15,
-            backgroundColor: FolooColors.success,
-            child: Icon(Icons.check, color: Colors.white, size: 18),
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  detail,
-                  style: TextStyle(
-                    color: ink.withValues(alpha: 0.5),
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  static String _time(DateTime date) =>
+      '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:${date.second.toString().padLeft(2, '0')}';
 }

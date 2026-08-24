@@ -1,16 +1,18 @@
-import 'dart:async';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import 'models/app_destination.dart';
+import 'models/app_event.dart';
 import 'models/lead_draft.dart';
 import 'models/session_lead.dart';
 import 'screens/event_screen.dart';
 import 'screens/lead_capture_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/origin_selection_screen.dart';
+import 'screens/profile_setup_screen.dart';
 import 'screens/records_screen.dart';
 import 'theme/foloo_theme.dart';
+
+enum _AppStage { login, profile, origin, shell }
 
 class FolooApp extends StatefulWidget {
   const FolooApp({super.key});
@@ -20,10 +22,21 @@ class FolooApp extends StatefulWidget {
 }
 
 class _FolooAppState extends State<FolooApp> {
-  bool _demoAccessGranted = false;
+  _AppStage _stage = _AppStage.login;
   ThemeMode _themeMode = ThemeMode.light;
   AppDestination _destination = AppDestination.home;
+  AppDestination _eventsReturnDestination = AppDestination.home;
+  DemoProfile _profile = DemoBasicData.profile;
+  bool _profileCompleted = false;
+  late List<AppEvent> _events;
+  OriginSelection? _origin;
   final List<SessionLead> _sessionLeads = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _events = List.of(DemoBasicData.events);
+  }
 
   SessionLead _saveLead(LeadDraft lead) {
     final record = DemoEventData.createSessionLead(
@@ -34,87 +47,168 @@ class _FolooAppState extends State<FolooApp> {
     return record;
   }
 
-  void _logout() {
-    final localAudioPaths = _sessionLeads
-        .map((record) => record.lead.audioLocalPath)
-        .whereType<String>()
-        .toList(growable: false);
-    setState(() {
-      _demoAccessGranted = false;
-      _destination = AppDestination.home;
-      _sessionLeads.clear();
-    });
-    for (final path in localAudioPaths) {
-      unawaited(_deleteSessionFile(path));
-    }
+  void _authenticate() {
+    setState(
+      () => _stage = _profileCompleted ? _AppStage.origin : _AppStage.profile,
+    );
   }
 
-  Future<void> _deleteSessionFile(String path) async {
-    try {
-      final file = File(path);
-      if (await file.exists()) await file.delete();
-    } catch (_) {
-      // Session cleanup is best effort; production retention is OQ-A18/RC-03.
-    }
+  void _completeProfile(DemoProfile profile) {
+    setState(() {
+      _profile = profile;
+      _profileCompleted = true;
+      _stage = _AppStage.origin;
+    });
+  }
+
+  void _selectOrigin(OriginSelection selection) {
+    setState(() {
+      _origin = selection;
+      _destination = AppDestination.home;
+      _stage = _AppStage.shell;
+    });
+  }
+
+  void _selectDestination(AppDestination destination) {
+    setState(() {
+      if (destination == AppDestination.events) {
+        _eventsReturnDestination = _destination == AppDestination.events
+            ? AppDestination.home
+            : _destination;
+      }
+      _destination = destination;
+    });
+  }
+
+  void _backFromEvents() {
+    setState(() => _destination = _eventsReturnDestination);
+  }
+
+  void _changeCaptureOrigin(LeadOriginKind kind, AppEvent? event) {
+    setState(() => _origin = OriginSelection(kind: kind, event: event));
+  }
+
+  void _logout() {
+    // Demo-only auth shell. AUT-08 requires local leads to survive logout, so
+    // this in-memory prototype deliberately keeps the current session list.
+    setState(() {
+      _stage = _AppStage.login;
+      _destination = AppDestination.home;
+    });
   }
 
   void _setAppearance(bool darkMode) {
     setState(() => _themeMode = darkMode ? ThemeMode.dark : ThemeMode.light);
   }
 
+  void _createEvent(AppEvent event) {
+    setState(() {
+      _events = [
+        event.copyWith(active: true),
+        ..._events.map((item) => item.copyWith(active: false)),
+      ];
+      _origin = OriginSelection(
+        kind: LeadOriginKind.event,
+        event: _events.first,
+      );
+    });
+  }
+
+  void _updateEvent(AppEvent event) {
+    setState(() {
+      _events = _events
+          .map((item) => item.id == event.id ? event : item)
+          .toList();
+      if (_origin?.event?.id == event.id) {
+        _origin = OriginSelection(kind: LeadOriginKind.event, event: event);
+      }
+    });
+  }
+
+  void _deleteEvent(AppEvent event) {
+    setState(() {
+      _events.removeWhere((item) => item.id == event.id);
+      if (_origin?.event?.id == event.id) {
+        final replacement = _events.isEmpty ? null : _events.first;
+        _origin = replacement == null
+            ? const OriginSelection(kind: LeadOriginKind.direct)
+            : OriginSelection(kind: LeadOriginKind.event, event: replacement);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Foloo',
+      title: 'Foloo · ${_profile.name}',
       debugShowCheckedModeBanner: false,
       theme: FolooTheme.light,
       darkTheme: FolooTheme.dark,
       themeMode: _themeMode,
-      home: _demoAccessGranted ? _buildShell() : _buildLogin(),
-    );
-  }
-
-  Widget _buildLogin() {
-    return LoginScreen(
-      key: const ValueKey('loginScreen'),
-      onAuthenticated: () => setState(() => _demoAccessGranted = true),
+      home: switch (_stage) {
+        _AppStage.login => LoginScreen(
+          key: const ValueKey('loginScreen'),
+          onAuthenticated: _authenticate,
+        ),
+        _AppStage.profile => ProfileSetupScreen(
+          key: const ValueKey('profileScreen'),
+          onContinue: _completeProfile,
+        ),
+        _AppStage.origin => OriginSelectionScreen(
+          key: const ValueKey('originScreen'),
+          events: List.unmodifiable(_events),
+          onContinue: _selectOrigin,
+          onCreateEvent: _createEvent,
+        ),
+        _AppStage.shell => _buildShell(),
+      },
     );
   }
 
   Widget _buildShell() {
     final darkMode = _themeMode == ThemeMode.dark;
+    final origin =
+        _origin ?? const OriginSelection(kind: LeadOriginKind.direct);
     return IndexedStack(
       index: _destination.index,
       children: [
         LeadCaptureScreen(
           key: const ValueKey('leadCaptureScreen'),
+          originKind: origin.kind,
+          eventName: origin.event?.name,
+          events: List.unmodifiable(_events),
+          profile: _profile,
           recordsCount: _sessionLeads.length,
           darkMode: darkMode,
           onLeadSaved: _saveLead,
-          onDestinationSelected: (value) =>
-              setState(() => _destination = value),
+          onOriginChanged: _changeCaptureOrigin,
+          onCreateEvent: _createEvent,
+          onDestinationSelected: _selectDestination,
           onAppearanceChanged: _setAppearance,
           onLogout: _logout,
         ),
         RecordsScreen(
           key: const ValueKey('recordsScreen'),
           records: List.unmodifiable(_sessionLeads),
+          profile: _profile,
           darkMode: darkMode,
-          onDestinationSelected: (value) =>
-              setState(() => _destination = value),
+          onDestinationSelected: _selectDestination,
           onAppearanceChanged: _setAppearance,
           onLogout: _logout,
         ),
         EventScreen(
-          key: const ValueKey('eventScreen'),
+          key: const ValueKey('eventsScreen'),
+          events: List.unmodifiable(_events),
+          profile: _profile,
           recordsCount: _sessionLeads.length,
           darkMode: darkMode,
-          onDestinationSelected: (value) =>
-              setState(() => _destination = value),
+          onDestinationSelected: _selectDestination,
           onAppearanceChanged: _setAppearance,
           onLogout: _logout,
-          onBackToCapture: () =>
-              setState(() => _destination = AppDestination.home),
+          onCreate: _createEvent,
+          onUpdate: _updateEvent,
+          onDelete: _deleteEvent,
+          onBack: _backFromEvents,
         ),
       ],
     );

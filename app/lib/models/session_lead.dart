@@ -25,21 +25,17 @@ class SessionLead {
 class DemoEventData {
   const DemoEventData._();
 
-  static const eventCode = 'EXP-260812';
-  static const eventName = 'Expo Alimentaria México 2026';
-  static const eventDate = '12–14 AGO 2026';
-  static const location = 'CENTRO CITIBANAMEX, CDMX';
+  static const eventCode = 'FOL-260812';
+  static const eventName = 'Expo Alimentaria México';
   static const capturePerson = 'Yahir Hernández';
-  static const captureEmail = 'y.hernandez@cbqasolutions.com';
   static const captureRole = 'CBQA SOLUTIONS · VENTAS';
-  static const adminEmail = 'marketing@cbqasolutions.com';
 
   static SessionLead createSessionLead({
     required LeadDraft lead,
     required int sequence,
     DateTime? capturedAt,
   }) {
-    // Demo-only sequencing. OQ-A04 must be resolved before production folios.
+    // Demo-only folio. D-03 remains deliberately unresolved.
     return SessionLead(
       folio: '$eventCode-${sequence.toString().padLeft(3, '0')}',
       capturedAt: capturedAt ?? DateTime.now(),

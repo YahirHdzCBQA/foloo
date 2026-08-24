@@ -25,10 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   String? _validateEmail(String? value) {
-    final email = value?.trim() ?? '';
-    if (email.isEmpty) return 'Escribe tu usuario o correo';
-    final isValid = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email);
-    return isValid ? null : 'Escribe un correo válido';
+    return value == null || value.trim().isEmpty ? 'Escribe tu usuario' : null;
   }
 
   String? _validatePassword(String? value) {
@@ -110,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              const _FieldLabel('USUARIO'),
+                              const _FieldLabel('Usuario'),
                               const SizedBox(height: 10),
                               TextFormField(
                                 key: const Key('loginEmailField'),
@@ -123,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 validator: _validateEmail,
                               ),
                               const SizedBox(height: 26),
-                              const _FieldLabel('CONTRASEÑA'),
+                              const _FieldLabel('Contraseña'),
                               const SizedBox(height: 10),
                               TextFormField(
                                 key: const Key('loginPasswordField'),
@@ -222,7 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const Padding(
                       padding: EdgeInsets.fromLTRB(0, 18, 0, 14),
                       child: Text(
-                        'FOLOO v1.0.0 · CBQA SOLUTIONS',
+                        'Foloo v1.0.4 · CBQA Solutions',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: FolooBrand.gray,
@@ -255,7 +252,7 @@ class _FieldLabel extends StatelessWidget {
         color: FolooBrand.gray,
         fontSize: 11,
         fontWeight: FontWeight.w800,
-        letterSpacing: 1.4,
+        letterSpacing: .2,
       ),
     );
   }

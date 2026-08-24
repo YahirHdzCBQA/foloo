@@ -36,7 +36,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   # Prototipo: cámara/galería requeridas por RF-01.
   image_picker: ^1.2.1
-  # Excepción temporal RF-03/RF-04: OCR local sin red ni credenciales.
+  # Prototipo demo heredado: OCR local, separado de la arquitectura productiva
+  # OCR-03/OCR-04, que exige extracción detrás del backend Foloo.
   google_mlkit_text_recognition: ^0.17.1
   # RF-13/RF-15: grabación local del micrófono y revisión del archivo.
   record: ^7.1.1

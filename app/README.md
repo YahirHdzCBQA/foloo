@@ -1,61 +1,48 @@
-# Foloo Flutter Prototype
+# Foloo Basic · frontend Flutter
 
-This directory contains the existing Flutter prototype. It predates the
-August 2026 Basic/Pro realignment and is not yet a conforming Basic or Pro
-implementation. Current scope lives in `../docs/specifications/current/`, not
-in this code or its tests.
+Este directorio contiene la implementación navegable de Foloo Basic alineada
+con `docs/specifications/current/` y con el mockup HTML oficial de agosto de
+2026.
 
-## What the prototype demonstrates
+## Alcance implementado
 
-- Local demo login and password visibility.
-- One-scroll capture with card photo/gallery, editable lead fields, two legacy
-  lead types, interest, legacy `siguientePaso`, written note and Voice Note.
-- Temporary on-device ML Kit OCR and conservative parsing.
-- Session-memory save, demo folio, confirmation and records list.
-- Local Voice Note playback from Registros.
-- Right drawer, read-only legacy Evento view and non-persisted appearance.
+- Acceso demo local y configuración inicial de perfil.
+- Selección de origen: evento activo o lead directo.
+- Captura continua de cuatro secciones con foto, datos editables, los tipos
+  Proveedor/Partner/Cliente, interés, nota escrita y Voice Note local.
+- Confirmación Basic, regreso automático y captura consecutiva.
+- Registros de la sesión con filtros, detalle de solo lectura y reproducción de
+  Voice Note.
+- Mis eventos con alta, edición y eliminación local de demostración.
+- Drawer derecho, cambio local claro/oscuro y cierre de sesión.
+- Diálogos visuales de exportación y acción visual de sincronización.
 
-These pieces are implementation evidence for portions of `OCR-*`, `CAP-*`,
-`VOZ-*`, `REG-*`, `NAV-*`, `RNF-03`–`RNF-06`; they do not establish full
-acceptance. See `../docs/migration/current-implementation-gap-analysis.md`.
+No hay backend, autenticación real, persistencia durable, sincronización,
+entrega a Sheets ni exportación de archivos. Tampoco se exponen funciones Pro:
+transcripción, contenido, plantillas o correo.
 
-## Important current conflicts
+## Dependencias de dispositivo
 
-- Login is a local gate, not `AUT-01`/`AUT-02` authentication and persistence.
-- Leads and files are session-only, contradicting the local durability required
-  by Article 2, `AUT-08`, `CAP-15` and `SYN-01`.
-- The model has two legacy types and mandatory `siguientePaso`; Basic requires
-  three types and excludes `siguientePaso` pending `D-02`.
-- There is no event/direct origin or Basic event CRUD.
-- OCR runs on-device; production `OCR-03`/`OCR-04` extraction belongs behind
-  the Foloo backend.
-- Confirmation includes demo email rows. Basic must show no email UI at all.
-- The UI mentions future transcription. Basic `VOZ-07` forbids even implying
-  transcription; transcription is Pro-only.
-- Current theme/touch/copy rules do not fully comply with the Constitution.
+- `image_picker`: cámara y galería.
+- `google_mlkit_text_recognition`: lectura local heredada exclusivamente para
+  la demostración; no representa la arquitectura productiva `OCR-03/OCR-04`.
+- `record`: grabación local.
+- `audioplayers`: reproducción local de Voice Note.
 
-Do not “fix forward” any of these without following the migration plan and
-resolving the blocking decisions.
+El formato AAC/M4A sigue siendo un detalle provisional. Límites, retención y
+persistencia productiva continúan bloqueados por `D-11`/`RC-03`.
 
-## Existing device dependencies
-
-- `image_picker`: camera/gallery bridge.
-- `google_mlkit_text_recognition`: temporary on-device prototype exception,
-  not the approved production extraction architecture.
-- `record`: local microphone recording.
-- `audioplayers`: local Voice Note playback.
-
-AAC/M4A remains an implementation detail; production limits and retention are
-blocked by `D-11`/`RC-03`.
-
-## Run locally
+## Ejecutar localmente
 
 ```sh
 cd app
 flutter pub get
-flutter devices
 flutter run -d <device-id>
 ```
 
-There is no backend, real authentication, durable database, synchronization,
-spreadsheet delivery, export, Pro transcription, content or email integration.
+Para validar sin abrir un dispositivo:
+
+```sh
+flutter analyze
+flutter test
+```

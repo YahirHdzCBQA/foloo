@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foloo/models/app_event.dart';
 import 'package:foloo/models/lead_draft.dart';
 import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/screens/lead_capture_screen.dart';
@@ -13,6 +14,9 @@ Widget voiceNoteApp(
 }) => MaterialApp(
   theme: FolooTheme.light,
   home: LeadCaptureScreen(
+    originKind: LeadOriginKind.event,
+    eventName: DemoEventData.eventName,
+    events: DemoBasicData.events,
     recordsCount: 0,
     darkMode: false,
     voiceNoteService: service,
@@ -20,6 +24,8 @@ Widget voiceNoteApp(
       onSaved?.call(lead);
       return DemoEventData.createSessionLead(lead: lead, sequence: 1);
     },
+    onOriginChanged: (_, _) {},
+    onCreateEvent: (_) {},
     onDestinationSelected: (_) {},
     onAppearanceChanged: (_) {},
     onLogout: () {},
@@ -60,69 +66,58 @@ Future<void> completeRequiredFields(WidgetTester tester) async {
   );
   await tester.pumpAndSettle();
   await tester.tap(partner);
-
-  final nextStep = find.byKey(const Key('nextStepField'));
-  await tester.scrollUntilVisible(
-    nextStep,
-    220,
-    scrollable: find.byType(Scrollable).first,
-  );
-  await tester.pumpAndSettle();
-  await tester.tap(nextStep);
-  await tester.pumpAndSettle();
-  await tester.tap(find.text(NextStep.sendInformation.label).last);
-  await tester.pumpAndSettle();
 }
 
 void main() {
-  testWidgets('records plays pauses rerecords and deletes one local voice note', (
-    tester,
-  ) async {
-    final service = FakeVoiceNoteService();
-    await tester.pumpWidget(voiceNoteApp(service));
-    await showRecorder(tester);
+  testWidgets(
+    'records plays pauses rerecords and deletes one local voice note',
+    (tester) async {
+      final service = FakeVoiceNoteService();
+      await tester.pumpWidget(voiceNoteApp(service));
+      await showRecorder(tester);
 
-    expect(find.text('Listo para grabar'), findsOneWidget);
+      expect(find.text('Listo para grabar'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('recordButton')));
-    await tester.pump();
-    expect(find.text('● GRABANDO'), findsOneWidget);
-    expect(find.text('Micrófono activo'), findsOneWidget);
-    expect(service.startCount, 1);
+      await tester.tap(find.byKey(const Key('recordButton')));
+      await tester.pump();
+      expect(find.text('● GRABANDO'), findsOneWidget);
+      expect(find.text('Micrófono activo'), findsOneWidget);
+      expect(service.startCount, 1);
 
-    await tester.pump(const Duration(seconds: 2));
-    await tester.tap(find.byKey(const Key('recordButton')));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Nota de voz · 00:02'), findsOneWidget);
-    expect(service.stopCount, 1);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.tap(find.byKey(const Key('recordButton')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Nota de voz · 00:02'), findsOneWidget);
+      expect(service.stopCount, 1);
 
-    await tester.tap(find.byKey(const Key('playPauseButton')));
-    await tester.pump();
-    expect(find.text('PAUSAR'), findsOneWidget);
-    expect(service.playCount, 1);
+      await tester.tap(find.byKey(const Key('playPauseButton')));
+      await tester.pump();
+      expect(find.text('PAUSAR'), findsOneWidget);
+      expect(service.playCount, 1);
 
-    await tester.tap(find.byKey(const Key('playPauseButton')));
-    await tester.pump();
-    expect(find.text('REPRODUCIR'), findsOneWidget);
-    expect(service.pauseCount, 1);
+      await tester.tap(find.byKey(const Key('playPauseButton')));
+      await tester.pump();
+      expect(find.text('REPRODUCIR'), findsOneWidget);
+      expect(service.pauseCount, 1);
 
-    await tester.tap(find.byKey(const Key('rerecordButton')));
-    await tester.pump();
-    expect(find.text('● GRABANDO'), findsOneWidget);
-    expect(service.startCount, 2);
-    expect(service.deletedPaths, contains('/tmp/foloo_voice_1.m4a'));
+      await tester.tap(find.byKey(const Key('rerecordButton')));
+      await tester.pump();
+      expect(find.text('● GRABANDO'), findsOneWidget);
+      expect(service.startCount, 2);
+      expect(service.deletedPaths, contains('/tmp/foloo_voice_1.m4a'));
 
-    await tester.pump(const Duration(seconds: 1));
-    await tester.tap(find.byKey(const Key('recordButton')));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Nota de voz · 00:01'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      await tester.tap(find.byKey(const Key('recordButton')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Nota de voz · 00:01'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('deleteVoiceNoteButton')));
-    await tester.pumpAndSettle();
-    expect(find.text('Listo para grabar'), findsOneWidget);
-    expect(find.byKey(const Key('playPauseButton')), findsNothing);
-    expect(service.deletedPaths, contains('/tmp/foloo_voice_2.m4a'));
-  });
+      await tester.tap(find.byKey(const Key('deleteVoiceNoteButton')));
+      await tester.pumpAndSettle();
+      expect(find.text('Listo para grabar'), findsOneWidget);
+      expect(find.byKey(const Key('playPauseButton')), findsNothing);
+      expect(service.deletedPaths, contains('/tmp/foloo_voice_2.m4a'));
+    },
+  );
 
   testWidgets('permission denial preserves the written note fallback', (
     tester,
@@ -174,7 +169,7 @@ void main() {
 
       expect(savedLead?.audioLocalPath, '/tmp/foloo_voice_1.m4a');
       expect(savedLead?.audioSeconds, 2);
-      expect(find.byKey(const Key('confirmationVoiceNote')), findsOneWidget);
+      expect(find.text('Lead guardado'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('captureAnotherButton')));
       await tester.pumpAndSettle();

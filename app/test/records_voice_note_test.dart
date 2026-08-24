@@ -9,15 +9,17 @@ import 'package:foloo/theme/foloo_theme.dart';
 import 'support/fake_voice_note_service.dart';
 
 LeadDraft lead({String? audioPath, int audioSeconds = 0}) => LeadDraft(
-  name: 'Mariana Sandoval Ruiz',
+  name: 'Mariana',
+  lastName: 'Sandoval Ruiz',
   role: 'Gerente de calidad',
   company: 'Grupo Lácteo del Norte',
   email: 'mariana@example.com',
   phone: '',
-  type: LeadType.potentialCustomer,
+  type: LeadType.customer,
   interest: InterestLevel.high,
-  nextStep: NextStep.sendInformation,
   note: '',
+  originKind: LeadOriginKind.event,
+  eventName: DemoEventData.eventName,
   audioLocalPath: audioPath,
   audioSeconds: audioSeconds,
 );
@@ -59,7 +61,7 @@ void main() {
 
     final audioButton = find.byKey(const Key('recordAudio-EXP-260812-001'));
     expect(audioButton, findsOneWidget);
-    expect(find.text('VOZ 00:32'), findsOneWidget);
+    expect(find.byKey(const Key('recordAudio-EXP-260812-001')), findsOneWidget);
 
     await tester.tap(audioButton);
     await tester.pump();
@@ -103,6 +105,6 @@ void main() {
     await tester.pumpWidget(recordsApp(service, records: [record]));
 
     expect(find.byKey(const Key('recordAudio-EXP-260812-002')), findsNothing);
-    expect(find.textContaining('VOZ '), findsNothing);
+    expect(find.byIcon(Icons.play_arrow), findsNothing);
   });
 }

@@ -37,12 +37,7 @@ class SectionCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title.toUpperCase(),
-                    style: theme.textTheme.titleLarge,
-                  ),
-                ),
+                Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
                 ?trailing,
               ],
             ),

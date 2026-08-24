@@ -12,7 +12,7 @@ class ProgressHeader extends StatelessWidget {
 
   final List<bool> completed;
   final VoidCallback onMenuPressed;
-  static const labels = ['01 Tarjeta', '02 Datos', '03 Relación', '04 Nota'];
+  static const labels = ['01 Tarjeta', '02 Datos', '03 Tipo', '04 Nota'];
 
   int get _activeIndex {
     final firstIncomplete = completed.indexWhere((value) => !value);
@@ -37,7 +37,7 @@ class ProgressHeader extends StatelessWidget {
                 children: [
                   Image.asset(
                     FolooBrand.logoFor(theme.brightness),
-                    width: 64,
+                    width: 44,
                     fit: BoxFit.contain,
                   ),
                   const Spacer(),

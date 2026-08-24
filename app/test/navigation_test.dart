@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/app.dart';
-import 'package:foloo/models/lead_draft.dart';
 
 void usePhoneViewport(WidgetTester tester) {
   tester.view.physicalSize = const Size(390, 844);
@@ -10,18 +9,25 @@ void usePhoneViewport(WidgetTester tester) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-Future<void> login(WidgetTester tester) async {
+Future<void> enterBasicCapture(WidgetTester tester) async {
   await tester.enterText(
     find.byKey(const Key('loginEmailField')),
-    'demo@foloo.example',
+    'y.hernandez',
   );
   await tester.enterText(find.byKey(const Key('loginPasswordField')), 'demo');
   await tester.tap(find.byKey(const Key('loginButton')));
   await tester.pumpAndSettle();
+  expect(find.byKey(const ValueKey('profileScreen')), findsOneWidget);
+  await tester.tap(find.byKey(const Key('profileContinueButton')));
+  await tester.pumpAndSettle();
+  expect(find.byKey(const ValueKey('originScreen')), findsOneWidget);
+  await tester.tap(find.byKey(const Key('originContinueButton')));
+  await tester.pumpAndSettle();
+  expect(find.byKey(const Key('cardSection')), findsOneWidget);
 }
 
 Future<void> openDrawer(WidgetTester tester) async {
-  await tester.tap(find.byKey(const Key('hamburgerMenuButton')));
+  await tester.tap(find.byKey(const Key('hamburgerMenuButton')).first);
   await tester.pumpAndSettle();
 }
 
@@ -35,13 +41,13 @@ Future<void> selectDrawerDestination(
 }
 
 Future<void> completeRequiredLead(WidgetTester tester) async {
-  await tester.enterText(find.byKey(const Key('nameField')), 'Ana López');
+  await tester.enterText(find.byKey(const Key('nameField')), 'Ana');
+  await tester.enterText(find.byKey(const Key('lastNameField')), 'López');
   await tester.enterText(find.byKey(const Key('companyField')), 'Estudio Uno');
   await tester.enterText(
     find.byKey(const Key('emailField')),
     'ana@example.com',
   );
-
   final partner = find.byKey(const Key('leadType-partner'));
   await tester.scrollUntilVisible(
     partner,
@@ -50,19 +56,6 @@ Future<void> completeRequiredLead(WidgetTester tester) async {
   );
   await tester.pumpAndSettle();
   await tester.tap(partner);
-
-  final nextStep = find.byKey(const Key('nextStepField'));
-  await tester.scrollUntilVisible(
-    nextStep,
-    240,
-    scrollable: find.byType(Scrollable).first,
-  );
-  await tester.pumpAndSettle();
-  await tester.tap(nextStep);
-  await tester.pumpAndSettle();
-  await tester.tap(find.text(NextStep.sendInformation.label).last);
-  await tester.pumpAndSettle();
-
   await tester.tap(find.byKey(const Key('saveLeadButton')));
   await tester.pumpAndSettle();
 }
@@ -73,58 +66,87 @@ void main() {
   ) async {
     usePhoneViewport(tester);
     await tester.pumpWidget(const FolooApp());
-    await login(tester);
-
+    await enterBasicCapture(tester);
     await openDrawer(tester);
     expect(find.text('Registros'), findsOneWidget);
+    expect(find.text('Mis eventos'), findsOneWidget);
     await tester.tapAt(const Offset(8, 300));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('logoutButton')), findsNothing);
-
     await selectDrawerDestination(tester, const Key('drawerRecords'));
     expect(find.byKey(const ValueKey('recordsScreen')), findsOneWidget);
     expect(find.text('Aún no hay registros'), findsOneWidget);
   });
 
-  testWidgets('drawer opens event and returns to capture', (tester) async {
-    usePhoneViewport(tester);
-    await tester.pumpWidget(const FolooApp());
-    await login(tester);
-
-    await selectDrawerDestination(tester, const Key('drawerEvent'));
-    expect(find.byKey(const Key('eventInformationCard')), findsOneWidget);
-    expect(find.byType(TextField), findsNothing);
-
-    await tester.tap(find.byKey(const Key('backToCaptureButton')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('cardSection')), findsOneWidget);
-  });
-
-  testWidgets('saved lead appears in records during the current session', (
+  testWidgets('drawer opens Mis eventos and supports create/edit navigation', (
     tester,
   ) async {
     usePhoneViewport(tester);
     await tester.pumpWidget(const FolooApp());
-    await login(tester);
-    await completeRequiredLead(tester);
+    await enterBasicCapture(tester);
+    await selectDrawerDestination(tester, const Key('drawerEvents'));
+    expect(find.byKey(const ValueKey('eventsScreen')), findsOneWidget);
+    expect(find.text('Mis eventos'), findsWidgets);
+    expect(find.byKey(const Key('createEventButton')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('event-expo-alimentaria')));
+    await tester.pumpAndSettle();
+    expect(find.text('Editar evento'), findsOneWidget);
+    expect(find.byKey(const Key('editEventNameField')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('closeEventEditorButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('eventsList')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('eventsBackButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('cardSection')), findsOneWidget);
+  });
 
+  testWidgets('capture origin switches locally and reuses event dialog', (
+    tester,
+  ) async {
+    usePhoneViewport(tester);
+    await tester.pumpWidget(const FolooApp());
+    await enterBasicCapture(tester);
+
+    expect(find.byKey(const Key('captureOriginSection')), findsOneWidget);
+    expect(find.byKey(const Key('captureEventDropdown')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('captureOriginDirectTab')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Se guarda sin evento, en tu base general de leads.'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('captureEventDropdown')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('captureOriginEventTab')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('captureEventDropdown')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('captureCreateEventButton')));
+    await tester.pumpAndSettle();
+    expect(find.text('Crear evento'), findsOneWidget);
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('saved lead appears in records and opens read-only detail', (
+    tester,
+  ) async {
+    usePhoneViewport(tester);
+    await tester.pumpWidget(const FolooApp());
+    await enterBasicCapture(tester);
+    await completeRequiredLead(tester);
     expect(find.text('Lead guardado'), findsOneWidget);
     await tester.tap(find.byKey(const Key('captureAnotherButton')));
     await tester.pumpAndSettle();
-
     await selectDrawerDestination(tester, const Key('drawerRecords'));
     expect(find.text('Ana López'), findsOneWidget);
-    expect(find.text('Estudio Uno'), findsOneWidget);
-    expect(find.text('EXP-260812-001'), findsOneWidget);
-    expect(find.text('POR SUBIR'), findsOneWidget);
-
-    await openDrawer(tester);
-    await tester.tap(find.byKey(const Key('logoutButton')));
+    expect(find.textContaining('Estudio Uno'), findsOneWidget);
+    expect(find.text('FOL-260812-001'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('record-FOL-260812-001')));
     await tester.pumpAndSettle();
-    await login(tester);
-    await selectDrawerDestination(tester, const Key('drawerRecords'));
-    expect(find.text('Aún no hay registros'), findsOneWidget);
-    expect(find.text('EXP-260812-001'), findsNothing);
+    expect(find.text('Contacto'), findsOneWidget);
+    expect(find.byKey(const Key('detailBackButton')), findsOneWidget);
+    expect(find.byType(TextFormField), findsNothing);
   });
 
   testWidgets('appearance toggle is local and logout returns to login', (
@@ -132,19 +154,34 @@ void main() {
   ) async {
     usePhoneViewport(tester);
     await tester.pumpWidget(const FolooApp());
-    await login(tester);
+    await enterBasicCapture(tester);
     await openDrawer(tester);
-
     await tester.tap(find.byKey(const Key('appearanceSwitch')));
     await tester.pumpAndSettle();
     expect(
       Theme.of(tester.element(find.byKey(const Key('appDrawer')))).brightness,
       Brightness.dark,
     );
-
     await tester.tap(find.byKey(const Key('logoutButton')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('loginButton')), findsOneWidget);
-    expect(find.byKey(const Key('cardSection')), findsNothing);
+  });
+
+  testWidgets('Basic capture excludes Pro and legacy controls', (tester) async {
+    usePhoneViewport(tester);
+    await tester.pumpWidget(const FolooApp());
+    await enterBasicCapture(tester);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('relationshipSection')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Proveedor'), findsOneWidget);
+    expect(find.text('Partner'), findsOneWidget);
+    expect(find.text('Cliente'), findsOneWidget);
+    expect(find.textContaining('Siguiente paso'), findsNothing);
+    expect(find.textContaining('Transcrip'), findsNothing);
+    expect(find.textContaining('Correo enviado'), findsNothing);
+    expect(find.textContaining('Copia Admin'), findsNothing);
   });
 }

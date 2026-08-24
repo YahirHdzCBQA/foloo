@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/app_destination.dart';
+import '../models/app_event.dart';
 import '../models/session_lead.dart';
 import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
@@ -13,6 +14,7 @@ class AppDrawer extends StatelessWidget {
     required this.onDestinationSelected,
     required this.onAppearanceChanged,
     required this.onLogout,
+    this.profile = DemoBasicData.profile,
     super.key,
   });
 
@@ -22,6 +24,15 @@ class AppDrawer extends StatelessWidget {
   final ValueChanged<AppDestination> onDestinationSelected;
   final ValueChanged<bool> onAppearanceChanged;
   final VoidCallback onLogout;
+  final DemoProfile profile;
+
+  String get _initials => profile.name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .take(2)
+      .map((part) => part[0].toUpperCase())
+      .join();
 
   void _afterClose(BuildContext context, VoidCallback action) {
     Navigator.of(context).pop();
@@ -68,12 +79,12 @@ class AppDrawer extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(22, 10, 22, 22),
               child: Row(
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 28,
-                    backgroundColor: FolooColors.ink,
+                    backgroundColor: ink,
                     child: Text(
-                      'YH',
-                      style: TextStyle(
+                      _initials,
+                      style: const TextStyle(
                         color: FolooColors.lime,
                         fontWeight: FontWeight.w900,
                       ),
@@ -85,7 +96,7 @@ class AppDrawer extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          DemoEventData.capturePerson,
+                          profile.name,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontSize: 17,
                             fontWeight: FontWeight.w900,
@@ -93,7 +104,7 @@ class AppDrawer extends StatelessWidget {
                         ),
                         const SizedBox(height: 5),
                         Text(
-                          DemoEventData.captureRole,
+                          '${profile.company.toUpperCase()} · VENTAS',
                           style: TextStyle(
                             color: ink.withValues(alpha: 0.55),
                             fontSize: 9,
@@ -138,13 +149,13 @@ class AppDrawer extends StatelessWidget {
                       ),
                     ),
                     _DestinationTile(
-                      key: const Key('drawerEvent'),
+                      key: const Key('drawerEvents'),
                       icon: Icons.calendar_today_outlined,
-                      label: 'Evento',
-                      selected: activeDestination == AppDestination.event,
+                      label: 'Mis eventos',
+                      selected: activeDestination == AppDestination.events,
                       onTap: () => _afterClose(
                         context,
-                        () => onDestinationSelected(AppDestination.event),
+                        () => onDestinationSelected(AppDestination.events),
                       ),
                     ),
                     Divider(height: 20, color: ink.withValues(alpha: 0.45)),
@@ -199,8 +210,11 @@ class AppDrawer extends StatelessWidget {
                 label: const Text('Cerrar sesión'),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(56),
-                  foregroundColor: FolooColors.error,
-                  side: const BorderSide(color: FolooColors.error, width: 1.3),
+                  foregroundColor: FolooPalette.of(context).error,
+                  side: BorderSide(
+                    color: FolooPalette.of(context).error,
+                    width: 1.3,
+                  ),
                   shape: const StadiumBorder(),
                   textStyle: const TextStyle(
                     fontSize: 17,
@@ -215,7 +229,7 @@ class AppDrawer extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${DemoEventData.eventCode} · EXPO ALIMENTARIA',
+                    'BASIC · ${DemoEventData.eventCode}',
                     style: TextStyle(
                       color: FolooColors.gray,
                       fontSize: 9,

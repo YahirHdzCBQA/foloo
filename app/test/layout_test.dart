@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foloo/models/app_event.dart';
+import 'package:foloo/models/lead_draft.dart';
 import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/screens/lead_capture_screen.dart';
 import 'package:foloo/theme/foloo_theme.dart';
@@ -7,10 +9,15 @@ import 'package:foloo/theme/foloo_theme.dart';
 Widget captureApp() => MaterialApp(
   theme: FolooTheme.light,
   home: LeadCaptureScreen(
+    originKind: LeadOriginKind.event,
+    eventName: DemoEventData.eventName,
+    events: DemoBasicData.events,
     recordsCount: 0,
     darkMode: false,
     onLeadSaved: (lead) =>
         DemoEventData.createSessionLead(lead: lead, sequence: 1),
+    onOriginChanged: (_, _) {},
+    onCreateEvent: (_) {},
     onDestinationSelected: (_) {},
     onAppearanceChanged: (_) {},
     onLogout: () {},

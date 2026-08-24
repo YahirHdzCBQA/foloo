@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/app_destination.dart';
+import '../models/app_event.dart';
 import '../models/lead_draft.dart';
 import '../models/session_lead.dart';
 import '../models/voice_note_state.dart';
@@ -13,28 +14,44 @@ import '../services/voice_note_service.dart';
 import '../theme/foloo_theme.dart';
 import '../utils/business_card_parser.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/create_event_dialog.dart';
 import '../widgets/progress_header.dart';
 import '../widgets/section_card.dart';
+import '../widgets/segmented_bubble.dart';
 import 'lead_confirmation_screen.dart';
+
+typedef LeadOriginChanged = void Function(LeadOriginKind kind, AppEvent? event);
 
 class LeadCaptureScreen extends StatefulWidget {
   const LeadCaptureScreen({
+    required this.originKind,
+    required this.events,
     required this.recordsCount,
     required this.darkMode,
     required this.onLeadSaved,
     required this.onDestinationSelected,
     required this.onAppearanceChanged,
     required this.onLogout,
+    required this.onOriginChanged,
+    required this.onCreateEvent,
+    this.profile = DemoBasicData.profile,
+    this.eventName,
     this.voiceNoteService,
     super.key,
   });
 
+  final LeadOriginKind originKind;
+  final String? eventName;
+  final List<AppEvent> events;
   final int recordsCount;
   final bool darkMode;
   final SessionLead Function(LeadDraft lead) onLeadSaved;
   final ValueChanged<AppDestination> onDestinationSelected;
   final ValueChanged<bool> onAppearanceChanged;
   final VoidCallback onLogout;
+  final LeadOriginChanged onOriginChanged;
+  final ValueChanged<AppEvent> onCreateEvent;
+  final DemoProfile profile;
   final VoiceNoteService? voiceNoteService;
 
   @override
@@ -61,7 +78,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
 
   Uint8List? _cardBytes;
   String? _cardPath;
-  String? _cardName;
   String? _imageMessage;
   bool _isReadingCard = false;
   bool _ocrFailed = false;
@@ -73,7 +89,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   bool _phoneEdited = false;
   LeadType? _leadType;
   InterestLevel _interest = InterestLevel.medium;
-  NextStep? _nextStep;
   bool _showValidation = false;
   VoiceNoteState _voiceNote = const VoiceNoteState();
   String? _voiceNoteMessage;
@@ -181,7 +196,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       setState(() {
         _cardBytes = bytes;
         _cardPath = image.path;
-        _cardName = image.name;
         _imageMessage = 'Leyendo tarjeta…';
         _ocrFailed = false;
       });
@@ -199,13 +213,61 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     setState(() {
       _cardBytes = null;
       _cardPath = null;
-      _cardName = null;
       _imageMessage = null;
       _ocrFailed = false;
     });
   }
 
+  void _clearLeadFields() {
+    for (final controller in [
+      _name,
+      _lastName,
+      _role,
+      _company,
+      _email,
+      _phone,
+    ]) {
+      controller.clear();
+    }
+    setState(() {
+      _nameEdited = false;
+      _lastNameEdited = false;
+      _roleEdited = false;
+      _companyEdited = false;
+      _emailEdited = false;
+      _phoneEdited = false;
+      _showValidation = false;
+    });
+  }
+
+  AppEvent? get _selectedEvent {
+    final byName = widget.events.where(
+      (event) => event.name == widget.eventName,
+    );
+    if (byName.isNotEmpty) return byName.first;
+    final active = widget.events.where((event) => event.active);
+    if (active.isNotEmpty) return active.first;
+    return widget.events.isEmpty ? null : widget.events.first;
+  }
+
+  void _changeOrigin(LeadOriginKind kind) {
+    if (kind == LeadOriginKind.direct) {
+      widget.onOriginChanged(kind, null);
+    } else {
+      widget.onOriginChanged(kind, _selectedEvent);
+    }
+  }
+
+  Future<void> _createEventFromCapture() async {
+    final event = await showCreateEventDialog(context);
+    if (event == null || !mounted) return;
+    widget.onCreateEvent(event);
+    widget.onOriginChanged(LeadOriginKind.event, event);
+  }
+
   Future<void> _readCard(String imagePath) async {
+    // Demo-only local extraction. OCR-03 keeps production extraction behind
+    // the Foloo backend boundary.
     if (_isReadingCard) return;
     setState(() {
       _isReadingCard = true;
@@ -232,8 +294,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
           card.phone.isNotEmpty;
       setState(() {
         _imageMessage = coreFieldsDetected
-            ? 'Tarjeta leída. Revisa los datos.'
-            : 'Lectura completada. Completa los datos faltantes manualmente.';
+            ? 'Lectura demo completada. Revisa los datos.'
+            : 'Lectura demo completada. Completa los datos faltantes manualmente.';
       });
     } catch (_) {
       if (!mounted) return;
@@ -437,6 +499,24 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     return '$minutes:$remainder';
   }
 
+  String _formatEventDate(DateTime date) {
+    const months = [
+      'ene',
+      'feb',
+      'mar',
+      'abr',
+      'may',
+      'jun',
+      'jul',
+      'ago',
+      'sep',
+      'oct',
+      'nov',
+      'dic',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
   String? _required(String? value, String message) {
     return value == null || value.trim().isEmpty ? message : null;
   }
@@ -468,7 +548,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     if (!mounted) return;
     setState(() => _showValidation = true);
     final fieldsValid = _formKey.currentState?.validate() ?? false;
-    final relationshipValid = _leadType != null && _nextStep != null;
+    final relationshipValid = _leadType != null;
     if (!fieldsValid || !relationshipValid) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -479,16 +559,17 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     }
 
     final lead = LeadDraft(
-      // UI-only split: the conceptual model still has one `nombre` field.
-      name: '${_name.text.trim()} ${_lastName.text.trim()}'.trim(),
+      name: _name.text.trim(),
+      lastName: _lastName.text.trim(),
       role: _role.text.trim(),
       company: _company.text.trim(),
       email: _email.text.trim(),
       phone: _phone.text.trim(),
       type: _leadType!,
       interest: _interest,
-      nextStep: _nextStep!,
       note: _note.text.trim(),
+      originKind: widget.originKind,
+      eventName: widget.eventName,
       audioLocalPath: _voiceNote.hasRecording ? _voiceNote.localPath : null,
       audioSeconds: _voiceNote.hasRecording ? _voiceNote.elapsed.inSeconds : 0,
     );
@@ -525,7 +606,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     setState(() {
       _cardBytes = null;
       _cardPath = null;
-      _cardName = null;
       _imageMessage = null;
       _isReadingCard = false;
       _ocrFailed = false;
@@ -537,7 +617,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       _phoneEdited = false;
       _leadType = null;
       _interest = InterestLevel.medium;
-      _nextStep = null;
       _showValidation = false;
       _voiceNote = const VoiceNoteState();
       _voiceNoteMessage = null;
@@ -552,7 +631,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     _name.text.trim().isNotEmpty &&
         _company.text.trim().isNotEmpty &&
         (_email.text.trim().isNotEmpty || _phone.text.trim().isNotEmpty),
-    _leadType != null && _nextStep != null,
+    _leadType != null,
     _note.text.trim().isNotEmpty ||
         _voiceNote.hasRecording ||
         _voiceNote.isRecording,
@@ -583,6 +662,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     return Scaffold(
       key: _scaffoldKey,
       endDrawer: AppDrawer(
+        profile: widget.profile,
         activeDestination: AppDestination.home,
         recordsCount: widget.recordsCount,
         darkMode: widget.darkMode,
@@ -612,6 +692,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                     constraints: const BoxConstraints(maxWidth: 520),
                     child: Column(
                       children: [
+                        _buildOriginSection(),
+                        const SizedBox(height: 14),
                         _buildCardSection(),
                         const SizedBox(height: 14),
                         _buildDataSection(),
@@ -659,7 +741,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                     onPressed: _submit,
                     iconAlignment: IconAlignment.end,
                     icon: const Icon(Icons.send_outlined),
-                    label: const Text('Guardar y enviar'),
+                    label: const Text('Guardar'),
                   ),
                 ),
               ),
@@ -670,7 +752,144 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     );
   }
 
+  Widget _buildOriginSection() {
+    final palette = FolooPalette.of(context);
+    final selectedEvent = _selectedEvent;
+    final direct = widget.originKind == LeadOriginKind.direct;
+    return Container(
+      key: const Key('captureOriginSection'),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      decoration: BoxDecoration(
+        color: palette.card,
+        borderRadius: BorderRadius.circular(FolooRadii.md),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Origen del lead',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 10),
+          SegmentedBubble<LeadOriginKind>(
+            key: const Key('captureOriginBubble'),
+            selected: widget.originKind,
+            onSelected: _changeOrigin,
+            options: const [
+              SegmentedBubbleOption(
+                key: Key('captureOriginEventTab'),
+                value: LeadOriginKind.event,
+                label: 'Evento',
+                leading: Icon(Icons.calendar_today_outlined, size: 15),
+              ),
+              SegmentedBubbleOption(
+                key: Key('captureOriginDirectTab'),
+                value: LeadOriginKind.direct,
+                label: 'Lead directo',
+                leading: Icon(Icons.person_outline, size: 16),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (direct)
+            Text(
+              'Se guarda sin evento, en tu base general de leads.',
+              style: TextStyle(
+                color: palette.inkSecondary,
+                fontSize: 13,
+                height: 1.35,
+              ),
+            )
+          else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 56,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: palette.paper,
+                      borderRadius: BorderRadius.circular(FolooRadii.md),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        key: const Key('captureEventDropdown'),
+                        value: selectedEvent?.id,
+                        isExpanded: true,
+                        hint: const Text('Selecciona un evento'),
+                        icon: const Icon(Icons.keyboard_arrow_down, size: 19),
+                        items: widget.events
+                            .map(
+                              (event) => DropdownMenuItem(
+                                value: event.id,
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: const BoxDecoration(
+                                        color: FolooColors.lime,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 9),
+                                    Expanded(
+                                      child: Text(
+                                        event.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (id) {
+                          if (id == null) return;
+                          final event = widget.events.firstWhere(
+                            (item) => item.id == id,
+                          );
+                          widget.onOriginChanged(LeadOriginKind.event, event);
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  key: const Key('captureCreateEventButton'),
+                  tooltip: 'Crear evento',
+                  onPressed: _createEventFromCapture,
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(56, 56),
+                    backgroundColor: palette.paper,
+                    foregroundColor: palette.ink,
+                  ),
+                  icon: const Icon(Icons.add),
+                ),
+              ],
+            ),
+            if (selectedEvent != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                '${_formatEventDate(selectedEvent.startsOn)} · el más reciente. Si no está, agrégalo con +.',
+                style: TextStyle(color: palette.inkSecondary, fontSize: 11),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildCardSection() {
+    final palette = FolooPalette.of(context);
+    final hasCard = _cardBytes != null;
     return SectionCard(
       key: const Key('cardSection'),
       number: '01',
@@ -678,98 +897,117 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_cardBytes != null) ...[
-            Semantics(
-              label: 'Vista previa de la tarjeta seleccionada',
-              image: true,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: AspectRatio(
-                  aspectRatio: 1.7,
-                  child: Image.memory(
-                    _cardBytes!,
-                    fit: BoxFit.cover,
-                    gaplessPlayback: true,
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Semantics(
+                  label: hasCard
+                      ? 'Vista previa de la tarjeta seleccionada'
+                      : 'Sin foto de tarjeta',
+                  image: hasCard,
+                  child: Container(
+                    height: 64,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: hasCard ? palette.ink : palette.paper,
+                      borderRadius: BorderRadius.circular(FolooRadii.sm),
+                    ),
+                    child: hasCard
+                        ? Image.memory(
+                            _cardBytes!,
+                            fit: BoxFit.cover,
+                            gaplessPlayback: true,
+                          )
+                        : Icon(
+                            Icons.center_focus_weak_outlined,
+                            color: palette.inkSecondary,
+                            size: 24,
+                          ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _cardName ?? 'Tarjeta seleccionada',
-                    overflow: TextOverflow.ellipsis,
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 4,
+                child: Text(
+                  hasCard ? 'Tarjeta lista · datos aplicados' : 'Sin foto aún',
+                  style: TextStyle(
+                    color: palette.inkSecondary,
+                    fontSize: 12,
+                    height: 1.35,
                   ),
                 ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                key: const Key('galleryButton'),
+                tooltip: 'Elegir de galería',
+                onPressed: _isReadingCard
+                    ? null
+                    : () => _pickImage(ImageSource.gallery),
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(48, 48),
+                  backgroundColor: palette.paper,
+                  foregroundColor: palette.inkSecondary,
+                ),
+                icon: const Icon(Icons.photo_outlined, size: 20),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                key: const Key('cameraButton'),
+                tooltip: hasCard ? 'Cambiar foto' : 'Tomar foto',
+                onPressed: _isReadingCard
+                    ? null
+                    : () => _pickImage(ImageSource.camera),
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(48, 48),
+                  backgroundColor: palette.ink,
+                  foregroundColor: palette.card,
+                ),
+                icon: const Icon(Icons.photo_camera_outlined, size: 20),
+              ),
+            ],
+          ),
+          if (hasCard) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
                 TextButton.icon(
+                  key: const Key('readCardButton'),
+                  onPressed: _isReadingCard || _cardPath == null
+                      ? null
+                      : () => _readCard(_cardPath!),
+                  style: TextButton.styleFrom(foregroundColor: palette.ink),
+                  icon: _isReadingCard
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.sync, size: 17),
+                  label: Text(
+                    _isReadingCard ? 'Leyendo tarjeta…' : 'Reprocesar',
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  key: const Key('removeCardButton'),
                   onPressed: _isReadingCard ? null : _removeImage,
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Quitar'),
+                  style: TextButton.styleFrom(foregroundColor: palette.ink),
+                  child: const Text('Quitar'),
                 ),
               ],
             ),
           ],
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  key: const Key('galleryButton'),
-                  onPressed: _isReadingCard
-                      ? null
-                      : () => _pickImage(ImageSource.gallery),
-                  icon: const Icon(Icons.photo_library_outlined),
-                  label: const Text('Elegir de galería'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(64),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  key: const Key('cameraButton'),
-                  onPressed: _isReadingCard
-                      ? null
-                      : () => _pickImage(ImageSource.camera),
-                  icon: const Icon(Icons.photo_camera_outlined),
-                  label: Text(
-                    _cardBytes == null ? 'Tomar foto' : 'Cambiar foto',
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(64),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (_cardBytes != null) ...[
-            const SizedBox(height: 10),
-            ElevatedButton.icon(
-              key: const Key('readCardButton'),
-              onPressed: _isReadingCard || _cardPath == null
-                  ? null
-                  : () => _readCard(_cardPath!),
-              icon: _isReadingCard
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.document_scanner_outlined),
-              label: Text(_isReadingCard ? 'LEYENDO TARJETA…' : 'LEER TARJETA'),
-            ),
-          ],
           if (_imageMessage != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 4),
             Semantics(
               liveRegion: true,
               child: Text(
                 _imageMessage!,
                 style: TextStyle(
-                  color: _ocrFailed || _cardBytes == null
-                      ? FolooColors.error
-                      : FolooColors.pine,
+                  color: _ocrFailed ? palette.error : palette.inkSecondary,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -785,6 +1023,17 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       key: const Key('dataSection'),
       number: '02',
       title: 'Datos del lead',
+      trailing: TextButton(
+        key: const Key('clearLeadFieldsButton'),
+        onPressed: _clearLeadFields,
+        style: TextButton.styleFrom(
+          foregroundColor: FolooPalette.of(context).inkSecondary,
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+        child: const Text('Limpiar'),
+      ),
       child: Column(
         children: [
           Row(
@@ -878,7 +1127,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     return SectionCard(
       key: const Key('relationshipSection'),
       number: '03',
-      title: 'Relación',
+      title: 'Tipo de Lead',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -887,10 +1136,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               final selected = _leadType == type;
               return Expanded(
                 child: Padding(
-                  padding: EdgeInsets.only(
-                    right: type == LeadType.partner ? 5 : 0,
-                    left: type == LeadType.partner ? 0 : 5,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
                   child: _RelationshipChoice(
                     type: type,
                     selected: selected,
@@ -903,7 +1149,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
           if (_showValidation && _leadType == null) ...[
             const SizedBox(height: 6),
             const Text(
-              'Elige Partner o Cliente potencial',
+              'Elige Proveedor, Partner o Cliente',
               style: TextStyle(color: FolooColors.error, fontSize: 12),
             ),
           ],
@@ -917,53 +1163,30 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             ),
           ),
           const SizedBox(height: 8),
-          Row(
-            children:
-                [
-                  InterestLevel.low,
-                  InterestLevel.medium,
-                  InterestLevel.high,
-                ].map((interest) {
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        right: interest == InterestLevel.high ? 0 : 6,
-                      ),
-                      child: _InterestChoice(
-                        interest: interest,
-                        selected: _interest == interest,
-                        onTap: () => setState(() => _interest = interest),
-                      ),
-                    ),
-                  );
-                }).toList(),
-          ),
-          const SizedBox(height: 14),
-          const Text(
-            'SIGUIENTE PASO',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<NextStep>(
-            key: const Key('nextStepField'),
-            isExpanded: true,
-            initialValue: _nextStep,
-            decoration: const InputDecoration(
-              hintText: 'Selecciona una opción',
-            ),
-            items: NextStep.values
-                .map(
-                  (step) =>
-                      DropdownMenuItem(value: step, child: Text(step.label)),
-                )
-                .toList(),
-            onChanged: (value) => setState(() => _nextStep = value),
-            validator: (value) =>
-                value == null ? 'Selecciona el siguiente paso' : null,
+          SegmentedBubble<InterestLevel>(
+            key: const Key('interestBubble'),
+            selected: _interest,
+            onSelected: (value) => setState(() => _interest = value),
+            options: const [
+              SegmentedBubbleOption(
+                key: Key('interest-low'),
+                value: InterestLevel.low,
+                label: 'Bajo',
+                leading: _InterestDot(color: FolooColors.interestLow),
+              ),
+              SegmentedBubbleOption(
+                key: Key('interest-medium'),
+                value: InterestLevel.medium,
+                label: 'Medio',
+                leading: _InterestDot(color: FolooColors.interestMedium),
+              ),
+              SegmentedBubbleOption(
+                key: Key('interest-high'),
+                value: InterestLevel.high,
+                label: 'Alto',
+                leading: _InterestDot(color: FolooColors.interestHigh),
+              ),
+            ],
           ),
         ],
       ),
@@ -1000,7 +1223,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // TODO(BACKEND/AUDIO): Upload the local voice note and connect server-side transcription.
+          // TODO(BACKEND/AUDIO): Upload the local voice note when media delivery is implemented.
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -1106,14 +1329,20 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                 TextButton.icon(
                   key: const Key('rerecordButton'),
                   onPressed: _voiceActionInProgress ? null : _startRecording,
+                  style: TextButton.styleFrom(
+                    foregroundColor: FolooPalette.of(context).ink,
+                  ),
                   icon: const Icon(Icons.mic_none),
-                  label: const Text('VOLVER A GRABAR'),
+                  label: const Text('Volver a grabar'),
                 ),
                 TextButton.icon(
                   key: const Key('deleteVoiceNoteButton'),
                   onPressed: _voiceActionInProgress ? null : _deleteVoiceNote,
+                  style: TextButton.styleFrom(
+                    foregroundColor: FolooPalette.of(context).ink,
+                  ),
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('BORRAR AUDIO'),
+                  label: const Text('Borrar audio'),
                 ),
               ],
             ),
@@ -1138,7 +1367,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                 key: const Key('voiceNoteMessage'),
                 style: TextStyle(
                   color: _voiceNote.phase == VoiceNotePhase.idle
-                      ? FolooColors.error
+                      ? FolooPalette.of(context).error
                       : Theme.of(context).colorScheme.onSurface
                             .withValues(alpha: 0.68),
                   fontWeight: FontWeight.w700,
@@ -1148,7 +1377,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
           ],
           const SizedBox(height: 12),
           _LabeledField(
-            label: 'TEXTO DE LA NOTA',
+            label: 'Nota escrita',
             field: TextFormField(
               key: const Key('noteField'),
               controller: _note,
@@ -1158,16 +1387,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               minLines: 4,
               maxLines: 7,
               textCapitalization: TextCapitalization.sentences,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'La transcripción automática requiere el backend y aún no está disponible.',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface
-                  .withValues(alpha: 0.55),
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -1201,58 +1420,49 @@ class _RelationshipChoice extends StatelessWidget {
           duration: MediaQuery.disableAnimationsOf(context)
               ? Duration.zero
               : const Duration(milliseconds: 160),
-          height: 148,
-          padding: const EdgeInsets.all(14),
+          height: 64,
+          padding: const EdgeInsets.symmetric(horizontal: 9),
           decoration: BoxDecoration(
             color: selected
-                ? FolooColors.lime.withValues(alpha: 0.34)
-                : Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
+                ? FolooColors.limeTint
+                : FolooPalette.of(context).paper,
+            borderRadius: BorderRadius.circular(FolooRadii.sm),
             border: Border.all(
-              color: Theme.of(context).colorScheme.onSurface,
-              width: selected ? 2 : 1,
+              color: selected
+                  ? Theme.of(context).colorScheme.onSurface
+                  : Colors.transparent,
             ),
-            boxShadow: selected
-                ? const [
-                    BoxShadow(
-                      color: FolooColors.ink,
-                      offset: Offset(0, 3),
-                      blurRadius: 0,
-                    ),
-                  ]
-                : null,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                type == LeadType.partner
-                    ? Icons.people_outline
-                    : Icons.person_add_alt_1_outlined,
+                switch (type) {
+                  LeadType.supplier => Icons.inventory_2_outlined,
+                  LeadType.partner => Icons.people_outline,
+                  LeadType.customer => Icons.person_add_alt_1_outlined,
+                },
                 color: selected
-                    ? FolooColors.success
+                    ? FolooColors.ink
                     : Theme.of(context).colorScheme.onSurface,
+                size: 18,
               ),
-              const Spacer(),
-              Text(
-                type.label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: type == LeadType.potentialCustomer ? 17 : 18,
-                  height: 1.05,
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  type.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: type == LeadType.supplier ? 11 : 12,
+                  ),
                 ),
               ),
-              const SizedBox(height: 5),
-              Text(
-                type == LeadType.partner ? 'CANAL / ALIANZA' : 'COMPRA DIRECTA',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface
-                      .withValues(alpha: 0.5),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1,
-                ),
-              ),
+              if (selected) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.check_circle, size: 14),
+              ],
             ],
           ),
         ),
@@ -1289,70 +1499,17 @@ class _LabeledField extends StatelessWidget {
   }
 }
 
-class _InterestChoice extends StatelessWidget {
-  const _InterestChoice({
-    required this.interest,
-    required this.selected,
-    required this.onTap,
-  });
+class _InterestDot extends StatelessWidget {
+  const _InterestDot({required this.color});
 
-  final InterestLevel interest;
-  final bool selected;
-  final VoidCallback onTap;
-
-  Color get color => switch (interest) {
-    InterestLevel.low => FolooColors.success,
-    InterestLevel.medium => const Color(0xFFFFD900),
-    InterestLevel.high => const Color(0xFFFF3217),
-  };
+  final Color color;
 
   @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: 'Interés ${interest.label}',
-      child: InkWell(
-        key: Key('interest-${interest.name}'),
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: AnimatedContainer(
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 160),
-          constraints: const BoxConstraints(minHeight: 76),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.16),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: selected
-                  ? Theme.of(context).colorScheme.onSurface
-                  : color.withValues(alpha: 0.5),
-              width: selected ? 2 : 1,
-            ),
-            boxShadow: selected
-                ? [BoxShadow(color: color, offset: const Offset(0, 5))]
-                : null,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              ),
-              const SizedBox(height: 7),
-              Text(
-                interest.label,
-                style: const TextStyle(fontWeight: FontWeight.w900),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    width: 8,
+    height: 8,
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  );
 }
 
 class _Waveform extends StatelessWidget {

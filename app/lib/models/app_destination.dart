@@ -1,1 +1,1 @@
-enum AppDestination { home, records, event }
+enum AppDestination { home, records, events }

@@ -19,20 +19,23 @@ Future<void> enterDemoAccess(WidgetTester tester) async {
   await tapLogin(tester);
 }
 
+Future<void> finishOnboarding(WidgetTester tester) async {
+  if (find.byKey(const Key('profileContinueButton')).evaluate().isNotEmpty) {
+    await tester.tap(find.byKey(const Key('profileContinueButton')));
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(find.byKey(const Key('originContinueButton')));
+  await tester.pumpAndSettle();
+}
+
 void main() {
-  testWidgets('validates empty and malformed login fields', (tester) async {
+  testWidgets('validates empty login fields', (tester) async {
     await tester.pumpWidget(const FolooApp());
 
     await tapLogin(tester);
 
-    expect(find.text('Escribe tu usuario o correo'), findsOneWidget);
+    expect(find.text('Escribe tu usuario'), findsOneWidget);
     expect(find.text('Escribe tu contraseña'), findsOneWidget);
-
-    await tester.enterText(find.byKey(const Key('loginEmailField')), 'usuario');
-    await tester.enterText(find.byKey(const Key('loginPasswordField')), 'demo');
-    await tapLogin(tester);
-
-    expect(find.text('Escribe un correo válido'), findsOneWidget);
     expect(find.byKey(const Key('hamburgerMenuButton')), findsNothing);
   });
 
@@ -65,10 +68,16 @@ void main() {
     );
   });
 
-  testWidgets('valid demo login opens lead capture', (tester) async {
+  testWidgets('valid demo login opens profile, origin and lead capture', (
+    tester,
+  ) async {
     await tester.pumpWidget(const FolooApp());
     await enterDemoAccess(tester);
-
+    expect(find.byKey(const ValueKey('profileScreen')), findsOneWidget);
+    expect(find.byKey(const Key('profileCameraButton')), findsOneWidget);
+    expect(find.byKey(const Key('profileGalleryButton')), findsOneWidget);
+    expect(tester.widget<Image>(find.byType(Image)).width, 44);
+    await finishOnboarding(tester);
     expect(find.byKey(const Key('cardSection')), findsOneWidget);
     expect(find.byKey(const Key('hamburgerMenuButton')), findsOneWidget);
     expect(find.byKey(const Key('loginButton')), findsNothing);
@@ -79,6 +88,7 @@ void main() {
   ) async {
     await tester.pumpWidget(const FolooApp());
     await enterDemoAccess(tester);
+    await finishOnboarding(tester);
 
     await tester.enterText(find.byKey(const Key('nameField')), 'Borrador demo');
     await tester.tap(find.byKey(const Key('hamburgerMenuButton')));
@@ -94,6 +104,7 @@ void main() {
     expect(find.byKey(const Key('cardSection')), findsNothing);
 
     await enterDemoAccess(tester);
+    await finishOnboarding(tester);
     final nameField = tester.widget<TextFormField>(
       find.byKey(const Key('nameField')),
     );

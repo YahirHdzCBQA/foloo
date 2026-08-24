@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foloo/models/app_event.dart';
 import 'package:foloo/models/lead_draft.dart';
 import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/screens/lead_capture_screen.dart';
@@ -8,10 +9,15 @@ import 'package:foloo/theme/foloo_theme.dart';
 Widget captureApp() => MaterialApp(
   theme: FolooTheme.light,
   home: LeadCaptureScreen(
+    originKind: LeadOriginKind.event,
+    eventName: DemoEventData.eventName,
+    events: DemoBasicData.events,
     recordsCount: 0,
     darkMode: false,
     onLeadSaved: (lead) =>
         DemoEventData.createSessionLead(lead: lead, sequence: 1),
+    onOriginChanged: (_, _) {},
+    onCreateEvent: (_) {},
     onDestinationSelected: (_) {},
     onAppearanceChanged: (_) {},
     onLogout: () {},
@@ -24,12 +30,16 @@ void main() {
   ) async {
     await tester.pumpWidget(captureApp());
 
+    expect(find.text('Sin foto aún'), findsOneWidget);
+    expect(find.text('Tipo de Lead'), findsOneWidget);
+    expect(find.byKey(const Key('interestBubble')), findsOneWidget);
+
     await tester.tap(find.byKey(const Key('saveLeadButton')));
     await tester.pumpAndSettle();
 
     expect(find.text('El nombre es obligatorio'), findsOneWidget);
     expect(find.text('La empresa es obligatoria'), findsOneWidget);
-    expect(find.text('Elige Partner o Cliente potencial'), findsOneWidget);
+    expect(find.text('Elige Proveedor, Partner o Cliente'), findsOneWidget);
   });
 
   testWidgets('completes the manual capture flow and starts another lead', (
@@ -56,24 +66,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(partner);
     await tester.pumpAndSettle();
-    final nextStep = find.byKey(const Key('nextStepField'));
-    await tester.scrollUntilVisible(
-      nextStep,
-      180,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(nextStep);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(NextStep.sendInformation.label).last);
-    await tester.pumpAndSettle();
-
     await tester.tap(find.byKey(const Key('saveLeadButton')));
     await tester.pumpAndSettle();
 
     expect(find.text('Lead guardado'), findsOneWidget);
     expect(find.textContaining('Ana López'), findsOneWidget);
-    expect(find.text('EXP-260812-001'), findsOneWidget);
+    expect(find.text('FOL-260812-001'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('captureAnotherButton')));
     await tester.pumpAndSettle();
@@ -102,5 +100,41 @@ void main() {
 
     expect(find.text('Escribe correo o teléfono'), findsNothing);
     expect(find.text('Escribe teléfono o correo'), findsNothing);
+  });
+
+  testWidgets('clears only the lead data fields from the section action', (
+    tester,
+  ) async {
+    await tester.pumpWidget(captureApp());
+    await tester.enterText(find.byKey(const Key('nameField')), 'Mariana');
+    await tester.enterText(find.byKey(const Key('lastNameField')), 'Ruiz');
+    await tester.enterText(find.byKey(const Key('roleField')), 'Gerente');
+    await tester.enterText(find.byKey(const Key('companyField')), 'Empresa');
+    await tester.enterText(
+      find.byKey(const Key('emailField')),
+      'mariana@example.com',
+    );
+    await tester.enterText(find.byKey(const Key('phoneField')), '5500000000');
+
+    final clear = find.byKey(const Key('clearLeadFieldsButton'));
+    await tester.scrollUntilVisible(
+      clear,
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(clear);
+    await tester.pump();
+
+    for (final key in const [
+      Key('nameField'),
+      Key('lastNameField'),
+      Key('roleField'),
+      Key('companyField'),
+      Key('emailField'),
+      Key('phoneField'),
+    ]) {
+      final field = tester.widget<TextFormField>(find.byKey(key));
+      expect(field.controller?.text, isEmpty);
+    }
   });
 }
