@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 
 import 'models/app_destination.dart';
 import 'models/app_event.dart';
+import 'models/app_plan.dart';
 import 'models/lead_draft.dart';
+import 'models/pro_demo_data.dart';
 import 'models/session_lead.dart';
 import 'screens/event_screen.dart';
+import 'screens/content_screen.dart';
+import 'screens/email_screen.dart';
 import 'screens/lead_capture_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/origin_selection_screen.dart';
@@ -25,10 +29,13 @@ class _FolooAppState extends State<FolooApp> {
   _AppStage _stage = _AppStage.login;
   ThemeMode _themeMode = ThemeMode.light;
   AppDestination _destination = AppDestination.home;
+  // Development/demo plan selector. Replace with account capabilities from backend when the capability contract is implemented.
+  AppPlan _plan = AppPlan.basic;
   AppDestination _eventsReturnDestination = AppDestination.home;
   DemoProfile _profile = DemoBasicData.profile;
   bool _profileCompleted = false;
   late List<AppEvent> _events;
+  late List<ContentFile> _contentFiles;
   OriginSelection? _origin;
   final List<SessionLead> _sessionLeads = [];
 
@@ -36,6 +43,7 @@ class _FolooAppState extends State<FolooApp> {
   void initState() {
     super.initState();
     _events = List.of(DemoBasicData.events);
+    _contentFiles = List.of(DemoProData.files);
   }
 
   SessionLead _saveLead(LeadDraft lead) {
@@ -85,7 +93,13 @@ class _FolooAppState extends State<FolooApp> {
   }
 
   void _changeCaptureOrigin(LeadOriginKind kind, AppEvent? event) {
-    setState(() => _origin = OriginSelection(kind: kind, event: event));
+    setState(
+      () => _origin = OriginSelection(
+        kind: kind,
+        event: event,
+        place: kind == LeadOriginKind.direct ? _origin?.place : null,
+      ),
+    );
   }
 
   void _logout() {
@@ -149,6 +163,8 @@ class _FolooAppState extends State<FolooApp> {
         _AppStage.login => LoginScreen(
           key: const ValueKey('loginScreen'),
           onAuthenticated: _authenticate,
+          selectedPlan: _plan,
+          onPlanChanged: (plan) => setState(() => _plan = plan),
         ),
         _AppStage.profile => ProfileSetupScreen(
           key: const ValueKey('profileScreen'),
@@ -159,6 +175,8 @@ class _FolooAppState extends State<FolooApp> {
           events: List.unmodifiable(_events),
           onContinue: _selectOrigin,
           onCreateEvent: _createEvent,
+          plan: _plan,
+          contentFiles: List.unmodifiable(_contentFiles),
         ),
         _AppStage.shell => _buildShell(),
       },
@@ -176,6 +194,7 @@ class _FolooAppState extends State<FolooApp> {
           key: const ValueKey('leadCaptureScreen'),
           originKind: origin.kind,
           eventName: origin.event?.name,
+          initialPlace: origin.place,
           events: List.unmodifiable(_events),
           profile: _profile,
           recordsCount: _sessionLeads.length,
@@ -186,6 +205,8 @@ class _FolooAppState extends State<FolooApp> {
           onDestinationSelected: _selectDestination,
           onAppearanceChanged: _setAppearance,
           onLogout: _logout,
+          plan: _plan,
+          contentFiles: List.unmodifiable(_contentFiles),
         ),
         RecordsScreen(
           key: const ValueKey('recordsScreen'),
@@ -195,6 +216,8 @@ class _FolooAppState extends State<FolooApp> {
           onDestinationSelected: _selectDestination,
           onAppearanceChanged: _setAppearance,
           onLogout: _logout,
+          plan: _plan,
+          contentFiles: List.unmodifiable(_contentFiles),
         ),
         EventScreen(
           key: const ValueKey('eventsScreen'),
@@ -209,7 +232,47 @@ class _FolooAppState extends State<FolooApp> {
           onUpdate: _updateEvent,
           onDelete: _deleteEvent,
           onBack: _backFromEvents,
+          plan: _plan,
+          contentFiles: List.unmodifiable(_contentFiles),
         ),
+        if (_plan.isPro)
+          ContentScreen(
+            key: const ValueKey('contentScreen'),
+            files: List.unmodifiable(_contentFiles),
+            events: List.unmodifiable(_events),
+            recordsCount: _sessionLeads.length,
+            profile: _profile,
+            darkMode: darkMode,
+            onDestinationSelected: _selectDestination,
+            onAppearanceChanged: _setAppearance,
+            onLogout: _logout,
+            onFileAdded: (file) => setState(() => _contentFiles.add(file)),
+            onFileUpdated: (file) => setState(
+              () => _contentFiles = _contentFiles
+                  .map((item) => item.id == file.id ? file : item)
+                  .toList(),
+            ),
+            onFileDeleted: (file) => setState(
+              () => _contentFiles.removeWhere((item) => item.id == file.id),
+            ),
+          )
+        else
+          const SizedBox.shrink(),
+        if (_plan.isPro)
+          EmailScreen(
+            key: const ValueKey('emailScreen'),
+            recordsCount: _sessionLeads.length,
+            contentCount: _contentFiles.length,
+            records: List.unmodifiable(_sessionLeads),
+            contentFiles: List.unmodifiable(_contentFiles),
+            profile: _profile,
+            darkMode: darkMode,
+            onDestinationSelected: _selectDestination,
+            onAppearanceChanged: _setAppearance,
+            onLogout: _logout,
+          )
+        else
+          const SizedBox.shrink(),
       ],
     );
   }

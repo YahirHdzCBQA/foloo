@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../models/app_event.dart';
+import '../models/app_plan.dart';
+import '../models/pro_demo_data.dart';
 import '../models/lead_draft.dart';
 import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
@@ -8,9 +10,10 @@ import '../widgets/create_event_dialog.dart';
 import '../widgets/segmented_bubble.dart';
 
 class OriginSelection {
-  const OriginSelection({required this.kind, this.event});
+  const OriginSelection({required this.kind, this.event, this.place});
   final LeadOriginKind kind;
   final AppEvent? event;
+  final String? place;
 }
 
 class OriginSelectionScreen extends StatefulWidget {
@@ -18,12 +21,16 @@ class OriginSelectionScreen extends StatefulWidget {
     required this.events,
     required this.onContinue,
     required this.onCreateEvent,
+    required this.plan,
+    required this.contentFiles,
     super.key,
   });
 
   final List<AppEvent> events;
   final ValueChanged<OriginSelection> onContinue;
   final ValueChanged<AppEvent> onCreateEvent;
+  final AppPlan plan;
+  final List<ContentFile> contentFiles;
 
   @override
   State<OriginSelectionScreen> createState() => _OriginSelectionScreenState();
@@ -32,6 +39,7 @@ class OriginSelectionScreen extends StatefulWidget {
 class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
   LeadOriginKind _kind = LeadOriginKind.event;
   AppEvent? _event;
+  final _place = TextEditingController();
 
   @override
   void initState() {
@@ -42,8 +50,18 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
         : (widget.events.isEmpty ? null : widget.events.first);
   }
 
+  @override
+  void dispose() {
+    _place.dispose();
+    super.dispose();
+  }
+
   Future<void> _createEvent() async {
-    final event = await showCreateEventDialog(context);
+    final event = await showCreateEventDialog(
+      context,
+      plan: widget.plan,
+      contentFiles: widget.contentFiles,
+    );
     if (event == null || !mounted) return;
     widget.onCreateEvent(event);
     setState(() {
@@ -104,10 +122,10 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
               ),
               const SizedBox(height: 30),
               if (direct)
-                SizedBox(
-                  height: 260,
-                  child: Center(
-                    child: Text(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
                       'Se guarda sin evento, en tu base general de leads.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
@@ -116,7 +134,25 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
                         height: 1.5,
                       ),
                     ),
-                  ),
+                    if (widget.plan.isPro) ...[
+                      const SizedBox(height: 24),
+                      TextField(
+                        key: const Key('originPlaceField'),
+                        controller: _place,
+                        onChanged: (_) => setState(() {}),
+                        decoration: const InputDecoration(labelText: 'Lugar'),
+                      ),
+                      const SizedBox(height: 7),
+                      Text(
+                        'Dónde surgió la conversación. Sustituye {lugar} en el correo; se conserva para la siguiente captura.',
+                        style: TextStyle(
+                          color: palette.inkSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 80),
+                  ],
                 )
               else ...[
                 Column(
@@ -213,9 +249,17 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
           child: FilledButton(
             key: const Key('originContinueButton'),
-            onPressed: direct || _event != null
+            onPressed:
+                (direct &&
+                        (!widget.plan.isPro ||
+                            _place.text.trim().isNotEmpty)) ||
+                    (!direct && _event != null)
                 ? () => widget.onContinue(
-                    OriginSelection(kind: _kind, event: direct ? null : _event),
+                    OriginSelection(
+                      kind: _kind,
+                      event: direct ? null : _event,
+                      place: direct ? _place.text.trim() : null,
+                    ),
                   )
                 : null,
             child: Text(direct ? 'Capturar conexión' : 'Empezar a capturar'),

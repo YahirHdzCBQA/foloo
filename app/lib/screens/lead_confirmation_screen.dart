@@ -3,17 +3,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/session_lead.dart';
+import '../models/app_plan.dart';
+import '../models/pro_demo_data.dart';
 import '../theme/foloo_theme.dart';
 
 class LeadConfirmationScreen extends StatefulWidget {
   const LeadConfirmationScreen({
     required this.record,
     required this.onCaptureAnother,
+    this.plan = AppPlan.basic,
     super.key,
   });
 
   final SessionLead record;
   final VoidCallback onCaptureAnother;
+  final AppPlan plan;
 
   @override
   State<LeadConfirmationScreen> createState() => _LeadConfirmationScreenState();
@@ -108,45 +112,59 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
                 ),
               ),
               const SizedBox(height: 30),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: palette.paper,
-                  borderRadius: BorderRadius.circular(FolooRadii.lg),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: palette.successTint,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.check,
-                        size: 19,
-                        color: palette.success,
-                      ),
+              // TODO(BACKEND): Replace demo processing status with real backend state.
+              ..._statusRows(record).map(
+                (status) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: palette.paper,
+                      borderRadius: BorderRadius.circular(FolooRadii.md),
                     ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'En la hoja de cálculo del evento',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                    child: Row(
+                      children: [
+                        const CircleAvatar(
+                          radius: 17,
+                          backgroundColor: FolooColors.lime,
+                          child: Icon(
+                            Icons.check,
+                            color: FolooColors.ink,
+                            size: 18,
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 11),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                status.$1,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                status.$2,
+                                style: TextStyle(
+                                  color: palette.inkSecondary,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          _time(record.capturedAt),
+                          style: TextStyle(
+                            color: palette.inkSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      _time(record.capturedAt),
-                      style: TextStyle(
-                        color: palette.inkSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -180,4 +198,28 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
 
   static String _time(DateTime date) =>
       '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:${date.second.toString().padLeft(2, '0')}';
+
+  List<(String, String)> _statusRows(SessionLead record) {
+    final basic = <(String, String)>[
+      ('En la hoja de cálculo del evento', 'Fila demo · ${record.folio}'),
+    ];
+    if (!widget.plan.isPro) return basic;
+    final attachedNames = record.lead.contentNames;
+    return [
+      ...basic,
+      (
+        'Correo al lead',
+        record.lead.email.isEmpty
+            ? 'Demo · en cola'
+            : 'Demo · ${record.lead.email}',
+      ),
+      ('Copia Admin', 'Demo · ${DemoProData.adminEmail}'),
+      (
+        'Contenido adjunto',
+        attachedNames.isEmpty
+            ? 'Demo · sin archivos'
+            : 'Demo · ${attachedNames.join(' · ')}',
+      ),
+    ];
+  }
 }

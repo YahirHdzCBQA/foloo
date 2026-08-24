@@ -7,6 +7,7 @@ class AppEvent {
     this.active = false,
     this.demoLeadCount = 0,
     this.demoPendingCount = 0,
+    this.contentFileIds = const <String>{},
   });
 
   final String id;
@@ -16,12 +17,14 @@ class AppEvent {
   final bool active;
   final int demoLeadCount;
   final int demoPendingCount;
+  final Set<String> contentFileIds;
 
   AppEvent copyWith({
     String? name,
     DateTime? startsOn,
     DateTime? endsOn,
     bool? active,
+    Set<String>? contentFileIds,
   }) => AppEvent(
     id: id,
     name: name ?? this.name,
@@ -30,6 +33,7 @@ class AppEvent {
     active: active ?? this.active,
     demoLeadCount: demoLeadCount,
     demoPendingCount: demoPendingCount,
+    contentFileIds: contentFileIds ?? this.contentFileIds,
   );
 }
 
@@ -55,6 +59,7 @@ abstract final class DemoBasicData {
       active: true,
       demoLeadCount: 6,
       demoPendingCount: 2,
+      contentFileIds: const {'scanley-ims', 'vision-ai'},
     ),
     AppEvent(
       id: 'foro-lacteo',

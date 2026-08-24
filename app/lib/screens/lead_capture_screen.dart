@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
+import '../models/app_plan.dart';
+import '../models/pro_demo_data.dart';
 import '../models/lead_draft.dart';
 import '../models/session_lead.dart';
 import '../models/voice_note_state.dart';
@@ -34,14 +36,18 @@ class LeadCaptureScreen extends StatefulWidget {
     required this.onLogout,
     required this.onOriginChanged,
     required this.onCreateEvent,
+    this.plan = AppPlan.basic,
+    this.contentFiles = const [],
     this.profile = DemoBasicData.profile,
     this.eventName,
+    this.initialPlace,
     this.voiceNoteService,
     super.key,
   });
 
   final LeadOriginKind originKind;
   final String? eventName;
+  final String? initialPlace;
   final List<AppEvent> events;
   final int recordsCount;
   final bool darkMode;
@@ -53,6 +59,8 @@ class LeadCaptureScreen extends StatefulWidget {
   final ValueChanged<AppEvent> onCreateEvent;
   final DemoProfile profile;
   final VoiceNoteService? voiceNoteService;
+  final AppPlan plan;
+  final List<ContentFile> contentFiles;
 
   @override
   State<LeadCaptureScreen> createState() => _LeadCaptureScreenState();
@@ -73,6 +81,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   final _email = TextEditingController();
   final _phone = TextEditingController();
   final _note = TextEditingController();
+  final _place = TextEditingController();
   late final VoiceNoteService _voiceNoteService;
   late final StreamSubscription<void> _playbackCompletedSubscription;
 
@@ -94,6 +103,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   String? _voiceNoteMessage;
   bool _voiceActionInProgress = false;
   bool _voiceNoteTransferred = false;
+  late Set<String> _selectedContentIds;
   Timer? _recordingTimer;
 
   @override
@@ -101,6 +111,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _voiceNoteService = widget.voiceNoteService ?? DeviceVoiceNoteService();
+    _place.text = widget.initialPlace ?? '';
+    _selectedContentIds = _defaultContentIds();
     _playbackCompletedSubscription = _voiceNoteService.playbackCompleted.listen(
       (_) {
         if (mounted && _voiceNote.isPlaying) {
@@ -115,9 +127,20 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       _email,
       _phone,
       _note,
+      _place,
     ]) {
       controller.addListener(_refreshProgress);
     }
+  }
+
+  Set<String> _defaultContentIds() {
+    if (!widget.plan.isPro) return {};
+    final event = _selectedEvent;
+    if (event == null) return {};
+    return widget.contentFiles
+        .where((file) => file.appliesTo(event))
+        .map((file) => file.id)
+        .toSet();
   }
 
   @override
@@ -136,6 +159,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       _email,
       _phone,
       _note,
+      _place,
     ]) {
       controller.dispose();
     }
@@ -250,6 +274,17 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     return widget.events.isEmpty ? null : widget.events.first;
   }
 
+  List<ContentFile> get _defaultContentForEvent {
+    final event = _selectedEvent;
+    if (event == null) return const [];
+    return widget.contentFiles
+        .where(
+          (file) =>
+              file.appliesTo(event) || event.contentFileIds.contains(file.id),
+        )
+        .toList();
+  }
+
   void _changeOrigin(LeadOriginKind kind) {
     if (kind == LeadOriginKind.direct) {
       widget.onOriginChanged(kind, null);
@@ -259,7 +294,11 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   }
 
   Future<void> _createEventFromCapture() async {
-    final event = await showCreateEventDialog(context);
+    final event = await showCreateEventDialog(
+      context,
+      plan: widget.plan,
+      contentFiles: widget.contentFiles,
+    );
     if (event == null || !mounted) return;
     widget.onCreateEvent(event);
     widget.onOriginChanged(LeadOriginKind.event, event);
@@ -572,6 +611,17 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       eventName: widget.eventName,
       audioLocalPath: _voiceNote.hasRecording ? _voiceNote.localPath : null,
       audioSeconds: _voiceNote.hasRecording ? _voiceNote.elapsed.inSeconds : 0,
+      place: widget.plan.isPro && widget.originKind == LeadOriginKind.direct
+          ? _place.text.trim()
+          : null,
+      contentFileIds: _selectedContentIds.toList(),
+      contentNames: widget.contentFiles
+          .where((file) => _selectedContentIds.contains(file.id))
+          .map((file) => file.displayName)
+          .toList(),
+      transcription: widget.plan.isPro && _voiceNote.hasRecording
+          ? DemoProData.transcript
+          : null,
     );
     final record = widget.onLeadSaved(lead);
     _voiceNoteTransferred = lead.hasVoiceNote;
@@ -580,6 +630,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       MaterialPageRoute<void>(
         builder: (_) => LeadConfirmationScreen(
           record: record,
+          plan: widget.plan,
           onCaptureAnother: () {
             Navigator.of(context).pop();
             _reset();
@@ -662,6 +713,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     return Scaffold(
       key: _scaffoldKey,
       endDrawer: AppDrawer(
+        plan: widget.plan,
+        contentCount: widget.contentFiles.length,
         profile: widget.profile,
         activeDestination: AppDestination.home,
         recordsCount: widget.recordsCount,
@@ -741,7 +794,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                     onPressed: _submit,
                     iconAlignment: IconAlignment.end,
                     icon: const Icon(Icons.send_outlined),
-                    label: const Text('Guardar'),
+                    label: Text(
+                      widget.plan.isPro ? 'Guarda y da “foloo”' : 'Guardar',
+                    ),
                   ),
                 ),
               ),
@@ -799,13 +854,35 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
           ),
           const SizedBox(height: 10),
           if (direct)
-            Text(
-              'Se guarda sin evento, en tu base general de leads.',
-              style: TextStyle(
-                color: palette.inkSecondary,
-                fontSize: 13,
-                height: 1.35,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Se guarda sin evento, en tu base general de leads.',
+                  style: TextStyle(
+                    color: palette.inkSecondary,
+                    fontSize: 13,
+                    height: 1.35,
+                  ),
+                ),
+                if (widget.plan.isPro) ...[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    key: const Key('directPlaceField'),
+                    controller: _place,
+                    decoration: const InputDecoration(labelText: 'Lugar'),
+                    validator: (value) => _required(
+                      value,
+                      'Escribe dónde surgió la conversación',
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Dónde surgió la conversación. Sustituye {lugar} en el correo demo.',
+                    style: TextStyle(color: palette.inkSecondary, fontSize: 11),
+                  ),
+                ],
+              ],
             )
           else ...[
             Row(
@@ -861,6 +938,12 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                           final event = widget.events.firstWhere(
                             (item) => item.id == id,
                           );
+                          setState(() {
+                            _selectedContentIds = widget.contentFiles
+                                .where((file) => file.appliesTo(event))
+                                .map((file) => file.id)
+                                .toSet();
+                          });
                           widget.onOriginChanged(LeadOriginKind.event, event);
                         },
                       ),
@@ -1201,6 +1284,44 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               ),
             ),
           ),
+          if (widget.plan.isPro &&
+              widget.originKind == LeadOriginKind.event &&
+              _defaultContentForEvent.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            const Text(
+              'CONTENIDO A COMPARTIR',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 7),
+            ..._defaultContentForEvent.map(
+              (file) => CheckboxListTile(
+                key: Key('captureContent-${file.id}'),
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                value: _selectedContentIds.contains(file.id),
+                title: Text(file.displayName),
+                subtitle: Text(file.sizeLabel),
+                onChanged: (value) => setState(() {
+                  if (value ?? false) {
+                    _selectedContentIds.add(file.id);
+                  } else {
+                    _selectedContentIds.remove(file.id);
+                  }
+                }),
+              ),
+            ),
+            Text(
+              '${_selectedContentIds.length} de ${_defaultContentForEvent.length} archivos se adjuntan al correo demo.',
+              style: TextStyle(
+                color: FolooPalette.of(context).inkSecondary,
+                fontSize: 11,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1221,7 +1342,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     return SectionCard(
       key: const Key('noteSection'),
       number: '04',
-      title: 'Nota de la plática',
+      title: widget.plan.isPro
+          ? 'Nota de voz (opcional)'
+          : 'Nota de la plática',
       trailing: _voiceNote.isRecording
           ? const Text(
               '● GRABANDO',
@@ -1359,6 +1482,35 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                 ),
               ],
             ),
+          ],
+          if (widget.plan.isPro) ...[
+            const SizedBox(height: 12),
+            Container(
+              key: const Key('transcriptionDemo'),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: FolooPalette.of(context).paper,
+                borderRadius: BorderRadius.circular(FolooRadii.md),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'TRANSCRIPCIÓN · DEMO',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .8,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _voiceNote.hasRecording ? DemoProData.transcript : 'Pendiente. Aparecerá después de guardar la nota de voz.',
+                  ),
+                ],
+              ),
+            ),
+            // TODO(BACKEND/AUDIO): Connect recording/transcription when the audio feature is implemented.
           ],
           if (_voiceNote.isRecording) ...[
             Align(

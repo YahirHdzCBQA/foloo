@@ -33,6 +33,10 @@ class LeadDraft {
     this.eventName,
     this.audioLocalPath,
     required this.audioSeconds,
+    this.place,
+    this.contentFileIds = const <String>[],
+    this.contentNames = const <String>[],
+    this.transcription,
   });
 
   final String name;
@@ -48,6 +52,10 @@ class LeadDraft {
   final String? eventName;
   final String? audioLocalPath;
   final int audioSeconds;
+  final String? place;
+  final List<String> contentFileIds;
+  final List<String> contentNames;
+  final String? transcription;
 
   String get fullName => '$name $lastName'.trim();
   String get originLabel => originKind == LeadOriginKind.event

@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
 
 import '../models/app_event.dart';
+import '../models/app_plan.dart';
+import '../models/pro_demo_data.dart';
 import '../theme/foloo_theme.dart';
 
-Future<AppEvent?> showCreateEventDialog(BuildContext context) async {
+Future<AppEvent?> showCreateEventDialog(
+  BuildContext context, {
+  AppPlan plan = AppPlan.basic,
+  List<ContentFile> contentFiles = const [],
+}) async {
   return showDialog<AppEvent>(
     context: context,
-    builder: (_) => const _CreateEventDialog(),
+    builder: (_) => _CreateEventDialog(plan: plan, contentFiles: contentFiles),
   );
 }
 
 class _CreateEventDialog extends StatefulWidget {
-  const _CreateEventDialog();
+  const _CreateEventDialog({required this.plan, required this.contentFiles});
+  final AppPlan plan;
+  final List<ContentFile> contentFiles;
 
   @override
   State<_CreateEventDialog> createState() => _CreateEventDialogState();
@@ -19,6 +27,7 @@ class _CreateEventDialog extends StatefulWidget {
 
 class _CreateEventDialogState extends State<_CreateEventDialog> {
   final _name = TextEditingController();
+  final Set<String> _selectedFiles = {};
 
   @override
   void dispose() {
@@ -28,6 +37,7 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
+    scrollable: true,
     title: const Text('Crear evento'),
     content: Column(
       mainAxisSize: MainAxisSize.min,
@@ -60,6 +70,41 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
             ),
           ],
         ),
+        if (widget.plan.isPro && widget.contentFiles.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text(
+            'Contenido para este evento · ${_selectedFiles.length} de ${widget.contentFiles.length}',
+            style: const TextStyle(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Puedes asignarlo ahora o más tarde. Sin contenido el correo demo sale igual, solo sin adjuntos.',
+            style: TextStyle(fontSize: 11),
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            width: double.maxFinite,
+            height: 150,
+            child: ListView(
+              children: widget.contentFiles
+                  .map(
+                    (file) => CheckboxListTile(
+                      dense: true,
+                      value: _selectedFiles.contains(file.id),
+                      title: Text(file.displayName),
+                      onChanged: (selected) => setState(() {
+                        if (selected ?? false) {
+                          _selectedFiles.add(file.id);
+                        } else {
+                          _selectedFiles.remove(file.id);
+                        }
+                      }),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        ],
       ],
     ),
     actions: [
@@ -80,6 +125,7 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
               startsOn: DateTime(2026, 8, 12),
               endsOn: DateTime(2026, 8, 14),
               active: true,
+              contentFileIds: {..._selectedFiles},
             ),
           );
         },

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
+import '../models/app_plan.dart';
+import '../models/pro_demo_data.dart';
 import '../theme/foloo_theme.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/create_event_dialog.dart';
@@ -18,6 +20,8 @@ class EventScreen extends StatefulWidget {
     required this.onUpdate,
     required this.onDelete,
     required this.onBack,
+    this.plan = AppPlan.basic,
+    this.contentFiles = const [],
     this.profile = DemoBasicData.profile,
     super.key,
   });
@@ -33,6 +37,8 @@ class EventScreen extends StatefulWidget {
   final ValueChanged<AppEvent> onDelete;
   final VoidCallback onBack;
   final DemoProfile profile;
+  final AppPlan plan;
+  final List<ContentFile> contentFiles;
 
   @override
   State<EventScreen> createState() => _EventScreenState();
@@ -55,7 +61,11 @@ class _EventScreenState extends State<EventScreen> {
   }
 
   Future<void> _createEvent() async {
-    final created = await showCreateEventDialog(context);
+    final created = await showCreateEventDialog(
+      context,
+      plan: widget.plan,
+      contentFiles: widget.contentFiles,
+    );
     if (created == null) return;
     widget.onCreate(created);
   }
@@ -66,6 +76,8 @@ class _EventScreenState extends State<EventScreen> {
   }
 
   Widget _drawer() => AppDrawer(
+    plan: widget.plan,
+    contentCount: widget.contentFiles.length,
     profile: widget.profile,
     activeDestination: AppDestination.events,
     recordsCount: widget.recordsCount,

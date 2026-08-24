@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
+import '../models/app_plan.dart';
+import '../models/pro_demo_data.dart';
 import '../models/lead_draft.dart';
 import '../models/session_lead.dart';
 import '../services/voice_note_service.dart';
@@ -18,6 +20,8 @@ class RecordsScreen extends StatefulWidget {
     required this.onDestinationSelected,
     required this.onAppearanceChanged,
     required this.onLogout,
+    this.plan = AppPlan.basic,
+    this.contentFiles = const [],
     this.profile = DemoBasicData.profile,
     this.voiceNoteService,
     super.key,
@@ -30,6 +34,8 @@ class RecordsScreen extends StatefulWidget {
   final VoidCallback onLogout;
   final DemoProfile profile;
   final VoiceNoteService? voiceNoteService;
+  final AppPlan plan;
+  final List<ContentFile> contentFiles;
 
   @override
   State<RecordsScreen> createState() => _RecordsScreenState();
@@ -172,6 +178,7 @@ class _RecordsScreenState extends State<RecordsScreen>
           audioPlaying:
               _activeAudioPath == record.lead.audioLocalPath && _audioPlaying,
           onToggleAudio: () => _toggleAudio(record),
+          plan: widget.plan,
         ),
       ),
     );
@@ -251,6 +258,8 @@ class _RecordsScreenState extends State<RecordsScreen>
     return Scaffold(
       key: _scaffoldKey,
       endDrawer: AppDrawer(
+        plan: widget.plan,
+        contentCount: widget.contentFiles.length,
         profile: widget.profile,
         activeDestination: AppDestination.records,
         recordsCount: widget.records.length,
@@ -593,11 +602,13 @@ class ConnectionDetailScreen extends StatelessWidget {
     required this.record,
     required this.audioPlaying,
     required this.onToggleAudio,
+    required this.plan,
     super.key,
   });
   final SessionLead record;
   final bool audioPlaying;
   final VoidCallback onToggleAudio;
+  final AppPlan plan;
 
   @override
   Widget build(BuildContext context) {
@@ -773,6 +784,59 @@ class ConnectionDetailScreen extends StatelessWidget {
                   style: const TextStyle(fontSize: 15, height: 1.45),
                 ),
               ),
+            ],
+            if (plan.isPro) ...[
+              const SizedBox(height: 20),
+              const Text(
+                'Transcripción',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                key: const Key('detailTranscription'),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: palette.paper,
+                  borderRadius: BorderRadius.circular(FolooRadii.md),
+                ),
+                child: Text(
+                  lead.transcription ??
+                      (lead.hasVoiceNote
+                          ? 'Procesando · demo'
+                          : 'No disponible · no hay nota de voz'),
+                ),
+              ),
+              if (lead.contentNames.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                const Text(
+                  'Contenido enviado · demo',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 8),
+                ...lead.contentNames.map(
+                  (name) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.picture_as_pdf_outlined),
+                    title: Text(name),
+                    subtitle: const Text('Adjunto congelado al guardar'),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 18),
+              const Text(
+                'Estado de correo · demo',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 8),
+              _ReadOnlyValue(
+                label: 'Correo al lead',
+                value: lead.email.isEmpty ? 'En cola' : 'Enviado · demo',
+              ),
+              const _ReadOnlyValue(
+                label: 'Copia Admin',
+                value: 'Enviado · demo',
+              ),
+              // TODO(BACKEND): Replace demo email/transcription state with real backend state.
             ],
             const SizedBox(height: 22),
             const Text(

@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 
 import '../theme/brand_theme.dart';
+import '../models/app_plan.dart';
+import '../widgets/segmented_bubble.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({required this.onAuthenticated, super.key});
+  const LoginScreen({
+    required this.onAuthenticated,
+    required this.selectedPlan,
+    required this.onPlanChanged,
+    super.key,
+  });
 
   final VoidCallback onAuthenticated;
+  final AppPlan selectedPlan;
+  final ValueChanged<AppPlan> onPlanChanged;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -149,6 +158,43 @@ class _LoginScreenState extends State<LoginScreen> {
                                 autofillHints: const [AutofillHints.password],
                                 validator: _validatePassword,
                                 onFieldSubmitted: (_) => _submit(),
+                              ),
+                              const SizedBox(height: 22),
+                              const _FieldLabel('PLAN DEMO'),
+                              const SizedBox(height: 8),
+                              SegmentedBubble<AppPlan>(
+                                key: const Key('demoPlanSelector'),
+                                selected: widget.selectedPlan,
+                                onSelected: widget.onPlanChanged,
+                                options: const [
+                                  SegmentedBubbleOption(
+                                    key: Key('planBasic'),
+                                    value: AppPlan.basic,
+                                    label: 'Basic',
+                                    leading: Icon(
+                                      Icons.circle_outlined,
+                                      size: 14,
+                                    ),
+                                  ),
+                                  SegmentedBubbleOption(
+                                    key: Key('planPro'),
+                                    value: AppPlan.pro,
+                                    label: 'Pro',
+                                    leading: Icon(
+                                      Icons.auto_awesome_outlined,
+                                      size: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Selector temporal para desarrollo y QA.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: FolooBrand.gray,
+                                  fontSize: 10,
+                                ),
                               ),
                             ],
                           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
+import '../models/app_plan.dart';
 import '../models/session_lead.dart';
 import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
@@ -14,6 +15,8 @@ class AppDrawer extends StatelessWidget {
     required this.onDestinationSelected,
     required this.onAppearanceChanged,
     required this.onLogout,
+    required this.plan,
+    this.contentCount = 0,
     this.profile = DemoBasicData.profile,
     super.key,
   });
@@ -25,6 +28,8 @@ class AppDrawer extends StatelessWidget {
   final ValueChanged<bool> onAppearanceChanged;
   final VoidCallback onLogout;
   final DemoProfile profile;
+  final AppPlan plan;
+  final int contentCount;
 
   String get _initials => profile.name
       .trim()
@@ -137,6 +142,29 @@ class AppDrawer extends StatelessWidget {
                         () => onDestinationSelected(AppDestination.home),
                       ),
                     ),
+                    if (plan.isPro) ...[
+                      _DestinationTile(
+                        key: const Key('drawerContent'),
+                        icon: Icons.folder_copy_outlined,
+                        label: 'Contenido',
+                        trailing: '$contentCount',
+                        selected: activeDestination == AppDestination.content,
+                        onTap: () => _afterClose(
+                          context,
+                          () => onDestinationSelected(AppDestination.content),
+                        ),
+                      ),
+                      _DestinationTile(
+                        key: const Key('drawerEmail'),
+                        icon: Icons.mail_outline,
+                        label: 'Correo',
+                        selected: activeDestination == AppDestination.email,
+                        onTap: () => _afterClose(
+                          context,
+                          () => onDestinationSelected(AppDestination.email),
+                        ),
+                      ),
+                    ],
                     _DestinationTile(
                       key: const Key('drawerRecords'),
                       icon: Icons.people_outline,
@@ -223,13 +251,13 @@ class AppDrawer extends StatelessWidget {
                 ),
               ),
             ),
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(22, 8, 22, 18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'BASIC · ${DemoEventData.eventCode}',
+                    '${plan.label.toUpperCase()} · ${DemoEventData.eventCode}',
                     style: TextStyle(
                       color: FolooColors.gray,
                       fontSize: 9,
