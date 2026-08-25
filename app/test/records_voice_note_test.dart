@@ -107,4 +107,28 @@ void main() {
     expect(find.byKey(const Key('recordAudio-EXP-260812-002')), findsNothing);
     expect(find.byIcon(Icons.play_arrow), findsNothing);
   });
+
+  testWidgets('export dialog opens and switches format without layout errors', (
+    tester,
+  ) async {
+    final service = FakeVoiceNoteService();
+    await tester.pumpWidget(recordsApp(service, records: const []));
+
+    await tester.tap(find.byKey(const Key('exportButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Exportar registros'), findsOneWidget);
+    expect(find.byKey(const Key('exportXlsOption')), findsOneWidget);
+    expect(find.byKey(const Key('exportCsvOption')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('exportCsvOption')));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('confirmExportButton')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Exportación CSV'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

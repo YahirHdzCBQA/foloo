@@ -815,7 +815,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     final direct = widget.originKind == LeadOriginKind.direct;
     return Container(
       key: const Key('captureOriginSection'),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      padding: const EdgeInsets.fromLTRB(4, 14, 4, 16),
       decoration: BoxDecoration(
         color: palette.card,
         borderRadius: BorderRadius.circular(FolooRadii.md),
@@ -828,31 +828,25 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.center,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 320),
-              child: SegmentedBubble<LeadOriginKind>(
-                key: const Key('captureOriginBubble'),
-                selectedHorizontalInset: 24,
-                selected: widget.originKind,
-                onSelected: _changeOrigin,
-                options: const [
-                  SegmentedBubbleOption(
-                    key: Key('captureOriginEventTab'),
-                    value: LeadOriginKind.event,
-                    label: 'Evento',
-                    leading: Icon(Icons.calendar_today_outlined, size: 15),
-                  ),
-                  SegmentedBubbleOption(
-                    key: Key('captureOriginDirectTab'),
-                    value: LeadOriginKind.direct,
-                    label: 'Lead directo',
-                    leading: Icon(Icons.person_outline, size: 16),
-                  ),
-                ],
+          SegmentedBubble<LeadOriginKind>(
+            key: const Key('captureOriginBubble'),
+            selectedHorizontalPadding: 8,
+            selected: widget.originKind,
+            onSelected: _changeOrigin,
+            options: const [
+              SegmentedBubbleOption(
+                key: Key('captureOriginEventTab'),
+                value: LeadOriginKind.event,
+                label: 'Evento',
+                leading: Icon(Icons.calendar_today_outlined, size: 15),
               ),
-            ),
+              SegmentedBubbleOption(
+                key: Key('captureOriginDirectTab'),
+                value: LeadOriginKind.direct,
+                label: 'Lead directo',
+                leading: Icon(Icons.person_outline, size: 16),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           if (direct)
@@ -1113,11 +1107,11 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   Widget _buildDataSection() {
     final theme = Theme.of(context);
     final borderless = theme.inputDecorationTheme.copyWith(
-      border: InputBorder.none,
-      enabledBorder: InputBorder.none,
-      focusedBorder: InputBorder.none,
-      errorBorder: InputBorder.none,
-      focusedErrorBorder: InputBorder.none,
+      border: FolooBorders.borderlessField,
+      enabledBorder: FolooBorders.borderlessField,
+      focusedBorder: FolooBorders.borderlessField,
+      errorBorder: FolooBorders.borderlessField,
+      focusedErrorBorder: FolooBorders.borderlessField,
     );
     return Theme(
       data: theme.copyWith(inputDecorationTheme: borderless),
@@ -1269,39 +1263,33 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             ),
           ),
           const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.center,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 320),
-              child: SegmentedBubble<InterestLevel>(
-                key: const Key('interestBubble'),
-                height: 50,
-                selectedHorizontalInset: 20,
-                selectedVerticalInset: 3,
-                selected: _interest,
-                onSelected: (value) => setState(() => _interest = value),
-                options: const [
-                  SegmentedBubbleOption(
-                    key: Key('interest-low'),
-                    value: InterestLevel.low,
-                    label: 'Bajo',
-                    leading: _InterestDot(color: FolooColors.interestLow),
-                  ),
-                  SegmentedBubbleOption(
-                    key: Key('interest-medium'),
-                    value: InterestLevel.medium,
-                    label: 'Medio',
-                    leading: _InterestDot(color: FolooColors.interestMedium),
-                  ),
-                  SegmentedBubbleOption(
-                    key: Key('interest-high'),
-                    value: InterestLevel.high,
-                    label: 'Alto',
-                    leading: _InterestDot(color: FolooColors.interestHigh),
-                  ),
-                ],
+          SegmentedBubble<InterestLevel>(
+            key: const Key('interestBubble'),
+            height: 50,
+            selectedHorizontalPadding: 8,
+            selectedVerticalInset: 3,
+            selected: _interest,
+            onSelected: (value) => setState(() => _interest = value),
+            options: const [
+              SegmentedBubbleOption(
+                key: Key('interest-low'),
+                value: InterestLevel.low,
+                label: 'Bajo',
+                leading: _InterestDot(color: FolooColors.interestLow),
               ),
-            ),
+              SegmentedBubbleOption(
+                key: Key('interest-medium'),
+                value: InterestLevel.medium,
+                label: 'Medio',
+                leading: _InterestDot(color: FolooColors.interestMedium),
+              ),
+              SegmentedBubbleOption(
+                key: Key('interest-high'),
+                value: InterestLevel.high,
+                label: 'Alto',
+                leading: _InterestDot(color: FolooColors.interestHigh),
+              ),
+            ],
           ),
           if (widget.plan.isPro &&
               widget.originKind == LeadOriginKind.event &&
@@ -1557,9 +1545,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               controller: _note,
               decoration: const InputDecoration(
                 hintText: 'Escribe aquí lo importante de la conversación.',
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
+                border: FolooBorders.borderlessField,
+                enabledBorder: FolooBorders.borderlessField,
+                focusedBorder: FolooBorders.borderlessField,
               ),
               minLines: 4,
               maxLines: 7,

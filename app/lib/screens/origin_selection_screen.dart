@@ -82,10 +82,13 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Image.asset(
-                FolooBrand.logoFor(Theme.of(context).brightness),
-                width: 24,
+              Align(
                 alignment: Alignment.centerLeft,
+                child: Image.asset(
+                  FolooBrand.logoFor(Theme.of(context).brightness),
+                  width: 56,
+                  fit: BoxFit.contain,
+                ),
               ),
               const SizedBox(height: 30),
               Text(
@@ -93,32 +96,25 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
                 style: Theme.of(context).textTheme.displayLarge,
               ),
               const SizedBox(height: 26),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 320),
-                  child: SegmentedBubble<LeadOriginKind>(
-                    key: const Key('originBubble'),
-                    height: 56,
-                    selectedHorizontalInset: 24,
-                    selected: _kind,
-                    onSelected: (value) => setState(() => _kind = value),
-                    options: const [
-                      SegmentedBubbleOption(
-                        key: Key('originEventTab'),
-                        value: LeadOriginKind.event,
-                        label: 'Evento',
-                        leading: Icon(Icons.calendar_today_outlined, size: 15),
-                      ),
-                      SegmentedBubbleOption(
-                        key: Key('originDirectTab'),
-                        value: LeadOriginKind.direct,
-                        label: 'Lead directo',
-                        leading: Icon(Icons.person_outline, size: 16),
-                      ),
-                    ],
+              SegmentedBubble<LeadOriginKind>(
+                key: const Key('originBubble'),
+                selectedHorizontalPadding: 8,
+                selected: _kind,
+                onSelected: (value) => setState(() => _kind = value),
+                options: const [
+                  SegmentedBubbleOption(
+                    key: Key('originEventTab'),
+                    value: LeadOriginKind.event,
+                    label: 'Evento',
+                    leading: Icon(Icons.calendar_today_outlined, size: 15),
                   ),
-                ),
+                  SegmentedBubbleOption(
+                    key: Key('originDirectTab'),
+                    value: LeadOriginKind.direct,
+                    label: 'Lead directo',
+                    leading: Icon(Icons.person_outline, size: 16),
+                  ),
+                ],
               ),
               const SizedBox(height: 30),
               if (direct)

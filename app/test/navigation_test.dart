@@ -145,10 +145,14 @@ void main() {
     await selectDrawerDestination(tester, const Key('drawerRecords'));
     expect(find.text('Ana López'), findsOneWidget);
     expect(find.textContaining('Estudio Uno'), findsOneWidget);
-    expect(find.text('FOL-260812-001'), findsOneWidget);
+    expect(find.text('FOL-260812-001'), findsNothing);
     await tester.tap(find.byKey(const Key('record-FOL-260812-001')));
     await tester.pumpAndSettle();
     expect(find.text('Contacto'), findsOneWidget);
+    expect(find.text('Fecha y hora'), findsOneWidget);
+    expect(find.text('Origen'), findsOneWidget);
+    expect(find.text('Capturó'), findsOneWidget);
+    expect(find.text('FOL-260812-001'), findsNothing);
     expect(find.byKey(const Key('detailBackButton')), findsOneWidget);
     expect(find.byType(TextFormField), findsNothing);
   });

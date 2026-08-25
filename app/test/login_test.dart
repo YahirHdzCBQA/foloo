@@ -76,7 +76,7 @@ void main() {
     expect(find.byKey(const ValueKey('profileScreen')), findsOneWidget);
     expect(find.byKey(const Key('profileCameraButton')), findsOneWidget);
     expect(find.byKey(const Key('profileGalleryButton')), findsOneWidget);
-    expect(tester.widget<Image>(find.byType(Image)).width, 24);
+    expect(tester.widget<Image>(find.byType(Image)).width, 56);
     await finishOnboarding(tester);
     expect(find.byKey(const Key('cardSection')), findsOneWidget);
     expect(find.byKey(const Key('hamburgerMenuButton')), findsOneWidget);

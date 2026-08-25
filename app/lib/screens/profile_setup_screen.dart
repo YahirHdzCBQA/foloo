@@ -76,10 +76,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Image.asset(
-                  FolooBrand.logoFor(Theme.of(context).brightness),
-                  width: 24,
+                Align(
                   alignment: Alignment.centerLeft,
+                  child: Image.asset(
+                    FolooBrand.logoFor(Theme.of(context).brightness),
+                    width: 56,
+                    fit: BoxFit.contain,
+                  ),
                 ),
                 const SizedBox(height: 26),
                 Text(

@@ -21,9 +21,9 @@ class SegmentedBubble<T> extends StatelessWidget {
     required this.options,
     required this.selected,
     required this.onSelected,
-    this.height = 56,
-    this.selectedHorizontalInset = 10,
-    this.selectedVerticalInset = 6,
+    this.height = 44,
+    this.selectedHorizontalPadding = 8,
+    this.selectedVerticalInset = 2,
     super.key,
   });
 
@@ -31,7 +31,7 @@ class SegmentedBubble<T> extends StatelessWidget {
   final T selected;
   final ValueChanged<T> onSelected;
   final double height;
-  final double selectedHorizontalInset;
+  final double selectedHorizontalPadding;
   final double selectedVerticalInset;
 
   @override
@@ -55,38 +55,44 @@ class SegmentedBubble<T> extends StatelessWidget {
                 key: option.key,
                 onTap: () => onSelected(option.value),
                 borderRadius: BorderRadius.circular((height - 8) / 2),
-                child: AnimatedContainer(
-                  duration: MediaQuery.disableAnimationsOf(context)
-                      ? Duration.zero
-                      : const Duration(milliseconds: 150),
-                  margin: EdgeInsets.symmetric(
-                    horizontal: isSelected ? selectedHorizontalInset : 0,
-                    vertical: isSelected ? selectedVerticalInset : 0,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected ? palette.card : Colors.transparent,
-                    borderRadius: BorderRadius.circular((height - 8) / 2),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      option.leading,
-                      const SizedBox(width: 7),
-                      Flexible(
-                        child: Text(
-                          option.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: palette.ink,
-                            fontSize: 13,
-                            fontWeight: isSelected
-                                ? FontWeight.w700
-                                : FontWeight.w500,
+                child: Center(
+                  child: AnimatedContainer(
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 150),
+                    height:
+                        height -
+                        8 -
+                        (isSelected ? selectedVerticalInset * 2 : 0),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isSelected ? selectedHorizontalPadding : 0,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected ? palette.card : Colors.transparent,
+                      borderRadius: BorderRadius.circular((height - 8) / 2),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        option.leading,
+                        const SizedBox(width: 7),
+                        Flexible(
+                          child: Text(
+                            option.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: palette.ink,
+                              fontSize: 13,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

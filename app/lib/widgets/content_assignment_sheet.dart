@@ -132,9 +132,9 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.search),
                     hintText: 'Buscar entre eventos',
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
+                    border: FolooBorders.borderlessField,
+                    enabledBorder: FolooBorders.borderlessField,
+                    focusedBorder: FolooBorders.borderlessField,
                   ),
                 ),
                 const SizedBox(height: 8),

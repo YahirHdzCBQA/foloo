@@ -150,6 +150,13 @@ abstract final class FolooRadii {
   static const xl = 28.0;
 }
 
+abstract final class FolooBorders {
+  static const borderlessField = OutlineInputBorder(
+    borderRadius: BorderRadius.all(Radius.circular(FolooRadii.md)),
+    borderSide: BorderSide.none,
+  );
+}
+
 abstract final class FolooTheme {
   static ThemeData get light => _build(Brightness.light);
   static ThemeData get dark => _build(Brightness.dark);

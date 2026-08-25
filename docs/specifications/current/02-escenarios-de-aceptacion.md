@@ -242,7 +242,8 @@ Escenario: Detalle de la conexión
   Y ve correo, teléfono y puesto
   Y si hay nota de voz, ve su duración y puede reproducirla
   Y ve la nota escrita
-  Y ve folio, origen y quién capturó
+  Y ve fecha y hora, origen y quién capturó
+  Y no ve el folio
   Y no hay ningún control para editar
 
 Escenario: Lead sin foto de tarjeta

@@ -104,9 +104,9 @@ class _ContentScreenState extends State<ContentScreen> {
                 isExpanded: true,
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.calendar_today_outlined, size: 17),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
+                  border: FolooBorders.borderlessField,
+                  enabledBorder: FolooBorders.borderlessField,
+                  focusedBorder: FolooBorders.borderlessField,
                   contentPadding: EdgeInsets.symmetric(horizontal: 12),
                 ),
                 items: [

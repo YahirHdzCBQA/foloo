@@ -341,8 +341,8 @@ class _EventScreenState extends State<EventScreen> {
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: palette.paper,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
+                      border: FolooBorders.borderlessField,
+                      enabledBorder: FolooBorders.borderlessField,
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(FolooRadii.md),
                         borderSide: BorderSide(color: palette.ink, width: 1.5),

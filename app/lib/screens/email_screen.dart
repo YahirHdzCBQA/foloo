@@ -186,9 +186,7 @@ class _EmailScreenState extends State<EmailScreen> {
                       _kind = value;
                       _error = null;
                     }),
-                    height: 48,
-                    selectedHorizontalInset: 24,
-                    selectedVerticalInset: 4,
+                    selectedHorizontalPadding: 8,
                     options: const [
                       SegmentedBubbleOption(
                         value: _TemplateKind.event,
@@ -212,9 +210,9 @@ class _EmailScreenState extends State<EmailScreen> {
                     key: ValueKey('emailSubject-${_kind.name}'),
                     controller: _subject,
                     decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
+                      border: FolooBorders.borderlessField,
+                      enabledBorder: FolooBorders.borderlessField,
+                      focusedBorder: FolooBorders.borderlessField,
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
@@ -227,9 +225,9 @@ class _EmailScreenState extends State<EmailScreen> {
                     minLines: 8,
                     maxLines: 12,
                     decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
+                      border: FolooBorders.borderlessField,
+                      enabledBorder: FolooBorders.borderlessField,
+                      focusedBorder: FolooBorders.borderlessField,
                     ),
                     onChanged: (_) => setState(() {}),
                   ),

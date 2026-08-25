@@ -250,6 +250,7 @@ class _RecordsScreenState extends State<RecordsScreen>
                       const SizedBox(width: 10),
                       Expanded(
                         child: FilledButton.icon(
+                          key: const Key('confirmExportButton'),
                           onPressed: () {
                             Navigator.pop(dialogContext);
                             ScaffoldMessenger.of(this.context).showSnackBar(
@@ -321,9 +322,9 @@ class _RecordsScreenState extends State<RecordsScreen>
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.search, size: 20),
                     hintText: 'Buscar por nombre o empresa',
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
+                    border: FolooBorders.borderlessField,
+                    enabledBorder: FolooBorders.borderlessField,
+                    focusedBorder: FolooBorders.borderlessField,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -465,7 +466,6 @@ class _ExportFormatOption extends StatelessWidget {
     final palette = FolooPalette.of(context);
     return Material(
       color: selected ? FolooColors.limeTint : palette.paper,
-      borderRadius: BorderRadius.circular(FolooRadii.md),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(FolooRadii.md),
         side: BorderSide(color: selected ? palette.ink : Colors.transparent),
@@ -630,26 +630,13 @@ class _RecordRow extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    record.lead.fullName,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  record.folio,
-                                  style: TextStyle(
-                                    color: palette.inkMuted,
-                                    fontSize: 9,
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              record.lead.fullName,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Text(
@@ -954,7 +941,10 @@ class ConnectionDetailScreen extends StatelessWidget {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 12),
-            _ReadOnlyValue(label: 'Folio', value: record.folio),
+            _ReadOnlyValue(
+              label: 'Fecha y hora',
+              value: _capturedAt(record.capturedAt),
+            ),
             _ReadOnlyValue(label: 'Origen', value: lead.originLabel),
             const _ReadOnlyValue(
               label: 'Capturó',
@@ -968,6 +958,27 @@ class ConnectionDetailScreen extends StatelessWidget {
 
   static String _duration(int seconds) =>
       '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
+
+  static String _capturedAt(DateTime value) {
+    const months = [
+      'ene',
+      'feb',
+      'mar',
+      'abr',
+      'may',
+      'jun',
+      'jul',
+      'ago',
+      'sep',
+      'oct',
+      'nov',
+      'dic',
+    ];
+    final local = value.toLocal();
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '${local.day} ${months[local.month - 1]} ${local.year} · $hour:$minute';
+  }
 }
 
 class _ReadOnlyValue extends StatelessWidget {
