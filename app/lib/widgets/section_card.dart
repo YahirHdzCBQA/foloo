@@ -20,43 +20,39 @@ class SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ink = theme.colorScheme.onSurface;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  number,
-                  style: TextStyle(
-                    color: ink,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
-                ?trailing,
-              ],
-            ),
-            const SizedBox(height: 14),
-            Divider(height: 1, color: ink.withValues(alpha: 0.45)),
-            if (hint != null) ...[
-              const SizedBox(height: 12),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
               Text(
-                hint!,
+                number,
                 style: TextStyle(
-                  color: ink.withValues(alpha: 0.62),
-                  height: 1.35,
+                  color: ink,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
                 ),
               ),
+              const SizedBox(width: 10),
+              Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
+              ?trailing,
             ],
-            const SizedBox(height: 16),
-            child,
+          ),
+          if (hint != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              hint!,
+              style: TextStyle(
+                color: ink.withValues(alpha: 0.62),
+                height: 1.35,
+              ),
+            ),
           ],
-        ),
+          const SizedBox(height: 14),
+          child,
+        ],
       ),
     );
   }

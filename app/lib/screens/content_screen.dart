@@ -6,8 +6,8 @@ import '../models/app_plan.dart';
 import '../models/pro_demo_data.dart';
 import '../theme/foloo_theme.dart';
 import '../widgets/app_drawer.dart';
-import '../widgets/app_screen_header.dart';
 import '../widgets/content_assignment_sheet.dart';
+import '../widgets/module_header.dart';
 
 class ContentScreen extends StatefulWidget {
   const ContentScreen({
@@ -74,6 +74,7 @@ class _ContentScreenState extends State<ContentScreen> {
     final palette = FolooPalette.of(context);
     return Scaffold(
       key: _scaffoldKey,
+      backgroundColor: palette.card,
       endDrawer: AppDrawer(
         plan: AppPlan.pro,
         contentCount: widget.files.length,
@@ -87,94 +88,118 @@ class _ContentScreenState extends State<ContentScreen> {
       ),
       body: Column(
         children: [
-          AppScreenHeader(
+          ModuleHeader(
             title: 'Contenido',
-            subtitle: '${widget.files.length} ARCHIVOS · 4.9 MB',
-            badge: 'PRO',
-            onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+            subtitle: '${widget.files.length} archivos · 4.9 MB',
+            onBack: () => widget.onDestinationSelected(AppDestination.home),
           ),
+          Divider(height: 1, color: palette.line),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-            child: DropdownButtonFormField<String?>(
-              key: const Key('contentEventFilter'),
-              initialValue: _eventId,
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Filtrar por evento',
-              ),
-              items: [
-                DropdownMenuItem<String?>(
-                  value: null,
-                  child: Text('Todos los eventos (${widget.files.length})'),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+            child: SizedBox(
+              height: 48,
+              child: DropdownButtonFormField<String?>(
+                key: const Key('contentEventFilter'),
+                initialValue: _eventId,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.calendar_today_outlined, size: 17),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
                 ),
-                ...widget.events.map(
-                  (event) => DropdownMenuItem<String?>(
-                    value: event.id,
+                items: [
+                  DropdownMenuItem<String?>(
+                    value: null,
                     child: Text(
-                      '${event.name} (${widget.files.where((f) => f.appliesTo(event)).length})',
+                      'Todos los eventos · ${widget.files.length} archivos',
                     ),
                   ),
-                ),
-              ],
-              onChanged: (value) => setState(() => _eventId = value),
+                  ...widget.events.map(
+                    (event) => DropdownMenuItem<String?>(
+                      value: event.id,
+                      child: Text(
+                        '${event.name} · ${widget.files.where((f) => f.appliesTo(event)).length} archivos',
+                      ),
+                    ),
+                  ),
+                ],
+                onChanged: (value) => setState(() => _eventId = value),
+              ),
             ),
           ),
+          Divider(height: 1, color: palette.line),
           Expanded(
             child: ListView.separated(
               key: const Key('contentLibraryList'),
               padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
-              itemCount: _visible.length,
+              itemCount: _visible.length + 1,
               separatorBuilder: (_, _) => const SizedBox(height: 9),
               itemBuilder: (_, index) {
+                if (index == _visible.length) {
+                  return Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: palette.paper,
+                      borderRadius: BorderRadius.circular(FolooRadii.md),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.lock_outline,
+                          size: 17,
+                          color: palette.inkSecondary,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Los archivos viven en tu teléfono y se adjuntan al correo cuando hay señal.',
+                            style: TextStyle(
+                              color: palette.inkSecondary,
+                              fontSize: 12,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
                 final file = _visible[index];
                 final names = file.allEvents
-                    ? 'Todos los eventos'
+                    ? const ['Todos los eventos']
                     : widget.events
                           .where((e) => file.eventIds.contains(e.id))
                           .map((e) => e.name)
-                          .join(' · ');
-                return Material(
-                  color: palette.paper,
-                  borderRadius: BorderRadius.circular(FolooRadii.md),
-                  child: ListTile(
-                    key: Key('contentFile-${file.id}'),
-                    minTileHeight: 76,
-                    onTap: () => _edit(file),
-                    leading: const Icon(Icons.picture_as_pdf_outlined),
-                    title: Text(
-                      file.displayName,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    subtitle: Text(
-                      '${file.fileName} · ${file.sizeLabel}\n$names',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: IconButton(
-                      tooltip: 'Eliminar archivo',
-                      onPressed: () => showDialog<void>(
-                        context: context,
-                        builder: (dialogContext) => AlertDialog(
-                          title: const Text('Eliminar archivo'),
-                          content: Text(
-                            '¿Eliminar ${file.displayName} de la biblioteca local?',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(dialogContext),
-                              child: const Text('Cancelar'),
-                            ),
-                            FilledButton(
-                              onPressed: () {
-                                Navigator.pop(dialogContext);
-                                widget.onFileDeleted(file);
-                              },
-                              child: const Text('Eliminar'),
-                            ),
-                          ],
-                        ),
+                          .toList();
+                return _ContentFileCard(
+                  key: Key('contentFile-${file.id}'),
+                  file: file,
+                  eventNames: names,
+                  onTap: () => _edit(file),
+                  onDelete: () => showDialog<void>(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      title: const Text('Eliminar archivo'),
+                      content: Text(
+                        '¿Eliminar ${file.displayName} de la biblioteca local?',
                       ),
-                      icon: const Icon(Icons.delete_outline),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          child: const Text('Cancelar'),
+                        ),
+                        FilledButton(
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            widget.onFileDeleted(file);
+                          },
+                          child: const Text('Eliminar'),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -185,13 +210,115 @@ class _ContentScreenState extends State<ContentScreen> {
       ),
       bottomNavigationBar: SafeArea(
         top: false,
-        child: Padding(
+        child: Container(
+          decoration: BoxDecoration(
+            color: palette.card,
+            border: Border(top: BorderSide(color: palette.line)),
+          ),
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
           child: FilledButton.icon(
             key: const Key('uploadPdfButton'),
             onPressed: _add,
             icon: const Icon(Icons.upload_file_outlined),
             label: const Text('Subir PDF'),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ContentFileCard extends StatelessWidget {
+  const _ContentFileCard({
+    required this.file,
+    required this.eventNames,
+    required this.onTap,
+    required this.onDelete,
+    super.key,
+  });
+
+  final ContentFile file;
+  final List<String> eventNames;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = FolooPalette.of(context);
+    return Material(
+      color: palette.paper,
+      borderRadius: BorderRadius.circular(FolooRadii.md),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(FolooRadii.md),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 11, 7, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: palette.card,
+                  borderRadius: BorderRadius.circular(FolooRadii.sm),
+                ),
+                child: const Icon(Icons.description_outlined, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      file.displayName,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${file.fileName} · ${file.sizeLabel}',
+                      style: TextStyle(
+                        color: palette.inkSecondary,
+                        fontSize: 10.5,
+                      ),
+                    ),
+                    if (eventNames.isNotEmpty) ...[
+                      const SizedBox(height: 7),
+                      Wrap(
+                        spacing: 5,
+                        runSpacing: 5,
+                        children: eventNames
+                            .map(
+                              (name) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: palette.card,
+                                  borderRadius: BorderRadius.circular(99),
+                                ),
+                                child: Text(
+                                  name.replaceFirst(' México', ''),
+                                  style: const TextStyle(fontSize: 9.5),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Eliminar archivo',
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline, size: 18),
+              ),
+            ],
           ),
         ),
       ),

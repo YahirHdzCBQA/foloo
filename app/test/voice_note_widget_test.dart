@@ -76,28 +76,28 @@ void main() {
       await tester.pumpWidget(voiceNoteApp(service));
       await showRecorder(tester);
 
-      expect(find.text('Listo para grabar'), findsOneWidget);
+      expect(find.byKey(const Key('recordButton')), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('recordButton')));
       await tester.pump();
       expect(find.text('● GRABANDO'), findsOneWidget);
-      expect(find.text('Micrófono activo'), findsOneWidget);
+      expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
       expect(service.startCount, 1);
 
       await tester.pump(const Duration(seconds: 2));
       await tester.tap(find.byKey(const Key('recordButton')));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Nota de voz · 00:02'), findsOneWidget);
+      expect(find.text('00:02'), findsOneWidget);
       expect(service.stopCount, 1);
 
       await tester.tap(find.byKey(const Key('playPauseButton')));
       await tester.pump();
-      expect(find.text('PAUSAR'), findsOneWidget);
+      expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
       expect(service.playCount, 1);
 
       await tester.tap(find.byKey(const Key('playPauseButton')));
       await tester.pump();
-      expect(find.text('REPRODUCIR'), findsOneWidget);
+      expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
       expect(service.pauseCount, 1);
 
       await tester.tap(find.byKey(const Key('rerecordButton')));
@@ -109,11 +109,11 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       await tester.tap(find.byKey(const Key('recordButton')));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Nota de voz · 00:01'), findsOneWidget);
+      expect(find.text('00:01'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('deleteVoiceNoteButton')));
       await tester.pumpAndSettle();
-      expect(find.text('Listo para grabar'), findsOneWidget);
+      expect(find.byKey(const Key('recordButton')), findsOneWidget);
       expect(find.byKey(const Key('playPauseButton')), findsNothing);
       expect(service.deletedPaths, contains('/tmp/foloo_voice_2.m4a'));
     },
@@ -134,7 +134,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('noteField')), findsOneWidget);
-    expect(find.text('Listo para grabar'), findsOneWidget);
+    expect(find.byKey(const Key('recordButton')), findsOneWidget);
   });
 
   testWidgets('form saves normally without a voice note', (tester) async {
@@ -174,7 +174,7 @@ void main() {
       await tester.tap(find.byKey(const Key('captureAnotherButton')));
       await tester.pumpAndSettle();
       await showRecorder(tester);
-      expect(find.text('Listo para grabar'), findsOneWidget);
+      expect(find.byKey(const Key('recordButton')), findsOneWidget);
       expect(find.byKey(const Key('playPauseButton')), findsNothing);
     },
   );

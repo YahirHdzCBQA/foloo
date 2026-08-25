@@ -190,59 +190,90 @@ class _RecordsScreenState extends State<RecordsScreen>
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Exportar registros'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '${widget.records.length} leads de Expo Alimentaria México, con notas y datos de contacto.',
-              ),
-              const SizedBox(height: 18),
-              ListTile(
-                key: const Key('exportXlsOption'),
-                onTap: () => setDialogState(() => format = 'XLS'),
-                title: const Text('XLS'),
-                subtitle: const Text('Hoja de Excel, listo para abrir'),
-                trailing: Icon(
-                  format == 'XLS'
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_off,
-                ),
-              ),
-              ListTile(
-                key: const Key('exportCsvOption'),
-                onTap: () => setDialogState(() => format = 'CSV'),
-                title: const Text('CSV'),
-                subtitle: const Text('Texto plano, para otro sistema'),
-                trailing: Icon(
-                  format == 'CSV'
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_off,
-                ),
-              ),
-            ],
+        builder: (context, setDialogState) => Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                ScaffoldMessenger.of(this.context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Exportación $format es solo una vista demo.',
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Exportar registros',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    '${widget.records.length} leads de Expo Alimentaria México, con notas y datos de contacto.',
+                    style: TextStyle(
+                      color: FolooPalette.of(context).inkSecondary,
+                      fontSize: 12.5,
+                      height: 1.45,
                     ),
                   ),
-                );
-              },
-              child: const Text('Exportar'),
+                  const SizedBox(height: 16),
+                  _ExportFormatOption(
+                    key: const Key('exportXlsOption'),
+                    icon: Icons.grid_on_outlined,
+                    title: 'XLS',
+                    subtitle: 'Hoja de Excel, listo para abrir',
+                    selected: format == 'XLS',
+                    onTap: () => setDialogState(() => format = 'XLS'),
+                  ),
+                  const SizedBox(height: 8),
+                  _ExportFormatOption(
+                    key: const Key('exportCsvOption'),
+                    icon: Icons.description_outlined,
+                    title: 'CSV',
+                    subtitle: 'Texto plano, para otro sistema',
+                    selected: format == 'CSV',
+                    onTap: () => setDialogState(() => format = 'CSV'),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: FolooPalette.of(context).paper,
+                            foregroundColor: FolooPalette.of(context).ink,
+                          ),
+                          child: const Text('Cancelar'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Exportación $format es solo una vista demo.',
+                                ),
+                              ),
+                            );
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: FolooPalette.of(context).ink,
+                            foregroundColor: FolooPalette.of(context).card,
+                          ),
+                          icon: const Icon(Icons.download_outlined, size: 17),
+                          label: const Text('Exportar'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -404,6 +435,85 @@ class _RecordsScreenState extends State<RecordsScreen>
                     ),
                   ),
                 ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExportFormatOption extends StatelessWidget {
+  const _ExportFormatOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+    super.key,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = FolooPalette.of(context);
+    return Material(
+      color: selected ? FolooColors.limeTint : palette.paper,
+      borderRadius: BorderRadius.circular(FolooRadii.md),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(FolooRadii.md),
+        side: BorderSide(color: selected ? palette.ink : Colors.transparent),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(FolooRadii.md),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          child: Row(
+            children: [
+              Icon(icon, size: 19),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: palette.inkSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: selected ? palette.ink : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected ? palette.ink : palette.inkMuted,
+                  ),
+                ),
+                child: selected
+                    ? const Icon(Icons.check, size: 14, color: FolooColors.lime)
+                    : null,
               ),
             ],
           ),

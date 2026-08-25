@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
-import '../models/app_plan.dart';
 import '../models/lead_draft.dart';
 import '../models/pro_demo_data.dart';
 import '../models/session_lead.dart';
 import '../theme/foloo_theme.dart';
-import '../widgets/app_drawer.dart';
-import '../widgets/app_screen_header.dart';
+import '../widgets/module_header.dart';
 import '../widgets/segmented_bubble.dart';
 
 enum _TemplateKind { event, direct }
@@ -164,27 +162,17 @@ class _EmailScreenState extends State<EmailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      endDrawer: AppDrawer(
-        plan: AppPlan.pro,
-        contentCount: widget.contentCount,
-        profile: widget.profile,
-        activeDestination: AppDestination.email,
-        recordsCount: widget.recordsCount,
-        darkMode: widget.darkMode,
-        onDestinationSelected: widget.onDestinationSelected,
-        onAppearanceChanged: widget.onAppearanceChanged,
-        onLogout: widget.onLogout,
-      ),
+      backgroundColor: FolooPalette.of(context).card,
       body: Column(
         children: [
-          AppScreenHeader(
+          ModuleHeader(
             title: 'Correo',
             subtitle: _kind == _TemplateKind.event
-                ? 'PLANTILLA DE EVENTO'
-                : 'PLANTILLA · LEADS DIRECTOS',
-            badge: 'PRO',
-            onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+                ? 'Plantilla de seguimiento'
+                : 'Plantilla para leads directos',
+            onBack: () => widget.onDestinationSelected(AppDestination.home),
           ),
+          Divider(height: 1, color: FolooPalette.of(context).line),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
@@ -198,6 +186,9 @@ class _EmailScreenState extends State<EmailScreen> {
                       _kind = value;
                       _error = null;
                     }),
+                    height: 48,
+                    selectedHorizontalInset: 24,
+                    selectedVerticalInset: 4,
                     options: const [
                       SegmentedBubbleOption(
                         value: _TemplateKind.event,
@@ -215,19 +206,31 @@ class _EmailScreenState extends State<EmailScreen> {
                     ],
                   ),
                   const SizedBox(height: 18),
+                  const Text('Asunto', style: TextStyle(fontSize: 11)),
+                  const SizedBox(height: 7),
                   TextField(
                     key: ValueKey('emailSubject-${_kind.name}'),
                     controller: _subject,
-                    decoration: const InputDecoration(labelText: 'Asunto'),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                    ),
                     onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 14),
+                  const Text('Cuerpo', style: TextStyle(fontSize: 11)),
+                  const SizedBox(height: 7),
                   TextField(
                     key: ValueKey('emailBody-${_kind.name}'),
                     controller: _body,
                     minLines: 8,
                     maxLines: 12,
-                    decoration: const InputDecoration(labelText: 'Cuerpo'),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                    ),
                     onChanged: (_) => setState(() {}),
                   ),
                   if (_error != null)
@@ -301,7 +304,13 @@ class _EmailScreenState extends State<EmailScreen> {
       ),
       bottomNavigationBar: SafeArea(
         top: false,
-        child: Padding(
+        child: Container(
+          decoration: BoxDecoration(
+            color: FolooPalette.of(context).card,
+            border: Border(
+              top: BorderSide(color: FolooPalette.of(context).line),
+            ),
+          ),
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
           child: FilledButton(
             key: const Key('saveEmailTemplateButton'),

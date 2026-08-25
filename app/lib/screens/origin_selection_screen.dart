@@ -100,7 +100,7 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
                   child: SegmentedBubble<LeadOriginKind>(
                     key: const Key('originBubble'),
                     height: 56,
-                    selectedHorizontalInset: 22,
+                    selectedHorizontalInset: 24,
                     selected: _kind,
                     onSelected: (value) => setState(() => _kind = value),
                     options: const [

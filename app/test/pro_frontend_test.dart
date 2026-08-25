@@ -107,6 +107,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('contentScreen')), findsOneWidget);
     expect(find.byKey(const Key('uploadPdfButton')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('moduleBackButton')));
+    await tester.pumpAndSettle();
     await drawer(tester);
     await tester.tap(find.byKey(const Key('drawerEmail')));
     await tester.pumpAndSettle();
@@ -164,29 +166,26 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('contentFile-scanley-ims')));
     await tester.pumpAndSettle();
-    final before = tester.widget<CheckboxListTile>(
-      find.byKey(const Key('contentEvent-expo-alimentaria')),
-    );
-    expect(before.value, isTrue);
-    await tester.tap(find.byKey(const Key('allEventsSwitch')));
-    await tester.pump();
+    final eventRow = find.byKey(const Key('contentEvent-expo-alimentaria'));
     expect(
-      tester
-          .widget<CheckboxListTile>(
-            find.byKey(const Key('contentEvent-expo-alimentaria')),
-          )
-          .enabled,
-      isFalse,
+      find.descendant(of: eventRow, matching: find.byIcon(Icons.check)),
+      findsOneWidget,
     );
     await tester.tap(find.byKey(const Key('allEventsSwitch')));
     await tester.pump();
     expect(
       tester
-          .widget<CheckboxListTile>(
-            find.byKey(const Key('contentEvent-expo-alimentaria')),
+          .widget<InkWell>(
+            find.descendant(of: eventRow, matching: find.byType(InkWell)),
           )
-          .value,
-      isTrue,
+          .onTap,
+      isNull,
+    );
+    await tester.tap(find.byKey(const Key('allEventsSwitch')));
+    await tester.pump();
+    expect(
+      find.descendant(of: eventRow, matching: find.byIcon(Icons.check)),
+      findsOneWidget,
     );
   });
 

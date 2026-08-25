@@ -23,6 +23,7 @@ class SegmentedBubble<T> extends StatelessWidget {
     required this.onSelected,
     this.height = 56,
     this.selectedHorizontalInset = 10,
+    this.selectedVerticalInset = 6,
     super.key,
   });
 
@@ -31,6 +32,7 @@ class SegmentedBubble<T> extends StatelessWidget {
   final ValueChanged<T> onSelected;
   final double height;
   final double selectedHorizontalInset;
+  final double selectedVerticalInset;
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +61,7 @@ class SegmentedBubble<T> extends StatelessWidget {
                       : const Duration(milliseconds: 150),
                   margin: EdgeInsets.symmetric(
                     horizontal: isSelected ? selectedHorizontalInset : 0,
+                    vertical: isSelected ? selectedVerticalInset : 0,
                   ),
                   decoration: BoxDecoration(
                     color: isSelected ? palette.card : Colors.transparent,

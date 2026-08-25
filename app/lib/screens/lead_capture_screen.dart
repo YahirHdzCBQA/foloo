@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -712,6 +713,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     return Scaffold(
       key: _scaffoldKey,
+      backgroundColor: FolooPalette.of(context).card,
       endDrawer: AppDrawer(
         plan: widget.plan,
         contentCount: widget.contentFiles.length,
@@ -832,7 +834,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               constraints: const BoxConstraints(maxWidth: 320),
               child: SegmentedBubble<LeadOriginKind>(
                 key: const Key('captureOriginBubble'),
-                selectedHorizontalInset: 22,
+                selectedHorizontalInset: 24,
                 selected: widget.originKind,
                 onSelected: _changeOrigin,
                 options: const [
@@ -1109,106 +1111,120 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   }
 
   Widget _buildDataSection() {
-    return SectionCard(
-      key: const Key('dataSection'),
-      number: '02',
-      title: 'Datos del lead',
-      trailing: TextButton(
-        key: const Key('clearLeadFieldsButton'),
-        onPressed: _clearLeadFields,
-        style: TextButton.styleFrom(
-          foregroundColor: FolooPalette.of(context).inkSecondary,
-          minimumSize: const Size(48, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+    final theme = Theme.of(context);
+    final borderless = theme.inputDecorationTheme.copyWith(
+      border: InputBorder.none,
+      enabledBorder: InputBorder.none,
+      focusedBorder: InputBorder.none,
+      errorBorder: InputBorder.none,
+      focusedErrorBorder: InputBorder.none,
+    );
+    return Theme(
+      data: theme.copyWith(inputDecorationTheme: borderless),
+      child: SectionCard(
+        key: const Key('dataSection'),
+        number: '02',
+        title: 'Datos del lead',
+        trailing: TextButton(
+          key: const Key('clearLeadFieldsButton'),
+          onPressed: _clearLeadFields,
+          style: TextButton.styleFrom(
+            foregroundColor: FolooPalette.of(context).inkSecondary,
+            minimumSize: const Size(48, 48),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            textStyle: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          child: const Text('Limpiar'),
         ),
-        child: const Text('Limpiar'),
-      ),
-      child: Column(
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _LabeledField(
-                  label: 'NOMBRE',
-                  field: TextFormField(
-                    key: const Key('nameField'),
-                    controller: _name,
-                    textInputAction: TextInputAction.next,
-                    autofillHints: const [AutofillHints.givenName],
-                    onChanged: (_) => _nameEdited = true,
-                    validator: (value) =>
-                        _required(value, 'El nombre es obligatorio'),
+        child: Column(
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _LabeledField(
+                    label: 'NOMBRE',
+                    field: TextFormField(
+                      key: const Key('nameField'),
+                      controller: _name,
+                      textInputAction: TextInputAction.next,
+                      autofillHints: const [AutofillHints.givenName],
+                      onChanged: (_) => _nameEdited = true,
+                      validator: (value) =>
+                          _required(value, 'El nombre es obligatorio'),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _LabeledField(
-                  label: 'APELLIDO',
-                  field: TextFormField(
-                    key: const Key('lastNameField'),
-                    controller: _lastName,
-                    textInputAction: TextInputAction.next,
-                    autofillHints: const [AutofillHints.familyName],
-                    onChanged: (_) => _lastNameEdited = true,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _LabeledField(
+                    label: 'APELLIDO',
+                    field: TextFormField(
+                      key: const Key('lastNameField'),
+                      controller: _lastName,
+                      textInputAction: TextInputAction.next,
+                      autofillHints: const [AutofillHints.familyName],
+                      onChanged: (_) => _lastNameEdited = true,
+                    ),
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _LabeledField(
+              label: 'PUESTO',
+              field: TextFormField(
+                key: const Key('roleField'),
+                controller: _role,
+                textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.jobTitle],
+                onChanged: (_) => _roleEdited = true,
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _LabeledField(
-            label: 'PUESTO',
-            field: TextFormField(
-              key: const Key('roleField'),
-              controller: _role,
-              textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.jobTitle],
-              onChanged: (_) => _roleEdited = true,
             ),
-          ),
-          const SizedBox(height: 16),
-          _LabeledField(
-            label: 'EMPRESA',
-            field: TextFormField(
-              key: const Key('companyField'),
-              controller: _company,
-              textInputAction: TextInputAction.next,
-              onChanged: (_) => _companyEdited = true,
-              validator: (value) =>
-                  _required(value, 'La empresa es obligatoria'),
+            const SizedBox(height: 16),
+            _LabeledField(
+              label: 'EMPRESA',
+              field: TextFormField(
+                key: const Key('companyField'),
+                controller: _company,
+                textInputAction: TextInputAction.next,
+                onChanged: (_) => _companyEdited = true,
+                validator: (value) =>
+                    _required(value, 'La empresa es obligatoria'),
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _LabeledField(
-            label: 'CORREO',
-            field: TextFormField(
-              key: const Key('emailField'),
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-              textCapitalization: TextCapitalization.none,
-              textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.email],
-              onChanged: (_) => _emailEdited = true,
-              validator: _validateEmail,
+            const SizedBox(height: 16),
+            _LabeledField(
+              label: 'CORREO',
+              field: TextFormField(
+                key: const Key('emailField'),
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
+                textCapitalization: TextCapitalization.none,
+                textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.email],
+                onChanged: (_) => _emailEdited = true,
+                validator: _validateEmail,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _LabeledField(
-            label: 'TELÉFONO',
-            field: TextFormField(
-              key: const Key('phoneField'),
-              controller: _phone,
-              keyboardType: TextInputType.phone,
-              textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.telephoneNumber],
-              onChanged: (_) => _phoneEdited = true,
-              validator: _validatePhone,
+            const SizedBox(height: 16),
+            _LabeledField(
+              label: 'TELÉFONO',
+              field: TextFormField(
+                key: const Key('phoneField'),
+                controller: _phone,
+                keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.telephoneNumber],
+                onChanged: (_) => _phoneEdited = true,
+                validator: _validatePhone,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1259,8 +1275,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               constraints: const BoxConstraints(maxWidth: 320),
               child: SegmentedBubble<InterestLevel>(
                 key: const Key('interestBubble'),
-                height: 44,
+                height: 50,
                 selectedHorizontalInset: 20,
+                selectedVerticalInset: 3,
                 selected: _interest,
                 onSelected: (value) => setState(() => _interest = value),
                 options: const [
@@ -1327,23 +1344,10 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       (_selectedEvent?.name ?? 'este evento').replaceFirst(' México', '');
 
   Widget _buildNoteSection() {
-    final status = switch (_voiceNote.phase) {
-      VoiceNotePhase.idle => 'Listo para grabar',
-      VoiceNotePhase.recording =>
-        'Grabando · ${_formatDuration(_voiceNote.elapsed)}',
-      VoiceNotePhase.recorded =>
-        'Nota de voz · ${_formatDuration(_voiceNote.elapsed)}',
-      VoiceNotePhase.playing =>
-        'Reproduciendo · ${_formatDuration(_voiceNote.elapsed)}',
-      VoiceNotePhase.paused =>
-        'Reproducción pausada · ${_formatDuration(_voiceNote.elapsed)}',
-    };
     return SectionCard(
       key: const Key('noteSection'),
       number: '04',
-      title: widget.plan.isPro
-          ? 'Nota de voz (opcional)'
-          : 'Nota de la plática',
+      title: 'Nota de la plática',
       trailing: _voiceNote.isRecording
           ? const Text(
               '● GRABANDO',
@@ -1358,16 +1362,17 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const Text(
+            'Nota de voz (opcional)',
+            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 8),
           // TODO(BACKEND/AUDIO): Upload the local voice note when media delivery is implemented.
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              border: Border.all(
-                color: Theme.of(context).colorScheme.onSurface
-                    .withValues(alpha: 0.45),
-              ),
-              borderRadius: BorderRadius.circular(16),
+              color: FolooPalette.of(context).paper,
+              borderRadius: BorderRadius.circular(FolooRadii.md),
             ),
             child: Row(
               children: [
@@ -1382,11 +1387,11 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                     key: const Key('recordButton'),
                     onPressed: _voiceActionInProgress ? null : _toggleRecording,
                     style: IconButton.styleFrom(
-                      minimumSize: const Size(64, 64),
-                      backgroundColor: _voiceNote.isRecording
-                          ? FolooColors.error
-                          : FolooColors.ink,
-                      foregroundColor: Colors.white,
+                      minimumSize: const Size(52, 52),
+                      backgroundColor: FolooColors.ink,
+                      foregroundColor: _voiceNote.isRecording
+                          ? FolooColors.lime
+                          : FolooColors.white,
                     ),
                     icon: _voiceActionInProgress
                         ? const SizedBox.square(
@@ -1396,49 +1401,32 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                               strokeWidth: 2,
                             ),
                           )
-                        : Icon(_voiceNote.isRecording ? Icons.stop : Icons.mic),
+                        : Icon(
+                            _voiceNote.isRecording
+                                ? Icons.stop_rounded
+                                : Icons.mic_none_rounded,
+                            size: _voiceNote.isRecording ? 23 : 24,
+                          ),
                   ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                  child: Row(
                     children: [
-                      _Waveform(
-                        active: _voiceNote.isRecording || _voiceNote.isPlaying,
+                      Expanded(
+                        child: _Waveform(
+                          active:
+                              _voiceNote.isRecording || _voiceNote.isPlaying,
+                          tick: _voiceNote.elapsed.inMilliseconds,
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _voiceNote.isRecording
-                                  ? 'Micrófono activo'
-                                  : _voiceNote.hasRecording
-                                  ? 'Audio guardado localmente'
-                                  : 'Toca para grabar',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            _formatDuration(_voiceNote.elapsed),
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w900,
-                              fontFeatures: [FontFeature.tabularFigures()],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 5),
-                      Semantics(
-                        liveRegion: true,
-                        child: Text(
-                          status,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                      const SizedBox(width: 12),
+                      Text(
+                        _formatDuration(_voiceNote.elapsed),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          fontFeatures: [FontFeature.tabularFigures()],
                         ),
                       ),
                     ],
@@ -1447,37 +1435,59 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               ],
             ),
           ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(
+                Icons.mic_none_rounded,
+                size: 14,
+                color: FolooPalette.of(context).inkSecondary,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  'Se guarda en tu teléfono. Se sube cuando haya señal.',
+                  style: TextStyle(
+                    color: FolooPalette.of(context).inkSecondary,
+                    fontSize: 10.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
           if (_voiceNote.hasRecording) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
+            const SizedBox(height: 10),
+            Row(
               children: [
-                OutlinedButton.icon(
-                  key: const Key('playPauseButton'),
-                  onPressed: _voiceActionInProgress ? null : _togglePlayback,
-                  icon: Icon(
-                    _voiceNote.isPlaying ? Icons.pause : Icons.play_arrow,
+                Expanded(
+                  child: _AudioActionButton(
+                    key: const Key('deleteVoiceNoteButton'),
+                    tooltip: 'Borrar audio',
+                    icon: Icons.delete_outline_rounded,
+                    onPressed: _voiceActionInProgress ? null : _deleteVoiceNote,
                   ),
-                  label: Text(_voiceNote.isPlaying ? 'PAUSAR' : 'REPRODUCIR'),
                 ),
-                TextButton.icon(
-                  key: const Key('rerecordButton'),
-                  onPressed: _voiceActionInProgress ? null : _startRecording,
-                  style: TextButton.styleFrom(
-                    foregroundColor: FolooPalette.of(context).ink,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _AudioActionButton(
+                    key: const Key('rerecordButton'),
+                    tooltip: 'Volver a grabar',
+                    icon: Icons.replay_rounded,
+                    onPressed: _voiceActionInProgress ? null : _startRecording,
                   ),
-                  icon: const Icon(Icons.mic_none),
-                  label: const Text('Volver a grabar'),
                 ),
-                TextButton.icon(
-                  key: const Key('deleteVoiceNoteButton'),
-                  onPressed: _voiceActionInProgress ? null : _deleteVoiceNote,
-                  style: TextButton.styleFrom(
-                    foregroundColor: FolooPalette.of(context).ink,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _AudioActionButton(
+                    key: const Key('playPauseButton'),
+                    tooltip: _voiceNote.isPlaying
+                        ? 'Pausar audio'
+                        : 'Reproducir audio',
+                    icon: _voiceNote.isPlaying
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
+                    onPressed: _voiceActionInProgress ? null : _togglePlayback,
                   ),
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Borrar audio'),
                 ),
               ],
             ),
@@ -1547,6 +1557,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               controller: _note,
               decoration: const InputDecoration(
                 hintText: 'Escribe aquí lo importante de la conversación.',
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
               ),
               minLines: 4,
               maxLines: 7,
@@ -1636,6 +1649,42 @@ class _ContentSelectionPill extends StatelessWidget {
   }
 }
 
+class _AudioActionButton extends StatelessWidget {
+  const _AudioActionButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    super.key,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: Material(
+      color: FolooPalette.of(context).paper,
+      borderRadius: BorderRadius.circular(FolooRadii.sm),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(FolooRadii.sm),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Icon(
+            icon,
+            size: 21,
+            color: onPressed == null
+                ? FolooPalette.of(context).inkMuted
+                : FolooPalette.of(context).ink,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class _RelationshipChoice extends StatelessWidget {
   const _RelationshipChoice({
     required this.type,
@@ -1661,8 +1710,8 @@ class _RelationshipChoice extends StatelessWidget {
           duration: MediaQuery.disableAnimationsOf(context)
               ? Duration.zero
               : const Duration(milliseconds: 160),
-          height: 64,
-          padding: const EdgeInsets.symmetric(horizontal: 9),
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 7),
           decoration: BoxDecoration(
             color: selected
                 ? FolooColors.limeTint
@@ -1679,7 +1728,7 @@ class _RelationshipChoice extends StatelessWidget {
             children: [
               Icon(
                 switch (type) {
-                  LeadType.supplier => Icons.inventory_2_outlined,
+                  LeadType.supplier => Icons.local_shipping_outlined,
                   LeadType.partner => Icons.people_outline,
                   LeadType.customer => Icons.person_add_alt_1_outlined,
                 },
@@ -1700,10 +1749,6 @@ class _RelationshipChoice extends StatelessWidget {
                   ),
                 ),
               ),
-              if (selected) ...[
-                const SizedBox(width: 4),
-                const Icon(Icons.check_circle, size: 14),
-              ],
             ],
           ),
         ),
@@ -1754,9 +1799,10 @@ class _InterestDot extends StatelessWidget {
 }
 
 class _Waveform extends StatelessWidget {
-  const _Waveform({required this.active});
+  const _Waveform({required this.active, required this.tick});
 
   final bool active;
+  final int tick;
   static const heights = <double>[
     10,
     20,
@@ -1774,22 +1820,26 @@ class _Waveform extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active
-        ? FolooColors.error
-        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.42);
+    final color = Theme.of(context).colorScheme.onSurface
+        .withValues(alpha: active ? 0.68 : 0.18);
     return SizedBox(
       height: 34,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
-        children: heights
+        children: heights.indexed
             .map(
-              (height) => AnimatedContainer(
+              (entry) => AnimatedContainer(
                 duration: MediaQuery.disableAnimationsOf(context)
                     ? Duration.zero
-                    : const Duration(milliseconds: 180),
+                    : const Duration(milliseconds: 220),
                 width: 3,
-                height: active ? height : height * 0.55,
+                height: active
+                    ? entry.$2 *
+                          (.58 +
+                              .42 *
+                                  math.sin((tick / 190) + entry.$1 * .82).abs())
+                    : entry.$2 * 0.48,
                 decoration: BoxDecoration(
                   color: color,
                   borderRadius: BorderRadius.circular(3),
