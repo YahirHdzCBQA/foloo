@@ -1259,6 +1259,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               constraints: const BoxConstraints(maxWidth: 320),
               child: SegmentedBubble<InterestLevel>(
                 key: const Key('interestBubble'),
+                height: 44,
+                selectedHorizontalInset: 20,
                 selected: _interest,
                 onSelected: (value) => setState(() => _interest = value),
                 options: const [
@@ -1289,36 +1291,30 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               _defaultContentForEvent.isNotEmpty) ...[
             const SizedBox(height: 20),
             const Text(
-              'CONTENIDO A COMPARTIR',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1,
-              ),
+              'Contenido a compartir',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
             ),
-            const SizedBox(height: 7),
+            const SizedBox(height: 10),
             ..._defaultContentForEvent.map(
-              (file) => CheckboxListTile(
+              (file) => _ContentSelectionPill(
                 key: Key('captureContent-${file.id}'),
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                value: _selectedContentIds.contains(file.id),
-                title: Text(file.displayName),
-                subtitle: Text(file.sizeLabel),
-                onChanged: (value) => setState(() {
-                  if (value ?? false) {
-                    _selectedContentIds.add(file.id);
-                  } else {
+                label: file.displayName,
+                selected: _selectedContentIds.contains(file.id),
+                onTap: () => setState(() {
+                  if (_selectedContentIds.contains(file.id)) {
                     _selectedContentIds.remove(file.id);
+                  } else {
+                    _selectedContentIds.add(file.id);
                   }
                 }),
               ),
             ),
+            const SizedBox(height: 3),
             Text(
-              '${_selectedContentIds.length} de ${_defaultContentForEvent.length} archivos se adjuntan al correo demo.',
+              '${_selectedContentIds.length} de ${_defaultContentForEvent.length} archivos de $_contentEventLabel se adjuntan al correo.',
               style: TextStyle(
                 color: FolooPalette.of(context).inkSecondary,
-                fontSize: 11,
+                fontSize: 10.5,
               ),
             ),
           ],
@@ -1326,6 +1322,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       ),
     );
   }
+
+  String get _contentEventLabel =>
+      (_selectedEvent?.name ?? 'este evento').replaceFirst(' México', '');
 
   Widget _buildNoteSection() {
     final status = switch (_voiceNote.phase) {
@@ -1555,6 +1554,83 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ContentSelectionPill extends StatelessWidget {
+  const _ContentSelectionPill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    super.key,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = FolooPalette.of(context);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Semantics(
+          button: true,
+          selected: selected,
+          child: Material(
+            color: selected ? FolooColors.limeTint : palette.paper,
+            shape: StadiumBorder(
+              side: BorderSide(
+                color: selected ? palette.ink : Colors.transparent,
+              ),
+            ),
+            child: InkWell(
+              onTap: onTap,
+              customBorder: const StadiumBorder(),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 44),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 13),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.description_outlined,
+                        size: 15,
+                        color: selected ? palette.ink : palette.inkSecondary,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: selected
+                                ? palette.ink
+                                : palette.inkSecondary,
+                            fontSize: 12,
+                            fontWeight: selected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      if (selected) ...[
+                        const SizedBox(width: 8),
+                        const Icon(Icons.check, size: 16),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

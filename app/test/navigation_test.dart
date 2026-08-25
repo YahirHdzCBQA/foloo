@@ -88,6 +88,10 @@ void main() {
     expect(find.byKey(const ValueKey('eventsScreen')), findsOneWidget);
     expect(find.text('Mis eventos'), findsWidgets);
     expect(find.byKey(const Key('createEventButton')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('event-expo-alimentaria'))).height,
+      62,
+    );
     await tester.tap(find.byKey(const Key('event-expo-alimentaria')));
     await tester.pumpAndSettle();
     expect(find.text('Editar evento'), findsOneWidget);

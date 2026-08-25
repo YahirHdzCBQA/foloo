@@ -140,10 +140,18 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    final tile = tester.widget<CheckboxListTile>(
-      find.byKey(const Key('captureContent-scanley-ims')),
+    final content = find.byKey(const Key('captureContent-scanley-ims'));
+    expect(tester.getSize(content).height, 52);
+    expect(
+      find.descendant(of: content, matching: find.byIcon(Icons.check)),
+      findsOneWidget,
     );
-    expect(tile.value, isTrue);
+    await tester.tap(content);
+    await tester.pump();
+    expect(
+      find.descendant(of: content, matching: find.byIcon(Icons.check)),
+      findsNothing,
+    );
   });
 
   testWidgets('Todos los eventos preserves individual content selection', (

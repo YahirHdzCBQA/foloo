@@ -47,18 +47,18 @@ abstract final class DemoProData {
       eventIds: {'expo-alimentaria', 'foro-lacteo'},
     ),
     ContentFile(
+      id: 'portafolio',
+      displayName: 'CBQA General · Portafolio',
+      fileName: 'cbqa-general.pdf',
+      sizeLabel: '2.8 MB',
+      allEvents: true,
+    ),
+    ContentFile(
       id: 'vision-ai',
       displayName: 'Vision AI · Casos de uso',
       fileName: 'vision-ai-casos.pdf',
       sizeLabel: '940 KB',
       eventIds: {'expo-alimentaria'},
-    ),
-    ContentFile(
-      id: 'portafolio',
-      displayName: 'Portafolio CBQA Solutions',
-      fileName: 'portafolio-2026.pdf',
-      sizeLabel: '2.8 MB',
-      allEvents: true,
     ),
   ];
 }

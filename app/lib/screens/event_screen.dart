@@ -95,13 +95,13 @@ class _EventScreenState extends State<EventScreen> {
     );
     return Scaffold(
       key: _scaffoldKey,
+      backgroundColor: palette.card,
       endDrawer: _drawer(),
       body: Column(
         children: [
           _EventsHeader(
             subtitle: '${widget.events.length} eventos · $total leads en total',
             onBack: widget.onBack,
-            onMenu: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
           Divider(height: 1, color: palette.line),
           Expanded(
@@ -133,13 +133,13 @@ class _EventScreenState extends State<EventScreen> {
                   )
                 : ListView.separated(
                     key: const Key('eventsList'),
-                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+                    padding: const EdgeInsets.fromLTRB(20, 26, 20, 28),
                     itemCount: widget.events.length + 1,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       if (index == widget.events.length) {
                         return Container(
-                          margin: const EdgeInsets.only(top: 8),
+                          margin: const EdgeInsets.only(top: 6),
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: palette.paper,
@@ -174,13 +174,13 @@ class _EventScreenState extends State<EventScreen> {
                         onTap: () => _startEditing(event),
                         borderRadius: BorderRadius.circular(FolooRadii.md),
                         child: Container(
-                          height: 80,
-                          padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+                          height: 62,
+                          padding: const EdgeInsets.fromLTRB(13, 5, 6, 5),
                           decoration: BoxDecoration(
                             color: palette.paper,
                             borderRadius: BorderRadius.circular(FolooRadii.md),
                             border: event.active
-                                ? Border.all(color: palette.ink, width: 2)
+                                ? Border.all(color: palette.ink)
                                 : null,
                           ),
                           child: Row(
@@ -278,6 +278,7 @@ class _EventScreenState extends State<EventScreen> {
   Widget _buildEditor(AppEvent event) {
     final palette = FolooPalette.of(context);
     return Scaffold(
+      backgroundColor: palette.card,
       body: Column(
         children: [
           SafeArea(
@@ -325,7 +326,7 @@ class _EventScreenState extends State<EventScreen> {
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 26, 20, 32),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -337,6 +338,16 @@ class _EventScreenState extends State<EventScreen> {
                   TextField(
                     key: const Key('editEventNameField'),
                     controller: _editingName,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: palette.paper,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(FolooRadii.md),
+                        borderSide: BorderSide(color: palette.ink, width: 1.5),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 20),
                   const Row(
@@ -386,7 +397,7 @@ class _EventScreenState extends State<EventScreen> {
                     style: FilledButton.styleFrom(
                       backgroundColor: palette.ink,
                       foregroundColor: palette.card,
-                      minimumSize: const Size.fromHeight(52),
+                      minimumSize: const Size.fromHeight(48),
                     ),
                     icon: const Icon(Icons.delete_outline),
                     label: const Text('Eliminar evento'),
@@ -447,15 +458,10 @@ class _EventScreenState extends State<EventScreen> {
 }
 
 class _EventsHeader extends StatelessWidget {
-  const _EventsHeader({
-    required this.subtitle,
-    required this.onBack,
-    required this.onMenu,
-  });
+  const _EventsHeader({required this.subtitle, required this.onBack});
 
   final String subtitle;
   final VoidCallback onBack;
-  final VoidCallback onMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -501,12 +507,6 @@ class _EventsHeader extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
-                key: const Key('eventsMenuButton'),
-                tooltip: 'Abrir menú',
-                onPressed: onMenu,
-                icon: const Icon(Icons.menu_rounded),
-              ),
             ],
           ),
         ),
@@ -529,7 +529,7 @@ class _DemoDate extends StatelessWidget {
       ),
       const SizedBox(height: 7),
       Container(
-        height: 56,
+        height: 48,
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.symmetric(horizontal: 15),
         decoration: BoxDecoration(
@@ -548,7 +548,8 @@ class _Metric extends StatelessWidget {
   final String label;
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
+    height: 72,
+    padding: const EdgeInsets.all(10),
     decoration: BoxDecoration(
       color: FolooPalette.of(context).paper,
       borderRadius: BorderRadius.circular(FolooRadii.md),
