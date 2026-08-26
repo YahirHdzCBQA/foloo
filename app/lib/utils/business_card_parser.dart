@@ -71,7 +71,7 @@ class BusinessCardParser {
 
   ParsedBusinessCard parse(Iterable<String> inputLines) {
     final lines = inputLines
-        .map(_normalizeWhitespace)
+        .map(_normalizeContactSpacing)
         .where((line) => line.isNotEmpty)
         .toList(growable: false);
 
@@ -142,6 +142,25 @@ class BusinessCardParser {
 
   static String _normalizeWhitespace(String value) =>
       value.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+  static String _normalizeContactSpacing(String value) {
+    var normalized = _normalizeWhitespace(value);
+    // ML Kit can introduce spaces around email punctuation when characters
+    // are small. Only compact a line that contains an @ to avoid changing
+    // person/company punctuation.
+    if (normalized.contains('@')) {
+      normalized = normalized
+          .replaceAll(RegExp(r'\s*@\s*'), '@')
+          .replaceAll(RegExp(r'\s*\.\s*'), '.');
+    }
+    if (RegExp(
+      r'^(?:tel(?:[eé]fono)?|m[oó]vil|cel(?:ular)?)\b',
+      caseSensitive: false,
+    ).hasMatch(normalized)) {
+      normalized = normalized.replaceAll(RegExp(r'[oO]'), '0');
+    }
+    return normalized;
+  }
 
   static bool _isOnlyPunctuation(String value) =>
       !RegExp(r'[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9]').hasMatch(value);

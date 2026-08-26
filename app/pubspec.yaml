@@ -42,6 +42,9 @@ dependencies:
   # Prototipo demo heredado: OCR local, separado de la arquitectura productiva
   # OCR-03/OCR-04, que exige extracción detrás del backend Foloo.
   google_mlkit_text_recognition: ^0.17.1
+  # OCR-02/OCR-04: on-device preprocessing of temporary image copies.
+  # Flutter and ML Kit do not expose EXIF baking or pixel-level normalization.
+  image: ^4.3.0
   # RF-13/RF-15: grabación local del micrófono y revisión del archivo.
   record: ^7.1.1
   audioplayers: ^6.8.1

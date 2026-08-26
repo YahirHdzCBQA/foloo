@@ -80,6 +80,19 @@ void main() {
       expect(result.phone, '+52 55 1234 5678');
     });
 
+    test('repairs spaces introduced around email punctuation', () {
+      final result = parser.parse(const ['ana.lopez @ empresa . mx']);
+
+      expect(result.email, 'ana.lopez@empresa.mx');
+    });
+
+    test('repairs an OCR O in a labeled phone without guessing other text', () {
+      final result = parser.parse(const ['Teléfono: +52 55 12O4 5678']);
+
+      expect(result.phone, '+52 55 1204 5678');
+      expect(result.name, isEmpty);
+    });
+
     test('detects website only as diagnostic data', () {
       final result = parser.parse(const ['www.foloo.mx']);
 
