@@ -1,5 +1,12 @@
+/// Brand assets and foundational colors used before the full app shell.
+///
+/// Centralized logo variants keep onboarding and authentication aligned with
+/// the same light/dark brand treatment.
+library;
+
 import 'package:flutter/material.dart';
 
+/// Resolves Foloo brand colors and logo assets for each brightness.
 abstract final class FolooBrand {
   static const ink = Color(0xFF1F1F1F);
   static const lime = Color(0xFFC9FA00);

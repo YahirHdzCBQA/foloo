@@ -1,3 +1,9 @@
+/// Demo authentication gate for the Foloo frontend.
+///
+/// Includes shared language selection and the isolated development plan
+/// selector; real authentication and capabilities belong to the backend.
+library;
+
 import 'package:flutter/material.dart';
 
 import '../theme/brand_theme.dart';
@@ -6,6 +12,7 @@ import '../l10n/l10n.dart';
 import '../widgets/language_selector.dart';
 import '../widgets/segmented_bubble.dart';
 
+/// Collects demo credentials before entering profile and origin setup.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
     required this.onAuthenticated,

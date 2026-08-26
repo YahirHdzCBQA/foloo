@@ -1,3 +1,9 @@
+/// Acknowledgement shown after a lead is accepted by the local demo store.
+///
+/// Basic and Pro render capability-aware status fixtures while the production
+/// acknowledgement contract remains subject to D-06.
+library;
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -8,6 +14,7 @@ import '../models/pro_demo_data.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 
+/// Shows the saved lead summary and returns to clean capture after 3 seconds.
 class LeadConfirmationScreen extends StatefulWidget {
   const LeadConfirmationScreen({
     required this.record,
@@ -31,7 +38,7 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
   @override
   void initState() {
     super.initState();
-    // Demo navigation timing copied from the Basic mockup. D-06 still owns the
+    // DEMO: Navigation timing copied from the Basic mockup. D-06 still owns the
     // production acknowledgement semantics.
     _returnTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
@@ -115,7 +122,7 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
                 ),
               ),
               const SizedBox(height: 30),
-              // TODO(BACKEND): Replace demo processing status with real backend state.
+              // TODO(PRODUCTION): Replace demo statuses with truthful backend state.
               Container(
                 key: const Key('confirmationStatusCard'),
                 padding: const EdgeInsets.symmetric(horizontal: 14),

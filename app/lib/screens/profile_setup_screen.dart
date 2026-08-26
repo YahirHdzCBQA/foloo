@@ -1,3 +1,9 @@
+/// First-use seller profile setup for the current frontend session.
+///
+/// Captures optional imagery plus the identity attached to leads; durable
+/// profile persistence remains part of AUT-04/AUT-05 product work.
+library;
+
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -8,6 +14,7 @@ import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 
+/// Collects the minimum seller identity required before lead capture.
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({required this.onContinue, super.key});
 

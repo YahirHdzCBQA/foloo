@@ -1,8 +1,15 @@
+/// Compact ES/EN selector backed by the application-wide locale scope.
+///
+/// Login and Drawer use this same component so they cannot diverge into
+/// independent language states (NAV-09 / RNF-19).
+library;
+
 import 'package:flutter/material.dart';
 
 import '../l10n/l10n.dart';
 import '../theme/foloo_theme.dart';
 
+/// Switches locale immediately without introducing a navigation destination.
 class LanguageSelector extends StatelessWidget {
   const LanguageSelector({this.compact = true, super.key});
 

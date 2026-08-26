@@ -1,3 +1,9 @@
+/// Pre-capture origin selection for event and direct connections.
+///
+/// The shared Basic flow reveals the Pro-only direct location requirement only
+/// when that account capability is active.
+library;
+
 import 'package:flutter/material.dart';
 
 import '../models/app_event.dart';
@@ -10,6 +16,7 @@ import '../l10n/l10n.dart';
 import '../widgets/create_event_dialog.dart';
 import '../widgets/segmented_bubble.dart';
 
+/// Result passed to the root shell when origin setup is complete.
 class OriginSelection {
   const OriginSelection({required this.kind, this.event, this.place});
   final LeadOriginKind kind;
@@ -17,6 +24,7 @@ class OriginSelection {
   final String? place;
 }
 
+/// Chooses or creates an event, or prepares a direct lead (CAP-01–CAP-04).
 class OriginSelectionScreen extends StatefulWidget {
   const OriginSelectionScreen({
     required this.events,

@@ -1,13 +1,21 @@
+/// Local recording and playback boundary for lead voice notes.
+///
+/// Basic and Pro share this device lifecycle. Pro transcription is a separate
+/// server capability and is never performed by this service.
+library;
+
 import 'dart:async';
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:record/record.dart';
 
+/// Signals that capture must fall back to a written note after permission denial.
 class VoiceNotePermissionDeniedException implements Exception {
   const VoiceNotePermissionDeniedException();
 }
 
+/// Contract consumed by capture and record-detail widgets for local audio.
 abstract interface class VoiceNoteService {
   Stream<void> get playbackCompleted;
 
@@ -22,6 +30,10 @@ abstract interface class VoiceNoteService {
   Future<void> dispose();
 }
 
+/// Device-backed implementation using one recorder and one audio player.
+///
+/// TODO(PRODUCTION): Define media format, duration and retention through the
+/// unresolved OQ-A18/D-11 contracts before treating files as durable assets.
 class DeviceVoiceNoteService implements VoiceNoteService {
   DeviceVoiceNoteService();
 

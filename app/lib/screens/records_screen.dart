@@ -1,3 +1,9 @@
+/// Searchable session records and read-only connection detail.
+///
+/// Provides local demo filtering, export choices, sync affordances and voice
+/// playback while keeping Basic and Pro detail fields capability-aware.
+library;
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -27,6 +33,10 @@ String _uploadStateLabel(BuildContext context, SessionUploadState state) =>
       SessionUploadState.inSheet => context.l10n.inSheet,
     };
 
+/// Lists leads captured during the current session (REG-01–REG-08).
+///
+/// TODO(PRODUCTION): Replace the in-memory source with durable local-first
+/// records before implementing synchronization (SYN-01).
 class RecordsScreen extends StatefulWidget {
   const RecordsScreen({
     required this.records,
@@ -130,6 +140,8 @@ class _RecordsScreenState extends State<RecordsScreen>
     }
   }
 
+  /// Ensures only one record audio file is active and keeps lifecycle state
+  /// synchronized with the shared device player.
   Future<void> _toggleAudio(SessionLead record) async {
     final path = record.lead.audioLocalPath;
     if (path == null || _busyAudioPath != null) {
@@ -170,6 +182,7 @@ class _RecordsScreenState extends State<RecordsScreen>
     }
   }
 
+  /// Applies local event, query and type filters without mutating source data.
   List<SessionLead> get _visibleRecords {
     final query = _search.text.trim().toLowerCase();
     return widget.records.where((record) {
@@ -197,6 +210,9 @@ class _RecordsScreenState extends State<RecordsScreen>
     if (mounted) setState(() {});
   }
 
+  /// Presents the specified XLS/CSV choice without performing real file export.
+  ///
+  /// DEMO: REG-09–REG-12 still require a production exporter and share sheet.
   Future<void> _showExportDialog() async {
     String format = 'XLS';
     await showDialog<void>(
@@ -441,7 +457,7 @@ class _RecordsScreenState extends State<RecordsScreen>
                   Expanded(
                     child: FilledButton.icon(
                       key: const Key('syncButton'),
-                      // TODO(BACKEND): Implement real lead synchronization.
+                      // TODO(PRODUCTION): Implement SYN-* lead synchronization.
                       onPressed: () => ScaffoldMessenger.of(context)
                           .showSnackBar(
                             SnackBar(
@@ -712,6 +728,9 @@ class _RecordRow extends StatelessWidget {
   }
 }
 
+/// Read-only detail for one captured connection (REG-07).
+///
+/// Voice playback is shared; transcription and delivery status remain Pro-only.
 class ConnectionDetailScreen extends StatelessWidget {
   const ConnectionDetailScreen({
     required this.record,
@@ -959,7 +978,7 @@ class ConnectionDetailScreen extends StatelessWidget {
                 label: context.l10n.adminCopy,
                 value: context.l10n.sentDemo,
               ),
-              // TODO(BACKEND): Replace demo email/transcription state with real backend state.
+              // TODO(PRODUCTION): Replace Pro demo states with backend truth.
             ],
             const SizedBox(height: 22),
             Text(

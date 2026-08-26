@@ -1,7 +1,13 @@
+/// Header for focused Pro modules that use a back action instead of the Drawer.
+///
+/// Used by Content and Email subflows to preserve a consistent hierarchy.
+library;
+
 import 'package:flutter/material.dart';
 
 import '../theme/foloo_theme.dart';
 
+/// Displays a module title, context subtitle and accessible back control.
 class ModuleHeader extends StatelessWidget {
   const ModuleHeader({
     required this.title,

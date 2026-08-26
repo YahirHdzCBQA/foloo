@@ -1,3 +1,9 @@
+/// Shared event list, creation and editing experience.
+///
+/// Manages frontend event state and exposes Pro content assignments only when
+/// the capability exists; deletion does not imply remote data deletion.
+library;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -10,6 +16,7 @@ import '../l10n/l10n.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/create_event_dialog.dart';
 
+/// Displays Mis eventos and its in-place editor (EVT-01–EVT-11).
 class EventScreen extends StatefulWidget {
   const EventScreen({
     required this.events,
@@ -57,6 +64,7 @@ class _EventScreenState extends State<EventScreen> {
     super.dispose();
   }
 
+  /// Switches composition to the selected read/edit view without adding a route.
   void _startEditing(AppEvent event) {
     _editingName.text = event.name;
     setState(() => _editing = event);

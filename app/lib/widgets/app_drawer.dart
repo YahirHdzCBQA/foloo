@@ -1,3 +1,9 @@
+/// Right-side Foloo navigation drawer shared across authenticated screens.
+///
+/// Centralizes destination visibility, profile context, appearance/language
+/// controls and protected logout behavior.
+library;
+
 import 'package:flutter/material.dart';
 
 import '../models/app_destination.dart';
@@ -9,6 +15,7 @@ import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 import 'language_selector.dart';
 
+/// Renders capability-aware navigation and keeps Pro destinations out of Basic.
 class AppDrawer extends StatelessWidget {
   const AppDrawer({
     required this.activeDestination,
@@ -41,6 +48,7 @@ class AppDrawer extends StatelessWidget {
       .map((part) => part[0].toUpperCase())
       .join();
 
+  /// Closes the drawer before dispatching navigation to avoid stacked surfaces.
   void _afterClose(BuildContext context, VoidCallback action) {
     Navigator.of(context).pop();
     WidgetsBinding.instance.addPostFrameCallback((_) => action());

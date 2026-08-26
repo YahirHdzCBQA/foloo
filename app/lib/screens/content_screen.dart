@@ -1,3 +1,9 @@
+/// Pro-only content library for event-scoped PDF fixtures.
+///
+/// The screen demonstrates CON-* selection and assignment behavior without
+/// uploading, persisting or delivering real files.
+library;
+
 import 'package:flutter/material.dart';
 
 import '../models/app_destination.dart';
@@ -10,6 +16,9 @@ import '../widgets/app_drawer.dart';
 import '../widgets/content_assignment_sheet.dart';
 import '../widgets/module_header.dart';
 
+/// Lists and edits session-only Pro content metadata.
+///
+/// Basic accounts must never be routed to this surface (RNF-18).
 class ContentScreen extends StatefulWidget {
   const ContentScreen({
     required this.files,
@@ -53,7 +62,7 @@ class _ContentScreenState extends State<ContentScreen> {
         }).toList();
 
   Future<void> _add() async {
-    // The native picker/server upload is intentionally replaced by a local PDF fixture.
+    // DEMO: Native picking/server upload is replaced by a local PDF fixture.
     final result = await showContentAssignmentSheet(
       context,
       events: widget.events,

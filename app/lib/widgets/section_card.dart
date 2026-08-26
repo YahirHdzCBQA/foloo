@@ -1,5 +1,11 @@
+/// Editorial section wrapper for the continuous lead-capture form.
+///
+/// Provides numbered hierarchy without introducing separate screens or steps.
+library;
+
 import 'package:flutter/material.dart';
 
+/// Groups one capture section with optional guidance or trailing status.
 class SectionCard extends StatelessWidget {
   const SectionCard({
     required this.number,

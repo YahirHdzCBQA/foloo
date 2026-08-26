@@ -1,9 +1,21 @@
+/// In-progress lead values shared between capture and confirmation.
+///
+/// This frontend object is not the final local-storage or spreadsheet schema.
+library;
+
+/// Commercial relationship selected for a lead (CAP-09 / CAP-10).
 enum LeadType { supplier, partner, customer }
 
+/// Interest semaphore used by capture and record rails.
 enum InterestLevel { high, medium, low }
 
+/// Distinguishes event-associated captures from direct leads.
 enum LeadOriginKind { event, direct }
 
+/// Snapshot of the current capture when the user submits a valid lead.
+///
+/// Basic fields are shared. Pro-only values remain optional and must never be
+/// surfaced to Basic accounts (RNF-18 and the capability matrix).
 class LeadDraft {
   const LeadDraft({
     required this.name,

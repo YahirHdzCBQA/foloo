@@ -81,6 +81,25 @@ absent rather than shown locked or disabled.
 10. Every task, test, commit, and implementation report cites current IDs.
     Legacy RF mappings may appear only as migration context.
 
+## Code Documentation Standard
+
+Every new hand-maintained file under `app/lib/` must keep documentation useful
+without narrating self-explanatory code:
+
+1. Start with a brief 2–6 line English header explaining purpose, ownership and
+   relevant flow context; a short Spanish summary is optional.
+2. Add DartDoc to important screens, services, models, state holders and shared
+   components, including the boundary they own.
+3. Use section comments only to make complex blocks easier to navigate.
+4. Explain non-obvious intent, restrictions and risks rather than restating the
+   implementation.
+5. Mark genuine temporary behavior consistently with `DEMO:` and approved
+   future work with a specific `TODO(PRODUCTION):`; do not invent TODOs.
+6. Cite current SDD IDs only for critical rules, capability boundaries or
+   decisions that would otherwise appear arbitrary.
+7. Never comment imports, trivial getters/setters, `build`, `setState`, returns,
+   padding, colors or simple widget composition. Generated files are excluded.
+
 ## Change Reporting
 
 Report:

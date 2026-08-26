@@ -1,3 +1,9 @@
+/// Pro content upload/edit sheet for assigning one PDF to events.
+///
+/// The current sheet returns session metadata only; file transfer and durable
+/// assignment remain backend work under CON-*.
+library;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -6,6 +12,7 @@ import '../models/pro_demo_data.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 
+/// Opens the capability-scoped editor and returns an updated local fixture.
 Future<ContentFile?> showContentAssignmentSheet(
   BuildContext context, {
   required List<AppEvent> events,
@@ -18,6 +25,7 @@ Future<ContentFile?> showContentAssignmentSheet(
   builder: (_) => _ContentAssignmentSheet(events: events, file: file),
 );
 
+/// Stateful form used for both adding and editing Pro content metadata.
 class _ContentAssignmentSheet extends StatefulWidget {
   const _ContentAssignmentSheet({required this.events, this.file});
   final List<AppEvent> events;
@@ -207,7 +215,7 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
                             ? widget.file!.displayName
                             : _name.text.trim();
                         if (displayName.isEmpty) return;
-                        // TODO(BACKEND): Upload PDFs and persist event assignments.
+                        // TODO(PRODUCTION): Upload PDFs and persist assignments.
                         Navigator.pop(
                           context,
                           (widget.file ??

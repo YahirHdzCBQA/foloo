@@ -1,16 +1,27 @@
+/// On-device OCR adapter used by the current card-capture prototype.
+///
+/// It keeps ML Kit APIs outside the UI and selects the best preprocessed image
+/// before returning ordered text lines for parsing.
+library;
+
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:foloo/utils/ocr/ocr_image_preprocessor.dart';
 
-// TEMPORARY OCR IMPLEMENTATION:
+// DEMO:
 // Google ML Kit is used on-device for early Foloo validation.
 // Final card extraction will move behind the Foloo backend
-// according to the architecture specification.
+// according to Article 3 and OCR-03/OCR-04.
+/// Wraps ML Kit recognition without exposing provider types to capture UI.
 class CardTextRecognitionService {
   CardTextRecognitionService()
     : _recognizer = TextRecognizer(script: TextRecognitionScript.latin);
 
   final TextRecognizer _recognizer;
 
+  /// Recognizes an original card image through derived orientation candidates.
+  ///
+  /// The first sufficiently complete result wins; otherwise the highest-scored
+  /// candidate is returned and uncertain field mapping remains the parser's job.
   Future<List<String>> recognizeLines(String imagePath) async {
     final candidates = await OcrImagePreprocessor.prepareTemporaryCandidates(
       imagePath,

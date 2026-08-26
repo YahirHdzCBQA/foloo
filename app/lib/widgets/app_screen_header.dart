@@ -1,8 +1,14 @@
+/// Standard top header for authenticated Foloo list screens.
+///
+/// Keeps title, optional context and the right-drawer trigger consistent.
+library;
+
 import 'package:flutter/material.dart';
 
 import '../theme/brand_theme.dart';
 import '../l10n/l10n.dart';
 
+/// Displays a screen title, optional badge/subtitle and menu action.
 class AppScreenHeader extends StatelessWidget {
   const AppScreenHeader({
     required this.title,

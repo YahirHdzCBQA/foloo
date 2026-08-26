@@ -1,3 +1,9 @@
+/// Root application shell for the Foloo frontend prototype.
+///
+/// Owns session-scoped navigation, demo capabilities, events and captured
+/// leads, then supplies that shared state to each screen.
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -22,6 +28,9 @@ import 'theme/foloo_theme.dart';
 
 enum _AppStage { login, profile, origin, shell }
 
+/// Coordinates the top-level Foloo flow from login through the capture shell.
+///
+/// ES: Mantiene navegación y datos demo compartidos durante la sesión.
 class FolooApp extends StatefulWidget {
   const FolooApp({this.initialLocale, this.useSystemLocale = false, super.key});
 
@@ -33,10 +42,12 @@ class FolooApp extends StatefulWidget {
 }
 
 class _FolooAppState extends State<FolooApp> {
+  // Session orchestration and capability fixtures.
   _AppStage _stage = _AppStage.login;
   ThemeMode _themeMode = ThemeMode.light;
   AppDestination _destination = AppDestination.home;
-  // Development/demo plan selector. Replace with account capabilities from backend when the capability contract is implemented.
+  // DEMO: Development plan selector used to preview the capability boundary.
+  // RNF-18 requires production capabilities to come from the account backend.
   AppPlan _plan = AppPlan.basic;
   AppDestination _eventsReturnDestination = AppDestination.home;
   DemoProfile _profile = DemoBasicData.profile;
@@ -62,6 +73,10 @@ class _FolooAppState extends State<FolooApp> {
     _locale = supported ? Locale(requested.languageCode) : const Locale('es');
   }
 
+  /// Stores the submitted draft before navigating to confirmation.
+  ///
+  /// DEMO: CAP-15/SYN-01 require durable local storage in production; this
+  /// collection intentionally models only the current frontend session.
   SessionLead _saveLead(LeadDraft lead) {
     final record = DemoEventData.createSessionLead(
       lead: lead,
@@ -119,7 +134,8 @@ class _FolooAppState extends State<FolooApp> {
   }
 
   void _logout() {
-    // Demo-only auth shell. AUT-08 requires local leads to survive logout, so
+    // DEMO: This authentication shell is session-only. AUT-08 requires local
+    // leads to survive logout, so
     // this in-memory prototype deliberately keeps the current session list.
     setState(() {
       _stage = _AppStage.login;
@@ -212,6 +228,7 @@ class _FolooAppState extends State<FolooApp> {
     );
   }
 
+  /// Keeps shared destinations alive so Drawer navigation reuses session state.
   Widget _buildShell() {
     final darkMode = _themeMode == ThemeMode.dark;
     final origin =

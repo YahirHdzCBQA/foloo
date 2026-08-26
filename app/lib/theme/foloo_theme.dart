@@ -1,3 +1,9 @@
+/// Closed Foloo design tokens and light/dark theme construction.
+///
+/// The theme remaps one shared vocabulary rather than redefining screens,
+/// preserving the Constitution's closed design system.
+library;
+
 import 'package:flutter/material.dart';
 
 /// Closed visual vocabulary extracted from `Foloo Mockups Basic.html`.
@@ -41,6 +47,7 @@ abstract final class FolooColors {
 }
 
 @immutable
+/// Semantic Foloo colors consumed by theme-aware reusable widgets.
 class FolooPalette extends ThemeExtension<FolooPalette> {
   const FolooPalette({
     required this.paper,

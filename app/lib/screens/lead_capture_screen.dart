@@ -1,3 +1,9 @@
+/// Continuous, scrollable lead-capture workflow shared by Basic and Pro.
+///
+/// Coordinates origin, card OCR, editable lead data, relationship, voice note
+/// and submission while delegating native work to dedicated services.
+library;
+
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -25,8 +31,13 @@ import '../widgets/section_card.dart';
 import '../widgets/segmented_bubble.dart';
 import 'lead_confirmation_screen.dart';
 
+/// Reports an origin change without coupling capture to root application state.
 typedef LeadOriginChanged = void Function(LeadOriginKind kind, AppEvent? event);
 
+/// Displays the single-screen four-section capture experience (CAP-05).
+///
+/// Pro additions are capability-gated and absent, rather than disabled, in
+/// Basic. ES: Coordina la captura completa de una conexión.
 class LeadCaptureScreen extends StatefulWidget {
   const LeadCaptureScreen({
     required this.originKind,
@@ -71,6 +82,7 @@ class LeadCaptureScreen extends StatefulWidget {
 
 class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     with WidgetsBindingObserver {
+  // Form, OCR and image-capture state.
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _formKey = GlobalKey<FormState>();
   final _scrollController = ScrollController();
@@ -88,6 +100,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   late final VoiceNoteService _voiceNoteService;
   late final StreamSubscription<void> _playbackCompletedSubscription;
 
+  // Derived media and manual-edit guards for OCR-05.
   Uint8List? _cardBytes;
   String? _cardPath;
   String? _imageMessage;
@@ -182,6 +195,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     }
   }
 
+  /// Releases native audio resources without deleting a recording transferred
+  /// into the submitted lead snapshot.
   Future<void> _disposeVoiceResources() async {
     try {
       if (_voiceNote.isRecording) {
@@ -208,6 +223,11 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     if (mounted) setState(() {});
   }
 
+  // ---------------------------------------------------------------------------
+  // Card capture and OCR
+  // ---------------------------------------------------------------------------
+
+  /// Selects the original card image and immediately starts local demo OCR.
   Future<void> _pickImage(ImageSource source) async {
     try {
       final image = await _picker.pickImage(
@@ -307,8 +327,11 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     widget.onOriginChanged(LeadOriginKind.event, event);
   }
 
+  /// Maps OCR output only into untouched empty fields.
+  ///
+  /// OCR-05 makes manual edits authoritative across every reprocessing pass.
   Future<void> _readCard(String imagePath) async {
-    // Demo-only local extraction. OCR-03 keeps production extraction behind
+    // DEMO: Local extraction only. OCR-03 keeps production extraction behind
     // the Foloo backend boundary.
     if (_isReadingCard) return;
     setState(() {
@@ -363,6 +386,10 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       controller.text = value;
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Local voice-note lifecycle
+  // ---------------------------------------------------------------------------
 
   Future<void> _toggleRecording() async {
     if (_voiceActionInProgress) return;
@@ -566,6 +593,12 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     return null;
   }
 
+  // ---------------------------------------------------------------------------
+  // Validation and local demo submission
+  // ---------------------------------------------------------------------------
+
+  /// Validates shared fields plus capability-specific requirements before
+  /// handing an immutable draft to the session-local application store.
   Future<void> _submit() async {
     FocusManager.instance.primaryFocus?.unfocus();
     if (_voiceNote.isRecording) await _stopRecording();

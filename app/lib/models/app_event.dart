@@ -1,3 +1,11 @@
+/// Session models and fixtures for Foloo event/profile flows.
+///
+/// They support the frontend demo and are not an approved persistence schema.
+library;
+
+/// Event data used by origin selection, capture and event management screens.
+///
+/// DEMO: Counts are presentation fixtures until EVT-* has durable storage.
 class AppEvent {
   const AppEvent({
     required this.id,
@@ -37,6 +45,7 @@ class AppEvent {
   );
 }
 
+/// Session-only seller profile attached to locally captured demo leads.
 class DemoProfile {
   const DemoProfile({required this.name, required this.company});
 
@@ -44,6 +53,7 @@ class DemoProfile {
   final String company;
 }
 
+/// Centralized Basic fixtures used to exercise event and profile flows.
 abstract final class DemoBasicData {
   static const profile = DemoProfile(
     name: 'Yahir Hernández',

@@ -1,3 +1,9 @@
+/// Shared event-creation dialog used from onboarding, capture and Mis eventos.
+///
+/// Pro content assignment is included only when the caller supplies that
+/// capability; Basic retains the same core event fields.
+library;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -7,6 +13,7 @@ import '../models/pro_demo_data.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 
+/// Opens event creation and returns a session model after local validation.
 Future<AppEvent?> showCreateEventDialog(
   BuildContext context, {
   AppPlan plan = AppPlan.basic,

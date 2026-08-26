@@ -1,5 +1,11 @@
+/// Session-only fixtures for Pro content and email-template surfaces.
+///
+/// DEMO: CON-* and PLT-* require backend-owned durable data in production.
+library;
+
 import 'app_event.dart';
 
+/// Metadata for a Pro PDF assigned to one or more events.
 class ContentFile {
   const ContentFile({
     required this.id,
@@ -33,6 +39,7 @@ class ContentFile {
   bool appliesTo(AppEvent event) => allEvents || eventIds.contains(event.id);
 }
 
+/// Centralized Pro fixtures used by content, capture and confirmation demos.
 abstract final class DemoProData {
   static const adminEmail = 'marketing@cbqasolutions.com';
   static const transcript =
@@ -63,6 +70,7 @@ abstract final class DemoProData {
   ];
 }
 
+/// Editable in-memory representation of one Pro follow-up template.
 class DemoEmailTemplate {
   const DemoEmailTemplate({required this.subject, required this.body});
   final String subject;

@@ -1,3 +1,10 @@
+/// Conservative mapping from recognized card text into existing lead fields.
+///
+/// Ambiguous values remain empty, and the separate prefill policy prevents a
+/// later OCR pass from replacing manual corrections.
+library;
+
+/// Structured output produced by the local business-card parser.
 class ParsedBusinessCard {
   const ParsedBusinessCard({
     this.name = '',
@@ -29,6 +36,9 @@ class ParsedBusinessCard {
   ].where((value) => value.isNotEmpty).length;
 }
 
+/// Returns whether OCR may prefill a field without overriding user intent.
+///
+/// OCR-05 makes a manual edit authoritative even when the edited value is empty.
 bool shouldApplyExtractedValue({
   required String currentValue,
   required String extractedValue,
@@ -38,7 +48,8 @@ bool shouldApplyExtractedValue({
     currentValue.trim().isEmpty &&
     extractedValue.trim().isNotEmpty;
 
-// TODO(BACKEND): Replace local OCR parsing with server-side structured card extraction.
+// TODO(PRODUCTION): Replace local parsing with server-side OCR-03 extraction.
+/// Applies cautious card-specific heuristics to ML Kit text lines.
 class BusinessCardParser {
   static final RegExp _emailPattern = RegExp(
     r'[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}',

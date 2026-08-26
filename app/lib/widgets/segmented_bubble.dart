@@ -1,7 +1,14 @@
+/// Reusable pill-style segmented selector from the Foloo design system.
+///
+/// Keeps origin and email-template choices visually consistent while leaving
+/// the selected value and capability rules to their owning screen.
+library;
+
 import 'package:flutter/material.dart';
 
 import '../theme/foloo_theme.dart';
 
+/// Value, label and leading visual for one segmented choice.
 class SegmentedBubbleOption<T> {
   const SegmentedBubbleOption({
     required this.value,
@@ -16,6 +23,7 @@ class SegmentedBubbleOption<T> {
   final Key? key;
 }
 
+/// Displays mutually exclusive options with a contained selected pill.
 class SegmentedBubble<T> extends StatelessWidget {
   const SegmentedBubble({
     required this.options,

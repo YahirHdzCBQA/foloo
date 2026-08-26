@@ -1,9 +1,16 @@
+/// Fixed capture header showing Foloo branding and four-step progress.
+///
+/// Progress reflects completion within one scrollable form; it does not turn
+/// the capture experience into a wizard (CAP-05).
+library;
+
 import 'package:flutter/material.dart';
 
 import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 
+/// Derives and displays the active capture section from completion flags.
 class ProgressHeader extends StatelessWidget {
   const ProgressHeader({
     required this.completed,

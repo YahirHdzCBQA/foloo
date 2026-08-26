@@ -1,3 +1,9 @@
+/// Image preparation for the temporary on-device card OCR pipeline.
+///
+/// Derived candidates normalize EXIF, size, illumination and orientation while
+/// preserving the selected source image for preview and reprocessing.
+library;
+
 import 'dart:isolate';
 import 'dart:io';
 import 'dart:typed_data';

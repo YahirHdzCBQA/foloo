@@ -1,5 +1,13 @@
+/// Immutable UI state for the local voice-note lifecycle.
+///
+/// Recording/playback is shared by Basic and Pro; transcription is Pro-only
+/// and is intentionally not represented here (VOZ-07 / TRA-*).
+library;
+
+/// Mutually exclusive phases of local recording and playback.
 enum VoiceNotePhase { idle, recording, recorded, playing, paused }
 
+/// Value object consumed while handling one local audio file.
 class VoiceNoteState {
   const VoiceNoteState({
     this.phase = VoiceNotePhase.idle,

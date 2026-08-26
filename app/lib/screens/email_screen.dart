@@ -1,3 +1,9 @@
+/// Pro-only email-template editor and deterministic preview.
+///
+/// Edits remain in memory; no message is sent and Basic accounts must not see
+/// this destination (PLT-* / RNF-18).
+library;
+
 import 'package:flutter/material.dart';
 
 import '../models/app_destination.dart';
@@ -12,6 +18,7 @@ import '../widgets/segmented_bubble.dart';
 
 enum _TemplateKind { event, direct }
 
+/// Edits the event or direct-lead Pro template for the current demo session.
 class EmailScreen extends StatefulWidget {
   const EmailScreen({
     required this.recordsCount,
@@ -123,6 +130,7 @@ class _EmailScreenState extends State<EmailScreen> {
     super.dispose();
   }
 
+  /// Inserts a supported token at the current caret without changing its name.
   void _insert(String variable) {
     final selection = _body.selection;
     final offset = selection.isValid ? selection.start : _body.text.length;
@@ -154,7 +162,7 @@ class _EmailScreenState extends State<EmailScreen> {
           : context.l10n.invalidVariable(invalid.join(', ')),
     );
     if (_error == null) {
-      // TODO(BACKEND): Persist account email templates and send from the server.
+      // TODO(PRODUCTION): Persist PLT-* templates and send through the backend.
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(context.l10n.templateSavedDemo)));
@@ -171,6 +179,7 @@ class _EmailScreenState extends State<EmailScreen> {
     return null;
   }
 
+  /// Produces a local preview from known fixtures; it is not delivery output.
   String _preview(String value) {
     final lead = _previewRecord?.lead;
     final attachments = lead == null
