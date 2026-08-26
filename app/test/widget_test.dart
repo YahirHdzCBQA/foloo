@@ -72,6 +72,12 @@ void main() {
     expect(find.text('Lead guardado'), findsOneWidget);
     expect(find.textContaining('Ana López'), findsOneWidget);
     expect(find.text('FOL-260812-001'), findsOneWidget);
+    expect(find.byKey(const Key('confirmationMark')), findsOneWidget);
+    expect(find.byKey(const Key('confirmationStatusCard')), findsOneWidget);
+    expect(
+      find.byKey(const Key('confirmationCountdownProgress')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('captureAnotherButton')));
     await tester.pumpAndSettle();

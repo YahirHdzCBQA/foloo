@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+import 'l10n/app_localizations.dart';
+import 'l10n/l10n.dart';
 
 import 'models/app_destination.dart';
 import 'models/app_event.dart';
@@ -19,7 +23,10 @@ import 'theme/foloo_theme.dart';
 enum _AppStage { login, profile, origin, shell }
 
 class FolooApp extends StatefulWidget {
-  const FolooApp({super.key});
+  const FolooApp({this.initialLocale, this.useSystemLocale = false, super.key});
+
+  final Locale? initialLocale;
+  final bool useSystemLocale;
 
   @override
   State<FolooApp> createState() => _FolooAppState();
@@ -38,12 +45,21 @@ class _FolooAppState extends State<FolooApp> {
   late List<ContentFile> _contentFiles;
   OriginSelection? _origin;
   final List<SessionLead> _sessionLeads = [];
+  late Locale _locale;
 
   @override
   void initState() {
     super.initState();
     _events = List.of(DemoBasicData.events);
     _contentFiles = List.of(DemoProData.files);
+    final system = WidgetsBinding.instance.platformDispatcher.locale;
+    final requested =
+        widget.initialLocale ??
+        (widget.useSystemLocale ? system : const Locale('es'));
+    final supported = AppLocalizations.supportedLocales.any(
+      (locale) => locale.languageCode == requested.languageCode,
+    );
+    _locale = supported ? Locale(requested.languageCode) : const Locale('es');
   }
 
   SessionLead _saveLead(LeadDraft lead) {
@@ -154,11 +170,24 @@ class _FolooAppState extends State<FolooApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Foloo · ${_profile.name}',
+      onGenerateTitle: (_) => 'Foloo · ${_profile.name}',
       debugShowCheckedModeBanner: false,
+      locale: _locale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
       theme: FolooTheme.light,
       darkTheme: FolooTheme.dark,
       themeMode: _themeMode,
+      builder: (context, child) => AppLanguageScope(
+        locale: _locale,
+        onLocaleChanged: (locale) => setState(() => _locale = locale),
+        child: child ?? const SizedBox.shrink(),
+      ),
       home: switch (_stage) {
         _AppStage.login => LoginScreen(
           key: const ValueKey('loginScreen'),

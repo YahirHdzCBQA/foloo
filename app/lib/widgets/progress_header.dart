@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
+import '../l10n/l10n.dart';
 
 class ProgressHeader extends StatelessWidget {
   const ProgressHeader({
@@ -12,11 +13,10 @@ class ProgressHeader extends StatelessWidget {
 
   final List<bool> completed;
   final VoidCallback onMenuPressed;
-  static const labels = ['01 Tarjeta', '02 Datos', '03 Tipo', '04 Nota'];
 
   int get _activeIndex {
     final firstIncomplete = completed.indexWhere((value) => !value);
-    return firstIncomplete == -1 ? labels.length - 1 : firstIncomplete;
+    return firstIncomplete == -1 ? completed.length - 1 : firstIncomplete;
   }
 
   @override
@@ -25,6 +25,12 @@ class ProgressHeader extends StatelessWidget {
     final ink = theme.colorScheme.onSurface;
     final surface = theme.colorScheme.surface;
     final active = _activeIndex;
+    final labels = [
+      context.l10n.progressCard,
+      context.l10n.progressData,
+      context.l10n.progressType,
+      context.l10n.progressNote,
+    ];
     return Material(
       color: surface,
       child: SafeArea(
@@ -58,7 +64,7 @@ class ProgressHeader extends StatelessWidget {
                         ),
                         const SizedBox(width: 7),
                         Text(
-                          'SIN CONEXIÓN',
+                          context.l10n.offline,
                           style: TextStyle(
                             color: ink.withValues(alpha: 0.72),
                             fontSize: 9,
@@ -72,7 +78,7 @@ class ProgressHeader extends StatelessWidget {
                   const SizedBox(width: 10),
                   IconButton.outlined(
                     key: const Key('hamburgerMenuButton'),
-                    tooltip: 'Abrir menú',
+                    tooltip: context.l10n.openMenu,
                     onPressed: onMenuPressed,
                     icon: const Icon(Icons.menu_rounded),
                     style: IconButton.styleFrom(

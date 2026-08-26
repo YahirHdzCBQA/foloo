@@ -5,6 +5,7 @@ import '../models/app_event.dart';
 import '../models/app_plan.dart';
 import '../models/pro_demo_data.dart';
 import '../theme/foloo_theme.dart';
+import '../l10n/l10n.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/content_assignment_sheet.dart';
 import '../widgets/module_header.dart';
@@ -89,8 +90,8 @@ class _ContentScreenState extends State<ContentScreen> {
       body: Column(
         children: [
           ModuleHeader(
-            title: 'Contenido',
-            subtitle: '${widget.files.length} archivos · 4.9 MB',
+            title: context.l10n.contentTitle,
+            subtitle: context.l10n.filesSummary(widget.files.length),
             onBack: () => widget.onDestinationSelected(AppDestination.home),
           ),
           Divider(height: 1, color: palette.line),
@@ -113,14 +114,23 @@ class _ContentScreenState extends State<ContentScreen> {
                   DropdownMenuItem<String?>(
                     value: null,
                     child: Text(
-                      'Todos los eventos · ${widget.files.length} archivos',
+                      context.l10n.allEventsFiles(
+                        context.l10n.fileCount(widget.files.length),
+                      ),
                     ),
                   ),
                   ...widget.events.map(
                     (event) => DropdownMenuItem<String?>(
                       value: event.id,
                       child: Text(
-                        '${event.name} · ${widget.files.where((f) => f.appliesTo(event)).length} archivos',
+                        context.l10n.eventFiles(
+                          event.name,
+                          context.l10n.fileCount(
+                            widget.files
+                                .where((f) => f.appliesTo(event))
+                                .length,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -156,7 +166,7 @@ class _ContentScreenState extends State<ContentScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Los archivos viven en tu teléfono y se adjuntan al correo cuando hay señal.',
+                            context.l10n.localFilesHelp,
                             style: TextStyle(
                               color: palette.inkSecondary,
                               fontSize: 12,
@@ -170,7 +180,7 @@ class _ContentScreenState extends State<ContentScreen> {
                 }
                 final file = _visible[index];
                 final names = file.allEvents
-                    ? const ['Todos los eventos']
+                    ? [context.l10n.allEvents]
                     : widget.events
                           .where((e) => file.eventIds.contains(e.id))
                           .map((e) => e.name)
@@ -183,21 +193,21 @@ class _ContentScreenState extends State<ContentScreen> {
                   onDelete: () => showDialog<void>(
                     context: context,
                     builder: (dialogContext) => AlertDialog(
-                      title: const Text('Eliminar archivo'),
+                      title: Text(context.l10n.deleteFile),
                       content: Text(
-                        '¿Eliminar ${file.displayName} de la biblioteca local?',
+                        context.l10n.deleteLocalFileQuestion(file.displayName),
                       ),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(dialogContext),
-                          child: const Text('Cancelar'),
+                          child: Text(context.l10n.cancel),
                         ),
                         FilledButton(
                           onPressed: () {
                             Navigator.pop(dialogContext);
                             widget.onFileDeleted(file);
                           },
-                          child: const Text('Eliminar'),
+                          child: Text(context.l10n.delete),
                         ),
                       ],
                     ),
@@ -220,7 +230,7 @@ class _ContentScreenState extends State<ContentScreen> {
             key: const Key('uploadPdfButton'),
             onPressed: _add,
             icon: const Icon(Icons.upload_file_outlined),
-            label: const Text('Subir PDF'),
+            label: Text(context.l10n.uploadPdf),
           ),
         ),
       ),
@@ -314,7 +324,7 @@ class _ContentFileCard extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Eliminar archivo',
+                tooltip: context.l10n.deleteFile,
                 onPressed: onDelete,
                 icon: const Icon(Icons.delete_outline, size: 18),
               ),

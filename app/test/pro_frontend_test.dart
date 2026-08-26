@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/app.dart';
+import 'package:foloo/theme/foloo_theme.dart';
 
 void phone(WidgetTester tester) {
   tester.view.physicalSize = const Size(390, 844);
@@ -47,6 +48,12 @@ Future<void> drawer(WidgetTester tester) async {
 }
 
 void main() {
+  test('light text actions use ink instead of lime', () {
+    final foreground = FolooTheme.light.textButtonTheme.style?.foregroundColor
+        ?.resolve(const <WidgetState>{});
+    expect(foreground, FolooColors.ink);
+  });
+
   testWidgets('Pro onboarding requires Lugar and create-event shows content', (
     tester,
   ) async {
@@ -114,6 +121,49 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('emailScreen')), findsOneWidget);
     expect(find.byKey(const Key('emailPreview')), findsOneWidget);
+  });
+
+  testWidgets('Upload content stays scrollable when the keyboard opens', (
+    tester,
+  ) async {
+    phone(tester);
+    await login(tester, pro: true);
+    await drawer(tester);
+    await tester.tap(find.byKey(const Key('drawerContent')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('uploadPdfButton')));
+    await tester.pumpAndSettle();
+
+    final displayName = find.byKey(const Key('contentDisplayNameField'));
+    await tester.showKeyboard(displayName);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('contentAssignmentScroll')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.ensureVisible(find.byKey(const Key('allEventsSwitch')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('dark Pro selections use the visible lime remap', (tester) async {
+    phone(tester);
+    await login(tester, pro: true);
+    await drawer(tester);
+    await tester.tap(find.byKey(const Key('appearanceSwitch')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('closeMenuButton')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('captureContent-scanley-ims')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    final content = find.byKey(const Key('captureContent-scanley-ims'));
+    final material = tester.widget<Material>(
+      find.descendant(of: content, matching: find.byType(Material)).first,
+    );
+    expect(material.color, FolooSelection.surface(tester.element(content)));
+    expect(material.color, isNot(FolooColors.limeTint));
   });
 
   testWidgets(

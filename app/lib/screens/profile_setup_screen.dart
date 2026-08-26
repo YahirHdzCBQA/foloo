@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/app_event.dart';
 import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
+import '../l10n/l10n.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({required this.onContinue, super.key});
@@ -37,13 +38,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       if (mounted) setState(() => _profileBytes = bytes);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'No se pudo abrir la imagen. Puedes continuar sin foto.',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.imageOpenError)));
     }
   }
 
@@ -86,12 +82,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ),
                 const SizedBox(height: 26),
                 Text(
-                  'Antes de\nempezar',
+                  context.l10n.profileTitle,
                   style: Theme.of(context).textTheme.displayLarge,
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Esto va en cada lead que captures. Se guarda en tu teléfono.',
+                  context.l10n.profileHelp,
                   style: TextStyle(color: palette.inkSecondary, fontSize: 15),
                 ),
                 const SizedBox(height: 28),
@@ -117,8 +113,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Foto de perfil',
+                          Text(
+                            context.l10n.profilePhoto,
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -129,7 +125,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             children: [
                               IconButton.filled(
                                 key: const Key('profileCameraButton'),
-                                tooltip: 'Tomar foto',
+                                tooltip: context.l10n.profileTakePhoto,
                                 onPressed: () =>
                                     _pickProfileImage(ImageSource.camera),
                                 style: IconButton.styleFrom(
@@ -145,7 +141,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                               const SizedBox(width: 10),
                               IconButton.filled(
                                 key: const Key('profileGalleryButton'),
-                                tooltip: 'Elegir de galería',
+                                tooltip: context.l10n.profileGallery,
                                 onPressed: () =>
                                     _pickProfileImage(ImageSource.gallery),
                                 style: IconButton.styleFrom(
@@ -167,26 +163,26 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ),
                 const SizedBox(height: 26),
                 _ProfileField(
-                  label: 'Nombre completo',
+                  label: context.l10n.profileFullName,
                   child: TextFormField(
                     key: const Key('profileNameField'),
                     controller: _name,
                     textInputAction: TextInputAction.next,
                     validator: (value) => (value?.trim().isEmpty ?? true)
-                        ? 'Escribe tu nombre'
+                        ? context.l10n.nameRequired
                         : null,
                   ),
                 ),
                 const SizedBox(height: 18),
                 _ProfileField(
-                  label: 'Empresa',
+                  label: context.l10n.company,
                   child: TextFormField(
                     key: const Key('profileCompanyField'),
                     controller: _company,
                     textInputAction: TextInputAction.done,
                     onFieldSubmitted: (_) => _submit(),
                     validator: (value) => (value?.trim().isEmpty ?? true)
-                        ? 'Escribe tu empresa'
+                        ? context.l10n.companyRequired
                         : null,
                   ),
                 ),
@@ -208,7 +204,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             child: FilledButton(
               key: const Key('profileContinueButton'),
               onPressed: _submit,
-              child: const Text('Continuar'),
+              child: Text(context.l10n.continueAction),
             ),
           ),
         ),

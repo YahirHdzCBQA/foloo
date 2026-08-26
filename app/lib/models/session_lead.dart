@@ -1,12 +1,6 @@
 import 'lead_draft.dart';
 
-enum SessionUploadState {
-  pending('Por subir'),
-  inSheet('En la hoja');
-
-  const SessionUploadState(this.label);
-  final String label;
-}
+enum SessionUploadState { pending, inSheet }
 
 class SessionLead {
   const SessionLead({

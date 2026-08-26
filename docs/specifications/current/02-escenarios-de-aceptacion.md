@@ -391,3 +391,18 @@ Escenario: Estado nunca solo por color
   Cuando se revisa cualquier indicador de sincronización, error u offline
   Entonces siempre hay icono y palabra además del color
 ```
+
+## E-14 · Idioma — `NAV-09`, `RNF-19`
+
+```gherkin
+Escenario: Un solo idioma de sesión
+  Dado que la app está en español
+  Cuando el usuario elige EN en Login o en el Drawer
+  Entonces toda la interfaz cambia inmediatamente a inglés
+  Y el selector del otro lugar también refleja EN
+
+Escenario: Fallback e independencia de capabilities
+  Dado un idioma de sistema distinto de español o inglés
+  Entonces la app inicia en español
+  Y cambiar idioma no agrega ni oculta capacidades Basic o Pro
+```

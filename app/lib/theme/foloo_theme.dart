@@ -157,6 +157,16 @@ abstract final class FolooBorders {
   );
 }
 
+/// Theme-aware selection colors from the closed Foloo palette.
+abstract final class FolooSelection {
+  static Color surface(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+      ? FolooColors.lime.withValues(alpha: .34)
+      : FolooColors.limeTint;
+
+  static Color foreground(BuildContext context) => FolooPalette.of(context).ink;
+}
+
 abstract final class FolooTheme {
   static ThemeData get light => _build(Brightness.light);
   static ThemeData get dark => _build(Brightness.dark);
@@ -306,6 +316,9 @@ abstract final class FolooTheme {
           ),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: palette.ink),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: palette.paper,

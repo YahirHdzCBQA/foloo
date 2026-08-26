@@ -401,6 +401,7 @@ Cadena vacía cuando el dato no aparece en la tarjeta. **Nunca valores inventado
 | `NAV-05` | El tema oscuro es un **remapeo de tokens**, no una hoja de estilos paralela. En oscuro, lima pasa a ser la superficie de acción primaria y las sombras se van a `none`. | Debe | Art. 6 |
 | `NAV-06` | Pie del menú con evento activo y versión de la app. | Debería | nuevo |
 | `NAV-07` | El botón físico o gesto de retroceso del sistema cierra el menú antes de navegar hacia atrás. | Debe | nuevo |
+| `NAV-09` | Un selector compacto `ES` / `EN` aparece en Login y junto a Apariencia en el Drawer. Ambos controlan el mismo idioma de sesión y actualizan toda la interfaz inmediatamente, sin alterar capacidades Basic/Pro. | Debe | `FL-011` |
 
 ---
 
@@ -421,6 +422,7 @@ Cadena vacía cuando el dato no aparece en la tarjeta. **Nunca valores inventado
 | `RNF-11` | El arranque en frío hasta la pantalla de captura utilizable no debe superar **3 segundos** en el equipo más lento del parque. |
 | `RNF-12` | La app debe soportar al menos **300 leads locales** por evento sin degradación visible de la lista ni de la búsqueda. |
 | `RNF-13` | Todo estado de dato (online / offline / pendiente) tiene componente propio y consistente; no se repite marcado ad hoc por pantalla. |
+| `RNF-19` | Español (`es`) e inglés (`en`) son idiomas de primera clase mediante la localización oficial de Flutter y archivos ARB. El idioma inicial sigue al sistema si es compatible y usa español como fallback. Identificadores de dominio, tokens de plantilla, nombres propios y capabilities no dependen del locale. La preferencia es de sesión hasta que exista una arquitectura aprobada de persistencia durable. |
 
 ---
 

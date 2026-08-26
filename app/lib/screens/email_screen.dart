@@ -6,6 +6,7 @@ import '../models/lead_draft.dart';
 import '../models/pro_demo_data.dart';
 import '../models/session_lead.dart';
 import '../theme/foloo_theme.dart';
+import '../l10n/l10n.dart';
 import '../widgets/module_header.dart';
 import '../widgets/segmented_bubble.dart';
 
@@ -40,16 +41,16 @@ class EmailScreen extends StatefulWidget {
 
 class _EmailScreenState extends State<EmailScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
-  final _eventSubject = TextEditingController(text: 'Seguimiento · {evento}');
-  final _directSubject = TextEditingController(text: 'Seguimiento · {lugar}');
-  final _eventBody = TextEditingController(
-    text: 'Hola {nombre},\n\nGusto en coincidir en {evento}. Te comparto la información que platicamos:\n\n{contenido}\n\nQuedo al pendiente.\n\nSaludos,\n{capturadoPor}',
-  );
-  final _directBody = TextEditingController(
-    text: 'Hola {nombre},\n\nGusto en coincidir en {lugar}. Te comparto la información que platicamos:\n\n{contenido}\n\nQuedo al pendiente.\n\nSaludos,\n{capturadoPor}',
-  );
+  final _eventSubject = TextEditingController();
+  final _directSubject = TextEditingController();
+  final _eventBody = TextEditingController();
+  final _directBody = TextEditingController();
   _TemplateKind _kind = _TemplateKind.event;
   String? _error;
+  String? _previousEventSubject;
+  String? _previousDirectSubject;
+  String? _previousEventBody;
+  String? _previousDirectBody;
 
   TextEditingController get _subject =>
       _kind == _TemplateKind.event ? _eventSubject : _directSubject;
@@ -70,6 +71,44 @@ class _EmailScreenState extends State<EmailScreen> {
           '{contenido}',
           '{capturadoPor}',
         ];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final l10n = context.l10n;
+    final eventSubject = l10n.defaultEmailSubject('{evento}');
+    final directSubject = l10n.defaultEmailSubject('{lugar}');
+    final eventBody = l10n.defaultEmailBody(
+      '{nombre}',
+      '{evento}',
+      '{contenido}',
+      '{capturadoPor}',
+    );
+    final directBody = l10n.defaultEmailBody(
+      '{nombre}',
+      '{lugar}',
+      '{contenido}',
+      '{capturadoPor}',
+    );
+    _replaceDefault(_eventSubject, _previousEventSubject, eventSubject);
+    _replaceDefault(_directSubject, _previousDirectSubject, directSubject);
+    _replaceDefault(_eventBody, _previousEventBody, eventBody);
+    _replaceDefault(_directBody, _previousDirectBody, directBody);
+    _previousEventSubject = eventSubject;
+    _previousDirectSubject = directSubject;
+    _previousEventBody = eventBody;
+    _previousDirectBody = directBody;
+  }
+
+  void _replaceDefault(
+    TextEditingController controller,
+    String? previous,
+    String next,
+  ) {
+    if (controller.text.isEmpty || controller.text == previous) {
+      controller.text = next;
+    }
+  }
 
   @override
   void dispose() {
@@ -109,16 +148,16 @@ class _EmailScreenState extends State<EmailScreen> {
         RegExp(r'\}').allMatches(source).length;
     setState(
       () => _error = !bracesBalanced
-          ? 'Hay una variable con llaves sin cerrar.'
+          ? context.l10n.unclosedVariable
           : invalid.isEmpty
           ? null
-          : 'Variable no válida: ${invalid.join(', ')}',
+          : context.l10n.invalidVariable(invalid.join(', ')),
     );
     if (_error == null) {
       // TODO(BACKEND): Persist account email templates and send from the server.
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Plantilla guardada solo en esta demo.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.templateSavedDemo)));
     }
   }
 
@@ -135,9 +174,9 @@ class _EmailScreenState extends State<EmailScreen> {
   String _preview(String value) {
     final lead = _previewRecord?.lead;
     final attachments = lead == null
-        ? '• Scanley IMS · Ficha técnica · 1.2 MB\n• Vision AI · Casos de uso · 940 KB'
+        ? context.l10n.demoAttachments
         : lead.contentNames.isEmpty
-        ? 'Sin archivos adjuntos'
+        ? context.l10n.noAttachments
         : [
             for (var index = 0; index < lead.contentNames.length; index++)
               '• ${lead.contentNames[index]}${index < lead.contentFileIds.length ? _sizeFor(lead.contentFileIds[index]) : ''}',
@@ -146,7 +185,7 @@ class _EmailScreenState extends State<EmailScreen> {
         .replaceAll('{nombre}', lead?.name ?? 'Mariana')
         .replaceAll('{empresa}', lead?.company ?? 'Grupo Lácteo del Norte')
         .replaceAll('{evento}', lead?.eventName ?? 'Expo Alimentaria México')
-        .replaceAll('{lugar}', lead?.place ?? 'Oficinas de Grupo Lácteo')
+        .replaceAll('{lugar}', lead?.place ?? context.l10n.demoOffice)
         .replaceAll('{contenido}', attachments)
         .replaceAll('{capturadoPor}', widget.profile.name);
   }
@@ -166,10 +205,10 @@ class _EmailScreenState extends State<EmailScreen> {
       body: Column(
         children: [
           ModuleHeader(
-            title: 'Correo',
+            title: context.l10n.emailTitle,
             subtitle: _kind == _TemplateKind.event
-                ? 'Plantilla de seguimiento'
-                : 'Plantilla para leads directos',
+                ? context.l10n.eventTemplate
+                : context.l10n.directTemplate,
             onBack: () => widget.onDestinationSelected(AppDestination.home),
           ),
           Divider(height: 1, color: FolooPalette.of(context).line),
@@ -187,16 +226,19 @@ class _EmailScreenState extends State<EmailScreen> {
                       _error = null;
                     }),
                     selectedHorizontalPadding: 8,
-                    options: const [
+                    options: [
                       SegmentedBubbleOption(
                         value: _TemplateKind.event,
-                        label: 'Evento',
-                        leading: Icon(Icons.calendar_today_outlined, size: 15),
+                        label: context.l10n.event,
+                        leading: const Icon(
+                          Icons.calendar_today_outlined,
+                          size: 15,
+                        ),
                       ),
                       SegmentedBubbleOption(
                         value: _TemplateKind.direct,
-                        label: 'Lead directo',
-                        leading: Icon(
+                        label: context.l10n.directLead,
+                        leading: const Icon(
                           Icons.person_add_alt_1_outlined,
                           size: 16,
                         ),
@@ -204,7 +246,10 @@ class _EmailScreenState extends State<EmailScreen> {
                     ],
                   ),
                   const SizedBox(height: 18),
-                  const Text('Asunto', style: TextStyle(fontSize: 11)),
+                  Text(
+                    context.l10n.subject,
+                    style: const TextStyle(fontSize: 11),
+                  ),
                   const SizedBox(height: 7),
                   TextField(
                     key: ValueKey('emailSubject-${_kind.name}'),
@@ -217,7 +262,7 @@ class _EmailScreenState extends State<EmailScreen> {
                     onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 14),
-                  const Text('Cuerpo', style: TextStyle(fontSize: 11)),
+                  Text(context.l10n.body, style: const TextStyle(fontSize: 11)),
                   const SizedBox(height: 7),
                   TextField(
                     key: ValueKey('emailBody-${_kind.name}'),
@@ -241,8 +286,8 @@ class _EmailScreenState extends State<EmailScreen> {
                       ),
                     ),
                   const SizedBox(height: 14),
-                  const Text(
-                    'Variables',
+                  Text(
+                    context.l10n.variables,
                     style: TextStyle(fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 8),
@@ -260,8 +305,8 @@ class _EmailScreenState extends State<EmailScreen> {
                         .toList(),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    'Previsualización',
+                  Text(
+                    context.l10n.preview,
                     style: TextStyle(fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 8),
@@ -276,7 +321,10 @@ class _EmailScreenState extends State<EmailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Para: ${_previewRecord?.lead.fullName ?? 'Mariana Sandoval Ruiz'}',
+                          context.l10n.previewTo(
+                            _previewRecord?.lead.fullName ??
+                                'Mariana Sandoval Ruiz',
+                          ),
                           style: TextStyle(fontSize: 12),
                         ),
                         const SizedBox(height: 5),
@@ -288,7 +336,11 @@ class _EmailScreenState extends State<EmailScreen> {
                         Text(_preview(_body.text)),
                         const SizedBox(height: 18),
                         Text(
-                          '${_previewRecord == null ? 'Fixture demo' : 'Con los datos del último lead capturado'} · El aviso de privacidad y la baja se agregan del lado del servidor.',
+                          context.l10n.emailPreviewServerHelp(
+                            _previewRecord == null
+                                ? context.l10n.demoFixture
+                                : context.l10n.latestLeadData,
+                          ),
                           style: TextStyle(fontSize: 11),
                         ),
                       ],
@@ -313,7 +365,7 @@ class _EmailScreenState extends State<EmailScreen> {
           child: FilledButton(
             key: const Key('saveEmailTemplateButton'),
             onPressed: _save,
-            child: const Text('Guardar plantilla'),
+            child: Text(context.l10n.saveTemplate),
           ),
         ),
       ),

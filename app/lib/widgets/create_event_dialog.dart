@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../models/app_event.dart';
 import '../models/app_plan.dart';
 import '../models/pro_demo_data.dart';
 import '../theme/foloo_theme.dart';
+import '../l10n/l10n.dart';
 
 Future<AppEvent?> showCreateEventDialog(
   BuildContext context, {
@@ -38,18 +40,18 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
     scrollable: true,
-    title: const Text('Crear evento'),
+    title: Text(context.l10n.createEvent),
     content: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Queda activo y los leads que captures se guardan ahí.',
+          context.l10n.eventCreationHelp,
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 18),
-        const Text(
-          'Nombre del evento',
+        Text(
+          context.l10n.eventName,
           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 7),
@@ -59,26 +61,38 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
           autofocus: true,
         ),
         const SizedBox(height: 14),
-        const Row(
+        Row(
           children: [
             Expanded(
-              child: _DemoDate(label: 'Inicia', value: '12 ago 2026'),
+              child: _DemoDate(
+                label: context.l10n.starts,
+                value: DateFormat(
+                  'd MMM y',
+                  Localizations.localeOf(context).toLanguageTag(),
+                ).format(DateTime(2026, 8, 12)),
+              ),
             ),
-            SizedBox(width: 10),
+            const SizedBox(width: 10),
             Expanded(
-              child: _DemoDate(label: 'Termina', value: '14 ago 2026'),
+              child: _DemoDate(
+                label: context.l10n.ends,
+                value: DateFormat(
+                  'd MMM y',
+                  Localizations.localeOf(context).toLanguageTag(),
+                ).format(DateTime(2026, 8, 14)),
+              ),
             ),
           ],
         ),
         if (widget.plan.isPro && widget.contentFiles.isNotEmpty) ...[
           const SizedBox(height: 16),
           Text(
-            'Contenido para este evento · ${_selectedFiles.length} de ${widget.contentFiles.length}',
+            '${context.l10n.contentForEvent} · ${context.l10n.selectedOfTotal(_selectedFiles.length, widget.contentFiles.length)}',
             style: const TextStyle(fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Puedes asignarlo ahora o más tarde. Sin contenido el correo demo sale igual, solo sin adjuntos.',
+          Text(
+            context.l10n.contentAssignmentHelp,
             style: TextStyle(fontSize: 11),
           ),
           const SizedBox(height: 6),
@@ -110,7 +124,7 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
-        child: const Text('Cancelar'),
+        child: Text(context.l10n.cancel),
       ),
       FilledButton(
         key: const Key('confirmCreateEventButton'),
@@ -129,7 +143,7 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
             ),
           );
         },
-        child: const Text('Crear'),
+        child: Text(context.l10n.createAction),
       ),
     ],
   );

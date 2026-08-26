@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
@@ -10,8 +11,21 @@ import '../models/lead_draft.dart';
 import '../models/session_lead.dart';
 import '../services/voice_note_service.dart';
 import '../theme/foloo_theme.dart';
+import '../l10n/l10n.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_screen_header.dart';
+
+String _leadTypeLabel(BuildContext context, LeadType type) => switch (type) {
+  LeadType.supplier => context.l10n.supplier,
+  LeadType.partner => context.l10n.partner,
+  LeadType.customer => context.l10n.client,
+};
+
+String _uploadStateLabel(BuildContext context, SessionUploadState state) =>
+    switch (state) {
+      SessionUploadState.pending => context.l10n.pendingUpload,
+      SessionUploadState.inSheet => context.l10n.inSheet,
+    };
 
 class RecordsScreen extends StatefulWidget {
   const RecordsScreen({
@@ -148,9 +162,7 @@ class _RecordsScreenState extends State<RecordsScreen>
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se pudo reproducir esta nota local.'),
-          ),
+          SnackBar(content: Text(context.l10n.audioPlaybackError)),
         );
       }
     } finally {
@@ -203,13 +215,16 @@ class _RecordsScreenState extends State<RecordsScreen>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'Exportar registros',
+                  Text(
+                    context.l10n.exportRecords,
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    '${widget.records.length} leads de Expo Alimentaria México, con notas y datos de contacto.',
+                    context.l10n.exportLeadSummary(
+                      context.l10n.leadCount(widget.records.length),
+                      DemoEventData.eventName,
+                    ),
                     style: TextStyle(
                       color: FolooPalette.of(context).inkSecondary,
                       fontSize: 12.5,
@@ -221,7 +236,7 @@ class _RecordsScreenState extends State<RecordsScreen>
                     key: const Key('exportXlsOption'),
                     icon: Icons.grid_on_outlined,
                     title: 'XLS',
-                    subtitle: 'Hoja de Excel, listo para abrir',
+                    subtitle: context.l10n.xlsHelp,
                     selected: format == 'XLS',
                     onTap: () => setDialogState(() => format = 'XLS'),
                   ),
@@ -230,7 +245,7 @@ class _RecordsScreenState extends State<RecordsScreen>
                     key: const Key('exportCsvOption'),
                     icon: Icons.description_outlined,
                     title: 'CSV',
-                    subtitle: 'Texto plano, para otro sistema',
+                    subtitle: context.l10n.csvHelp,
                     selected: format == 'CSV',
                     onTap: () => setDialogState(() => format = 'CSV'),
                   ),
@@ -244,7 +259,7 @@ class _RecordsScreenState extends State<RecordsScreen>
                             backgroundColor: FolooPalette.of(context).paper,
                             foregroundColor: FolooPalette.of(context).ink,
                           ),
-                          child: const Text('Cancelar'),
+                          child: Text(context.l10n.cancel),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -256,7 +271,7 @@ class _RecordsScreenState extends State<RecordsScreen>
                             ScaffoldMessenger.of(this.context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  'Exportación $format es solo una vista demo.',
+                                  context.l10n.exportDemoMessage(format),
                                 ),
                               ),
                             );
@@ -266,7 +281,7 @@ class _RecordsScreenState extends State<RecordsScreen>
                             foregroundColor: FolooPalette.of(context).card,
                           ),
                           icon: const Icon(Icons.download_outlined, size: 17),
-                          label: const Text('Exportar'),
+                          label: Text(context.l10n.export),
                         ),
                       ),
                     ],
@@ -306,8 +321,9 @@ class _RecordsScreenState extends State<RecordsScreen>
       body: Column(
         children: [
           AppScreenHeader(
-            title: 'Registros',
-            subtitle: '${widget.records.length} LEADS · $pending POR SUBIR',
+            title: context.l10n.recordsTitle,
+            subtitle:
+                '${context.l10n.leadCount(widget.records.length)} · ${context.l10n.pendingCount(pending)}',
             badge: 'Expo Alimentaria',
             onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
@@ -319,9 +335,9 @@ class _RecordsScreenState extends State<RecordsScreen>
                 TextField(
                   key: const Key('recordsSearchField'),
                   controller: _search,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search, size: 20),
-                    hintText: 'Buscar por nombre o empresa',
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    hintText: context.l10n.searchRecords,
                     border: FolooBorders.borderlessField,
                     enabledBorder: FolooBorders.borderlessField,
                     focusedBorder: FolooBorders.borderlessField,
@@ -333,23 +349,23 @@ class _RecordsScreenState extends State<RecordsScreen>
                   child: Row(
                     children: [
                       _FilterChip(
-                        label: 'Todos',
+                        label: context.l10n.all,
                         selected: _filter == null,
                         onTap: () => setState(() => _filter = null),
                       ),
                       _FilterChip(
-                        label: 'Clientes',
+                        label: context.l10n.clients,
                         selected: _filter == LeadType.customer,
                         onTap: () =>
                             setState(() => _filter = LeadType.customer),
                       ),
                       _FilterChip(
-                        label: 'Partners',
+                        label: context.l10n.partners,
                         selected: _filter == LeadType.partner,
                         onTap: () => setState(() => _filter = LeadType.partner),
                       ),
                       _FilterChip(
-                        label: 'Proveedores',
+                        label: context.l10n.suppliers,
                         selected: _filter == LeadType.supplier,
                         onTap: () =>
                             setState(() => _filter = LeadType.supplier),
@@ -398,11 +414,14 @@ class _RecordsScreenState extends State<RecordsScreen>
                 children: [
                   Icon(Icons.sync, size: 14, color: palette.ink),
                   const SizedBox(width: 6),
-                  Text(
-                    '$pending registros esperan señal',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                  Flexible(
+                    child: Text(
+                      context.l10n.waitingForSignal(pending),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ],
@@ -415,7 +434,7 @@ class _RecordsScreenState extends State<RecordsScreen>
                       key: const Key('exportButton'),
                       onPressed: _showExportDialog,
                       icon: const Icon(Icons.download_outlined, size: 18),
-                      label: const Text('Exportar'),
+                      label: Text(context.l10n.export),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -425,14 +444,12 @@ class _RecordsScreenState extends State<RecordsScreen>
                       // TODO(BACKEND): Implement real lead synchronization.
                       onPressed: () => ScaffoldMessenger.of(context)
                           .showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Sincronización demo: no se enviaron datos.',
-                              ),
+                            SnackBar(
+                              content: Text(context.l10n.syncDemoMessage),
                             ),
                           ),
                       icon: const Icon(Icons.sync, size: 18),
-                      label: const Text('Sincronizar'),
+                      label: Text(context.l10n.sync),
                     ),
                   ),
                 ],
@@ -465,7 +482,7 @@ class _ExportFormatOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = FolooPalette.of(context);
     return Material(
-      color: selected ? FolooColors.limeTint : palette.paper,
+      color: selected ? FolooSelection.surface(context) : palette.paper,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(FolooRadii.md),
         side: BorderSide(color: selected ? palette.ink : Colors.transparent),
@@ -538,6 +555,7 @@ class _FilterChip extends StatelessWidget {
     child: ChoiceChip(
       label: Text(label),
       selected: selected,
+      showCheckmark: false,
       onSelected: (_) => onTap(),
       selectedColor: FolooPalette.of(context).ink,
       labelStyle: TextStyle(
@@ -561,13 +579,13 @@ class _EmptyRecords extends StatelessWidget {
         children: [
           const Icon(Icons.people_outline, size: 44),
           const SizedBox(height: 14),
-          const Text(
-            'Aún no hay registros',
+          Text(
+            context.l10n.emptyRecords,
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 6),
           Text(
-            'Las conexiones guardadas aparecerán aquí.',
+            context.l10n.emptyRecordsHelp,
             textAlign: TextAlign.center,
             style: TextStyle(color: FolooPalette.of(context).inkSecondary),
           ),
@@ -640,7 +658,7 @@ class _RecordRow extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${record.lead.company}  ·  ${record.lead.type.label}',
+                              '${record.lead.company}  ·  ${_leadTypeLabel(context, record.lead.type)}',
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: palette.inkSecondary,
@@ -654,8 +672,8 @@ class _RecordRow extends StatelessWidget {
                         IconButton(
                           key: Key('recordAudio-${record.folio}'),
                           tooltip: audioPlaying
-                              ? 'Pausar nota de voz'
-                              : 'Reproducir nota de voz',
+                              ? context.l10n.pauseVoiceNote
+                              : context.l10n.playVoiceNote,
                           onPressed: audioBusy ? null : onToggleAudio,
                           icon: Icon(
                             audioPlaying ? Icons.pause : Icons.play_arrow,
@@ -754,17 +772,23 @@ class ConnectionDetailScreen extends StatelessWidget {
               runSpacing: 8,
               children: [
                 _DetailPill(
-                  label: lead.type.label,
+                  label: _leadTypeLabel(context, lead.type),
                   color: palette.ink,
                   tint: palette.paper,
                 ),
                 _DetailPill(
-                  label: 'Interés ${lead.interest.label.toLowerCase()}',
+                  label: context.l10n.interest(
+                    switch (lead.interest) {
+                      InterestLevel.low => context.l10n.interestLow,
+                      InterestLevel.medium => context.l10n.interestMedium,
+                      InterestLevel.high => context.l10n.interestHigh,
+                    }.toLowerCase(),
+                  ),
                   color: interestColor,
                   tint: interestColor.withValues(alpha: .13),
                 ),
                 _DetailPill(
-                  label: record.uploadState.label,
+                  label: _uploadStateLabel(context, record.uploadState),
                   color: record.uploadState == SessionUploadState.pending
                       ? palette.ink
                       : palette.success,
@@ -795,7 +819,7 @@ class ConnectionDetailScreen extends StatelessWidget {
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        'Sin foto de la tarjeta',
+                        context.l10n.noCardPhotoDetail,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: palette.inkSecondary),
@@ -806,21 +830,21 @@ class ConnectionDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 22),
-            const Text(
-              'Contacto',
+            Text(
+              context.l10n.contact,
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 12),
             _ReadOnlyValue(
-              label: 'Correo',
+              label: context.l10n.contactEmail,
               value: lead.email.isEmpty ? '—' : lead.email,
             ),
             _ReadOnlyValue(
-              label: 'Teléfono',
+              label: context.l10n.contactPhone,
               value: lead.phone.isEmpty ? '—' : lead.phone,
             ),
             _ReadOnlyValue(
-              label: 'Puesto',
+              label: context.l10n.contactRole,
               value: lead.role.isEmpty ? '—' : lead.role,
             ),
             if (lead.hasVoiceNote) ...[
@@ -847,8 +871,8 @@ class ConnectionDetailScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Nota de voz',
+                          Text(
+                            context.l10n.voiceNote,
                             style: TextStyle(fontWeight: FontWeight.w600),
                           ),
                           Text(
@@ -865,8 +889,8 @@ class ConnectionDetailScreen extends StatelessWidget {
             ],
             if (lead.note.isNotEmpty) ...[
               const SizedBox(height: 20),
-              const Text(
-                'Nota escrita',
+              Text(
+                context.l10n.writtenNote,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 10),
@@ -884,8 +908,8 @@ class ConnectionDetailScreen extends StatelessWidget {
             ],
             if (plan.isPro) ...[
               const SizedBox(height: 20),
-              const Text(
-                'Transcripción',
+              Text(
+                context.l10n.transcription,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 10),
@@ -899,14 +923,14 @@ class ConnectionDetailScreen extends StatelessWidget {
                 child: Text(
                   lead.transcription ??
                       (lead.hasVoiceNote
-                          ? 'Procesando · demo'
-                          : 'No disponible · no hay nota de voz'),
+                          ? context.l10n.processingDemo
+                          : context.l10n.voiceUnavailable),
                 ),
               ),
               if (lead.contentNames.isNotEmpty) ...[
                 const SizedBox(height: 18),
-                const Text(
-                  'Contenido enviado · demo',
+                Text(
+                  context.l10n.sentContentDemo,
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 8),
@@ -915,39 +939,46 @@ class ConnectionDetailScreen extends StatelessWidget {
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.picture_as_pdf_outlined),
                     title: Text(name),
-                    subtitle: const Text('Adjunto congelado al guardar'),
+                    subtitle: Text(context.l10n.frozenAttachment),
                   ),
                 ),
               ],
               const SizedBox(height: 18),
-              const Text(
-                'Estado de correo · demo',
+              Text(
+                context.l10n.emailStatusDemo,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 8),
               _ReadOnlyValue(
-                label: 'Correo al lead',
-                value: lead.email.isEmpty ? 'En cola' : 'Enviado · demo',
+                label: context.l10n.leadEmail,
+                value: lead.email.isEmpty
+                    ? context.l10n.queued
+                    : context.l10n.sentDemo,
               ),
-              const _ReadOnlyValue(
-                label: 'Copia Admin',
-                value: 'Enviado · demo',
+              _ReadOnlyValue(
+                label: context.l10n.adminCopy,
+                value: context.l10n.sentDemo,
               ),
               // TODO(BACKEND): Replace demo email/transcription state with real backend state.
             ],
             const SizedBox(height: 22),
-            const Text(
-              'Registro',
+            Text(
+              context.l10n.recordDetails,
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 12),
             _ReadOnlyValue(
-              label: 'Fecha y hora',
-              value: _capturedAt(record.capturedAt),
+              label: context.l10n.dateAndTime,
+              value: _capturedAt(context, record.capturedAt),
             ),
-            _ReadOnlyValue(label: 'Origen', value: lead.originLabel),
-            const _ReadOnlyValue(
-              label: 'Capturó',
+            _ReadOnlyValue(
+              label: context.l10n.origin,
+              value: lead.originKind == LeadOriginKind.event
+                  ? (lead.eventName ?? context.l10n.event)
+                  : context.l10n.directLead,
+            ),
+            _ReadOnlyValue(
+              label: context.l10n.capturedBy,
               value: DemoEventData.capturePerson,
             ),
           ],
@@ -959,26 +990,10 @@ class ConnectionDetailScreen extends StatelessWidget {
   static String _duration(int seconds) =>
       '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
 
-  static String _capturedAt(DateTime value) {
-    const months = [
-      'ene',
-      'feb',
-      'mar',
-      'abr',
-      'may',
-      'jun',
-      'jul',
-      'ago',
-      'sep',
-      'oct',
-      'nov',
-      'dic',
-    ];
-    final local = value.toLocal();
-    final hour = local.hour.toString().padLeft(2, '0');
-    final minute = local.minute.toString().padLeft(2, '0');
-    return '${local.day} ${months[local.month - 1]} ${local.year} · $hour:$minute';
-  }
+  static String _capturedAt(BuildContext context, DateTime value) => DateFormat(
+    'd MMM y · HH:mm',
+    Localizations.localeOf(context).toLanguageTag(),
+  ).format(value.toLocal());
 }
 
 class _ReadOnlyValue extends StatelessWidget {

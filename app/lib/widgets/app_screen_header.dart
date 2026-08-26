@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/brand_theme.dart';
+import '../l10n/l10n.dart';
 
 class AppScreenHeader extends StatelessWidget {
   const AppScreenHeader({
@@ -39,7 +40,7 @@ class AppScreenHeader extends StatelessWidget {
                   const Spacer(),
                   IconButton.outlined(
                     key: const Key('hamburgerMenuButton'),
-                    tooltip: 'Abrir menú',
+                    tooltip: context.l10n.openMenu,
                     onPressed: onMenuPressed,
                     icon: const Icon(Icons.menu_rounded),
                     style: IconButton.styleFrom(

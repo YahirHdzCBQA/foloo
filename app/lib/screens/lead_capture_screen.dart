@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/app_destination.dart';
@@ -15,6 +16,7 @@ import '../models/voice_note_state.dart';
 import '../services/card_text_recognition_service.dart';
 import '../services/voice_note_service.dart';
 import '../theme/foloo_theme.dart';
+import '../l10n/l10n.dart';
 import '../utils/business_card_parser.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/create_event_dialog.dart';
@@ -221,14 +223,14 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       setState(() {
         _cardBytes = bytes;
         _cardPath = image.path;
-        _imageMessage = 'Leyendo tarjeta…';
+        _imageMessage = context.l10n.cardReading;
         _ocrFailed = false;
       });
       await _readCard(image.path);
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _imageMessage = 'No se pudo abrir la imagen. Puedes continuar capturando los datos a mano.';
+        _imageMessage = context.l10n.cardOpenError;
         _ocrFailed = true;
       });
     }
@@ -312,7 +314,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     setState(() {
       _isReadingCard = true;
       _ocrFailed = false;
-      _imageMessage = 'Leyendo tarjeta…';
+      _imageMessage = context.l10n.cardReading;
     });
 
     try {
@@ -334,15 +336,14 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
           card.phone.isNotEmpty;
       setState(() {
         _imageMessage = coreFieldsDetected
-            ? 'Lectura demo completada. Revisa los datos.'
-            : 'Lectura demo completada. Completa los datos faltantes manualmente.';
+            ? context.l10n.cardReadSuccess
+            : context.l10n.cardReadIncomplete;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _ocrFailed = true;
-        _imageMessage =
-            'No se pudo leer la tarjeta. Puedes continuar manualmente.';
+        _imageMessage = context.l10n.cardReadError;
       });
     } finally {
       if (mounted) setState(() => _isReadingCard = false);
@@ -409,7 +410,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       if (!mounted) return;
       setState(() {
         _voiceNote = previous;
-        _voiceNoteMessage = 'Permiso de micrófono rechazado. Puedes continuar con la nota escrita.';
+        _voiceNoteMessage = context.l10n.microphoneDenied;
       });
     } catch (_) {
       try {
@@ -420,7 +421,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       if (!mounted) return;
       setState(() {
         _voiceNote = previous;
-        _voiceNoteMessage = 'No se pudo iniciar la grabación. Puedes continuar con la nota escrita.';
+        _voiceNoteMessage = context.l10n.recordStartError;
       });
     } finally {
       if (mounted) setState(() => _voiceActionInProgress = false);
@@ -437,14 +438,14 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       if (path == null) {
         setState(() {
           _voiceNote = const VoiceNoteState();
-          _voiceNoteMessage = 'No se pudo conservar la grabación. La nota escrita sigue disponible.';
+          _voiceNoteMessage = context.l10n.recordKeepError;
         });
         return;
       }
       final elapsed = _voiceNote.elapsed;
       setState(() {
         _voiceNote = _voiceNote.finishRecording(path, elapsed);
-        _voiceNoteMessage = 'Nota de voz guardada localmente.';
+        _voiceNoteMessage = context.l10n.voiceSaved;
       });
     } catch (_) {
       try {
@@ -458,7 +459,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       if (!mounted) return;
       setState(() {
         _voiceNote = const VoiceNoteState();
-        _voiceNoteMessage = 'No se pudo terminar la grabación. Puedes continuar con la nota escrita.';
+        _voiceNoteMessage = context.l10n.recordStopError;
       });
     }
   }
@@ -480,7 +481,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       if (mounted) {
         setState(() {
           _voiceNote = _voiceNote.completePlayback();
-          _voiceNoteMessage = 'No se pudo reproducir el audio. Puedes borrarlo o volver a grabar.';
+          _voiceNoteMessage = context.l10n.audioPlayError;
         });
       }
     } finally {
@@ -496,8 +497,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       if (!mounted) return;
       setState(() {
         _voiceNote = _voiceNote.completePlayback();
-        _voiceNoteMessage =
-            'No se pudo pausar el audio. Puedes reproducirlo de nuevo.';
+        _voiceNoteMessage = context.l10n.audioPauseError;
       });
     }
   }
@@ -517,14 +517,13 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       if (!mounted) return;
       setState(() {
         _voiceNote = const VoiceNoteState();
-        _voiceNoteMessage = 'Audio borrado. Puedes volver a grabar.';
+        _voiceNoteMessage = context.l10n.audioDeleted;
         _voiceNoteTransferred = false;
       });
     } catch (_) {
       if (mounted) {
         setState(() {
-          _voiceNoteMessage =
-              'No se pudo borrar el audio. Inténtalo nuevamente.';
+          _voiceNoteMessage = context.l10n.audioDeleteError;
         });
       }
     } finally {
@@ -540,21 +539,10 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   }
 
   String _formatEventDate(DateTime date) {
-    const months = [
-      'ene',
-      'feb',
-      'mar',
-      'abr',
-      'may',
-      'jun',
-      'jul',
-      'ago',
-      'sep',
-      'oct',
-      'nov',
-      'dic',
-    ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
+    return DateFormat(
+      'd MMM y',
+      Localizations.localeOf(context).toLanguageTag(),
+    ).format(date);
   }
 
   String? _required(String? value, String message) {
@@ -564,16 +552,16 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   String? _validateEmail(String? value) {
     final email = value?.trim() ?? '';
     if (email.isEmpty) {
-      if (_phone.text.trim().isEmpty) return 'Escribe correo o teléfono';
+      if (_phone.text.trim().isEmpty) return context.l10n.emailOrPhoneRequired;
       return null;
     }
     final valid = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email);
-    return valid ? null : 'Revisa el formato del correo';
+    return valid ? null : context.l10n.invalidEmail;
   }
 
   String? _validatePhone(String? value) {
     if ((value?.trim().isEmpty ?? true) && _email.text.trim().isEmpty) {
-      return 'Escribe teléfono o correo';
+      return context.l10n.phoneOrEmailRequired;
     }
     return null;
   }
@@ -590,11 +578,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     final fieldsValid = _formKey.currentState?.validate() ?? false;
     final relationshipValid = _leadType != null;
     if (!fieldsValid || !relationshipValid) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Revisa los campos marcados antes de continuar.'),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.reviewFields)));
       return;
     }
 
@@ -797,7 +782,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                     iconAlignment: IconAlignment.end,
                     icon: const Icon(Icons.send_outlined),
                     label: Text(
-                      widget.plan.isPro ? 'Guarda y da “foloo”' : 'Guardar',
+                      widget.plan.isPro
+                          ? context.l10n.savePro
+                          : context.l10n.save,
                     ),
                   ),
                 ),
@@ -823,8 +810,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Origen del lead',
+          Text(
+            context.l10n.leadSource,
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 10),
@@ -833,18 +820,18 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             selectedHorizontalPadding: 8,
             selected: widget.originKind,
             onSelected: _changeOrigin,
-            options: const [
+            options: [
               SegmentedBubbleOption(
                 key: Key('captureOriginEventTab'),
                 value: LeadOriginKind.event,
-                label: 'Evento',
-                leading: Icon(Icons.calendar_today_outlined, size: 15),
+                label: context.l10n.event,
+                leading: const Icon(Icons.calendar_today_outlined, size: 15),
               ),
               SegmentedBubbleOption(
                 key: Key('captureOriginDirectTab'),
                 value: LeadOriginKind.direct,
-                label: 'Lead directo',
-                leading: Icon(Icons.person_outline, size: 16),
+                label: context.l10n.directLead,
+                leading: const Icon(Icons.person_outline, size: 16),
               ),
             ],
           ),
@@ -854,7 +841,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Se guarda sin evento, en tu base general de leads.',
+                  context.l10n.directLeadHelp,
                   style: TextStyle(
                     color: palette.inkSecondary,
                     fontSize: 13,
@@ -866,15 +853,13 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                   TextFormField(
                     key: const Key('directPlaceField'),
                     controller: _place,
-                    decoration: const InputDecoration(labelText: 'Lugar'),
-                    validator: (value) => _required(
-                      value,
-                      'Escribe dónde surgió la conversación',
-                    ),
+                    decoration: InputDecoration(labelText: context.l10n.place),
+                    validator: (value) =>
+                        _required(value, context.l10n.placeRequired),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Dónde surgió la conversación. Sustituye {lugar} en el correo demo.',
+                    context.l10n.directPlaceHelp('{lugar}'),
                     style: TextStyle(color: palette.inkSecondary, fontSize: 11),
                   ),
                 ],
@@ -896,7 +881,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                         key: const Key('captureEventDropdown'),
                         value: selectedEvent?.id,
                         isExpanded: true,
-                        hint: const Text('Selecciona un evento'),
+                        hint: Text(context.l10n.event),
                         icon: const Icon(Icons.keyboard_arrow_down, size: 19),
                         items: widget.events
                             .map(
@@ -949,7 +934,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                 const SizedBox(width: 8),
                 IconButton.filled(
                   key: const Key('captureCreateEventButton'),
-                  tooltip: 'Crear evento',
+                  tooltip: context.l10n.createEvent,
                   onPressed: _createEventFromCapture,
                   style: IconButton.styleFrom(
                     minimumSize: const Size(56, 56),
@@ -963,7 +948,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             if (selectedEvent != null) ...[
               const SizedBox(height: 8),
               Text(
-                '${_formatEventDate(selectedEvent.startsOn)} · el más reciente. Si no está, agrégalo con +.',
+                context.l10n.recentEventHelp(
+                  _formatEventDate(selectedEvent.startsOn),
+                ),
                 style: TextStyle(color: palette.inkSecondary, fontSize: 11),
               ),
             ],
@@ -979,7 +966,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     return SectionCard(
       key: const Key('cardSection'),
       number: '01',
-      title: 'La tarjeta',
+      title: context.l10n.cardSection,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -989,8 +976,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                 flex: 3,
                 child: Semantics(
                   label: hasCard
-                      ? 'Vista previa de la tarjeta seleccionada'
-                      : 'Sin foto de tarjeta',
+                      ? context.l10n.selectedCardPreview
+                      : context.l10n.noCardPhotoSemantics,
                   image: hasCard,
                   child: Container(
                     height: 64,
@@ -1017,7 +1004,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               Expanded(
                 flex: 4,
                 child: Text(
-                  hasCard ? 'Tarjeta lista · datos aplicados' : 'Sin foto aún',
+                  hasCard ? context.l10n.reprocess : context.l10n.noCardPhoto,
                   style: TextStyle(
                     color: palette.inkSecondary,
                     fontSize: 12,
@@ -1028,7 +1015,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               const SizedBox(width: 8),
               IconButton.filled(
                 key: const Key('galleryButton'),
-                tooltip: 'Elegir de galería',
+                tooltip: context.l10n.chooseGallery,
                 onPressed: _isReadingCard
                     ? null
                     : () => _pickImage(ImageSource.gallery),
@@ -1042,7 +1029,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               const SizedBox(width: 8),
               IconButton.filled(
                 key: const Key('cameraButton'),
-                tooltip: hasCard ? 'Cambiar foto' : 'Tomar foto',
+                tooltip: hasCard
+                    ? context.l10n.changePhoto
+                    : context.l10n.takePhoto,
                 onPressed: _isReadingCard
                     ? null
                     : () => _pickImage(ImageSource.camera),
@@ -1071,16 +1060,14 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.sync, size: 17),
-                  label: Text(
-                    _isReadingCard ? 'Leyendo tarjeta…' : 'Reprocesar',
-                  ),
+                  label: Text(_isReadingCard ? '…' : context.l10n.reprocess),
                 ),
                 const Spacer(),
                 TextButton(
                   key: const Key('removeCardButton'),
                   onPressed: _isReadingCard ? null : _removeImage,
                   style: TextButton.styleFrom(foregroundColor: palette.ink),
-                  child: const Text('Quitar'),
+                  child: Text(context.l10n.remove),
                 ),
               ],
             ),
@@ -1118,7 +1105,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       child: SectionCard(
         key: const Key('dataSection'),
         number: '02',
-        title: 'Datos del lead',
+        title: context.l10n.leadData,
         trailing: TextButton(
           key: const Key('clearLeadFieldsButton'),
           onPressed: _clearLeadFields,
@@ -1131,7 +1118,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               fontWeight: FontWeight.w600,
             ),
           ),
-          child: const Text('Limpiar'),
+          child: Text(context.l10n.clear),
         ),
         child: Column(
           children: [
@@ -1140,7 +1127,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               children: [
                 Expanded(
                   child: _LabeledField(
-                    label: 'NOMBRE',
+                    label: context.l10n.firstName,
                     field: TextFormField(
                       key: const Key('nameField'),
                       controller: _name,
@@ -1148,14 +1135,14 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                       autofillHints: const [AutofillHints.givenName],
                       onChanged: (_) => _nameEdited = true,
                       validator: (value) =>
-                          _required(value, 'El nombre es obligatorio'),
+                          _required(value, context.l10n.leadNameRequired),
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: _LabeledField(
-                    label: 'APELLIDO',
+                    label: context.l10n.lastName,
                     field: TextFormField(
                       key: const Key('lastNameField'),
                       controller: _lastName,
@@ -1169,7 +1156,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             ),
             const SizedBox(height: 16),
             _LabeledField(
-              label: 'PUESTO',
+              label: context.l10n.role,
               field: TextFormField(
                 key: const Key('roleField'),
                 controller: _role,
@@ -1180,19 +1167,19 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             ),
             const SizedBox(height: 16),
             _LabeledField(
-              label: 'EMPRESA',
+              label: context.l10n.company.toUpperCase(),
               field: TextFormField(
                 key: const Key('companyField'),
                 controller: _company,
                 textInputAction: TextInputAction.next,
                 onChanged: (_) => _companyEdited = true,
                 validator: (value) =>
-                    _required(value, 'La empresa es obligatoria'),
+                    _required(value, context.l10n.leadCompanyRequired),
               ),
             ),
             const SizedBox(height: 16),
             _LabeledField(
-              label: 'CORREO',
+              label: context.l10n.email,
               field: TextFormField(
                 key: const Key('emailField'),
                 controller: _email,
@@ -1206,7 +1193,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             ),
             const SizedBox(height: 16),
             _LabeledField(
-              label: 'TELÉFONO',
+              label: context.l10n.phone,
               field: TextFormField(
                 key: const Key('phoneField'),
                 controller: _phone,
@@ -1227,7 +1214,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     return SectionCard(
       key: const Key('relationshipSection'),
       number: '03',
-      title: 'Tipo de Lead',
+      title: context.l10n.leadType,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1248,14 +1235,14 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
           ),
           if (_showValidation && _leadType == null) ...[
             const SizedBox(height: 6),
-            const Text(
-              'Elige Proveedor, Partner o Cliente',
+            Text(
+              context.l10n.chooseLeadType,
               style: TextStyle(color: FolooColors.error, fontSize: 12),
             ),
           ],
           const SizedBox(height: 18),
-          const Text(
-            'NIVEL DE INTERÉS',
+          Text(
+            context.l10n.interestLevel,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
@@ -1270,24 +1257,24 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             selectedVerticalInset: 3,
             selected: _interest,
             onSelected: (value) => setState(() => _interest = value),
-            options: const [
+            options: [
               SegmentedBubbleOption(
                 key: Key('interest-low'),
                 value: InterestLevel.low,
-                label: 'Bajo',
-                leading: _InterestDot(color: FolooColors.interestLow),
+                label: context.l10n.interestLow,
+                leading: const _InterestDot(color: FolooColors.interestLow),
               ),
               SegmentedBubbleOption(
                 key: Key('interest-medium'),
                 value: InterestLevel.medium,
-                label: 'Medio',
-                leading: _InterestDot(color: FolooColors.interestMedium),
+                label: context.l10n.interestMedium,
+                leading: const _InterestDot(color: FolooColors.interestMedium),
               ),
               SegmentedBubbleOption(
                 key: Key('interest-high'),
                 value: InterestLevel.high,
-                label: 'Alto',
-                leading: _InterestDot(color: FolooColors.interestHigh),
+                label: context.l10n.interestHigh,
+                leading: const _InterestDot(color: FolooColors.interestHigh),
               ),
             ],
           ),
@@ -1295,8 +1282,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               widget.originKind == LeadOriginKind.event &&
               _defaultContentForEvent.isNotEmpty) ...[
             const SizedBox(height: 20),
-            const Text(
-              'Contenido a compartir',
+            Text(
+              context.l10n.contentToShare,
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 10),
@@ -1316,7 +1303,11 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             ),
             const SizedBox(height: 3),
             Text(
-              '${_selectedContentIds.length} de ${_defaultContentForEvent.length} archivos de $_contentEventLabel se adjuntan al correo.',
+              context.l10n.contentAttachmentSummary(
+                _selectedContentIds.length,
+                _defaultContentForEvent.length,
+                _contentEventLabel,
+              ),
               style: TextStyle(
                 color: FolooPalette.of(context).inkSecondary,
                 fontSize: 10.5,
@@ -1329,16 +1320,19 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   }
 
   String get _contentEventLabel =>
-      (_selectedEvent?.name ?? 'este evento').replaceFirst(' México', '');
+      (_selectedEvent?.name ?? context.l10n.thisEventLower).replaceFirst(
+        ' México',
+        '',
+      );
 
   Widget _buildNoteSection() {
     return SectionCard(
       key: const Key('noteSection'),
       number: '04',
-      title: 'Nota de la plática',
+      title: context.l10n.conversationNote,
       trailing: _voiceNote.isRecording
-          ? const Text(
-              '● GRABANDO',
+          ? Text(
+              '● ${context.l10n.recording}',
               style: TextStyle(
                 color: FolooColors.error,
                 fontSize: 9,
@@ -1350,8 +1344,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Nota de voz (opcional)',
+          Text(
+            context.l10n.voiceNoteOptional,
             style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 8),
@@ -1367,10 +1361,10 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                 Semantics(
                   button: true,
                   label: _voiceNote.isRecording
-                      ? 'Detener grabación'
+                      ? context.l10n.stopRecording
                       : _voiceNote.hasRecording
-                      ? 'Volver a grabar'
-                      : 'Iniciar grabación',
+                      ? context.l10n.recordAgain
+                      : context.l10n.startRecording,
                   child: IconButton.filled(
                     key: const Key('recordButton'),
                     onPressed: _voiceActionInProgress ? null : _toggleRecording,
@@ -1434,7 +1428,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  'Se guarda en tu teléfono. Se sube cuando haya señal.',
+                  context.l10n.offlineSaveHelp,
                   style: TextStyle(
                     color: FolooPalette.of(context).inkSecondary,
                     fontSize: 10.5,
@@ -1450,7 +1444,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                 Expanded(
                   child: _AudioActionButton(
                     key: const Key('deleteVoiceNoteButton'),
-                    tooltip: 'Borrar audio',
+                    tooltip: context.l10n.deleteAudio,
                     icon: Icons.delete_outline_rounded,
                     onPressed: _voiceActionInProgress ? null : _deleteVoiceNote,
                   ),
@@ -1459,7 +1453,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                 Expanded(
                   child: _AudioActionButton(
                     key: const Key('rerecordButton'),
-                    tooltip: 'Volver a grabar',
+                    tooltip: context.l10n.recordAgain,
                     icon: Icons.replay_rounded,
                     onPressed: _voiceActionInProgress ? null : _startRecording,
                   ),
@@ -1469,8 +1463,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                   child: _AudioActionButton(
                     key: const Key('playPauseButton'),
                     tooltip: _voiceNote.isPlaying
-                        ? 'Pausar audio'
-                        : 'Reproducir audio',
+                        ? context.l10n.pauseAudio
+                        : context.l10n.playAudio,
                     icon: _voiceNote.isPlaying
                         ? Icons.pause_rounded
                         : Icons.play_arrow_rounded,
@@ -1492,8 +1486,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'TRANSCRIPCIÓN · DEMO',
+                  Text(
+                    context.l10n.transcriptionDemo,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w900,
@@ -1502,7 +1496,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    _voiceNote.hasRecording ? DemoProData.transcript : 'Pendiente. Aparecerá después de guardar la nota de voz.',
+                    _voiceNote.hasRecording
+                        ? context.l10n.demoTranscript
+                        : context.l10n.transcriptionPending,
                   ),
                 ],
               ),
@@ -1516,7 +1512,10 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                 key: const Key('deleteVoiceNoteButton'),
                 onPressed: _voiceActionInProgress ? null : _deleteVoiceNote,
                 icon: const Icon(Icons.delete_outline),
-                label: const Text('CANCELAR Y BORRAR'),
+                label: Text(context.l10n.cancelAndDelete),
+                style: TextButton.styleFrom(
+                  foregroundColor: FolooPalette.of(context).ink,
+                ),
               ),
             ),
           ],
@@ -1539,12 +1538,12 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
           ],
           const SizedBox(height: 12),
           _LabeledField(
-            label: 'Nota escrita',
+            label: context.l10n.writtenNote,
             field: TextFormField(
               key: const Key('noteField'),
               controller: _note,
-              decoration: const InputDecoration(
-                hintText: 'Escribe aquí lo importante de la conversación.',
+              decoration: InputDecoration(
+                hintText: context.l10n.writtenNoteHint,
                 border: FolooBorders.borderlessField,
                 enabledBorder: FolooBorders.borderlessField,
                 focusedBorder: FolooBorders.borderlessField,
@@ -1583,7 +1582,7 @@ class _ContentSelectionPill extends StatelessWidget {
           button: true,
           selected: selected,
           child: Material(
-            color: selected ? FolooColors.limeTint : palette.paper,
+            color: selected ? FolooSelection.surface(context) : palette.paper,
             shape: StadiumBorder(
               side: BorderSide(
                 color: selected ? palette.ink : Colors.transparent,
@@ -1686,10 +1685,15 @@ class _RelationshipChoice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final label = switch (type) {
+      LeadType.supplier => context.l10n.supplier,
+      LeadType.partner => context.l10n.partner,
+      LeadType.customer => context.l10n.client,
+    };
     return Semantics(
       button: true,
       selected: selected,
-      label: type.label,
+      label: label,
       child: InkWell(
         key: Key('leadType-${type.name}'),
         onTap: onTap,
@@ -1702,7 +1706,7 @@ class _RelationshipChoice extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 7),
           decoration: BoxDecoration(
             color: selected
-                ? FolooColors.limeTint
+                ? FolooSelection.surface(context)
                 : FolooPalette.of(context).paper,
             borderRadius: BorderRadius.circular(FolooRadii.sm),
             border: Border.all(
@@ -1721,14 +1725,14 @@ class _RelationshipChoice extends StatelessWidget {
                   LeadType.customer => Icons.person_add_alt_1_outlined,
                 },
                 color: selected
-                    ? FolooColors.ink
+                    ? FolooSelection.foreground(context)
                     : Theme.of(context).colorScheme.onSurface,
                 size: 18,
               ),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
-                  type.label,
+                  label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

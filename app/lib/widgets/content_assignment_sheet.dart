@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../models/app_event.dart';
 import '../models/pro_demo_data.dart';
 import '../theme/foloo_theme.dart';
+import '../l10n/l10n.dart';
 
 Future<ContentFile?> showContentAssignmentSheet(
   BuildContext context, {
@@ -71,109 +73,114 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         child: Scaffold(
           backgroundColor: FolooPalette.of(context).card,
-          body: Padding(
+          body: ListView(
+            key: const Key('contentAssignmentScroll'),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+            children: [
+              Text(
+                editing
+                    ? context.l10n.editFileEvents
+                    : context.l10n.uploadContent,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              if (editing) ...[
+                const SizedBox(height: 3),
                 Text(
-                  editing ? 'Editar eventos del archivo' : 'Subir contenido',
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                if (editing) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    '${widget.file!.fileName} · ${widget.file!.sizeLabel}',
-                    style: TextStyle(
-                      color: FolooPalette.of(context).inkSecondary,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                if (!editing) ...[
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: FolooPalette.of(context).paper,
-                      borderRadius: BorderRadius.circular(FolooRadii.md),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.picture_as_pdf_outlined),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: Text('documento-demo.pdf · PDF · 1.2 MB'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    key: const Key('contentDisplayNameField'),
-                    controller: _name,
-                    decoration: const InputDecoration(
-                      hintText: 'Nombre para mostrar',
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                ],
-                Text(
-                  '¿En qué eventos aplica? · ${_all ? widget.events.length : _selected.length} de ${widget.events.length}',
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  key: const Key('contentEventSearch'),
-                  controller: _search,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search),
-                    hintText: 'Buscar entre eventos',
-                    border: FolooBorders.borderlessField,
-                    enabledBorder: FolooBorders.borderlessField,
-                    focusedBorder: FolooBorders.borderlessField,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _AssignmentRow(
-                  key: const Key('allEventsSwitch'),
-                  selected: _all,
-                  title: 'Todos los eventos',
-                  subtitle: 'Ignora la selección de abajo',
-                  onTap: () => _toggleAll(!_all),
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: ListView.separated(
-                    key: const Key('contentEventsList'),
-                    itemCount: visible.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 7),
-                    itemBuilder: (_, index) {
-                      final event = visible[index];
-                      return _AssignmentRow(
-                        key: Key('contentEvent-${event.id}'),
-                        enabled: !_all,
-                        selected: _selected.contains(event.id),
-                        title: event.name,
-                        subtitle: event.active
-                            ? 'Activo · ${event.startsOn}'
-                            : '${event.startsOn}',
-                        onTap: () => setState(() {
-                          if (!_selected.contains(event.id)) {
-                            _selected.add(event.id);
-                          } else {
-                            _selected.remove(event.id);
-                          }
-                        }),
-                      );
-                    },
+                  '${widget.file!.fileName} · ${widget.file!.sizeLabel}',
+                  style: TextStyle(
+                    color: FolooPalette.of(context).inkSecondary,
+                    fontSize: 11,
                   ),
                 ),
               ],
-            ),
+              const SizedBox(height: 16),
+              if (!editing) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: FolooPalette.of(context).paper,
+                    borderRadius: BorderRadius.circular(FolooRadii.md),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.picture_as_pdf_outlined),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text('documento-demo.pdf · PDF · 1.2 MB'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  key: const Key('contentDisplayNameField'),
+                  controller: _name,
+                  decoration: InputDecoration(
+                    hintText: context.l10n.displayName,
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+              Text(
+                context.l10n.eventAssignmentCount(
+                  _all ? widget.events.length : _selected.length,
+                  widget.events.length,
+                ),
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                key: const Key('contentEventSearch'),
+                controller: _search,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search),
+                  hintText: context.l10n.searchEvents,
+                  border: FolooBorders.borderlessField,
+                  enabledBorder: FolooBorders.borderlessField,
+                  focusedBorder: FolooBorders.borderlessField,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _AssignmentRow(
+                key: const Key('allEventsSwitch'),
+                selected: _all,
+                title: context.l10n.allEvents,
+                subtitle: context.l10n.allEventsHelp,
+                onTap: () => _toggleAll(!_all),
+              ),
+              const SizedBox(height: 8),
+              ListView.separated(
+                key: const Key('contentEventsList'),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: visible.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 7),
+                itemBuilder: (_, index) {
+                  final event = visible[index];
+                  return _AssignmentRow(
+                    key: Key('contentEvent-${event.id}'),
+                    enabled: !_all,
+                    selected: _selected.contains(event.id),
+                    title: event.name,
+                    subtitle: event.active
+                        ? '${context.l10n.active} · ${_date(context, event.startsOn)}'
+                        : _date(context, event.startsOn),
+                    onTap: () => setState(() {
+                      if (!_selected.contains(event.id)) {
+                        _selected.add(event.id);
+                      } else {
+                        _selected.remove(event.id);
+                      }
+                    }),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
           ),
           bottomNavigationBar: SafeArea(
             top: false,
@@ -188,7 +195,7 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
                         foregroundColor: FolooPalette.of(context).ink,
                       ),
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancelar'),
+                      child: Text(context.l10n.cancel),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -217,7 +224,9 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
                               ),
                         );
                       },
-                      child: Text(editing ? 'Guardar' : 'Subir'),
+                      child: Text(
+                        editing ? context.l10n.save : context.l10n.upload,
+                      ),
                     ),
                   ),
                 ],
@@ -228,6 +237,11 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
       ),
     );
   }
+
+  String _date(BuildContext context, DateTime date) => DateFormat(
+    'd MMM y',
+    Localizations.localeOf(context).toLanguageTag(),
+  ).format(date);
 }
 
 class _AssignmentRow extends StatelessWidget {
@@ -252,7 +266,7 @@ class _AssignmentRow extends StatelessWidget {
     return Opacity(
       opacity: enabled ? 1 : .5,
       child: Material(
-        color: selected ? FolooColors.limeTint : palette.paper,
+        color: selected ? FolooSelection.surface(context) : palette.paper,
         borderRadius: BorderRadius.circular(FolooRadii.sm),
         child: InkWell(
           onTap: enabled ? onTap : null,

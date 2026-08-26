@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../theme/brand_theme.dart';
 import '../models/app_plan.dart';
+import '../l10n/l10n.dart';
+import '../widgets/language_selector.dart';
 import '../widgets/segmented_bubble.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -34,12 +36,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   String? _validateEmail(String? value) {
-    return value == null || value.trim().isEmpty ? 'Escribe tu usuario' : null;
+    return value == null || value.trim().isEmpty
+        ? context.l10n.loginUserRequired
+        : null;
   }
 
   String? _validatePassword(String? value) {
     return value == null || value.trim().isEmpty
-        ? 'Escribe tu contraseña'
+        ? context.l10n.loginPasswordRequired
         : null;
   }
 
@@ -116,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              const _FieldLabel('Usuario'),
+                              _FieldLabel(context.l10n.loginUser),
                               const SizedBox(height: 10),
                               TextFormField(
                                 key: const Key('loginEmailField'),
@@ -129,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 validator: _validateEmail,
                               ),
                               const SizedBox(height: 26),
-                              const _FieldLabel('Contraseña'),
+                              _FieldLabel(context.l10n.loginPassword),
                               const SizedBox(height: 10),
                               TextFormField(
                                 key: const Key('loginPasswordField'),
@@ -140,8 +144,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                   suffixIcon: IconButton(
                                     key: const Key('passwordVisibilityButton'),
                                     tooltip: _obscurePassword
-                                        ? 'Mostrar contraseña'
-                                        : 'Ocultar contraseña',
+                                        ? context.l10n.loginShowPassword
+                                        : context.l10n.loginHidePassword,
                                     onPressed: () => setState(
                                       () =>
                                           _obscurePassword = !_obscurePassword,
@@ -160,7 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 onFieldSubmitted: (_) => _submit(),
                               ),
                               const SizedBox(height: 22),
-                              const _FieldLabel('PLAN DEMO'),
+                              _FieldLabel(context.l10n.demoPlan),
                               const SizedBox(height: 8),
                               SegmentedBubble<AppPlan>(
                                 key: const Key('demoPlanSelector'),
@@ -188,8 +192,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ],
                               ),
                               const SizedBox(height: 6),
-                              const Text(
-                                'Selector temporal para desarrollo y QA.',
+                              Text(
+                                context.l10n.demoPlanHelp,
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   color: FolooBrand.gray,
@@ -199,6 +203,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             ],
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 10),
+                      const Align(
+                        alignment: Alignment.center,
+                        child: LanguageSelector(),
                       ),
                       const Spacer(),
                       const SizedBox(height: 24),
@@ -250,13 +259,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('Entrar'),
-                          SizedBox(width: 14),
-                          Icon(Icons.arrow_forward, size: 22),
+                          Text(context.l10n.loginEnter),
+                          const SizedBox(width: 14),
+                          const Icon(Icons.arrow_forward, size: 22),
                         ],
                       ),
                     ),

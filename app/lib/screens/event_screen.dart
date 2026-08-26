@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
 import '../models/app_plan.dart';
 import '../models/pro_demo_data.dart';
 import '../theme/foloo_theme.dart';
+import '../l10n/l10n.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/create_event_dialog.dart';
 
@@ -100,7 +102,8 @@ class _EventScreenState extends State<EventScreen> {
       body: Column(
         children: [
           _EventsHeader(
-            subtitle: '${widget.events.length} eventos · $total leads en total',
+            subtitle:
+                '${context.l10n.eventCount(widget.events.length)} · ${context.l10n.leadCount(total)}',
             onBack: widget.onBack,
           ),
           Divider(height: 1, color: palette.line),
@@ -114,8 +117,8 @@ class _EventScreenState extends State<EventScreen> {
                         children: [
                           const Icon(Icons.calendar_today_outlined, size: 44),
                           const SizedBox(height: 14),
-                          const Text(
-                            'Aún no tienes eventos',
+                          Text(
+                            context.l10n.emptyEvents,
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w900,
@@ -123,7 +126,7 @@ class _EventScreenState extends State<EventScreen> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Crea el primero para comenzar a capturar.',
+                            context.l10n.createFirstEvent,
                             textAlign: TextAlign.center,
                             style: TextStyle(color: palette.inkSecondary),
                           ),
@@ -156,7 +159,7 @@ class _EventScreenState extends State<EventScreen> {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  'Al eliminar un evento sus leads dejan de aparecer en la app. La hoja de cálculo no se toca.',
+                                  context.l10n.eventDeleteHelp,
                                   style: TextStyle(
                                     color: palette.inkSecondary,
                                     fontSize: 13,
@@ -218,8 +221,8 @@ class _EventScreenState extends State<EventScreen> {
                                               borderRadius:
                                                   BorderRadius.circular(99),
                                             ),
-                                            child: const Text(
-                                              'Activo',
+                                            child: Text(
+                                              context.l10n.active,
                                               style: TextStyle(
                                                 fontSize: 10,
                                                 fontWeight: FontWeight.w600,
@@ -231,7 +234,15 @@ class _EventScreenState extends State<EventScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${_date(event.startsOn)} · ${event.demoLeadCount} leads${event.demoPendingCount > 0 ? ' · ${event.demoPendingCount} por subir' : ''}',
+                                      context.l10n.eventStats(
+                                        _date(event.startsOn),
+                                        context.l10n.leadCount(
+                                          event.demoLeadCount,
+                                        ),
+                                        event.demoPendingCount > 0
+                                            ? ' · ${context.l10n.pendingCount(event.demoPendingCount)}'
+                                            : '',
+                                      ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
@@ -243,7 +254,7 @@ class _EventScreenState extends State<EventScreen> {
                                 ),
                               ),
                               IconButton(
-                                tooltip: 'Eliminar evento',
+                                tooltip: context.l10n.deleteEvent,
                                 onPressed: () => widget.onDelete(event),
                                 icon: const Icon(
                                   Icons.delete_outline,
@@ -268,7 +279,7 @@ class _EventScreenState extends State<EventScreen> {
             key: const Key('createEventButton'),
             onPressed: _createEvent,
             icon: const Icon(Icons.add),
-            label: const Text('Crear evento'),
+            label: Text(context.l10n.createEvent),
           ),
         ),
       ),
@@ -302,8 +313,8 @@ class _EventScreenState extends State<EventScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Editar evento',
+                        Text(
+                          context.l10n.editEvent,
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w900,
@@ -330,8 +341,8 @@ class _EventScreenState extends State<EventScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'Nombre del evento',
+                  Text(
+                    context.l10n.eventName,
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 7),
@@ -350,23 +361,26 @@ class _EventScreenState extends State<EventScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Row(
+                  Row(
                     children: [
                       Expanded(
-                        child: _DemoDate(label: 'Inicia', value: '12 ago 2026'),
+                        child: _DemoDate(
+                          label: context.l10n.starts,
+                          value: _date(event.startsOn),
+                        ),
                       ),
-                      SizedBox(width: 10),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: _DemoDate(
-                          label: 'Termina',
-                          value: '14 ago 2026',
+                          label: context.l10n.ends,
+                          value: _date(event.endsOn),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 28),
-                  const Text(
-                    'Este evento',
+                  Text(
+                    context.l10n.thisEvent,
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 12),
@@ -375,14 +389,14 @@ class _EventScreenState extends State<EventScreen> {
                       Expanded(
                         child: _Metric(
                           value: '${event.demoLeadCount}',
-                          label: 'leads',
+                          label: context.l10n.leadsLabel,
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: _Metric(
                           value: '${event.demoPendingCount}',
-                          label: 'por subir',
+                          label: context.l10n.pendingUpload,
                         ),
                       ),
                     ],
@@ -400,11 +414,11 @@ class _EventScreenState extends State<EventScreen> {
                       minimumSize: const Size.fromHeight(48),
                     ),
                     icon: const Icon(Icons.delete_outline),
-                    label: const Text('Eliminar evento'),
+                    label: Text(context.l10n.deleteEvent),
                   ),
                   const SizedBox(height: 9),
                   Text(
-                    'Sus leads dejan de aparecer en la app. La hoja de cálculo no se toca.',
+                    context.l10n.eventDeletedHelp,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: palette.inkSecondary,
@@ -431,7 +445,7 @@ class _EventScreenState extends State<EventScreen> {
               }
               setState(() => _editing = null);
             },
-            child: const Text('Guardar cambios'),
+            child: Text(context.l10n.saveChanges),
           ),
         ),
       ),
@@ -439,21 +453,10 @@ class _EventScreenState extends State<EventScreen> {
   }
 
   String _date(DateTime date) {
-    const months = [
-      'ene',
-      'feb',
-      'mar',
-      'abr',
-      'may',
-      'jun',
-      'jul',
-      'ago',
-      'sep',
-      'oct',
-      'nov',
-      'dic',
-    ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
+    return DateFormat(
+      'd MMM y',
+      Localizations.localeOf(context).toLanguageTag(),
+    ).format(date);
   }
 }
 
@@ -476,7 +479,7 @@ class _EventsHeader extends StatelessWidget {
             children: [
               IconButton.filled(
                 key: const Key('eventsBackButton'),
-                tooltip: 'Regresar',
+                tooltip: context.l10n.back,
                 onPressed: onBack,
                 style: IconButton.styleFrom(
                   minimumSize: const Size(48, 48),
@@ -491,7 +494,7 @@ class _EventsHeader extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Mis eventos',
+                      context.l10n.eventsTitle,
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 3),

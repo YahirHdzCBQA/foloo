@@ -6,6 +6,7 @@ import '../models/session_lead.dart';
 import '../models/app_plan.dart';
 import '../models/pro_demo_data.dart';
 import '../theme/foloo_theme.dart';
+import '../l10n/l10n.dart';
 
 class LeadConfirmationScreen extends StatefulWidget {
   const LeadConfirmationScreen({
@@ -58,30 +59,32 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
   Widget build(BuildContext context) {
     final palette = FolooPalette.of(context);
     final record = widget.record;
+    final statuses = _statusRows(record);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final confirmationBackground = dark ? FolooColors.ink : palette.card;
     return Scaffold(
-      backgroundColor: palette.card,
+      backgroundColor: confirmationBackground,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 36, 20, 28),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 100,
-                height: 100,
-                decoration: const BoxDecoration(
-                  color: FolooColors.lime,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_rounded,
-                  color: FolooColors.ink,
-                  size: 58,
+              SizedBox(
+                key: const Key('confirmationMark'),
+                width: 140,
+                height: 82,
+                child: Image.asset(
+                  dark
+                      ? 'assets/branding/foloo_mark_dark.png'
+                      : 'assets/branding/foloo_mark_light.png',
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 18),
               Text(
-                'Lead guardado',
+                context.l10n.savedLead,
                 style: Theme.of(context).textTheme.headlineSmall
                     ?.copyWith(fontSize: 30),
               ),
@@ -113,63 +116,84 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
               ),
               const SizedBox(height: 30),
               // TODO(BACKEND): Replace demo processing status with real backend state.
-              ..._statusRows(record).map(
-                (status) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: palette.paper,
-                      borderRadius: BorderRadius.circular(FolooRadii.md),
-                    ),
-                    child: Row(
-                      children: [
-                        const CircleAvatar(
-                          radius: 17,
-                          backgroundColor: FolooColors.lime,
-                          child: Icon(
-                            Icons.check,
-                            color: FolooColors.ink,
-                            size: 18,
-                          ),
-                        ),
-                        const SizedBox(width: 11),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                status.$1,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
+              Container(
+                key: const Key('confirmationStatusCard'),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: palette.card,
+                  borderRadius: BorderRadius.circular(FolooRadii.md),
+                  border: Border.all(color: palette.line),
+                ),
+                child: Column(
+                  children: [
+                    for (var index = 0; index < statuses.length; index++) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Row(
+                          children: [
+                            const CircleAvatar(
+                              radius: 10,
+                              backgroundColor: FolooColors.success,
+                              child: Icon(
+                                Icons.check,
+                                color: FolooColors.white,
+                                size: 13,
                               ),
-                              Text(
-                                status.$2,
-                                style: TextStyle(
-                                  color: palette.inkSecondary,
-                                  fontSize: 11,
-                                ),
+                            ),
+                            const SizedBox(width: 11),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    statuses[index].$1,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    statuses[index].$2,
+                                    style: TextStyle(
+                                      color: palette.inkSecondary,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _time(record.capturedAt),
+                              style: TextStyle(
+                                color: palette.inkSecondary,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
                         ),
-                        Text(
-                          _time(record.capturedAt),
-                          style: TextStyle(
-                            color: palette.inkSecondary,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
+                      if (index < statuses.length - 1)
+                        Divider(height: 1, color: palette.line),
+                    ],
+                  ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: LinearProgressIndicator(
+                  key: const Key('confirmationCountdownProgress'),
+                  value: _seconds / 3,
+                  minHeight: 3,
+                  backgroundColor: palette.line,
+                  valueColor: AlwaysStoppedAnimation<Color>(palette.ink),
+                ),
+              ),
+              const SizedBox(height: 10),
               Text(
-                'Regresas a captura en $_seconds s',
+                context.l10n.returnToCaptureIn(_seconds),
                 style: TextStyle(color: palette.inkSecondary, fontSize: 13),
               ),
             ],
@@ -179,14 +203,16 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(
-          color: palette.card,
+          color: confirmationBackground,
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
-          child: OutlinedButton.icon(
+          child: FilledButton.icon(
             key: const Key('captureAnotherButton'),
             onPressed: _captureAnother,
             icon: const Icon(Icons.person_add_alt_1_outlined),
-            label: const Text('Capturar otro ahora'),
-            style: OutlinedButton.styleFrom(
+            label: Text(context.l10n.captureAnother),
+            style: FilledButton.styleFrom(
+              backgroundColor: palette.paper,
+              foregroundColor: palette.ink,
               shape: const StadiumBorder(),
               minimumSize: const Size.fromHeight(56),
             ),
@@ -201,24 +227,24 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
 
   List<(String, String)> _statusRows(SessionLead record) {
     final basic = <(String, String)>[
-      ('En la hoja de cálculo del evento', 'Fila demo · ${record.folio}'),
+      (context.l10n.eventSpreadsheet, context.l10n.demoRow(record.folio)),
     ];
     if (!widget.plan.isPro) return basic;
     final attachedNames = record.lead.contentNames;
     return [
       ...basic,
       (
-        'Correo al lead',
+        context.l10n.leadEmail,
         record.lead.email.isEmpty
-            ? 'Demo · en cola'
-            : 'Demo · ${record.lead.email}',
+            ? context.l10n.demoQueued
+            : context.l10n.demoValue(record.lead.email),
       ),
-      ('Copia Admin', 'Demo · ${DemoProData.adminEmail}'),
+      (context.l10n.adminCopy, context.l10n.demoValue(DemoProData.adminEmail)),
       (
-        'Contenido adjunto',
+        context.l10n.attachedContent,
         attachedNames.isEmpty
-            ? 'Demo · sin archivos'
-            : 'Demo · ${attachedNames.join(' · ')}',
+            ? context.l10n.demoNoFiles
+            : context.l10n.demoValue(attachedNames.join(' · ')),
       ),
     ];
   }

@@ -6,6 +6,7 @@ import '../models/pro_demo_data.dart';
 import '../models/lead_draft.dart';
 import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
+import '../l10n/l10n.dart';
 import '../widgets/create_event_dialog.dart';
 import '../widgets/segmented_bubble.dart';
 
@@ -92,7 +93,7 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
               ),
               const SizedBox(height: 30),
               Text(
-                '¿Dónde estás\nconectando hoy?',
+                context.l10n.originTitle,
                 style: Theme.of(context).textTheme.displayLarge,
               ),
               const SizedBox(height: 26),
@@ -101,18 +102,21 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
                 selectedHorizontalPadding: 8,
                 selected: _kind,
                 onSelected: (value) => setState(() => _kind = value),
-                options: const [
+                options: [
                   SegmentedBubbleOption(
                     key: Key('originEventTab'),
                     value: LeadOriginKind.event,
-                    label: 'Evento',
-                    leading: Icon(Icons.calendar_today_outlined, size: 15),
+                    label: context.l10n.event,
+                    leading: const Icon(
+                      Icons.calendar_today_outlined,
+                      size: 15,
+                    ),
                   ),
                   SegmentedBubbleOption(
                     key: Key('originDirectTab'),
                     value: LeadOriginKind.direct,
-                    label: 'Lead directo',
-                    leading: Icon(Icons.person_outline, size: 16),
+                    label: context.l10n.directLead,
+                    leading: const Icon(Icons.person_outline, size: 16),
                   ),
                 ],
               ),
@@ -122,7 +126,7 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Se guarda sin evento, en tu base general de leads.',
+                      context.l10n.directLeadHelp,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: palette.inkSecondary,
@@ -136,11 +140,13 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
                         key: const Key('originPlaceField'),
                         controller: _place,
                         onChanged: (_) => setState(() {}),
-                        decoration: const InputDecoration(labelText: 'Lugar'),
+                        decoration: InputDecoration(
+                          labelText: context.l10n.place,
+                        ),
                       ),
                       const SizedBox(height: 7),
                       Text(
-                        'Dónde surgió la conversación. Sustituye {lugar} en el correo; se conserva para la siguiente captura.',
+                        context.l10n.directPlacePersistentHelp('{lugar}'),
                         style: TextStyle(
                           color: palette.inkSecondary,
                           fontSize: 12,
@@ -198,7 +204,9 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          '${event.demoLeadCount} leads',
+                                          context.l10n.leadCount(
+                                            event.demoLeadCount,
+                                          ),
                                           style: TextStyle(
                                             color: palette.inkSecondary,
                                             fontSize: 12,
@@ -230,7 +238,7 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
                   key: const Key('originManageEventsButton'),
                   onPressed: _createEvent,
                   icon: const Icon(Icons.add),
-                  label: const Text('Crear evento nuevo'),
+                  label: Text(context.l10n.createNewEvent),
                   style: TextButton.styleFrom(foregroundColor: palette.ink),
                 ),
               ],
@@ -258,7 +266,11 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
                     ),
                   )
                 : null,
-            child: Text(direct ? 'Capturar conexión' : 'Empezar a capturar'),
+            child: Text(
+              direct
+                  ? context.l10n.captureConnection
+                  : context.l10n.startCapture,
+            ),
           ),
         ),
       ),

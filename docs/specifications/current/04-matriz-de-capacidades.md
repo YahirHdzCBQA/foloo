@@ -138,6 +138,7 @@
 | Capacidad | Basic | Pro | Nota |
 |---|:---:|:---:|---|
 | Menú lateral, tema claro / oscuro | ● | ● | Idéntico |
+| Idiomas Español / Inglés | ● | ● | Estado compartido de sesión · `NAV-09`, `RNF-19` |
 | Destinos: Home, Registros, Mis eventos | ● | ● | Idéntico |
 | Destinos: **Contenido**, **Correo** | ○ | ● | `NAV-08` |
 

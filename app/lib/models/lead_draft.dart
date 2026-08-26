@@ -1,20 +1,6 @@
-enum LeadType {
-  supplier('Proveedor'),
-  partner('Partner'),
-  customer('Cliente');
+enum LeadType { supplier, partner, customer }
 
-  const LeadType(this.label);
-  final String label;
-}
-
-enum InterestLevel {
-  high('Alto'),
-  medium('Medio'),
-  low('Bajo');
-
-  const InterestLevel(this.label);
-  final String label;
-}
+enum InterestLevel { high, medium, low }
 
 enum LeadOriginKind { event, direct }
 
@@ -58,8 +44,5 @@ class LeadDraft {
   final String? transcription;
 
   String get fullName => '$name $lastName'.trim();
-  String get originLabel => originKind == LeadOriginKind.event
-      ? (eventName ?? 'Evento')
-      : 'Lead directo';
   bool get hasVoiceNote => audioLocalPath?.isNotEmpty ?? false;
 }

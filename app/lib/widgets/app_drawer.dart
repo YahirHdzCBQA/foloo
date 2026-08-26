@@ -6,6 +6,8 @@ import '../models/app_plan.dart';
 import '../models/session_lead.dart';
 import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
+import '../l10n/l10n.dart';
+import 'language_selector.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({
@@ -68,7 +70,7 @@ class AppDrawer extends StatelessWidget {
                   const Spacer(),
                   IconButton.outlined(
                     key: const Key('closeMenuButton'),
-                    tooltip: 'Cerrar menú',
+                    tooltip: context.l10n.drawerClose,
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close),
                     style: IconButton.styleFrom(
@@ -109,7 +111,7 @@ class AppDrawer extends StatelessWidget {
                         ),
                         const SizedBox(height: 5),
                         Text(
-                          '${profile.company.toUpperCase()} · VENTAS',
+                          '${profile.company.toUpperCase()} · ${context.l10n.drawerSales}',
                           style: TextStyle(
                             color: ink.withValues(alpha: 0.55),
                             fontSize: 9,
@@ -132,10 +134,10 @@ class AppDrawer extends StatelessWidget {
                     _DestinationTile(
                       key: const Key('drawerHome'),
                       icon: Icons.person_add_alt_1_outlined,
-                      label: 'Home',
+                      label: context.l10n.drawerHome,
                       selected: activeDestination == AppDestination.home,
                       trailing: activeDestination == AppDestination.home
-                          ? 'AQUÍ'
+                          ? context.l10n.drawerHere
                           : null,
                       onTap: () => _afterClose(
                         context,
@@ -146,7 +148,7 @@ class AppDrawer extends StatelessWidget {
                       _DestinationTile(
                         key: const Key('drawerContent'),
                         icon: Icons.folder_copy_outlined,
-                        label: 'Contenido',
+                        label: context.l10n.drawerContent,
                         trailing: '$contentCount',
                         selected: activeDestination == AppDestination.content,
                         onTap: () => _afterClose(
@@ -157,7 +159,7 @@ class AppDrawer extends StatelessWidget {
                       _DestinationTile(
                         key: const Key('drawerEmail'),
                         icon: Icons.mail_outline,
-                        label: 'Correo',
+                        label: context.l10n.drawerEmail,
                         selected: activeDestination == AppDestination.email,
                         onTap: () => _afterClose(
                           context,
@@ -168,7 +170,7 @@ class AppDrawer extends StatelessWidget {
                     _DestinationTile(
                       key: const Key('drawerRecords'),
                       icon: Icons.people_outline,
-                      label: 'Registros',
+                      label: context.l10n.drawerRecords,
                       selected: activeDestination == AppDestination.records,
                       trailing: '$recordsCount',
                       onTap: () => _afterClose(
@@ -179,7 +181,7 @@ class AppDrawer extends StatelessWidget {
                     _DestinationTile(
                       key: const Key('drawerEvents'),
                       icon: Icons.calendar_today_outlined,
-                      label: 'Mis eventos',
+                      label: context.l10n.drawerEvents,
                       selected: activeDestination == AppDestination.events,
                       onTap: () => _afterClose(
                         context,
@@ -189,7 +191,7 @@ class AppDrawer extends StatelessWidget {
                     Divider(height: 20, color: ink.withValues(alpha: 0.45)),
                     Semantics(
                       toggled: darkMode,
-                      label: 'Apariencia, modo oscuro',
+                      label: context.l10n.drawerAppearanceSemantics,
                       child: ListTile(
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -200,15 +202,17 @@ class AppDrawer extends StatelessWidget {
                               ? Icons.dark_mode_outlined
                               : Icons.brightness_2_outlined,
                         ),
-                        title: const Text(
-                          'Apariencia',
+                        title: Text(
+                          context.l10n.drawerAppearance,
                           style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
                         subtitle: Text(
-                          darkMode ? 'MODO OSCURO' : 'MODO CLARO',
+                          darkMode
+                              ? context.l10n.drawerDarkMode
+                              : context.l10n.drawerLightMode,
                           style: TextStyle(
                             color: ink.withValues(alpha: 0.55),
                             fontSize: 9,
@@ -224,6 +228,25 @@ class AppDrawer extends StatelessWidget {
                         ),
                       ),
                     ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.language_outlined),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              context.l10n.language,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const LanguageSelector(),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -235,7 +258,7 @@ class AppDrawer extends StatelessWidget {
                 key: const Key('logoutButton'),
                 onPressed: () => _afterClose(context, onLogout),
                 icon: const Icon(Icons.logout),
-                label: const Text('Cerrar sesión'),
+                label: Text(context.l10n.drawerLogout),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(56),
                   foregroundColor: FolooPalette.of(context).error,

@@ -106,6 +106,9 @@ void main() {
 
     expect(find.byKey(const Key('recordAudio-EXP-260812-002')), findsNothing);
     expect(find.byIcon(Icons.play_arrow), findsNothing);
+    for (final chip in tester.widgetList<ChoiceChip>(find.byType(ChoiceChip))) {
+      expect(chip.showCheckmark, isFalse);
+    }
   });
 
   testWidgets('export dialog opens and switches format without layout errors', (
