@@ -120,12 +120,20 @@ void main() {
         await settings.write(entry.key, entry.value);
       }
       await events.save(event(), makeActive: true);
-      await events.save(event(name: 'Expo Renombrada'));
+      await events.save(
+        event(name: 'Expo Renombrada').copyWith(
+          startsOn: DateTime(2026, 9, 3),
+          endsOn: DateTime(2026, 9, 6),
+        ),
+      );
       await database.close();
 
       database = openDatabase();
       events = EventRepository(database);
-      expect((await events.list()).single.name, 'Expo Renombrada');
+      final reopenedEvent = (await events.list()).single;
+      expect(reopenedEvent.name, 'Expo Renombrada');
+      expect(reopenedEvent.startsOn, DateTime(2026, 9, 3));
+      expect(reopenedEvent.endsOn, DateTime(2026, 9, 6));
       expect(
         (await ProfileRepository(database).load())?.name,
         'Yahir Hernández',

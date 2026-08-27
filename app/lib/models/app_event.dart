@@ -5,7 +5,7 @@ library;
 
 /// Event data used by origin selection, capture and event management screens.
 ///
-/// DEMO: Counts are presentation fixtures until EVT-* has durable storage.
+/// Counts are projections derived from local leads; fixtures may seed previews.
 class AppEvent {
   const AppEvent({
     required this.id,
@@ -32,6 +32,8 @@ class AppEvent {
     DateTime? startsOn,
     DateTime? endsOn,
     bool? active,
+    int? leadCount,
+    int? pendingCount,
     Set<String>? contentFileIds,
   }) => AppEvent(
     id: id,
@@ -39,8 +41,8 @@ class AppEvent {
     startsOn: startsOn ?? this.startsOn,
     endsOn: endsOn ?? this.endsOn,
     active: active ?? this.active,
-    demoLeadCount: demoLeadCount,
-    demoPendingCount: demoPendingCount,
+    demoLeadCount: leadCount ?? demoLeadCount,
+    demoPendingCount: pendingCount ?? demoPendingCount,
     contentFileIds: contentFileIds ?? this.contentFileIds,
   );
 }

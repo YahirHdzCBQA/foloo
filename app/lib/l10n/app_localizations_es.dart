@@ -46,7 +46,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get drawerClose => 'Cerrar menú';
 
   @override
-  String get drawerHome => 'Home';
+  String get drawerHome => 'Inicio';
 
   @override
   String get drawerHere => 'AQUÍ';

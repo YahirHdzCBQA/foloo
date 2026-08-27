@@ -13,6 +13,7 @@ class AppScreenHeader extends StatelessWidget {
   const AppScreenHeader({
     required this.title,
     required this.onMenuPressed,
+    required this.onLogoPressed,
     this.subtitle,
     this.badge,
     super.key,
@@ -22,6 +23,7 @@ class AppScreenHeader extends StatelessWidget {
   final String? subtitle;
   final String? badge;
   final VoidCallback onMenuPressed;
+  final VoidCallback onLogoPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -38,10 +40,22 @@ class AppScreenHeader extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Image.asset(
-                    FolooBrand.logoFor(theme.brightness),
-                    width: 64,
-                    fit: BoxFit.contain,
+                  Semantics(
+                    button: true,
+                    label: context.l10n.drawerHome,
+                    child: InkWell(
+                      key: const Key('screenLogoButton'),
+                      onTap: onLogoPressed,
+                      borderRadius: BorderRadius.circular(8),
+                      child: SizedBox(
+                        width: 64,
+                        height: 44,
+                        child: Image.asset(
+                          FolooBrand.logoFor(theme.brightness),
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
                   ),
                   const Spacer(),
                   IconButton.outlined(

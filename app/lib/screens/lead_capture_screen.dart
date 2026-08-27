@@ -99,6 +99,12 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   final _phone = TextEditingController();
   final _note = TextEditingController();
   final _place = TextEditingController();
+  final _nameFocus = FocusNode();
+  final _companyFocus = FocusNode();
+  final _emailFocus = FocusNode();
+  final _phoneFocus = FocusNode();
+  final _placeFocus = FocusNode();
+  final _relationshipContentKey = GlobalKey();
   late final VoiceNoteService _voiceNoteService;
   late final StreamSubscription<void> _playbackCompletedSubscription;
 
@@ -180,6 +186,15 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       _place,
     ]) {
       controller.dispose();
+    }
+    for (final node in [
+      _nameFocus,
+      _companyFocus,
+      _emailFocus,
+      _phoneFocus,
+      _placeFocus,
+    ]) {
+      node.dispose();
     }
     super.dispose();
   }
@@ -595,6 +610,41 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     return null;
   }
 
+  Future<void> _revealFirstInvalidField() async {
+    FocusNode? target;
+    if (widget.plan.isPro &&
+        widget.originKind == LeadOriginKind.direct &&
+        _place.text.trim().isEmpty) {
+      target = _placeFocus;
+    } else if (_name.text.trim().isEmpty) {
+      target = _nameFocus;
+    } else if (_company.text.trim().isEmpty) {
+      target = _companyFocus;
+    } else {
+      final email = _email.text.trim();
+      final phone = _phone.text.trim();
+      final emailInvalid =
+          email.isNotEmpty &&
+          !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email);
+      if (emailInvalid || (email.isEmpty && phone.isEmpty)) {
+        target = _emailFocus;
+      }
+    }
+
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    final targetContext =
+        target?.context ?? _relationshipContentKey.currentContext;
+    if (targetContext == null || !targetContext.mounted) return;
+    await Scrollable.ensureVisible(
+      targetContext,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+      alignment: .18,
+    );
+    if (target != null && mounted) target.requestFocus();
+  }
+
   // ---------------------------------------------------------------------------
   // Validation and local demo submission
   // ---------------------------------------------------------------------------
@@ -615,6 +665,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     if (!fieldsValid || !relationshipValid) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(context.l10n.reviewFields)));
+      await _revealFirstInvalidField();
       return;
     }
 
@@ -771,6 +822,18 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
         children: [
           ProgressHeader(
             completed: _progress,
+            onLogoPressed: () {
+              widget.onDestinationSelected(AppDestination.home);
+              if (_scrollController.hasClients) {
+                unawaited(
+                  _scrollController.animateTo(
+                    0,
+                    duration: const Duration(milliseconds: 280),
+                    curve: Curves.easeOutCubic,
+                  ),
+                );
+              }
+            },
             onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
           Expanded(
@@ -910,6 +973,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                   TextFormField(
                     key: const Key('directPlaceField'),
                     controller: _place,
+                    focusNode: _placeFocus,
                     decoration: InputDecoration(labelText: context.l10n.place),
                     validator: (value) =>
                         _required(value, context.l10n.placeRequired),
@@ -1188,6 +1252,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                     field: TextFormField(
                       key: const Key('nameField'),
                       controller: _name,
+                      focusNode: _nameFocus,
                       textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.givenName],
                       onChanged: (_) => _nameEdited = true,
@@ -1228,6 +1293,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               field: TextFormField(
                 key: const Key('companyField'),
                 controller: _company,
+                focusNode: _companyFocus,
                 textInputAction: TextInputAction.next,
                 onChanged: (_) => _companyEdited = true,
                 validator: (value) =>
@@ -1240,6 +1306,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               field: TextFormField(
                 key: const Key('emailField'),
                 controller: _email,
+                focusNode: _emailFocus,
                 keyboardType: TextInputType.emailAddress,
                 textCapitalization: TextCapitalization.none,
                 textInputAction: TextInputAction.next,
@@ -1254,6 +1321,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               field: TextFormField(
                 key: const Key('phoneField'),
                 controller: _phone,
+                focusNode: _phoneFocus,
                 keyboardType: TextInputType.phone,
                 textInputAction: TextInputAction.next,
                 autofillHints: const [AutofillHints.telephoneNumber],
@@ -1273,6 +1341,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       number: '03',
       title: context.l10n.leadType,
       child: Column(
+        key: _relationshipContentKey,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(

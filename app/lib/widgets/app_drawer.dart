@@ -70,10 +70,25 @@ class AppDrawer extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(22, 18, 18, 14),
               child: Row(
                 children: [
-                  Image.asset(
-                    FolooBrand.logoFor(theme.brightness),
-                    width: 86,
-                    fit: BoxFit.contain,
+                  Semantics(
+                    button: true,
+                    label: context.l10n.drawerHome,
+                    child: InkWell(
+                      key: const Key('drawerLogoButton'),
+                      onTap: () => _afterClose(
+                        context,
+                        () => onDestinationSelected(AppDestination.home),
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      child: SizedBox(
+                        width: 86,
+                        height: 48,
+                        child: Image.asset(
+                          FolooBrand.logoFor(theme.brightness),
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
                   ),
                   const Spacer(),
                   IconButton.outlined(

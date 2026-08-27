@@ -71,6 +71,21 @@ class _FolooAppState extends State<FolooApp> {
   late Locale _locale;
   late final LocalPersistence _persistence;
 
+  List<AppEvent> get _eventsWithCounts => _events.map((event) {
+    final records = _sessionLeads.where(
+      (record) =>
+          record.lead.eventLocalId == event.id ||
+          (record.lead.eventLocalId == null &&
+              record.lead.eventName == event.name),
+    );
+    return event.copyWith(
+      leadCount: records.length,
+      pendingCount: records
+          .where((record) => record.uploadState != SessionUploadState.inSheet)
+          .length,
+    );
+  }).toList();
+
   @override
   void initState() {
     super.initState();
@@ -330,7 +345,7 @@ class _FolooAppState extends State<FolooApp> {
         ),
         _AppStage.origin => OriginSelectionScreen(
           key: const ValueKey('originScreen'),
-          events: List.unmodifiable(_events),
+          events: List.unmodifiable(_eventsWithCounts),
           onContinue: _selectOrigin,
           onCreateEvent: _createEvent,
           plan: _plan,
@@ -344,6 +359,7 @@ class _FolooAppState extends State<FolooApp> {
   /// Keeps shared destinations alive so Drawer navigation reuses session state.
   Widget _buildShell() {
     final darkMode = _themeMode == ThemeMode.dark;
+    final events = _eventsWithCounts;
     final origin =
         _origin ?? const OriginSelection(kind: LeadOriginKind.direct);
     return IndexedStack(
@@ -355,7 +371,7 @@ class _FolooAppState extends State<FolooApp> {
           eventId: origin.event?.id,
           eventName: origin.event?.name,
           initialPlace: origin.place,
-          events: List.unmodifiable(_events),
+          events: List.unmodifiable(events),
           profile: _profile,
           recordsCount: _sessionLeads.length,
           darkMode: darkMode,
@@ -381,7 +397,7 @@ class _FolooAppState extends State<FolooApp> {
         ),
         EventScreen(
           key: const ValueKey('eventsScreen'),
-          events: List.unmodifiable(_events),
+          events: List.unmodifiable(events),
           profile: _profile,
           recordsCount: _sessionLeads.length,
           darkMode: darkMode,
@@ -399,7 +415,7 @@ class _FolooAppState extends State<FolooApp> {
           ContentScreen(
             key: const ValueKey('contentScreen'),
             files: List.unmodifiable(_contentFiles),
-            events: List.unmodifiable(_events),
+            events: List.unmodifiable(events),
             recordsCount: _sessionLeads.length,
             profile: _profile,
             darkMode: darkMode,

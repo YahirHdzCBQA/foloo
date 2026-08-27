@@ -46,6 +46,32 @@ void main() {
     expect(find.text('Elige Proveedor, Partner o Cliente'), findsOneWidget);
   });
 
+  testWidgets('invalid submission scrolls to and focuses the first field', (
+    tester,
+  ) async {
+    await tester.pumpWidget(captureApp());
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -900),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('saveLeadButton')));
+    await tester.pumpAndSettle();
+
+    final name = tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const Key('nameField')),
+        matching: find.byType(EditableText),
+      ),
+    );
+    expect(name.focusNode.hasFocus, isTrue);
+    expect(
+      tester.getTopLeft(find.byKey(const Key('nameField'))).dy,
+      greaterThanOrEqualTo(0),
+    );
+  });
+
   testWidgets('completes the manual capture flow and starts another lead', (
     tester,
   ) async {

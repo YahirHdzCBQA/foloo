@@ -173,7 +173,7 @@ abstract class AppLocalizations {
   /// No description provided for @drawerHome.
   ///
   /// In es, this message translates to:
-  /// **'Home'**
+  /// **'Inicio'**
   String get drawerHome;
 
   /// No description provided for @drawerHere.

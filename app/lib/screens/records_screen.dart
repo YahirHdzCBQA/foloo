@@ -340,6 +340,8 @@ class _RecordsScreenState extends State<RecordsScreen>
             subtitle:
                 '${context.l10n.leadCount(widget.records.length)} · ${context.l10n.pendingCount(pending)}',
             badge: 'Expo Alimentaria',
+            onLogoPressed: () =>
+                widget.onDestinationSelected(AppDestination.home),
             onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
           Container(

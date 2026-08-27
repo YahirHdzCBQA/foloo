@@ -76,6 +76,16 @@ void main() {
     await selectDrawerDestination(tester, const Key('drawerRecords'));
     expect(find.byKey(const ValueKey('recordsScreen')), findsOneWidget);
     expect(find.text('Aún no hay registros'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('screenLogoButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('cardSection')), findsOneWidget);
+
+    await selectDrawerDestination(tester, const Key('drawerRecords'));
+    await openDrawer(tester);
+    await tester.tap(find.byKey(const Key('drawerLogoButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('cardSection')), findsOneWidget);
   });
 
   testWidgets('drawer opens Mis eventos and supports create/edit navigation', (
@@ -132,6 +142,70 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('event creation dates open the Foloo calendar and are retained', (
+    tester,
+  ) async {
+    usePhoneViewport(tester);
+    await tester.pumpWidget(const FolooApp());
+    await enterBasicCapture(tester);
+
+    await tester.tap(find.byKey(const Key('captureCreateEventButton')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('newEventNameField')),
+      'Expo Fecha Editable',
+    );
+    await tester.tap(find.byKey(const Key('newEventStartDate')));
+    await tester.pumpAndSettle();
+    final dialog = find.byType(DatePickerDialog);
+    expect(dialog, findsOneWidget);
+    final day = find.descendant(of: dialog, matching: find.text('13'));
+    expect(day, findsWidgets);
+    await tester.tap(day.last);
+    await tester.pump();
+    final pickerContext = tester.element(dialog);
+    final okLabel = MaterialLocalizations.of(pickerContext).okButtonLabel;
+    await tester.tap(find.text(okLabel));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirmCreateEventButton')));
+    await tester.pumpAndSettle();
+
+    await selectDrawerDestination(tester, const Key('drawerEvents'));
+    await tester.tap(find.text('Expo Fecha Editable'));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('editEventStartDate')),
+        matching: find.textContaining('13'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('editEventEndDate')));
+    await tester.pumpAndSettle();
+    final editDialog = find.byType(DatePickerDialog);
+    expect(editDialog, findsOneWidget);
+    final endDay = find.descendant(of: editDialog, matching: find.text('16'));
+    expect(endDay, findsWidgets);
+    await tester.tap(endDay.last);
+    await tester.pump();
+    final editPickerContext = tester.element(find.byType(DatePickerDialog));
+    final editOkLabel = MaterialLocalizations.of(editPickerContext)
+        .okButtonLabel;
+    await tester.tap(find.text(editOkLabel));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('saveEventButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Expo Fecha Editable'));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('editEventEndDate')),
+        matching: find.textContaining('16'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('saved lead appears in records and opens read-only detail', (
     tester,
   ) async {
@@ -141,6 +215,27 @@ void main() {
     await completeRequiredLead(tester);
     expect(find.text('Lead guardado'), findsOneWidget);
     await tester.tap(find.byKey(const Key('captureAnotherButton')));
+    await tester.pumpAndSettle();
+    await selectDrawerDestination(tester, const Key('drawerEvents'));
+    await tester.tap(find.byKey(const Key('event-expo-alimentaria')));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('eventLeadCount')),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('eventPendingCount')),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('closeEventEditorButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('eventsBackButton')));
     await tester.pumpAndSettle();
     await selectDrawerDestination(tester, const Key('drawerRecords'));
     expect(find.text('Ana López'), findsOneWidget);

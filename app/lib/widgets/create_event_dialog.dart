@@ -5,13 +5,12 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../models/app_event.dart';
 import '../models/app_plan.dart';
 import '../models/pro_demo_data.dart';
-import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
+import 'event_date_field.dart';
 
 /// Opens event creation and returns a session model after local validation.
 Future<AppEvent?> showCreateEventDialog(
@@ -37,6 +36,26 @@ class _CreateEventDialog extends StatefulWidget {
 class _CreateEventDialogState extends State<_CreateEventDialog> {
   final _name = TextEditingController();
   final Set<String> _selectedFiles = {};
+  DateTime _startsOn = DateTime(2026, 8, 12);
+  DateTime _endsOn = DateTime(2026, 8, 14);
+
+  Future<void> _pickStart() async {
+    final selected = await showFolooDatePicker(context, initialDate: _startsOn);
+    if (selected == null || !mounted) return;
+    setState(() {
+      _startsOn = selected;
+      if (_endsOn.isBefore(selected)) _endsOn = selected;
+    });
+  }
+
+  Future<void> _pickEnd() async {
+    final selected = await showFolooDatePicker(
+      context,
+      initialDate: _endsOn.isBefore(_startsOn) ? _startsOn : _endsOn,
+      firstDate: _startsOn,
+    );
+    if (selected != null && mounted) setState(() => _endsOn = selected);
+  }
 
   @override
   void dispose() {
@@ -71,22 +90,20 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
         Row(
           children: [
             Expanded(
-              child: _DemoDate(
+              child: EventDateField(
+                key: const Key('newEventStartDate'),
                 label: context.l10n.starts,
-                value: DateFormat(
-                  'd MMM y',
-                  Localizations.localeOf(context).toLanguageTag(),
-                ).format(DateTime(2026, 8, 12)),
+                date: _startsOn,
+                onTap: _pickStart,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: _DemoDate(
+              child: EventDateField(
+                key: const Key('newEventEndDate'),
                 label: context.l10n.ends,
-                value: DateFormat(
-                  'd MMM y',
-                  Localizations.localeOf(context).toLanguageTag(),
-                ).format(DateTime(2026, 8, 14)),
+                date: _endsOn,
+                onTap: _pickEnd,
               ),
             ),
           ],
@@ -143,55 +160,14 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
             AppEvent(
               id: 'demo-${DateTime.now().microsecondsSinceEpoch}',
               name: value,
-              startsOn: DateTime(2026, 8, 12),
-              endsOn: DateTime(2026, 8, 14),
+              startsOn: _startsOn,
+              endsOn: _endsOn,
               active: true,
               contentFileIds: {..._selectedFiles},
             ),
           );
         },
         child: Text(context.l10n.createAction),
-      ),
-    ],
-  );
-}
-
-class _DemoDate extends StatelessWidget {
-  const _DemoDate({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Text(
-        label,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-      ),
-      const SizedBox(height: 7),
-      Container(
-        height: 56,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: FolooPalette.of(context).paper,
-          borderRadius: BorderRadius.circular(FolooRadii.md),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.calendar_today_outlined, size: 15),
-            const SizedBox(width: 7),
-            Expanded(
-              child: Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-          ],
-        ),
       ),
     ],
   );

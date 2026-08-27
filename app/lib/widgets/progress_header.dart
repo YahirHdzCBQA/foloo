@@ -15,11 +15,13 @@ class ProgressHeader extends StatelessWidget {
   const ProgressHeader({
     required this.completed,
     required this.onMenuPressed,
+    required this.onLogoPressed,
     super.key,
   });
 
   final List<bool> completed;
   final VoidCallback onMenuPressed;
+  final VoidCallback onLogoPressed;
 
   int get _activeIndex {
     final firstIncomplete = completed.indexWhere((value) => !value);
@@ -48,10 +50,22 @@ class ProgressHeader extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
               child: Row(
                 children: [
-                  Image.asset(
-                    FolooBrand.logoFor(theme.brightness),
-                    width: 64,
-                    fit: BoxFit.contain,
+                  Semantics(
+                    button: true,
+                    label: context.l10n.drawerHome,
+                    child: InkWell(
+                      key: const Key('captureLogoButton'),
+                      onTap: onLogoPressed,
+                      borderRadius: BorderRadius.circular(8),
+                      child: SizedBox(
+                        width: 64,
+                        height: 44,
+                        child: Image.asset(
+                          FolooBrand.logoFor(theme.brightness),
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
                   ),
                   const Spacer(),
                   Container(

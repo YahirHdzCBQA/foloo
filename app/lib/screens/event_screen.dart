@@ -15,6 +15,7 @@ import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/create_event_dialog.dart';
+import '../widgets/event_date_field.dart';
 
 /// Displays Mis eventos and its in-place editor (EVT-01–EVT-11).
 class EventScreen extends StatefulWidget {
@@ -57,6 +58,8 @@ class _EventScreenState extends State<EventScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _editingName = TextEditingController();
   AppEvent? _editing;
+  DateTime? _editingStartsOn;
+  DateTime? _editingEndsOn;
 
   @override
   void dispose() {
@@ -67,7 +70,38 @@ class _EventScreenState extends State<EventScreen> {
   /// Switches composition to the selected read/edit view without adding a route.
   void _startEditing(AppEvent event) {
     _editingName.text = event.name;
-    setState(() => _editing = event);
+    setState(() {
+      _editing = event;
+      _editingStartsOn = event.startsOn;
+      _editingEndsOn = event.endsOn;
+    });
+  }
+
+  Future<void> _pickEditingStart() async {
+    final current = _editingStartsOn;
+    if (current == null) return;
+    final selected = await showFolooDatePicker(context, initialDate: current);
+    if (selected == null || !mounted) return;
+    setState(() {
+      _editingStartsOn = selected;
+      if ((_editingEndsOn ?? selected).isBefore(selected)) {
+        _editingEndsOn = selected;
+      }
+    });
+  }
+
+  Future<void> _pickEditingEnd() async {
+    final start = _editingStartsOn;
+    final end = _editingEndsOn;
+    if (start == null || end == null) return;
+    final selected = await showFolooDatePicker(
+      context,
+      initialDate: end.isBefore(start) ? start : end,
+      firstDate: start,
+    );
+    if (selected != null && mounted) {
+      setState(() => _editingEndsOn = selected);
+    }
   }
 
   Future<void> _createEvent() async {
@@ -82,7 +116,10 @@ class _EventScreenState extends State<EventScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return _editing == null ? _buildList() : _buildEditor(_editing!);
+    final editing = _editing;
+    if (editing == null) return _buildList();
+    final current = widget.events.where((event) => event.id == editing.id);
+    return _buildEditor(current.isEmpty ? editing : current.first);
   }
 
   Widget _drawer() => AppDrawer(
@@ -372,16 +409,20 @@ class _EventScreenState extends State<EventScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: _DemoDate(
+                        child: EventDateField(
+                          key: const Key('editEventStartDate'),
                           label: context.l10n.starts,
-                          value: _date(event.startsOn),
+                          date: _editingStartsOn ?? event.startsOn,
+                          onTap: _pickEditingStart,
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: _DemoDate(
+                        child: EventDateField(
+                          key: const Key('editEventEndDate'),
                           label: context.l10n.ends,
-                          value: _date(event.endsOn),
+                          date: _editingEndsOn ?? event.endsOn,
+                          onTap: _pickEditingEnd,
                         ),
                       ),
                     ],
@@ -396,6 +437,7 @@ class _EventScreenState extends State<EventScreen> {
                     children: [
                       Expanded(
                         child: _Metric(
+                          key: const Key('eventLeadCount'),
                           value: '${event.demoLeadCount}',
                           label: context.l10n.leadsLabel,
                         ),
@@ -403,6 +445,7 @@ class _EventScreenState extends State<EventScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: _Metric(
+                          key: const Key('eventPendingCount'),
                           value: '${event.demoPendingCount}',
                           label: context.l10n.pendingUpload,
                         ),
@@ -449,7 +492,13 @@ class _EventScreenState extends State<EventScreen> {
             onPressed: () {
               final value = _editingName.text.trim();
               if (value.isNotEmpty) {
-                widget.onUpdate(event.copyWith(name: value));
+                widget.onUpdate(
+                  event.copyWith(
+                    name: value,
+                    startsOn: _editingStartsOn,
+                    endsOn: _editingEndsOn,
+                  ),
+                );
               }
               setState(() => _editing = null);
             },
@@ -526,35 +575,8 @@ class _EventsHeader extends StatelessWidget {
   }
 }
 
-class _DemoDate extends StatelessWidget {
-  const _DemoDate({required this.label, required this.value});
-  final String label;
-  final String value;
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Text(
-        label,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-      ),
-      const SizedBox(height: 7),
-      Container(
-        height: 48,
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 15),
-        decoration: BoxDecoration(
-          color: FolooPalette.of(context).paper,
-          borderRadius: BorderRadius.circular(FolooRadii.md),
-        ),
-        child: Text(value),
-      ),
-    ],
-  );
-}
-
 class _Metric extends StatelessWidget {
-  const _Metric({required this.value, required this.label});
+  const _Metric({required this.value, required this.label, super.key});
   final String value;
   final String label;
   @override
