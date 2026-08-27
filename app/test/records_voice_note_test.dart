@@ -8,7 +8,11 @@ import 'package:foloo/theme/foloo_theme.dart';
 
 import 'support/fake_voice_note_service.dart';
 
-LeadDraft lead({String? audioPath, int audioSeconds = 0}) => LeadDraft(
+LeadDraft lead({
+  String? audioPath,
+  int audioSeconds = 0,
+  String? cardImagePath,
+}) => LeadDraft(
   name: 'Mariana',
   lastName: 'Sandoval Ruiz',
   role: 'Gerente de calidad',
@@ -22,17 +26,21 @@ LeadDraft lead({String? audioPath, int audioSeconds = 0}) => LeadDraft(
   eventName: DemoEventData.eventName,
   audioLocalPath: audioPath,
   audioSeconds: audioSeconds,
+  cardImageLocalPath: cardImagePath,
 );
 
 Widget recordsApp(
   FakeVoiceNoteService service, {
   required List<SessionLead> records,
   ValueChanged<AppDestination>? onDestinationSelected,
+  bool darkMode = false,
 }) => MaterialApp(
   theme: FolooTheme.light,
+  darkTheme: FolooTheme.dark,
+  themeMode: darkMode ? ThemeMode.dark : ThemeMode.light,
   home: RecordsScreen(
     records: records,
-    darkMode: false,
+    darkMode: darkMode,
     voiceNoteService: service,
     onDestinationSelected: onDestinationSelected ?? (_) {},
     onAppearanceChanged: (_) {},
@@ -112,6 +120,53 @@ void main() {
       expect(chip.showCheckmark, isFalse);
     }
   });
+
+  testWidgets(
+    'detail pills stay legible in dark mode and card opens a viewer',
+    (tester) async {
+      final service = FakeVoiceNoteService();
+      final record = SessionLead(
+        localId: 'EXP-260812-003',
+        folio: 'EXP-260812-003',
+        capturedAt: DateTime(2026, 8, 20, 12, 47),
+        lead: lead(cardImagePath: '/tmp/foloo_missing_card.jpg'),
+      );
+      await tester.pumpWidget(
+        recordsApp(service, records: [record], darkMode: true),
+      );
+
+      await tester.tap(find.text('Mariana Sandoval Ruiz'));
+      await tester.pumpAndSettle();
+
+      for (final key in const [
+        Key('detailInterestPill'),
+        Key('detailUploadStatePill'),
+      ]) {
+        final pillFinder = find.descendant(
+          of: find.byKey(key),
+          matching: find.byType(Container),
+        );
+        final pill = tester.widget<Container>(pillFinder.first);
+        final background = (pill.decoration! as BoxDecoration).color;
+        final label = tester.widget<Text>(
+          find
+              .descendant(of: find.byKey(key), matching: find.byType(Text))
+              .last,
+        );
+        expect(label.style!.color, isNot(background));
+      }
+
+      await tester.tap(find.byKey(const Key('detailCardImageButton')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('detailCardImageDialog')), findsOneWidget);
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.tapAt(const Offset(4, 4));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('detailCardImageDialog')), findsNothing);
+    },
+  );
 
   testWidgets('export dialog opens and switches format without layout errors', (
     tester,

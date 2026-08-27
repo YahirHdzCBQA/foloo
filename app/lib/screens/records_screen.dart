@@ -754,6 +754,12 @@ class ConnectionDetailScreen extends StatelessWidget {
       InterestLevel.medium => FolooColors.interestMedium,
       InterestLevel.high => FolooColors.interestHigh,
     };
+    final interestTint = Theme.of(context).brightness == Brightness.dark
+        ? interestColor.withValues(alpha: .24)
+        : interestColor.withValues(alpha: .20);
+    final pendingTint = Theme.of(context).brightness == Brightness.dark
+        ? palette.lineStrong
+        : FolooColors.uploadPendingTint;
     return Scaffold(
       backgroundColor: palette.card,
       appBar: AppBar(
@@ -797,6 +803,7 @@ class ConnectionDetailScreen extends StatelessWidget {
                   tint: palette.paper,
                 ),
                 _DetailPill(
+                  key: const Key('detailInterestPill'),
                   label: context.l10n.interest(
                     switch (lead.interest) {
                       InterestLevel.low => context.l10n.interestLow,
@@ -804,16 +811,18 @@ class ConnectionDetailScreen extends StatelessWidget {
                       InterestLevel.high => context.l10n.interestHigh,
                     }.toLowerCase(),
                   ),
-                  color: interestColor,
-                  tint: interestColor.withValues(alpha: .13),
+                  color: palette.ink,
+                  tint: interestTint,
+                  accentColor: interestColor,
                 ),
                 _DetailPill(
+                  key: const Key('detailUploadStatePill'),
                   label: _uploadStateLabel(context, record.uploadState),
                   color: record.uploadState != SessionUploadState.inSheet
                       ? palette.ink
                       : palette.success,
                   tint: record.uploadState != SessionUploadState.inSheet
-                      ? FolooColors.uploadPendingTint
+                      ? pendingTint
                       : palette.successTint,
                   icon: record.uploadState != SessionUploadState.inSheet
                       ? Icons.sync
@@ -849,15 +858,25 @@ class ConnectionDetailScreen extends StatelessWidget {
                         ],
                       ),
                     )
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(FolooRadii.md),
-                      child: Image.file(
-                        File(lead.cardImageLocalPath!),
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Center(
-                          child: Text(
-                            context.l10n.noCardPhotoDetail,
-                            style: TextStyle(color: palette.inkSecondary),
+                  : Semantics(
+                      button: true,
+                      label: context.l10n.preview,
+                      child: InkWell(
+                        key: const Key('detailCardImageButton'),
+                        borderRadius: BorderRadius.circular(FolooRadii.md),
+                        onTap: () =>
+                            _showCardImage(context, lead.cardImageLocalPath!),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(FolooRadii.md),
+                          child: Image.file(
+                            File(lead.cardImageLocalPath!),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Center(
+                              child: Text(
+                                context.l10n.noCardPhotoDetail,
+                                style: TextStyle(color: palette.inkSecondary),
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -1028,6 +1047,36 @@ class ConnectionDetailScreen extends StatelessWidget {
     'd MMM y · HH:mm',
     Localizations.localeOf(context).toLanguageTag(),
   ).format(value.toLocal());
+
+  static Future<void> _showCardImage(BuildContext context, String imagePath) =>
+      showDialog<void>(
+        context: context,
+        barrierColor: Colors.black.withValues(alpha: .82),
+        builder: (dialogContext) => Dialog(
+          key: const Key('detailCardImageDialog'),
+          backgroundColor: Colors.black,
+          insetPadding: const EdgeInsets.all(12),
+          clipBehavior: Clip.antiAlias,
+          child: SizedBox(
+            width: double.infinity,
+            height: MediaQuery.sizeOf(dialogContext).height * .76,
+            child: InteractiveViewer(
+              minScale: 1,
+              maxScale: 4,
+              child: Image.file(
+                File(imagePath),
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) => Center(
+                  child: Text(
+                    dialogContext.l10n.noCardPhotoDetail,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 class _ReadOnlyValue extends StatelessWidget {
@@ -1063,11 +1112,14 @@ class _DetailPill extends StatelessWidget {
     required this.color,
     required this.tint,
     this.icon,
+    this.accentColor,
+    super.key,
   });
   final String label;
   final Color color;
   final Color tint;
   final IconData? icon;
+  final Color? accentColor;
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -1078,6 +1130,17 @@ class _DetailPill extends StatelessWidget {
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (accentColor != null) ...[
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: accentColor,
+              shape: BoxShape.circle,
+              border: Border.all(color: color.withValues(alpha: .18)),
+            ),
+            child: const SizedBox.square(dimension: 8),
+          ),
+          const SizedBox(width: 5),
+        ],
         if (icon != null) ...[
           Icon(icon, color: color, size: 14),
           const SizedBox(width: 5),
