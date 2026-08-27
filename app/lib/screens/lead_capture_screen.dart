@@ -53,6 +53,7 @@ class LeadCaptureScreen extends StatefulWidget {
     this.plan = AppPlan.basic,
     this.contentFiles = const [],
     this.profile = DemoBasicData.profile,
+    this.eventId,
     this.eventName,
     this.initialPlace,
     this.voiceNoteService,
@@ -60,12 +61,13 @@ class LeadCaptureScreen extends StatefulWidget {
   });
 
   final LeadOriginKind originKind;
+  final String? eventId;
   final String? eventName;
   final String? initialPlace;
   final List<AppEvent> events;
   final int recordsCount;
   final bool darkMode;
-  final SessionLead Function(LeadDraft lead) onLeadSaved;
+  final FutureOr<SessionLead> Function(LeadDraft lead) onLeadSaved;
   final ValueChanged<AppDestination> onDestinationSelected;
   final ValueChanged<bool> onAppearanceChanged;
   final VoidCallback onLogout;
@@ -627,7 +629,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       interest: _interest,
       note: _note.text.trim(),
       originKind: widget.originKind,
+      eventLocalId: widget.eventId,
       eventName: widget.eventName,
+      cardImageLocalPath: _cardPath,
       audioLocalPath: _voiceNote.hasRecording ? _voiceNote.localPath : null,
       audioSeconds: _voiceNote.hasRecording ? _voiceNote.elapsed.inSeconds : 0,
       place: widget.plan.isPro && widget.originKind == LeadOriginKind.direct
@@ -642,8 +646,28 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
           ? DemoProData.transcript
           : null,
     );
-    final record = widget.onLeadSaved(lead);
-    _voiceNoteTransferred = lead.hasVoiceNote;
+    late final SessionLead record;
+    try {
+      record = await Future<SessionLead>.sync(() => widget.onLeadSaved(lead));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.localSaveError)));
+      return;
+    }
+    if (!mounted) return;
+    _voiceNoteTransferred = record.lead.hasVoiceNote;
+    final sourceAudio = lead.audioLocalPath;
+    if (sourceAudio != null &&
+        record.lead.audioLocalPath != null &&
+        sourceAudio != record.lead.audioLocalPath) {
+      unawaited(_voiceNoteService.deleteFile(sourceAudio));
+    }
+
+    if (record.mediaIncomplete) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.mediaSaveWarning)));
+    }
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(

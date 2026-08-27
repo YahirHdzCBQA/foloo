@@ -589,6 +589,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get savedLead => 'Lead saved';
 
   @override
+  String get localSaveError =>
+      'The lead could not be saved on this device. Check available space and try again.';
+
+  @override
+  String get mediaSaveWarning =>
+      'The lead was saved, but an optional photo or voice note could not be kept.';
+
+  @override
   String get captureAnother => 'Capture another now';
 
   @override

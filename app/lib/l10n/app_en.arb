@@ -180,6 +180,8 @@
   "placeRequired": "Enter where the conversation took place",
   "directPlaceHelp": "Where the conversation took place. Replaces {lugar} in the demo email.",
   "savedLead": "Lead saved",
+  "localSaveError": "The lead could not be saved on this device. Check available space and try again.",
+  "mediaSaveWarning": "The lead was saved, but an optional photo or voice note could not be kept.",
   "captureAnother": "Capture another now",
   "dateAndTime": "Date and time",
   "origin": "Source",

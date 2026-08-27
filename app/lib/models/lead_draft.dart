@@ -28,7 +28,9 @@ class LeadDraft {
     required this.interest,
     required this.note,
     required this.originKind,
+    this.eventLocalId,
     this.eventName,
+    this.cardImageLocalPath,
     this.audioLocalPath,
     required this.audioSeconds,
     this.place,
@@ -47,7 +49,9 @@ class LeadDraft {
   final InterestLevel interest;
   final String note;
   final LeadOriginKind originKind;
+  final String? eventLocalId;
   final String? eventName;
+  final String? cardImageLocalPath;
   final String? audioLocalPath;
   final int audioSeconds;
   final String? place;
@@ -57,4 +61,35 @@ class LeadDraft {
 
   String get fullName => '$name $lastName'.trim();
   bool get hasVoiceNote => audioLocalPath?.isNotEmpty ?? false;
+
+  LeadDraft copyWith({
+    String? eventLocalId,
+    String? eventName,
+    String? cardImageLocalPath,
+    String? audioLocalPath,
+    bool clearCardImage = false,
+    bool clearAudio = false,
+  }) => LeadDraft(
+    name: name,
+    lastName: lastName,
+    role: role,
+    company: company,
+    email: email,
+    phone: phone,
+    type: type,
+    interest: interest,
+    note: note,
+    originKind: originKind,
+    eventLocalId: eventLocalId ?? this.eventLocalId,
+    eventName: eventName ?? this.eventName,
+    cardImageLocalPath: clearCardImage
+        ? null
+        : cardImageLocalPath ?? this.cardImageLocalPath,
+    audioLocalPath: clearAudio ? null : audioLocalPath ?? this.audioLocalPath,
+    audioSeconds: audioSeconds,
+    place: place,
+    contentFileIds: contentFileIds,
+    contentNames: contentNames,
+    transcription: transcription,
+  );
 }

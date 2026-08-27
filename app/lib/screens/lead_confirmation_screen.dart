@@ -102,26 +102,29 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
                 style: TextStyle(color: palette.inkSecondary, fontSize: 15),
               ),
               const SizedBox(height: 18),
-              Container(
-                key: const Key('demoFolio'),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(color: palette.lineStrong),
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Text(
-                  record.folio,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: .5,
+              if (record.folio case final folio?) ...[
+                Container(
+                  key: const Key('demoFolio'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: palette.lineStrong),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    folio,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: .5,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 30),
+                const SizedBox(height: 30),
+              ] else
+                const SizedBox(height: 30),
               // TODO(PRODUCTION): Replace demo statuses with truthful backend state.
               Container(
                 key: const Key('confirmationStatusCard'),
@@ -234,7 +237,12 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
 
   List<(String, String)> _statusRows(SessionLead record) {
     final basic = <(String, String)>[
-      (context.l10n.eventSpreadsheet, context.l10n.demoRow(record.folio)),
+      (
+        context.l10n.eventSpreadsheet,
+        record.folio == null
+            ? context.l10n.demoQueued
+            : context.l10n.demoRow(record.folio!),
+      ),
     ];
     if (!widget.plan.isPro) return basic;
     final attachedNames = record.lead.contentNames;

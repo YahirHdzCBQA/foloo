@@ -47,6 +47,7 @@ void main() {
     final service = FakeVoiceNoteService();
     AppDestination? selectedDestination;
     final record = SessionLead(
+      localId: 'EXP-260812-001',
       folio: 'EXP-260812-001',
       capturedAt: DateTime(2026, 8, 20, 12, 45),
       lead: lead(audioPath: '/tmp/foloo_voice_1.m4a', audioSeconds: 32),
@@ -98,6 +99,7 @@ void main() {
   ) async {
     final service = FakeVoiceNoteService();
     final record = SessionLead(
+      localId: 'EXP-260812-002',
       folio: 'EXP-260812-002',
       capturedAt: DateTime(2026, 8, 20, 12, 46),
       lead: lead(),

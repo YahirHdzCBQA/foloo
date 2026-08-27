@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/models/app_event.dart';
@@ -6,23 +8,25 @@ import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/screens/lead_capture_screen.dart';
 import 'package:foloo/theme/foloo_theme.dart';
 
-Widget captureApp() => MaterialApp(
-  theme: FolooTheme.light,
-  home: LeadCaptureScreen(
-    originKind: LeadOriginKind.event,
-    eventName: DemoEventData.eventName,
-    events: DemoBasicData.events,
-    recordsCount: 0,
-    darkMode: false,
-    onLeadSaved: (lead) =>
-        DemoEventData.createSessionLead(lead: lead, sequence: 1),
-    onOriginChanged: (_, _) {},
-    onCreateEvent: (_) {},
-    onDestinationSelected: (_) {},
-    onAppearanceChanged: (_) {},
-    onLogout: () {},
-  ),
-);
+Widget captureApp({FutureOr<SessionLead> Function(LeadDraft)? onLeadSaved}) =>
+    MaterialApp(
+      theme: FolooTheme.light,
+      home: LeadCaptureScreen(
+        originKind: LeadOriginKind.event,
+        eventName: DemoEventData.eventName,
+        events: DemoBasicData.events,
+        recordsCount: 0,
+        darkMode: false,
+        onLeadSaved:
+            onLeadSaved ??
+            (lead) => DemoEventData.createSessionLead(lead: lead, sequence: 1),
+        onOriginChanged: (_, _) {},
+        onCreateEvent: (_) {},
+        onDestinationSelected: (_) {},
+        onAppearanceChanged: (_) {},
+        onLogout: () {},
+      ),
+    );
 
 void main() {
   testWidgets('shows required validation without losing the draft', (
@@ -106,6 +110,41 @@ void main() {
 
     expect(find.text('Escribe correo o teléfono'), findsNothing);
     expect(find.text('Escribe teléfono o correo'), findsNothing);
+  });
+
+  testWidgets('local write failure never opens success confirmation', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      captureApp(
+        onLeadSaved: (_) async => throw StateError('simulated disk failure'),
+      ),
+    );
+    await tester.enterText(find.byKey(const Key('nameField')), 'Ana');
+    await tester.enterText(
+      find.byKey(const Key('companyField')),
+      'Estudio Uno',
+    );
+    await tester.enterText(
+      find.byKey(const Key('emailField')),
+      'ana@example.com',
+    );
+    final partner = find.byKey(const Key('leadType-partner'));
+    await tester.scrollUntilVisible(
+      partner,
+      280,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(partner);
+    await tester.tap(find.byKey(const Key('saveLeadButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lead guardado'), findsNothing);
+    expect(
+      find.textContaining('No se pudo guardar en el dispositivo'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('nameField')), findsOneWidget);
   });
 
   testWidgets('clears only the lead data fields from the section action', (

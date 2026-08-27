@@ -1,14 +1,17 @@
 /// Root application shell for the Foloo frontend prototype.
 ///
-/// Owns session-scoped navigation, demo capabilities, events and captured
-/// leads, then supplies that shared state to each screen.
+/// Owns navigation and demo capability selection while loading durable profile,
+/// preferences, events and captured leads from the local repository boundary.
 library;
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'l10n/app_localizations.dart';
 import 'l10n/l10n.dart';
+import 'data/repositories/local_repositories.dart';
 
 import 'models/app_destination.dart';
 import 'models/app_event.dart';
@@ -30,12 +33,20 @@ enum _AppStage { login, profile, origin, shell }
 
 /// Coordinates the top-level Foloo flow from login through the capture shell.
 ///
-/// ES: Mantiene navegación y datos demo compartidos durante la sesión.
+/// ES: Coordina navegación, capacidades demo y datos locales durables.
 class FolooApp extends StatefulWidget {
-  const FolooApp({this.initialLocale, this.useSystemLocale = false, super.key});
+  const FolooApp({
+    this.initialLocale,
+    this.useSystemLocale = false,
+    this.persistence,
+    this.useDemoFixtures = true,
+    super.key,
+  });
 
   final Locale? initialLocale;
   final bool useSystemLocale;
+  final LocalPersistence? persistence;
+  final bool useDemoFixtures;
 
   @override
   State<FolooApp> createState() => _FolooAppState();
@@ -43,6 +54,7 @@ class FolooApp extends StatefulWidget {
 
 class _FolooAppState extends State<FolooApp> {
   // Session orchestration and capability fixtures.
+  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   _AppStage _stage = _AppStage.login;
   ThemeMode _themeMode = ThemeMode.light;
   AppDestination _destination = AppDestination.home;
@@ -57,10 +69,12 @@ class _FolooAppState extends State<FolooApp> {
   OriginSelection? _origin;
   final List<SessionLead> _sessionLeads = [];
   late Locale _locale;
+  late final LocalPersistence _persistence;
 
   @override
   void initState() {
     super.initState();
+    _persistence = widget.persistence ?? LocalPersistence.inMemory();
     _events = List.of(DemoBasicData.events);
     _contentFiles = List.of(DemoProData.files);
     final system = WidgetsBinding.instance.platformDispatcher.locale;
@@ -71,18 +85,65 @@ class _FolooAppState extends State<FolooApp> {
       (locale) => locale.languageCode == requested.languageCode,
     );
     _locale = supported ? Locale(requested.languageCode) : const Locale('es');
+    unawaited(_loadPersistentState());
+  }
+
+  Future<void> _loadPersistentState() async {
+    try {
+      await _loadPersistentStateUnchecked();
+    } catch (_) {
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showPersistenceError();
+      });
+    }
+  }
+
+  Future<void> _loadPersistentStateUnchecked() async {
+    await _persistence.initialize();
+    final storedProfile = await _persistence.profiles.load();
+    var storedEvents = await _persistence.events.list();
+    if (storedEvents.isEmpty && widget.useDemoFixtures) {
+      for (final event in DemoBasicData.events) {
+        await _persistence.events.save(event, makeActive: event.active);
+      }
+      storedEvents = await _persistence.events.list();
+    }
+    final storedTheme = await _persistence.preferences.read('themeMode');
+    final storedLocale = await _persistence.preferences.read('locale');
+    final storedLeads = await _persistence.leads.listAll();
+    if (!mounted) return;
+    setState(() {
+      if (storedProfile != null) {
+        _profile = storedProfile;
+        _profileCompleted = true;
+      }
+      if (storedEvents.isNotEmpty || !widget.useDemoFixtures) {
+        _events = storedEvents;
+      }
+      _sessionLeads
+        ..clear()
+        ..addAll(storedLeads);
+      if (storedTheme == 'dark') _themeMode = ThemeMode.dark;
+      if (storedTheme == 'light') _themeMode = ThemeMode.light;
+      if (storedLocale != null &&
+          AppLocalizations.supportedLocales.any(
+            (locale) => locale.languageCode == storedLocale,
+          )) {
+        _locale = Locale(storedLocale);
+      }
+    });
   }
 
   /// Stores the submitted draft before navigating to confirmation.
   ///
-  /// DEMO: CAP-15/SYN-01 require durable local storage in production; this
-  /// collection intentionally models only the current frontend session.
-  SessionLead _saveLead(LeadDraft lead) {
-    final record = DemoEventData.createSessionLead(
-      lead: lead,
-      sequence: _sessionLeads.length + 1,
+  /// CAP-15/SYN-01: confirmation is allowed only after this durable write.
+  Future<SessionLead> _saveLead(LeadDraft lead) async {
+    final record = await _persistence.leads.saveDraft(
+      lead,
+      capturedBy: _profile,
     );
-    setState(() => _sessionLeads.insert(0, record));
+    if (mounted) setState(() => _sessionLeads.insert(0, record));
     return record;
   }
 
@@ -92,7 +153,14 @@ class _FolooAppState extends State<FolooApp> {
     );
   }
 
-  void _completeProfile(DemoProfile profile) {
+  Future<void> _completeProfile(DemoProfile profile) async {
+    try {
+      await _persistence.profiles.save(profile);
+    } catch (_) {
+      if (mounted) _showPersistenceError();
+      return;
+    }
+    if (!mounted) return;
     setState(() {
       _profile = profile;
       _profileCompleted = true;
@@ -144,10 +212,20 @@ class _FolooAppState extends State<FolooApp> {
   }
 
   void _setAppearance(bool darkMode) {
+    unawaited(
+      _persistence.preferences.write('themeMode', darkMode ? 'dark' : 'light'),
+    );
     setState(() => _themeMode = darkMode ? ThemeMode.dark : ThemeMode.light);
   }
 
-  void _createEvent(AppEvent event) {
+  Future<void> _createEvent(AppEvent event) async {
+    try {
+      await _persistence.events.save(event, makeActive: true);
+    } catch (_) {
+      if (mounted) _showPersistenceError();
+      return;
+    }
+    if (!mounted) return;
     setState(() {
       _events = [
         event.copyWith(active: true),
@@ -160,7 +238,14 @@ class _FolooAppState extends State<FolooApp> {
     });
   }
 
-  void _updateEvent(AppEvent event) {
+  Future<void> _updateEvent(AppEvent event) async {
+    try {
+      await _persistence.events.save(event);
+    } catch (_) {
+      if (mounted) _showPersistenceError();
+      return;
+    }
+    if (!mounted) return;
     setState(() {
       _events = _events
           .map((item) => item.id == event.id ? event : item)
@@ -171,10 +256,20 @@ class _FolooAppState extends State<FolooApp> {
     });
   }
 
-  void _deleteEvent(AppEvent event) {
+  Future<void> _deleteEvent(AppEvent event) async {
+    try {
+      await _persistence.events.delete(event);
+    } catch (_) {
+      if (mounted) _showPersistenceError();
+      return;
+    }
+    if (!mounted) return;
     setState(() {
       _events.removeWhere((item) => item.id == event.id);
       if (_origin?.event?.id == event.id) {
+        if (_events.isNotEmpty) {
+          _events = [_events.first.copyWith(active: true), ..._events.skip(1)];
+        }
         final replacement = _events.isEmpty ? null : _events.first;
         _origin = replacement == null
             ? const OriginSelection(kind: LeadOriginKind.direct)
@@ -183,9 +278,22 @@ class _FolooAppState extends State<FolooApp> {
     });
   }
 
+  void _showPersistenceError() {
+    _messengerKey.currentState?.showSnackBar(
+      SnackBar(content: Text(lookupAppLocalizations(_locale).localSaveError)),
+    );
+  }
+
+  @override
+  void dispose() {
+    unawaited(_persistence.close());
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      scaffoldMessengerKey: _messengerKey,
       onGenerateTitle: (_) => 'Foloo · ${_profile.name}',
       debugShowCheckedModeBanner: false,
       locale: _locale,
@@ -201,7 +309,12 @@ class _FolooAppState extends State<FolooApp> {
       themeMode: _themeMode,
       builder: (context, child) => AppLanguageScope(
         locale: _locale,
-        onLocaleChanged: (locale) => setState(() => _locale = locale),
+        onLocaleChanged: (locale) {
+          unawaited(
+            _persistence.preferences.write('locale', locale.languageCode),
+          );
+          setState(() => _locale = locale);
+        },
         child: child ?? const SizedBox.shrink(),
       ),
       home: switch (_stage) {
@@ -239,6 +352,7 @@ class _FolooAppState extends State<FolooApp> {
         LeadCaptureScreen(
           key: const ValueKey('leadCaptureScreen'),
           originKind: origin.kind,
+          eventId: origin.event?.id,
           eventName: origin.event?.name,
           initialPlace: origin.place,
           events: List.unmodifiable(_events),

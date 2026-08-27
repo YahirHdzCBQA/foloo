@@ -146,7 +146,7 @@ void main() {
     expect(find.text('Ana López'), findsOneWidget);
     expect(find.textContaining('Estudio Uno'), findsOneWidget);
     expect(find.text('FOL-260812-001'), findsNothing);
-    await tester.tap(find.byKey(const Key('record-FOL-260812-001')));
+    await tester.tap(find.text('Ana López'));
     await tester.pumpAndSettle();
     expect(find.text('Contacto'), findsOneWidget);
     expect(find.text('Fecha y hora'), findsOneWidget);

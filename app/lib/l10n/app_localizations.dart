@@ -1178,6 +1178,18 @@ abstract class AppLocalizations {
   /// **'Lead guardado'**
   String get savedLead;
 
+  /// No description provided for @localSaveError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo guardar en el dispositivo. Revisa el espacio disponible e inténtalo de nuevo.'**
+  String get localSaveError;
+
+  /// No description provided for @mediaSaveWarning.
+  ///
+  /// In es, this message translates to:
+  /// **'El lead quedó guardado, pero una foto o nota de voz opcional no pudo conservarse.'**
+  String get mediaSaveWarning;
+
   /// No description provided for @captureAnother.
   ///
   /// In es, this message translates to:

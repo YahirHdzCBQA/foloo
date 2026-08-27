@@ -180,6 +180,8 @@
   "placeRequired": "Escribe dónde surgió la conversación",
   "directPlaceHelp": "Dónde surgió la conversación. Sustituye {lugar} en el correo demo.",
   "savedLead": "Lead guardado",
+  "localSaveError": "No se pudo guardar en el dispositivo. Revisa el espacio disponible e inténtalo de nuevo.",
+  "mediaSaveWarning": "El lead quedó guardado, pero una foto o nota de voz opcional no pudo conservarse.",
   "captureAnother": "Capturar otro ahora",
   "dateAndTime": "Fecha y hora",
   "origin": "Origen",

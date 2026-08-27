@@ -31,6 +31,11 @@ Each ADR includes:
 - **Consequences:** benefits, costs, risks, and follow-up work.
 
 Do not silently turn an open question into an ADR decision. Provider,
-state-management, database, backend-framework, and cloud choices remain
-unresolved until an ADR is reviewed and accepted. No accepted ADR exists in
-this repository at the time of the Basic/Pro realignment.
+state-management, backend-framework, and cloud choices remain unresolved until
+an ADR is reviewed and accepted.
+
+## Accepted
+
+- [`ADR-001-persistencia-local-drift-sqlite.md`](ADR-001-persistencia-local-drift-sqlite.md)
+  — Drift/SQLite for structured local data and private filesystem storage for
+  binary media (FL-012).

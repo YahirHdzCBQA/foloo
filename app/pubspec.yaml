@@ -48,6 +48,14 @@ dependencies:
   # RF-13/RF-15: grabación local del micrófono y revisión del archivo.
   record: ^7.1.1
   audioplayers: ^6.8.1
+  # CAP-15/SYN-01/SYN-02: durable, queryable local-first structured storage.
+  drift: ^2.34.3
+  drift_flutter: ^0.3.1
+  # CAP-15/VOZ-02: private application directories for durable media copies.
+  path_provider: ^2.1.6
+  path: ^1.9.1
+  # Stable technical local identifiers independent from commercial folios.
+  uuid: ^4.6.0
 
 dev_dependencies:
   flutter_test:
@@ -59,6 +67,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  drift_dev: ^2.34.5
+  build_runner: ^2.16.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

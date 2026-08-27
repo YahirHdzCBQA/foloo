@@ -5,6 +5,7 @@
 library;
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -29,14 +30,12 @@ String _leadTypeLabel(BuildContext context, LeadType type) => switch (type) {
 
 String _uploadStateLabel(BuildContext context, SessionUploadState state) =>
     switch (state) {
+      SessionUploadState.local => context.l10n.pendingUpload,
       SessionUploadState.pending => context.l10n.pendingUpload,
       SessionUploadState.inSheet => context.l10n.inSheet,
     };
 
-/// Lists leads captured during the current session (REG-01–REG-08).
-///
-/// TODO(PRODUCTION): Replace the in-memory source with durable local-first
-/// records before implementing synchronization (SYN-01).
+/// Lists leads loaded from durable local persistence (REG-01–REG-08).
 class RecordsScreen extends StatefulWidget {
   const RecordsScreen({
     required this.records,
@@ -315,7 +314,7 @@ class _RecordsScreenState extends State<RecordsScreen>
   Widget build(BuildContext context) {
     final palette = FolooPalette.of(context);
     final pending = widget.records
-        .where((record) => record.uploadState == SessionUploadState.pending)
+        .where((record) => record.uploadState != SessionUploadState.inSheet)
         .length;
     final records = _visibleRecords;
     return Scaffold(
@@ -634,12 +633,12 @@ class _RecordRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = FolooPalette.of(context);
-    final pending = record.uploadState == SessionUploadState.pending;
+    final pending = record.uploadState != SessionUploadState.inSheet;
     return Material(
       color: palette.card,
       borderRadius: BorderRadius.circular(FolooRadii.md),
       child: InkWell(
-        key: Key('record-${record.folio}'),
+        key: Key('record-${record.uiKey}'),
         onTap: onOpen,
         borderRadius: BorderRadius.circular(FolooRadii.md),
         child: IntrinsicHeight(
@@ -686,7 +685,7 @@ class _RecordRow extends StatelessWidget {
                       ),
                       if (record.lead.hasVoiceNote)
                         IconButton(
-                          key: Key('recordAudio-${record.folio}'),
+                          key: Key('recordAudio-${record.uiKey}'),
                           tooltip: audioPlaying
                               ? context.l10n.pauseVoiceNote
                               : context.l10n.playVoiceNote,
@@ -808,13 +807,13 @@ class ConnectionDetailScreen extends StatelessWidget {
                 ),
                 _DetailPill(
                   label: _uploadStateLabel(context, record.uploadState),
-                  color: record.uploadState == SessionUploadState.pending
+                  color: record.uploadState != SessionUploadState.inSheet
                       ? palette.ink
                       : palette.success,
-                  tint: record.uploadState == SessionUploadState.pending
+                  tint: record.uploadState != SessionUploadState.inSheet
                       ? FolooColors.uploadPendingTint
                       : palette.successTint,
-                  icon: record.uploadState == SessionUploadState.pending
+                  icon: record.uploadState != SessionUploadState.inSheet
                       ? Icons.sync
                       : Icons.check,
                 ),
@@ -827,26 +826,40 @@ class ConnectionDetailScreen extends StatelessWidget {
                 color: palette.paper,
                 borderRadius: BorderRadius.circular(FolooRadii.md),
               ),
-              child: Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.image_not_supported_outlined,
-                      color: palette.inkSecondary,
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        context.l10n.noCardPhotoDetail,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: palette.inkSecondary),
+              child: lead.cardImageLocalPath == null
+                  ? Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.image_not_supported_outlined,
+                            color: palette.inkSecondary,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              context.l10n.noCardPhotoDetail,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: palette.inkSecondary),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(FolooRadii.md),
+                      child: Image.file(
+                        File(lead.cardImageLocalPath!),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Center(
+                          child: Text(
+                            context.l10n.noCardPhotoDetail,
+                            style: TextStyle(color: palette.inkSecondary),
+                          ),
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              ),
             ),
             const SizedBox(height: 22),
             Text(

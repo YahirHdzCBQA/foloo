@@ -7,7 +7,16 @@ library;
 import 'package:flutter/widgets.dart';
 
 import 'app.dart';
+import 'data/repositories/local_repositories.dart';
 
-void main() {
-  runApp(const FolooApp(useSystemLocale: true));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final persistence = await LocalPersistence.production();
+  runApp(
+    FolooApp(
+      useSystemLocale: true,
+      persistence: persistence,
+      useDemoFixtures: false,
+    ),
+  );
 }
