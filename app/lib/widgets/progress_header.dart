@@ -16,12 +16,14 @@ class ProgressHeader extends StatelessWidget {
     required this.completed,
     required this.onMenuPressed,
     required this.onLogoPressed,
+    required this.isOnline,
     super.key,
   });
 
   final List<bool> completed;
   final VoidCallback onMenuPressed;
   final VoidCallback onLogoPressed;
+  final bool isOnline;
 
   int get _activeIndex {
     final firstIncomplete = completed.indexWhere((value) => !value);
@@ -78,14 +80,26 @@ class ProgressHeader extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (isOnline) ...[
+                          const DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: FolooColors.lime,
+                              shape: BoxShape.circle,
+                            ),
+                            child: SizedBox.square(dimension: 7),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
                         Icon(
-                          Icons.wifi_off_rounded,
+                          isOnline
+                              ? Icons.wifi_rounded
+                              : Icons.wifi_off_rounded,
                           size: 15,
                           color: ink.withValues(alpha: 0.65),
                         ),
                         const SizedBox(width: 7),
                         Text(
-                          context.l10n.offline,
+                          isOnline ? context.l10n.online : context.l10n.offline,
                           style: TextStyle(
                             color: ink.withValues(alpha: 0.72),
                             fontSize: 9,

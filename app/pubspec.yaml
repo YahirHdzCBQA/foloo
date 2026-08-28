@@ -56,6 +56,11 @@ dependencies:
   path: ^1.9.1
   # Stable technical local identifiers independent from commercial folios.
   uuid: ^4.6.0
+  # SYN-05/RNF-13: observe device network transport for visual status only.
+  # Transport availability is not treated as Foloo backend reachability.
+  connectivity_plus: ^7.3.1
+  # CON-02/CON-13: open the native document picker restricted to PDF files.
+  file_picker: ^12.1.1
 
 dev_dependencies:
   flutter_test:

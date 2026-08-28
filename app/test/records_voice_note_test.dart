@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/models/app_destination.dart';
+import 'package:foloo/models/app_event.dart';
 import 'package:foloo/models/lead_draft.dart';
 import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/screens/records_screen.dart';
@@ -12,8 +13,11 @@ LeadDraft lead({
   String? audioPath,
   int audioSeconds = 0,
   String? cardImagePath,
+  String eventId = 'expo-alimentaria',
+  String eventName = DemoEventData.eventName,
+  String name = 'Mariana',
 }) => LeadDraft(
-  name: 'Mariana',
+  name: name,
   lastName: 'Sandoval Ruiz',
   role: 'Gerente de calidad',
   company: 'Grupo Lácteo del Norte',
@@ -23,7 +27,8 @@ LeadDraft lead({
   interest: InterestLevel.high,
   note: '',
   originKind: LeadOriginKind.event,
-  eventName: DemoEventData.eventName,
+  eventLocalId: eventId,
+  eventName: eventName,
   audioLocalPath: audioPath,
   audioSeconds: audioSeconds,
   cardImageLocalPath: cardImagePath,
@@ -34,6 +39,7 @@ Widget recordsApp(
   required List<SessionLead> records,
   ValueChanged<AppDestination>? onDestinationSelected,
   bool darkMode = false,
+  List<AppEvent> events = const [],
 }) => MaterialApp(
   theme: FolooTheme.light,
   darkTheme: FolooTheme.dark,
@@ -41,6 +47,7 @@ Widget recordsApp(
   home: RecordsScreen(
     records: records,
     darkMode: darkMode,
+    events: events,
     voiceNoteService: service,
     onDestinationSelected: onDestinationSelected ?? (_) {},
     onAppearanceChanged: (_) {},
@@ -119,6 +126,65 @@ void main() {
     for (final chip in tester.widgetList<ChoiceChip>(find.byType(ChoiceChip))) {
       expect(chip.showCheckmark, isFalse);
     }
+  });
+
+  testWidgets('REG-02 event dropdown filters records and updates results', (
+    tester,
+  ) async {
+    final service = FakeVoiceNoteService();
+    final events = [
+      AppEvent(
+        id: 'event-a',
+        name: 'Evento A',
+        startsOn: DateTime(2026, 8, 20),
+        endsOn: DateTime(2026, 8, 21),
+        active: true,
+      ),
+      AppEvent(
+        id: 'event-b',
+        name: 'Evento B',
+        startsOn: DateTime(2026, 8, 22),
+        endsOn: DateTime(2026, 8, 23),
+      ),
+    ];
+    final records = [
+      SessionLead(
+        localId: 'lead-a',
+        folio: 'lead-a',
+        capturedAt: DateTime(2026, 8, 20),
+        lead: lead(eventId: 'event-a', eventName: 'Evento A', name: 'Ana'),
+      ),
+      SessionLead(
+        localId: 'lead-b',
+        folio: 'lead-b',
+        capturedAt: DateTime(2026, 8, 22),
+        lead: lead(eventId: 'event-b', eventName: 'Evento B', name: 'Beatriz'),
+      ),
+    ];
+    await tester.pumpWidget(
+      recordsApp(service, records: records, events: events),
+    );
+
+    expect(find.text('Ana Sandoval Ruiz'), findsOneWidget);
+    expect(find.text('Beatriz Sandoval Ruiz'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('recordsEventFilter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Evento B').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ana Sandoval Ruiz'), findsNothing);
+    expect(find.text('Beatriz Sandoval Ruiz'), findsOneWidget);
+    expect(find.text('1 lead · 1 por subir'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('recordsEventFilter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Todos los eventos').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ana Sandoval Ruiz'), findsOneWidget);
+    expect(find.text('Beatriz Sandoval Ruiz'), findsOneWidget);
+    expect(find.text('2 leads · 2 por subir'), findsOneWidget);
   });
 
   testWidgets(

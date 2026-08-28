@@ -57,6 +57,7 @@ class LeadCaptureScreen extends StatefulWidget {
     this.eventName,
     this.initialPlace,
     this.voiceNoteService,
+    this.isOnline = false,
     super.key,
   });
 
@@ -75,6 +76,7 @@ class LeadCaptureScreen extends StatefulWidget {
   final ValueChanged<AppEvent> onCreateEvent;
   final DemoProfile profile;
   final VoiceNoteService? voiceNoteService;
+  final bool isOnline;
   final AppPlan plan;
   final List<ContentFile> contentFiles;
 
@@ -822,6 +824,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
         children: [
           ProgressHeader(
             completed: _progress,
+            isOnline: widget.isOnline,
             onLogoPressed: () {
               widget.onDestinationSelected(AppDestination.home);
               if (_scrollController.hasClients) {

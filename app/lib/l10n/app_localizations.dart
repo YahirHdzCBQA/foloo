@@ -260,6 +260,12 @@ abstract class AppLocalizations {
   /// **'SIN CONEXIÓN'**
   String get offline;
 
+  /// No description provided for @online.
+  ///
+  /// In es, this message translates to:
+  /// **'EN LÍNEA'**
+  String get online;
+
   /// No description provided for @profileTitle.
   ///
   /// In es, this message translates to:
@@ -643,6 +649,30 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Subir PDF'**
   String get uploadPdf;
+
+  /// No description provided for @noFiles.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin archivos'**
+  String get noFiles;
+
+  /// No description provided for @emptyContentTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin contenido todavía'**
+  String get emptyContentTitle;
+
+  /// No description provided for @emptyContentHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Toca “Subir PDF” y elige el archivo de tu teléfono. Vive en la app y luego eliges a qué eventos aplica.'**
+  String get emptyContentHelp;
+
+  /// No description provided for @pdfSelectionError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo abrir el PDF. Elige un archivo PDF e inténtalo de nuevo.'**
+  String get pdfSelectionError;
 
   /// No description provided for @emailTitle.
   ///

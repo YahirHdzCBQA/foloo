@@ -16,12 +16,14 @@ class AppScreenHeader extends StatelessWidget {
     required this.onLogoPressed,
     this.subtitle,
     this.badge,
+    this.badgeWidget,
     super.key,
   });
 
   final String title;
   final String? subtitle;
   final String? badge;
+  final Widget? badgeWidget;
   final VoidCallback onMenuPressed;
   final VoidCallback onLogoPressed;
 
@@ -72,34 +74,48 @@ class AppScreenHeader extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 10,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(title, style: theme.textTheme.headlineSmall),
-                  if (badge != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: ink.withValues(alpha: 0.55)),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        badge!,
-                        style: TextStyle(
-                          color: ink.withValues(alpha: 0.72),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1,
+              if (badgeWidget != null)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(title, style: theme.textTheme.headlineSmall),
+                    ),
+                    const SizedBox(width: 10),
+                    badgeWidget!,
+                  ],
+                )
+              else
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(title, style: theme.textTheme.headlineSmall),
+                    if (badge != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: ink.withValues(alpha: 0.55),
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          badge!,
+                          style: TextStyle(
+                            color: ink.withValues(alpha: 0.72),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1,
+                          ),
                         ),
                       ),
-                    ),
-                ],
-              ),
+                  ],
+                ),
               if (subtitle != null) ...[
                 const SizedBox(height: 4),
                 Text(

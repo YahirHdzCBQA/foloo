@@ -12,6 +12,8 @@ class ContentFile {
     required this.displayName,
     required this.fileName,
     required this.sizeLabel,
+    this.byteSize = 0,
+    this.localPath,
     this.allEvents = false,
     this.eventIds = const <String>{},
   });
@@ -20,6 +22,8 @@ class ContentFile {
   final String displayName;
   final String fileName;
   final String sizeLabel;
+  final int byteSize;
+  final String? localPath;
   final bool allEvents;
   final Set<String> eventIds;
 
@@ -32,6 +36,8 @@ class ContentFile {
     displayName: displayName ?? this.displayName,
     fileName: fileName,
     sizeLabel: sizeLabel,
+    byteSize: byteSize,
+    localPath: localPath,
     allEvents: allEvents ?? this.allEvents,
     eventIds: eventIds ?? this.eventIds,
   );
@@ -51,6 +57,7 @@ abstract final class DemoProData {
       displayName: 'Scanley IMS · Ficha técnica',
       fileName: 'scanley-ims.pdf',
       sizeLabel: '1.2 MB',
+      byteSize: 1258291,
       eventIds: {'expo-alimentaria', 'foro-lacteo'},
     ),
     ContentFile(
@@ -58,6 +65,7 @@ abstract final class DemoProData {
       displayName: 'CBQA General · Portafolio',
       fileName: 'cbqa-general.pdf',
       sizeLabel: '2.8 MB',
+      byteSize: 2936013,
       allEvents: true,
     ),
     ContentFile(
@@ -65,6 +73,7 @@ abstract final class DemoProData {
       displayName: 'Vision AI · Casos de uso',
       fileName: 'vision-ai-casos.pdf',
       sizeLabel: '940 KB',
+      byteSize: 962560,
       eventIds: {'expo-alimentaria'},
     ),
   ];

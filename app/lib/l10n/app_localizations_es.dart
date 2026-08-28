@@ -91,6 +91,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get offline => 'SIN CONEXIÓN';
 
   @override
+  String get online => 'EN LÍNEA';
+
+  @override
   String get profileTitle => 'Antes de\ntu primer lead';
 
   @override
@@ -284,6 +287,20 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get uploadPdf => 'Subir PDF';
+
+  @override
+  String get noFiles => 'Sin archivos';
+
+  @override
+  String get emptyContentTitle => 'Sin contenido todavía';
+
+  @override
+  String get emptyContentHelp =>
+      'Toca “Subir PDF” y elige el archivo de tu teléfono. Vive en la app y luego eliges a qué eventos aplica.';
+
+  @override
+  String get pdfSelectionError =>
+      'No se pudo abrir el PDF. Elige un archivo PDF e inténtalo de nuevo.';
 
   @override
   String get emailTitle => 'Correo';

@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 
 import '../models/app_event.dart';
 import '../models/pro_demo_data.dart';
+import '../services/pdf_picker_service.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 
@@ -17,19 +18,26 @@ Future<ContentFile?> showContentAssignmentSheet(
   BuildContext context, {
   required List<AppEvent> events,
   ContentFile? file,
+  PickedPdf? pickedPdf,
 }) => showModalBottomSheet<ContentFile>(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
   backgroundColor: Colors.transparent,
-  builder: (_) => _ContentAssignmentSheet(events: events, file: file),
+  builder: (_) =>
+      _ContentAssignmentSheet(events: events, file: file, pickedPdf: pickedPdf),
 );
 
 /// Stateful form used for both adding and editing Pro content metadata.
 class _ContentAssignmentSheet extends StatefulWidget {
-  const _ContentAssignmentSheet({required this.events, this.file});
+  const _ContentAssignmentSheet({
+    required this.events,
+    this.file,
+    this.pickedPdf,
+  });
   final List<AppEvent> events;
   final ContentFile? file;
+  final PickedPdf? pickedPdf;
 
   @override
   State<_ContentAssignmentSheet> createState() =>
@@ -113,12 +121,14 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
                     color: FolooPalette.of(context).paper,
                     borderRadius: BorderRadius.circular(FolooRadii.md),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.picture_as_pdf_outlined),
-                      SizedBox(width: 10),
+                      const Icon(Icons.picture_as_pdf_outlined),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: Text('documento-demo.pdf · PDF · 1.2 MB'),
+                        child: Text(
+                          '${widget.pickedPdf?.name ?? 'documento-demo.pdf'} · PDF · ${widget.pickedPdf?.sizeLabel ?? '1.2 MB'}',
+                        ),
                       ),
                     ],
                   ),
@@ -222,8 +232,13 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
                                   ContentFile(
                                     id: 'demo-${DateTime.now().microsecondsSinceEpoch}',
                                     displayName: displayName,
-                                    fileName: 'documento-demo.pdf',
-                                    sizeLabel: '1.2 MB',
+                                    fileName:
+                                        widget.pickedPdf?.name ??
+                                        'documento-demo.pdf',
+                                    sizeLabel:
+                                        widget.pickedPdf?.sizeLabel ?? '1.2 MB',
+                                    byteSize: widget.pickedPdf?.byteSize ?? 0,
+                                    localPath: widget.pickedPdf?.localPath,
                                   ))
                               .copyWith(
                                 displayName: displayName,

@@ -22,6 +22,8 @@ import '../l10n/l10n.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_screen_header.dart';
 
+const _allEventsFilterId = '__all_events__';
+
 String _leadTypeLabel(BuildContext context, LeadType type) => switch (type) {
   LeadType.supplier => context.l10n.supplier,
   LeadType.partner => context.l10n.partner,
@@ -45,6 +47,7 @@ class RecordsScreen extends StatefulWidget {
     required this.onLogout,
     this.plan = AppPlan.basic,
     this.contentFiles = const [],
+    this.events = const [],
     this.profile = DemoBasicData.profile,
     this.voiceNoteService,
     super.key,
@@ -59,6 +62,7 @@ class RecordsScreen extends StatefulWidget {
   final VoiceNoteService? voiceNoteService;
   final AppPlan plan;
   final List<ContentFile> contentFiles;
+  final List<AppEvent> events;
 
   @override
   State<RecordsScreen> createState() => _RecordsScreenState();
@@ -74,12 +78,14 @@ class _RecordsScreenState extends State<RecordsScreen>
   String? _activeAudioPath;
   String? _busyAudioPath;
   bool _audioPlaying = false;
+  String _eventId = _allEventsFilterId;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _voice = widget.voiceNoteService ?? DeviceVoiceNoteService();
+    _eventId = _initialEventId();
     _completed = _voice.playbackCompleted.listen((_) {
       if (mounted) {
         setState(() {
@@ -89,6 +95,43 @@ class _RecordsScreenState extends State<RecordsScreen>
       }
     });
     _search.addListener(() => setState(() {}));
+  }
+
+  @override
+  void didUpdateWidget(covariant RecordsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_eventId != _allEventsFilterId &&
+        !widget.events.any((event) => event.id == _eventId)) {
+      _eventId = _initialEventId();
+    }
+  }
+
+  String _initialEventId() {
+    if (widget.events.isEmpty) return _allEventsFilterId;
+    return widget.events
+        .firstWhere((event) => event.active, orElse: () => widget.events.first)
+        .id;
+  }
+
+  AppEvent? get _selectedEvent {
+    if (_eventId == _allEventsFilterId) return null;
+    for (final event in widget.events) {
+      if (event.id == _eventId) return event;
+    }
+    return null;
+  }
+
+  List<SessionLead> get _eventRecords {
+    final event = _selectedEvent;
+    if (event == null) return widget.records;
+    return widget.records
+        .where(
+          (record) =>
+              record.lead.eventLocalId == event.id ||
+              (record.lead.eventLocalId == null &&
+                  record.lead.eventName == event.name),
+        )
+        .toList();
   }
 
   @override
@@ -184,7 +227,7 @@ class _RecordsScreenState extends State<RecordsScreen>
   /// Applies local event, query and type filters without mutating source data.
   List<SessionLead> get _visibleRecords {
     final query = _search.text.trim().toLowerCase();
-    return widget.records.where((record) {
+    return _eventRecords.where((record) {
       final typeMatches = _filter == null || record.lead.type == _filter;
       final queryMatches =
           query.isEmpty ||
@@ -237,8 +280,8 @@ class _RecordsScreenState extends State<RecordsScreen>
                   const SizedBox(height: 5),
                   Text(
                     context.l10n.exportLeadSummary(
-                      context.l10n.leadCount(widget.records.length),
-                      DemoEventData.eventName,
+                      context.l10n.leadCount(_eventRecords.length),
+                      _selectedEvent?.name ?? DemoEventData.eventName,
                     ),
                     style: TextStyle(
                       color: FolooPalette.of(context).inkSecondary,
@@ -313,10 +356,10 @@ class _RecordsScreenState extends State<RecordsScreen>
   @override
   Widget build(BuildContext context) {
     final palette = FolooPalette.of(context);
-    final pending = widget.records
+    final records = _visibleRecords;
+    final pending = records
         .where((record) => record.uploadState != SessionUploadState.inSheet)
         .length;
-    final records = _visibleRecords;
     return Scaffold(
       key: _scaffoldKey,
       endDrawer: AppDrawer(
@@ -338,8 +381,18 @@ class _RecordsScreenState extends State<RecordsScreen>
           AppScreenHeader(
             title: context.l10n.recordsTitle,
             subtitle:
-                '${context.l10n.leadCount(widget.records.length)} · ${context.l10n.pendingCount(pending)}',
-            badge: 'Expo Alimentaria',
+                '${context.l10n.leadCount(records.length)} · ${context.l10n.pendingCount(pending)}',
+            badgeWidget: widget.events.isEmpty
+                ? null
+                : _RecordsEventSelector(
+                    events: widget.events,
+                    selectedEventId: _eventId,
+                    onChanged: (value) {
+                      if (value == null) return;
+                      unawaited(_stopAudio());
+                      setState(() => _eventId = value);
+                    },
+                  ),
             onLogoPressed: () =>
                 widget.onDestinationSelected(AppDestination.home),
             onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
@@ -473,6 +526,83 @@ class _RecordsScreenState extends State<RecordsScreen>
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecordsEventSelector extends StatelessWidget {
+  const _RecordsEventSelector({
+    required this.events,
+    required this.selectedEventId,
+    required this.onChanged,
+  });
+
+  final List<AppEvent> events;
+  final String selectedEventId;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = FolooPalette.of(context);
+    return Container(
+      height: 44,
+      constraints: const BoxConstraints(maxWidth: 190),
+      padding: const EdgeInsets.only(left: 13, right: 7),
+      decoration: BoxDecoration(
+        color: palette.paper,
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          key: const Key('recordsEventFilter'),
+          value: selectedEventId,
+          isExpanded: true,
+          borderRadius: BorderRadius.circular(FolooRadii.md),
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 19),
+          style: TextStyle(
+            color: palette.ink,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+          items:
+              events
+                  .map<DropdownMenuItem<String>>(
+                    (event) => DropdownMenuItem<String>(
+                      value: event.id,
+                      child: Row(
+                        children: [
+                          if (event.active) ...[
+                            const DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: FolooColors.lime,
+                                shape: BoxShape.circle,
+                              ),
+                              child: SizedBox.square(dimension: 7),
+                            ),
+                            const SizedBox(width: 7),
+                          ],
+                          Expanded(
+                            child: Text(
+                              event.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList()
+                ..insert(
+                  0,
+                  DropdownMenuItem<String>(
+                    value: _allEventsFilterId,
+                    child: Text(context.l10n.allEvents),
+                  ),
+                ),
+          onChanged: onChanged,
         ),
       ),
     );

@@ -27,6 +27,8 @@ import 'screens/login_screen.dart';
 import 'screens/origin_selection_screen.dart';
 import 'screens/profile_setup_screen.dart';
 import 'screens/records_screen.dart';
+import 'services/connectivity_service.dart';
+import 'services/pdf_picker_service.dart';
 import 'theme/foloo_theme.dart';
 
 enum _AppStage { login, profile, origin, shell }
@@ -40,6 +42,8 @@ class FolooApp extends StatefulWidget {
     this.useSystemLocale = false,
     this.persistence,
     this.useDemoFixtures = true,
+    this.connectivityService,
+    this.pdfPickerService,
     super.key,
   });
 
@@ -47,6 +51,8 @@ class FolooApp extends StatefulWidget {
   final bool useSystemLocale;
   final LocalPersistence? persistence;
   final bool useDemoFixtures;
+  final ConnectivityService? connectivityService;
+  final PdfPickerService? pdfPickerService;
 
   @override
   State<FolooApp> createState() => _FolooAppState();
@@ -70,6 +76,9 @@ class _FolooAppState extends State<FolooApp> {
   final List<SessionLead> _sessionLeads = [];
   late Locale _locale;
   late final LocalPersistence _persistence;
+  late final ConnectivityService _connectivity;
+  StreamSubscription<bool>? _connectivitySubscription;
+  bool _isOnline = false;
 
   List<AppEvent> get _eventsWithCounts => _events.map((event) {
     final records = _sessionLeads.where(
@@ -90,6 +99,7 @@ class _FolooAppState extends State<FolooApp> {
   void initState() {
     super.initState();
     _persistence = widget.persistence ?? LocalPersistence.inMemory();
+    _connectivity = widget.connectivityService ?? DeviceConnectivityService();
     _events = List.of(DemoBasicData.events);
     _contentFiles = List.of(DemoProData.files);
     final system = WidgetsBinding.instance.platformDispatcher.locale;
@@ -100,7 +110,23 @@ class _FolooAppState extends State<FolooApp> {
       (locale) => locale.languageCode == requested.languageCode,
     );
     _locale = supported ? Locale(requested.languageCode) : const Locale('es');
+    unawaited(_initializeConnectivity());
     unawaited(_loadPersistentState());
+  }
+
+  Future<void> _initializeConnectivity() async {
+    try {
+      final connected = await _connectivity.isConnected();
+      if (mounted) setState(() => _isOnline = connected);
+    } catch (_) {
+      // Device transport is advisory UI state; plugin failures stay offline.
+    }
+    if (!mounted) return;
+    _connectivitySubscription = _connectivity.changes.listen((connected) {
+      if (mounted && connected != _isOnline) {
+        setState(() => _isOnline = connected);
+      }
+    }, onError: (_) {});
   }
 
   Future<void> _loadPersistentState() async {
@@ -301,6 +327,7 @@ class _FolooAppState extends State<FolooApp> {
 
   @override
   void dispose() {
+    unawaited(_connectivitySubscription?.cancel());
     unawaited(_persistence.close());
     super.dispose();
   }
@@ -383,6 +410,7 @@ class _FolooAppState extends State<FolooApp> {
           onLogout: _logout,
           plan: _plan,
           contentFiles: List.unmodifiable(_contentFiles),
+          isOnline: _isOnline,
         ),
         RecordsScreen(
           key: const ValueKey('recordsScreen'),
@@ -394,6 +422,7 @@ class _FolooAppState extends State<FolooApp> {
           onLogout: _logout,
           plan: _plan,
           contentFiles: List.unmodifiable(_contentFiles),
+          events: List.unmodifiable(events),
         ),
         EventScreen(
           key: const ValueKey('eventsScreen'),
@@ -431,6 +460,7 @@ class _FolooAppState extends State<FolooApp> {
             onFileDeleted: (file) => setState(
               () => _contentFiles.removeWhere((item) => item.id == file.id),
             ),
+            pdfPickerService: widget.pdfPickerService,
           )
         else
           const SizedBox.shrink(),

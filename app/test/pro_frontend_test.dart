@@ -2,6 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/app.dart';
 import 'package:foloo/theme/foloo_theme.dart';
+import 'package:foloo/services/pdf_picker_service.dart';
+
+class _FakePdfPicker implements PdfPickerService {
+  const _FakePdfPicker();
+
+  @override
+  Future<PickedPdf?> pickPdf() async => const PickedPdf(
+    name: 'catalogo-empaque-2026.pdf',
+    byteSize: 3250586,
+    localPath: '/tmp/catalogo-empaque-2026.pdf',
+  );
+}
 
 void phone(WidgetTester tester) {
   tester.view.physicalSize = const Size(390, 844);
@@ -14,8 +26,9 @@ Future<void> login(
   WidgetTester tester, {
   required bool pro,
   bool direct = false,
+  PdfPickerService? pdfPickerService,
 }) async {
-  await tester.pumpWidget(const FolooApp());
+  await tester.pumpWidget(FolooApp(pdfPickerService: pdfPickerService));
   if (pro) {
     await tester.tap(find.byKey(const Key('planPro')));
     await tester.pump();
@@ -127,12 +140,14 @@ void main() {
     tester,
   ) async {
     phone(tester);
-    await login(tester, pro: true);
+    await login(tester, pro: true, pdfPickerService: const _FakePdfPicker());
     await drawer(tester);
     await tester.tap(find.byKey(const Key('drawerContent')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('uploadPdfButton')));
     await tester.pumpAndSettle();
+
+    expect(find.textContaining('catalogo-empaque-2026.pdf'), findsOneWidget);
 
     final displayName = find.byKey(const Key('contentDisplayNameField'));
     await tester.showKeyboard(displayName);
@@ -143,6 +158,32 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('allEventsSwitch')));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('CON-01/CON-02 empty library opens selected PDF flow', (
+    tester,
+  ) async {
+    phone(tester);
+    await login(tester, pro: true, pdfPickerService: const _FakePdfPicker());
+    await drawer(tester);
+    await tester.tap(find.byKey(const Key('drawerContent')));
+    await tester.pumpAndSettle();
+
+    for (var remaining = 3; remaining > 0; remaining--) {
+      await tester.tap(find.byTooltip('Eliminar archivo').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Eliminar').last);
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('Sin contenido todavía'), findsOneWidget);
+    expect(find.text('Sin archivos'), findsOneWidget);
+    expect(find.byKey(const Key('contentEventFilter')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('uploadPdfButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('contentDisplayNameField')), findsOneWidget);
+    expect(find.textContaining('catalogo-empaque-2026.pdf'), findsOneWidget);
   });
 
   testWidgets('dark Pro selections use the visible lime remap', (tester) async {

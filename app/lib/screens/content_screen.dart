@@ -1,7 +1,7 @@
-/// Pro-only content library for event-scoped PDF fixtures.
+/// Pro-only content library for locally selected, event-scoped PDFs.
 ///
-/// The screen demonstrates CON-* selection and assignment behavior without
-/// uploading, persisting or delivering real files.
+/// The screen owns native selection and session metadata only; upload,
+/// persistence and delivery remain backend work.
 library;
 
 import 'package:flutter/material.dart';
@@ -10,6 +10,7 @@ import '../models/app_destination.dart';
 import '../models/app_event.dart';
 import '../models/app_plan.dart';
 import '../models/pro_demo_data.dart';
+import '../services/pdf_picker_service.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 import '../widgets/app_drawer.dart';
@@ -32,6 +33,7 @@ class ContentScreen extends StatefulWidget {
     required this.onFileAdded,
     required this.onFileUpdated,
     required this.onFileDeleted,
+    this.pdfPickerService,
     super.key,
   });
   final List<ContentFile> files;
@@ -45,6 +47,7 @@ class ContentScreen extends StatefulWidget {
   final ValueChanged<ContentFile> onFileAdded;
   final ValueChanged<ContentFile> onFileUpdated;
   final ValueChanged<ContentFile> onFileDeleted;
+  final PdfPickerService? pdfPickerService;
 
   @override
   State<ContentScreen> createState() => _ContentScreenState();
@@ -52,7 +55,14 @@ class ContentScreen extends StatefulWidget {
 
 class _ContentScreenState extends State<ContentScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  late final PdfPickerService _pdfPicker;
   String? _eventId;
+
+  @override
+  void initState() {
+    super.initState();
+    _pdfPicker = widget.pdfPickerService ?? const DevicePdfPickerService();
+  }
 
   List<ContentFile> get _visible => _eventId == null
       ? widget.files
@@ -62,10 +72,22 @@ class _ContentScreenState extends State<ContentScreen> {
         }).toList();
 
   Future<void> _add() async {
-    // DEMO: Native picking/server upload is replaced by a local PDF fixture.
+    PickedPdf? pickedPdf;
+    try {
+      pickedPdf = await _pdfPicker.pickPdf();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.l10n.pdfSelectionError)));
+      }
+      return;
+    }
+    if (!mounted || pickedPdf == null) return;
     final result = await showContentAssignmentSheet(
       context,
       events: widget.events,
+      pickedPdf: pickedPdf,
     );
     if (result != null) widget.onFileAdded(result);
   }
@@ -100,130 +122,138 @@ class _ContentScreenState extends State<ContentScreen> {
         children: [
           ModuleHeader(
             title: context.l10n.contentTitle,
-            subtitle: context.l10n.filesSummary(widget.files.length),
+            subtitle: widget.files.isEmpty
+                ? context.l10n.noFiles
+                : context.l10n.filesSummary(widget.files.length),
             onBack: () => widget.onDestinationSelected(AppDestination.home),
           ),
           Divider(height: 1, color: palette.line),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-            child: SizedBox(
-              height: 48,
-              child: DropdownButtonFormField<String?>(
-                key: const Key('contentEventFilter'),
-                initialValue: _eventId,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.calendar_today_outlined, size: 17),
-                  border: FolooBorders.borderlessField,
-                  enabledBorder: FolooBorders.borderlessField,
-                  focusedBorder: FolooBorders.borderlessField,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
-                ),
-                items: [
-                  DropdownMenuItem<String?>(
-                    value: null,
-                    child: Text(
-                      context.l10n.allEventsFiles(
-                        context.l10n.fileCount(widget.files.length),
-                      ),
-                    ),
+          if (widget.files.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+              child: SizedBox(
+                height: 48,
+                child: DropdownButtonFormField<String?>(
+                  key: const Key('contentEventFilter'),
+                  initialValue: _eventId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.calendar_today_outlined, size: 17),
+                    border: FolooBorders.borderlessField,
+                    enabledBorder: FolooBorders.borderlessField,
+                    focusedBorder: FolooBorders.borderlessField,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12),
                   ),
-                  ...widget.events.map(
-                    (event) => DropdownMenuItem<String?>(
-                      value: event.id,
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
                       child: Text(
-                        context.l10n.eventFiles(
-                          event.name,
-                          context.l10n.fileCount(
-                            widget.files
-                                .where((f) => f.appliesTo(event))
-                                .length,
-                          ),
+                        context.l10n.allEventsFiles(
+                          context.l10n.fileCount(widget.files.length),
                         ),
                       ),
                     ),
-                  ),
-                ],
-                onChanged: (value) => setState(() => _eventId = value),
-              ),
-            ),
-          ),
-          Divider(height: 1, color: palette.line),
-          Expanded(
-            child: ListView.separated(
-              key: const Key('contentLibraryList'),
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
-              itemCount: _visible.length + 1,
-              separatorBuilder: (_, _) => const SizedBox(height: 9),
-              itemBuilder: (_, index) {
-                if (index == _visible.length) {
-                  return Container(
-                    margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.all(15),
-                    decoration: BoxDecoration(
-                      color: palette.paper,
-                      borderRadius: BorderRadius.circular(FolooRadii.md),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.lock_outline,
-                          size: 17,
-                          color: palette.inkSecondary,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            context.l10n.localFilesHelp,
-                            style: TextStyle(
-                              color: palette.inkSecondary,
-                              fontSize: 12,
-                              height: 1.4,
+                    ...widget.events.map(
+                      (event) => DropdownMenuItem<String?>(
+                        value: event.id,
+                        child: Text(
+                          context.l10n.eventFiles(
+                            event.name,
+                            context.l10n.fileCount(
+                              widget.files
+                                  .where((f) => f.appliesTo(event))
+                                  .length,
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  );
-                }
-                final file = _visible[index];
-                final names = file.allEvents
-                    ? [context.l10n.allEvents]
-                    : widget.events
-                          .where((e) => file.eventIds.contains(e.id))
-                          .map((e) => e.name)
-                          .toList();
-                return _ContentFileCard(
-                  key: Key('contentFile-${file.id}'),
-                  file: file,
-                  eventNames: names,
-                  onTap: () => _edit(file),
-                  onDelete: () => showDialog<void>(
-                    context: context,
-                    builder: (dialogContext) => AlertDialog(
-                      title: Text(context.l10n.deleteFile),
-                      content: Text(
-                        context.l10n.deleteLocalFileQuestion(file.displayName),
                       ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(dialogContext),
-                          child: Text(context.l10n.cancel),
-                        ),
-                        FilledButton(
-                          onPressed: () {
-                            Navigator.pop(dialogContext);
-                            widget.onFileDeleted(file);
-                          },
-                          child: Text(context.l10n.delete),
-                        ),
-                      ],
                     ),
-                  ),
-                );
-              },
+                  ],
+                  onChanged: (value) => setState(() => _eventId = value),
+                ),
+              ),
             ),
+            Divider(height: 1, color: palette.line),
+          ],
+          Expanded(
+            child: widget.files.isEmpty
+                ? const _EmptyContentLibrary()
+                : ListView.separated(
+                    key: const Key('contentLibraryList'),
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+                    itemCount: _visible.length + 1,
+                    separatorBuilder: (_, _) => const SizedBox(height: 9),
+                    itemBuilder: (_, index) {
+                      if (index == _visible.length) {
+                        return Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.all(15),
+                          decoration: BoxDecoration(
+                            color: palette.paper,
+                            borderRadius: BorderRadius.circular(FolooRadii.md),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.lock_outline,
+                                size: 17,
+                                color: palette.inkSecondary,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  context.l10n.localFilesHelp,
+                                  style: TextStyle(
+                                    color: palette.inkSecondary,
+                                    fontSize: 12,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      final file = _visible[index];
+                      final names = file.allEvents
+                          ? [context.l10n.allEvents]
+                          : widget.events
+                                .where((e) => file.eventIds.contains(e.id))
+                                .map((e) => e.name)
+                                .toList();
+                      return _ContentFileCard(
+                        key: Key('contentFile-${file.id}'),
+                        file: file,
+                        eventNames: names,
+                        onTap: () => _edit(file),
+                        onDelete: () => showDialog<void>(
+                          context: context,
+                          builder: (dialogContext) => AlertDialog(
+                            title: Text(context.l10n.deleteFile),
+                            content: Text(
+                              context.l10n.deleteLocalFileQuestion(
+                                file.displayName,
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(dialogContext),
+                                child: Text(context.l10n.cancel),
+                              ),
+                              FilledButton(
+                                onPressed: () {
+                                  Navigator.pop(dialogContext);
+                                  widget.onFileDeleted(file);
+                                },
+                                child: Text(context.l10n.delete),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -241,6 +271,79 @@ class _ContentScreenState extends State<ContentScreen> {
             icon: const Icon(Icons.upload_file_outlined),
             label: Text(context.l10n.uploadPdf),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyContentLibrary extends StatelessWidget {
+  const _EmptyContentLibrary();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = FolooPalette.of(context);
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: palette.paper,
+                borderRadius: BorderRadius.circular(FolooRadii.lg),
+              ),
+              child: const Icon(Icons.description_outlined, size: 28),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              context.l10n.emptyContentTitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              context.l10n.emptyContentHelp,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: palette.inkSecondary,
+                fontSize: 13,
+                height: 1.55,
+              ),
+            ),
+            const SizedBox(height: 28),
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: palette.paper,
+                borderRadius: BorderRadius.circular(FolooRadii.md),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.lock_outline,
+                    size: 17,
+                    color: palette.inkSecondary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      context.l10n.localFilesHelp,
+                      style: TextStyle(
+                        color: palette.inkSecondary,
+                        fontSize: 12,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
