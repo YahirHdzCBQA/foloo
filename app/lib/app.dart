@@ -80,20 +80,28 @@ class _FolooAppState extends State<FolooApp> {
   StreamSubscription<bool>? _connectivitySubscription;
   bool _isOnline = false;
 
-  List<AppEvent> get _eventsWithCounts => _events.map((event) {
-    final records = _sessionLeads.where(
-      (record) =>
-          record.lead.eventLocalId == event.id ||
-          (record.lead.eventLocalId == null &&
-              record.lead.eventName == event.name),
-    );
-    return event.copyWith(
-      leadCount: records.length,
-      pendingCount: records
-          .where((record) => record.uploadState != SessionUploadState.inSheet)
-          .length,
-    );
-  }).toList();
+  List<AppEvent> get _eventsWithCounts {
+    final projected = _events.map((event) {
+      final records = _sessionLeads.where(
+        (record) =>
+            record.lead.eventLocalId == event.id ||
+            (record.lead.eventLocalId == null &&
+                record.lead.eventName == event.name),
+      );
+      return event.copyWith(
+        leadCount: records.length,
+        pendingCount: records
+            .where((record) => record.uploadState != SessionUploadState.inSheet)
+            .length,
+      );
+    }).toList();
+    // EVT-06: the active event is always the first visible option while the
+    // remaining repository order stays stable.
+    return [
+      ...projected.where((event) => event.active),
+      ...projected.where((event) => !event.active),
+    ];
+  }
 
   @override
   void initState() {
@@ -279,6 +287,10 @@ class _FolooAppState extends State<FolooApp> {
     });
   }
 
+  void _addContentFile(ContentFile file) {
+    setState(() => _contentFiles.add(file));
+  }
+
   Future<void> _updateEvent(AppEvent event) async {
     try {
       await _persistence.events.save(event);
@@ -375,6 +387,8 @@ class _FolooAppState extends State<FolooApp> {
           events: List.unmodifiable(_eventsWithCounts),
           onContinue: _selectOrigin,
           onCreateEvent: _createEvent,
+          onContentAdded: _addContentFile,
+          pdfPickerService: widget.pdfPickerService,
           plan: _plan,
           contentFiles: List.unmodifiable(_contentFiles),
         ),
@@ -405,6 +419,8 @@ class _FolooAppState extends State<FolooApp> {
           onLeadSaved: _saveLead,
           onOriginChanged: _changeCaptureOrigin,
           onCreateEvent: _createEvent,
+          onContentAdded: _addContentFile,
+          pdfPickerService: widget.pdfPickerService,
           onDestinationSelected: _selectDestination,
           onAppearanceChanged: _setAppearance,
           onLogout: _logout,
@@ -434,6 +450,8 @@ class _FolooAppState extends State<FolooApp> {
           onAppearanceChanged: _setAppearance,
           onLogout: _logout,
           onCreate: _createEvent,
+          onContentAdded: _addContentFile,
+          pdfPickerService: widget.pdfPickerService,
           onUpdate: _updateEvent,
           onDelete: _deleteEvent,
           onBack: _backFromEvents,
@@ -451,7 +469,7 @@ class _FolooAppState extends State<FolooApp> {
             onDestinationSelected: _selectDestination,
             onAppearanceChanged: _setAppearance,
             onLogout: _logout,
-            onFileAdded: (file) => setState(() => _contentFiles.add(file)),
+            onFileAdded: _addContentFile,
             onFileUpdated: (file) => setState(
               () => _contentFiles = _contentFiles
                   .map((item) => item.id == file.id ? file : item)

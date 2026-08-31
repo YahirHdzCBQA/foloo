@@ -86,16 +86,16 @@ class _EmailScreenState extends State<EmailScreen> {
     final eventSubject = l10n.defaultEmailSubject('{evento}');
     final directSubject = l10n.defaultEmailSubject('{lugar}');
     final eventBody = l10n.defaultEmailBody(
-      '{nombre}',
-      '{evento}',
-      '{contenido}',
       '{capturadoPor}',
+      '{contenido}',
+      '{evento}',
+      '{nombre}',
     );
     final directBody = l10n.defaultEmailBody(
-      '{nombre}',
-      '{lugar}',
-      '{contenido}',
       '{capturadoPor}',
+      '{contenido}',
+      '{lugar}',
+      '{nombre}',
     );
     _replaceDefault(_eventSubject, _previousEventSubject, eventSubject);
     _replaceDefault(_directSubject, _previousDirectSubject, directSubject);

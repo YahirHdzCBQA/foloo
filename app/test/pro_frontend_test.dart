@@ -136,6 +136,51 @@ void main() {
     expect(find.byKey(const Key('emailPreview')), findsOneWidget);
   });
 
+  testWidgets('CON-08 uploads content while creating an event', (tester) async {
+    phone(tester);
+    await login(tester, pro: true, pdfPickerService: const _FakePdfPicker());
+    await drawer(tester);
+    await tester.tap(find.byKey(const Key('drawerEvents')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('createEventButton')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('createEventUploadContentButton')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('createEventUploadContentButton')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('contentDisplayNameField')),
+      'Catálogo para evento',
+    );
+    tester.testTextInput.hide();
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('confirmContentButton')));
+    await tester.tap(find.byKey(const Key('confirmContentButton')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1 de 4'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('newEventNameField')),
+      'Expo Nueva',
+    );
+    await tester.tap(find.byKey(const Key('confirmCreateEventButton')));
+    await tester.pumpAndSettle();
+    expect(find.text('Expo Nueva'), findsOneWidget);
+
+    final activeTop = tester.getTopLeft(
+      find
+          .ancestor(of: find.text('Expo Nueva'), matching: find.byType(InkWell))
+          .first,
+    );
+    final previousActive = tester.getTopLeft(
+      find.byKey(const Key('event-expo-alimentaria')),
+    );
+    expect(activeTop.dy, lessThanOrEqualTo(previousActive.dy));
+  });
+
   testWidgets('Upload content stays scrollable when the keyboard opens', (
     tester,
   ) async {
@@ -288,6 +333,12 @@ void main() {
     await drawer(tester);
     await tester.tap(find.byKey(const Key('drawerEmail')));
     await tester.pumpAndSettle();
+    final defaultBody = tester
+        .widget<TextField>(find.byKey(const ValueKey('emailBody-event')))
+        .controller!
+        .text;
+    expect(defaultBody, startsWith('Hola {nombre},'));
+    expect(defaultBody.trim(), endsWith('{capturadoPor}'));
     final eventSubject = find.byKey(const ValueKey('emailSubject-event'));
     await tester.enterText(eventSubject, 'Evento especial {evento}');
     await tester.tap(find.text('Lead directo'));

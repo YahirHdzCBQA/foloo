@@ -9,7 +9,9 @@ import 'package:flutter/material.dart';
 import '../models/app_event.dart';
 import '../models/app_plan.dart';
 import '../models/pro_demo_data.dart';
+import '../services/pdf_picker_service.dart';
 import '../l10n/l10n.dart';
+import 'content_assignment_sheet.dart';
 import 'event_date_field.dart';
 
 /// Opens event creation and returns a session model after local validation.
@@ -17,17 +19,31 @@ Future<AppEvent?> showCreateEventDialog(
   BuildContext context, {
   AppPlan plan = AppPlan.basic,
   List<ContentFile> contentFiles = const [],
+  PdfPickerService? pdfPickerService,
+  ValueChanged<ContentFile>? onContentAdded,
 }) async {
   return showDialog<AppEvent>(
     context: context,
-    builder: (_) => _CreateEventDialog(plan: plan, contentFiles: contentFiles),
+    builder: (_) => _CreateEventDialog(
+      plan: plan,
+      contentFiles: contentFiles,
+      pdfPickerService: pdfPickerService,
+      onContentAdded: onContentAdded,
+    ),
   );
 }
 
 class _CreateEventDialog extends StatefulWidget {
-  const _CreateEventDialog({required this.plan, required this.contentFiles});
+  const _CreateEventDialog({
+    required this.plan,
+    required this.contentFiles,
+    required this.pdfPickerService,
+    required this.onContentAdded,
+  });
   final AppPlan plan;
   final List<ContentFile> contentFiles;
+  final PdfPickerService? pdfPickerService;
+  final ValueChanged<ContentFile>? onContentAdded;
 
   @override
   State<_CreateEventDialog> createState() => _CreateEventDialogState();
@@ -36,8 +52,61 @@ class _CreateEventDialog extends StatefulWidget {
 class _CreateEventDialogState extends State<_CreateEventDialog> {
   final _name = TextEditingController();
   final Set<String> _selectedFiles = {};
+  final List<ContentFile> _newFiles = [];
+  late final PdfPickerService _pdfPicker;
+  late final String _eventId;
   DateTime _startsOn = DateTime(2026, 8, 12);
   DateTime _endsOn = DateTime(2026, 8, 14);
+
+  @override
+  void initState() {
+    super.initState();
+    _pdfPicker = widget.pdfPickerService ?? const DevicePdfPickerService();
+    _eventId = 'demo-${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  List<ContentFile> get _availableFiles => [
+    ...widget.contentFiles,
+    ..._newFiles,
+  ];
+
+  Future<void> _uploadContent() async {
+    PickedPdf? picked;
+    try {
+      picked = await _pdfPicker.pickPdf();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.l10n.pdfSelectionError)));
+      }
+      return;
+    }
+    if (!mounted || picked == null) return;
+    final provisionalEvent = AppEvent(
+      id: _eventId,
+      name: _name.text.trim().isEmpty
+          ? context.l10n.createEvent
+          : _name.text.trim(),
+      startsOn: _startsOn,
+      endsOn: _endsOn,
+      active: true,
+    );
+    final created = await showContentAssignmentSheet(
+      context,
+      events: [provisionalEvent],
+      pickedPdf: picked,
+    );
+    if (!mounted || created == null) return;
+    final assigned = created.copyWith(
+      allEvents: false,
+      eventIds: {...created.eventIds, _eventId},
+    );
+    setState(() {
+      _newFiles.add(assigned);
+      _selectedFiles.add(assigned.id);
+    });
+  }
 
   Future<void> _pickStart() async {
     final selected = await showFolooDatePicker(context, initialDate: _startsOn);
@@ -108,40 +177,53 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
             ),
           ],
         ),
-        if (widget.plan.isPro && widget.contentFiles.isNotEmpty) ...[
+        if (widget.plan.isPro) ...[
           const SizedBox(height: 16),
-          Text(
-            '${context.l10n.contentForEvent} · ${context.l10n.selectedOfTotal(_selectedFiles.length, widget.contentFiles.length)}',
-            style: const TextStyle(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            context.l10n.contentAssignmentHelp,
-            style: TextStyle(fontSize: 11),
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            width: double.maxFinite,
-            height: 150,
-            child: ListView(
-              children: widget.contentFiles
-                  .map(
-                    (file) => CheckboxListTile(
-                      dense: true,
-                      value: _selectedFiles.contains(file.id),
-                      title: Text(file.displayName),
-                      onChanged: (selected) => setState(() {
-                        if (selected ?? false) {
-                          _selectedFiles.add(file.id);
-                        } else {
-                          _selectedFiles.remove(file.id);
-                        }
-                      }),
-                    ),
-                  )
-                  .toList(),
+          FilledButton.icon(
+            key: const Key('createEventUploadContentButton'),
+            onPressed: _uploadContent,
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+              foregroundColor: Theme.of(context).colorScheme.onSurface,
             ),
+            icon: const Icon(Icons.upload_file_outlined),
+            label: Text(context.l10n.uploadContent),
           ),
+          if (_availableFiles.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              '${context.l10n.contentForEvent} · ${context.l10n.selectedOfTotal(_selectedFiles.length, _availableFiles.length)}',
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              context.l10n.contentAssignmentHelp,
+              style: TextStyle(fontSize: 11),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: double.maxFinite,
+              height: 150,
+              child: ListView(
+                children: _availableFiles
+                    .map(
+                      (file) => CheckboxListTile(
+                        dense: true,
+                        value: _selectedFiles.contains(file.id),
+                        title: Text(file.displayName),
+                        onChanged: (selected) => setState(() {
+                          if (selected ?? false) {
+                            _selectedFiles.add(file.id);
+                          } else {
+                            _selectedFiles.remove(file.id);
+                          }
+                        }),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+          ],
         ],
       ],
     ),
@@ -155,10 +237,13 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
         onPressed: () {
           final value = _name.text.trim();
           if (value.isEmpty) return;
+          for (final file in _newFiles) {
+            widget.onContentAdded?.call(file);
+          }
           Navigator.pop(
             context,
             AppEvent(
-              id: 'demo-${DateTime.now().microsecondsSinceEpoch}',
+              id: _eventId,
               name: value,
               startsOn: _startsOn,
               endsOn: _endsOn,

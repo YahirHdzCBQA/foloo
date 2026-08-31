@@ -21,6 +21,7 @@ import '../models/session_lead.dart';
 import '../models/voice_note_state.dart';
 import '../services/card_text_recognition_service.dart';
 import '../services/voice_note_service.dart';
+import '../services/pdf_picker_service.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 import '../utils/business_card_parser.dart';
@@ -50,6 +51,8 @@ class LeadCaptureScreen extends StatefulWidget {
     required this.onLogout,
     required this.onOriginChanged,
     required this.onCreateEvent,
+    this.onContentAdded,
+    this.pdfPickerService,
     this.plan = AppPlan.basic,
     this.contentFiles = const [],
     this.profile = DemoBasicData.profile,
@@ -74,6 +77,8 @@ class LeadCaptureScreen extends StatefulWidget {
   final VoidCallback onLogout;
   final LeadOriginChanged onOriginChanged;
   final ValueChanged<AppEvent> onCreateEvent;
+  final ValueChanged<ContentFile>? onContentAdded;
+  final PdfPickerService? pdfPickerService;
   final DemoProfile profile;
   final VoiceNoteService? voiceNoteService;
   final bool isOnline;
@@ -340,6 +345,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       context,
       plan: widget.plan,
       contentFiles: widget.contentFiles,
+      pdfPickerService: widget.pdfPickerService,
+      onContentAdded: widget.onContentAdded,
     );
     if (event == null || !mounted) return;
     widget.onCreateEvent(event);

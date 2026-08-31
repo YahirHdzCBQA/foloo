@@ -11,6 +11,7 @@ import '../models/app_destination.dart';
 import '../models/app_event.dart';
 import '../models/app_plan.dart';
 import '../models/pro_demo_data.dart';
+import '../services/pdf_picker_service.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 import '../widgets/app_drawer.dart';
@@ -27,11 +28,13 @@ class EventScreen extends StatefulWidget {
     required this.onAppearanceChanged,
     required this.onLogout,
     required this.onCreate,
+    this.onContentAdded,
     required this.onUpdate,
     required this.onDelete,
     required this.onBack,
     this.plan = AppPlan.basic,
     this.contentFiles = const [],
+    this.pdfPickerService,
     this.profile = DemoBasicData.profile,
     super.key,
   });
@@ -43,12 +46,14 @@ class EventScreen extends StatefulWidget {
   final ValueChanged<bool> onAppearanceChanged;
   final VoidCallback onLogout;
   final ValueChanged<AppEvent> onCreate;
+  final ValueChanged<ContentFile>? onContentAdded;
   final ValueChanged<AppEvent> onUpdate;
   final ValueChanged<AppEvent> onDelete;
   final VoidCallback onBack;
   final DemoProfile profile;
   final AppPlan plan;
   final List<ContentFile> contentFiles;
+  final PdfPickerService? pdfPickerService;
 
   @override
   State<EventScreen> createState() => _EventScreenState();
@@ -109,6 +114,8 @@ class _EventScreenState extends State<EventScreen> {
       context,
       plan: widget.plan,
       contentFiles: widget.contentFiles,
+      pdfPickerService: widget.pdfPickerService,
+      onContentAdded: widget.onContentAdded,
     );
     if (created == null) return;
     widget.onCreate(created);

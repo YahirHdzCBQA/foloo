@@ -10,6 +10,7 @@ import '../models/app_event.dart';
 import '../models/app_plan.dart';
 import '../models/pro_demo_data.dart';
 import '../models/lead_draft.dart';
+import '../services/pdf_picker_service.dart';
 import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
@@ -32,6 +33,8 @@ class OriginSelectionScreen extends StatefulWidget {
     required this.onCreateEvent,
     required this.plan,
     required this.contentFiles,
+    this.onContentAdded,
+    this.pdfPickerService,
     super.key,
   });
 
@@ -40,6 +43,8 @@ class OriginSelectionScreen extends StatefulWidget {
   final ValueChanged<AppEvent> onCreateEvent;
   final AppPlan plan;
   final List<ContentFile> contentFiles;
+  final ValueChanged<ContentFile>? onContentAdded;
+  final PdfPickerService? pdfPickerService;
 
   @override
   State<OriginSelectionScreen> createState() => _OriginSelectionScreenState();
@@ -70,6 +75,8 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
       context,
       plan: widget.plan,
       contentFiles: widget.contentFiles,
+      pdfPickerService: widget.pdfPickerService,
+      onContentAdded: widget.onContentAdded,
     );
     if (event == null || !mounted) return;
     widget.onCreateEvent(event);
