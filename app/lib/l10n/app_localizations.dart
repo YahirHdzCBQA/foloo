@@ -140,6 +140,12 @@ abstract class AppLocalizations {
   /// **'Escribe tu contraseña'**
   String get loginPasswordRequired;
 
+  /// No description provided for @authenticationFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo iniciar sesión. Revisa tus datos e intenta otra vez.'**
+  String get authenticationFailed;
+
   /// No description provided for @loginShowPassword.
   ///
   /// In es, this message translates to:

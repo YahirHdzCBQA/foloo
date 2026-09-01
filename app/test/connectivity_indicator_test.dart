@@ -35,6 +35,7 @@ void main() {
       final connectivity = _FakeConnectivityService(false);
       addTearDown(connectivity.controller.close);
       await tester.pumpWidget(FolooApp(connectivityService: connectivity));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const Key('loginEmailField')), 'qa');
       await tester.enterText(
         find.byKey(const Key('loginPasswordField')),

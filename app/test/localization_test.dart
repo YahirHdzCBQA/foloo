@@ -31,6 +31,7 @@ Future<void> openDrawer(WidgetTester tester) async {
 void main() {
   testWidgets('Spanish is the unsupported-locale fallback', (tester) async {
     await tester.pumpWidget(const FolooApp(initialLocale: Locale('fr')));
+    await tester.pumpAndSettle();
     expect(find.text('Entrar'), findsOneWidget);
     expect(find.text('Sign in'), findsNothing);
   });
@@ -38,6 +39,7 @@ void main() {
   testWidgets('Login switches ES to EN immediately', (tester) async {
     phone(tester);
     await tester.pumpWidget(const FolooApp());
+    await tester.pumpAndSettle();
     expect(find.text('Entrar'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('languageEn')));
@@ -55,6 +57,7 @@ void main() {
   ) async {
     phone(tester);
     await tester.pumpWidget(const FolooApp());
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('languageEn')));
     await enterShell(tester);
     expect(find.text('The card'), findsOneWidget);
@@ -85,6 +88,7 @@ void main() {
   ) async {
     phone(tester);
     await tester.pumpWidget(const FolooApp(initialLocale: Locale('en')));
+    await tester.pumpAndSettle();
     await enterShell(tester, pro: true);
     await openDrawer(tester);
     expect(find.text('Content'), findsOneWidget);
@@ -112,6 +116,7 @@ void main() {
   ) async {
     phone(tester);
     await tester.pumpWidget(const FolooApp(initialLocale: Locale('en')));
+    await tester.pumpAndSettle();
     await enterShell(tester);
     await openDrawer(tester);
     await tester.tap(find.byKey(const Key('drawerRecords')));

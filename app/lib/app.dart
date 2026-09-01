@@ -9,6 +9,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'auth/auth_models.dart';
+import 'auth/auth_repository.dart';
+import 'auth/development_auth_service.dart';
+import 'auth/drift_development_auth_store.dart';
 import 'l10n/app_localizations.dart';
 import 'l10n/l10n.dart';
 import 'data/repositories/local_repositories.dart';
@@ -31,7 +35,7 @@ import 'services/connectivity_service.dart';
 import 'services/pdf_picker_service.dart';
 import 'theme/foloo_theme.dart';
 
-enum _AppStage { login, profile, origin, shell }
+enum _AuthenticatedStage { profile, origin, shell }
 
 /// Coordinates the top-level Foloo flow from login through the capture shell.
 ///
@@ -44,6 +48,7 @@ class FolooApp extends StatefulWidget {
     this.useDemoFixtures = true,
     this.connectivityService,
     this.pdfPickerService,
+    this.authRepository,
     super.key,
   });
 
@@ -53,6 +58,7 @@ class FolooApp extends StatefulWidget {
   final bool useDemoFixtures;
   final ConnectivityService? connectivityService;
   final PdfPickerService? pdfPickerService;
+  final AuthRepository? authRepository;
 
   @override
   State<FolooApp> createState() => _FolooAppState();
@@ -61,7 +67,7 @@ class FolooApp extends StatefulWidget {
 class _FolooAppState extends State<FolooApp> {
   // Session orchestration and capability fixtures.
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
-  _AppStage _stage = _AppStage.login;
+  _AuthenticatedStage _stage = _AuthenticatedStage.profile;
   ThemeMode _themeMode = ThemeMode.light;
   AppDestination _destination = AppDestination.home;
   // DEMO: Development plan selector used to preview the capability boundary.
@@ -75,10 +81,20 @@ class _FolooAppState extends State<FolooApp> {
   OriginSelection? _origin;
   final List<SessionLead> _sessionLeads = [];
   late Locale _locale;
+  late Locale _defaultLocale;
   late final LocalPersistence _persistence;
   late final ConnectivityService _connectivity;
   StreamSubscription<bool>? _connectivitySubscription;
   bool _isOnline = false;
+  late final AuthRepository _authRepository;
+  late final bool _ownsAuthRepository;
+  bool _appInitialized = false;
+
+  String get _userId {
+    final user = _authRepository.state.user;
+    if (user == null) throw StateError('Authenticated user required.');
+    return user.id;
+  }
 
   List<AppEvent> get _eventsWithCounts {
     final projected = _events.map((event) {
@@ -107,6 +123,15 @@ class _FolooAppState extends State<FolooApp> {
   void initState() {
     super.initState();
     _persistence = widget.persistence ?? LocalPersistence.inMemory();
+    _ownsAuthRepository = widget.authRepository == null;
+    _authRepository =
+        widget.authRepository ??
+        AuthRepository(
+          DevelopmentAuthService(
+            DriftDevelopmentAuthStore(_persistence.globalPreferences),
+          ),
+        );
+    _authRepository.addListener(_onAuthStateChanged);
     _connectivity = widget.connectivityService ?? DeviceConnectivityService();
     _events = List.of(DemoBasicData.events);
     _contentFiles = List.of(DemoProData.files);
@@ -117,9 +142,16 @@ class _FolooAppState extends State<FolooApp> {
     final supported = AppLocalizations.supportedLocales.any(
       (locale) => locale.languageCode == requested.languageCode,
     );
-    _locale = supported ? Locale(requested.languageCode) : const Locale('es');
+    _defaultLocale = supported
+        ? Locale(requested.languageCode)
+        : const Locale('es');
+    _locale = _defaultLocale;
     unawaited(_initializeConnectivity());
-    unawaited(_loadPersistentState());
+    unawaited(_initializeApplication());
+  }
+
+  void _onAuthStateChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _initializeConnectivity() async {
@@ -137,9 +169,13 @@ class _FolooAppState extends State<FolooApp> {
     }, onError: (_) {});
   }
 
-  Future<void> _loadPersistentState() async {
+  Future<void> _initializeApplication() async {
     try {
-      await _loadPersistentStateUnchecked();
+      await _persistence.initialize();
+      await _authRepository.initialize();
+      final user = _authRepository.state.user;
+      if (user != null) await _loadUserState(user.id);
+      if (mounted) setState(() => _appInitialized = true);
     } catch (_) {
       if (!mounted) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -148,39 +184,46 @@ class _FolooAppState extends State<FolooApp> {
     }
   }
 
-  Future<void> _loadPersistentStateUnchecked() async {
-    await _persistence.initialize();
-    final storedProfile = await _persistence.profiles.load();
-    var storedEvents = await _persistence.events.list();
+  Future<void> _loadUserState(String userId) async {
+    // A locale chosen on Login applies immediately to the session. A stored
+    // user preference takes precedence when one already exists.
+    final sessionLocale = _locale;
+    final storedProfile = await _persistence.profiles.load(userId);
+    var storedEvents = await _persistence.events.list(userId);
     if (storedEvents.isEmpty && widget.useDemoFixtures) {
       for (final event in DemoBasicData.events) {
-        await _persistence.events.save(event, makeActive: event.active);
+        await _persistence.events.save(userId, event, makeActive: event.active);
       }
-      storedEvents = await _persistence.events.list();
+      storedEvents = await _persistence.events.list(userId);
     }
-    final storedTheme = await _persistence.preferences.read('themeMode');
-    final storedLocale = await _persistence.preferences.read('locale');
-    final storedLeads = await _persistence.leads.listAll();
+    final storedTheme = await _persistence.preferences.read(
+      userId,
+      'themeMode',
+    );
+    final storedLocale = await _persistence.preferences.read(userId, 'locale');
+    final storedLeads = await _persistence.leads.listAll(userId);
     if (!mounted) return;
     setState(() {
-      if (storedProfile != null) {
-        _profile = storedProfile;
-        _profileCompleted = true;
-      }
-      if (storedEvents.isNotEmpty || !widget.useDemoFixtures) {
-        _events = storedEvents;
-      }
+      _profile = storedProfile ?? DemoBasicData.profile;
+      _profileCompleted = storedProfile != null;
+      _events = storedEvents;
+      _contentFiles = List.of(DemoProData.files);
       _sessionLeads
         ..clear()
         ..addAll(storedLeads);
-      if (storedTheme == 'dark') _themeMode = ThemeMode.dark;
-      if (storedTheme == 'light') _themeMode = ThemeMode.light;
-      if (storedLocale != null &&
-          AppLocalizations.supportedLocales.any(
-            (locale) => locale.languageCode == storedLocale,
-          )) {
-        _locale = Locale(storedLocale);
-      }
+      _origin = null;
+      _destination = AppDestination.home;
+      _stage = _profileCompleted
+          ? _AuthenticatedStage.origin
+          : _AuthenticatedStage.profile;
+      _themeMode = storedTheme == 'dark' ? ThemeMode.dark : ThemeMode.light;
+      _locale =
+          storedLocale != null &&
+              AppLocalizations.supportedLocales.any(
+                (locale) => locale.languageCode == storedLocale,
+              )
+          ? Locale(storedLocale)
+          : sessionLocale;
     });
   }
 
@@ -189,6 +232,7 @@ class _FolooAppState extends State<FolooApp> {
   /// CAP-15/SYN-01: confirmation is allowed only after this durable write.
   Future<SessionLead> _saveLead(LeadDraft lead) async {
     final record = await _persistence.leads.saveDraft(
+      _userId,
       lead,
       capturedBy: _profile,
     );
@@ -196,15 +240,20 @@ class _FolooAppState extends State<FolooApp> {
     return record;
   }
 
-  void _authenticate() {
-    setState(
-      () => _stage = _profileCompleted ? _AppStage.origin : _AppStage.profile,
+  Future<bool> _authenticate(String username, String password) async {
+    final authenticated = await _authRepository.signIn(
+      username: username,
+      password: password,
     );
+    final user = _authRepository.state.user;
+    if (!authenticated || user == null) return false;
+    await _loadUserState(user.id);
+    return true;
   }
 
   Future<void> _completeProfile(DemoProfile profile) async {
     try {
-      await _persistence.profiles.save(profile);
+      await _persistence.profiles.save(_userId, profile);
     } catch (_) {
       if (mounted) _showPersistenceError();
       return;
@@ -213,7 +262,7 @@ class _FolooAppState extends State<FolooApp> {
     setState(() {
       _profile = profile;
       _profileCompleted = true;
-      _stage = _AppStage.origin;
+      _stage = _AuthenticatedStage.origin;
     });
   }
 
@@ -221,7 +270,7 @@ class _FolooAppState extends State<FolooApp> {
     setState(() {
       _origin = selection;
       _destination = AppDestination.home;
-      _stage = _AppStage.shell;
+      _stage = _AuthenticatedStage.shell;
     });
   }
 
@@ -250,26 +299,35 @@ class _FolooAppState extends State<FolooApp> {
     );
   }
 
-  void _logout() {
-    // DEMO: This authentication shell is session-only. AUT-08 requires local
-    // leads to survive logout, so
-    // this in-memory prototype deliberately keeps the current session list.
+  Future<void> _logout() async {
+    await _authRepository.signOut();
+    if (!mounted) return;
     setState(() {
-      _stage = _AppStage.login;
       _destination = AppDestination.home;
+      _stage = _AuthenticatedStage.profile;
+      _profileCompleted = false;
+      _profile = DemoBasicData.profile;
+      _events = [];
+      _contentFiles = List.of(DemoProData.files);
+      _sessionLeads.clear();
+      _origin = null;
     });
   }
 
   void _setAppearance(bool darkMode) {
     unawaited(
-      _persistence.preferences.write('themeMode', darkMode ? 'dark' : 'light'),
+      _persistence.preferences.write(
+        _userId,
+        'themeMode',
+        darkMode ? 'dark' : 'light',
+      ),
     );
     setState(() => _themeMode = darkMode ? ThemeMode.dark : ThemeMode.light);
   }
 
   Future<void> _createEvent(AppEvent event) async {
     try {
-      await _persistence.events.save(event, makeActive: true);
+      await _persistence.events.save(_userId, event, makeActive: true);
     } catch (_) {
       if (mounted) _showPersistenceError();
       return;
@@ -293,7 +351,7 @@ class _FolooAppState extends State<FolooApp> {
 
   Future<void> _updateEvent(AppEvent event) async {
     try {
-      await _persistence.events.save(event);
+      await _persistence.events.save(_userId, event);
     } catch (_) {
       if (mounted) _showPersistenceError();
       return;
@@ -311,7 +369,7 @@ class _FolooAppState extends State<FolooApp> {
 
   Future<void> _deleteEvent(AppEvent event) async {
     try {
-      await _persistence.events.delete(event);
+      await _persistence.events.delete(_userId, event);
     } catch (_) {
       if (mounted) _showPersistenceError();
       return;
@@ -340,6 +398,8 @@ class _FolooAppState extends State<FolooApp> {
   @override
   void dispose() {
     unawaited(_connectivitySubscription?.cancel());
+    _authRepository.removeListener(_onAuthStateChanged);
+    if (_ownsAuthRepository) _authRepository.dispose();
     unawaited(_persistence.close());
     super.dispose();
   }
@@ -364,36 +424,50 @@ class _FolooAppState extends State<FolooApp> {
       builder: (context, child) => AppLanguageScope(
         locale: _locale,
         onLocaleChanged: (locale) {
-          unawaited(
-            _persistence.preferences.write('locale', locale.languageCode),
-          );
+          final user = _authRepository.state.user;
+          if (user != null) {
+            unawaited(
+              _persistence.preferences.write(
+                user.id,
+                'locale',
+                locale.languageCode,
+              ),
+            );
+          }
           setState(() => _locale = locale);
         },
         child: child ?? const SizedBox.shrink(),
       ),
-      home: switch (_stage) {
-        _AppStage.login => LoginScreen(
-          key: const ValueKey('loginScreen'),
-          onAuthenticated: _authenticate,
-          selectedPlan: _plan,
-          onPlanChanged: (plan) => setState(() => _plan = plan),
-        ),
-        _AppStage.profile => ProfileSetupScreen(
-          key: const ValueKey('profileScreen'),
-          onContinue: _completeProfile,
-        ),
-        _AppStage.origin => OriginSelectionScreen(
-          key: const ValueKey('originScreen'),
-          events: List.unmodifiable(_eventsWithCounts),
-          onContinue: _selectOrigin,
-          onCreateEvent: _createEvent,
-          onContentAdded: _addContentFile,
-          pdfPickerService: widget.pdfPickerService,
-          plan: _plan,
-          contentFiles: List.unmodifiable(_contentFiles),
-        ),
-        _AppStage.shell => _buildShell(),
-      },
+      home: !_appInitialized
+          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          : _authRepository.state.status != AuthStatus.authenticated
+          ? LoginScreen(
+              key: const ValueKey('loginScreen'),
+              onAuthenticated: _authenticate,
+              authenticating:
+                  _authRepository.state.status == AuthStatus.initializing,
+              authenticationFailed:
+                  _authRepository.state.status == AuthStatus.error,
+              selectedPlan: _plan,
+              onPlanChanged: (plan) => setState(() => _plan = plan),
+            )
+          : switch (_stage) {
+              _AuthenticatedStage.profile => ProfileSetupScreen(
+                key: const ValueKey('profileScreen'),
+                onContinue: _completeProfile,
+              ),
+              _AuthenticatedStage.origin => OriginSelectionScreen(
+                key: const ValueKey('originScreen'),
+                events: List.unmodifiable(_eventsWithCounts),
+                onContinue: _selectOrigin,
+                onCreateEvent: _createEvent,
+                onContentAdded: _addContentFile,
+                pdfPickerService: widget.pdfPickerService,
+                plan: _plan,
+                contentFiles: List.unmodifiable(_contentFiles),
+              ),
+              _AuthenticatedStage.shell => _buildShell(),
+            },
     );
   }
 

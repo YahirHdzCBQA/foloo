@@ -6,20 +6,23 @@ con `docs/specifications/current/` y con el mockup HTML oficial de agosto de
 
 ## Alcance implementado
 
-- Acceso demo local y configuración inicial de perfil.
+- Frontera `AuthRepository`/`AuthService`, sesión de desarrollo restaurable y
+  configuración inicial de perfil por usuario. FakeAuth no es autenticación de
+  producción; Cognito se integra en FL-013B.
 - Selección de origen: evento activo o lead directo.
 - Captura continua de cuatro secciones con foto, datos editables, los tipos
   Proveedor/Partner/Cliente, interés, nota escrita y Voice Note local.
 - Confirmación Basic, regreso automático y captura consecutiva.
 - Registros de la sesión con filtros, detalle de solo lectura y reproducción de
   Voice Note.
-- Mis eventos con alta, edición y eliminación local de demostración.
+- Mis eventos con alta, edición, eliminación lógica y ownership local.
 - Drawer derecho, cambio local claro/oscuro y cierre de sesión.
 - Diálogos visuales de exportación y acción visual de sincronización.
 
-No hay backend, autenticación real, persistencia durable, sincronización,
-entrega a Sheets ni exportación de archivos. Tampoco se exponen funciones Pro:
-transcripción, contenido, plantillas o correo.
+No hay backend, Cognito real, sincronización, entrega a Sheets ni exportación
+productiva. Drift/SQLite persiste perfil, preferencias, eventos, leads y media
+local con aislamiento por usuario. Basic no expone transcripción, contenido,
+plantillas ni correo.
 
 ## Dependencias de dispositivo
 

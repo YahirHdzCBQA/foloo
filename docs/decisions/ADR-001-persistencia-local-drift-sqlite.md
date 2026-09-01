@@ -30,11 +30,14 @@ SQLite. D-03 (folio comercial) y D-11 (retención de medios) siguen abiertas.
   una transacción Drift. Si falla la transacción se eliminan las copias nuevas y
   no se muestra el acuse.
 - Widgets consumen repositorios; no conocen Drift ni ejecutan SQL.
-- `schemaVersion` comienza en 1. Las futuras versiones deberán agregar pasos de
-  migración explícitos y pruebas de actualización antes de incrementarlo.
+- `schemaVersion` comenzó en 1. FL-013A lo incrementa a 2 mediante una migración
+  explícita y probada que agrega ownership nullable, preserva filas históricas
+  sin adjudicarlas y crea preferencias por usuario.
 - No se precargan fixtures de producto en la base de producción. Los fixtures
   continúan aislados para previews y pruebas de interfaz.
 - Cerrar sesión no borra la base ni los medios (AUT-08).
+- Perfil, eventos, leads y preferencias se consultan por el id estable de la
+  identidad autenticada. La media deriva ownership desde Lead.
 
 ## Consecuencias y límites
 

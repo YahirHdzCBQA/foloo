@@ -18,6 +18,12 @@ This is a navigation aid for the authoritative entity definitions in
 optional. `plan` is supplied by the server. Authentication and profile data
 persist as required by `AUT-02`, `AUT-04` and `AUT-05`.
 
+ADR-002 separates authentication identity from the editable Foloo profile. In
+FL-013A the temporary id is `fake-user-*`; FL-013B replaces it with Cognito
+`sub`. Drift ownership columns store this stable id, never the email/username.
+Profile, Evento and Lead are user-scoped. Lead media derives ownership through
+Lead rather than duplicating it.
+
 ## Basic Evento
 
 `id`, generated `codigo`, `nombre`, `fechaInicio`, `fechaFin`, `activo` and

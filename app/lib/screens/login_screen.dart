@@ -1,7 +1,7 @@
-/// Demo authentication gate for the Foloo frontend.
+/// Authentication gate for the Foloo frontend.
 ///
 /// Includes shared language selection and the isolated development plan
-/// selector; real authentication and capabilities belong to the backend.
+/// selector. Credential handling is delegated to AuthRepository.
 library;
 
 import 'package:flutter/material.dart';
@@ -12,18 +12,27 @@ import '../l10n/l10n.dart';
 import '../widgets/language_selector.dart';
 import '../widgets/segmented_bubble.dart';
 
+typedef LoginRequested = Future<bool> Function(
+  String username,
+  String password,
+);
+
 /// Collects demo credentials before entering profile and origin setup.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
     required this.onAuthenticated,
     required this.selectedPlan,
     required this.onPlanChanged,
+    this.authenticating = false,
+    this.authenticationFailed = false,
     super.key,
   });
 
-  final VoidCallback onAuthenticated;
+  final LoginRequested onAuthenticated;
   final AppPlan selectedPlan;
   final ValueChanged<AppPlan> onPlanChanged;
+  final bool authenticating;
+  final bool authenticationFailed;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -54,10 +63,10 @@ class _LoginScreenState extends State<LoginScreen> {
         : null;
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     FocusManager.instance.primaryFocus?.unfocus();
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    widget.onAuthenticated();
+    await widget.onAuthenticated(_email.text.trim(), _password.text);
   }
 
   InputDecoration _decoration(BuildContext context, {Widget? suffixIcon}) {
@@ -170,6 +179,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                 validator: _validatePassword,
                                 onFieldSubmitted: (_) => _submit(),
                               ),
+                              if (widget.authenticationFailed) ...[
+                                const SizedBox(height: 10),
+                                Text(
+                                  context.l10n.authenticationFailed,
+                                  key: const Key('authenticationError'),
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.error,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 22),
                               _FieldLabel(context.l10n.demoPlan),
                               const SizedBox(height: 8),
@@ -253,7 +273,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     width: double.infinity,
                     child: FilledButton(
                       key: const Key('loginButton'),
-                      onPressed: _submit,
+                      onPressed: widget.authenticating ? null : _submit,
                       style: FilledButton.styleFrom(
                         minimumSize: const Size.fromHeight(58),
                         backgroundColor: FolooBrand.lime,

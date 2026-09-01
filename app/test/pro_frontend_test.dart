@@ -29,6 +29,7 @@ Future<void> login(
   PdfPickerService? pdfPickerService,
 }) async {
   await tester.pumpWidget(FolooApp(pdfPickerService: pdfPickerService));
+  await tester.pumpAndSettle();
   if (pro) {
     await tester.tap(find.byKey(const Key('planPro')));
     await tester.pump();
@@ -72,6 +73,7 @@ void main() {
   ) async {
     phone(tester);
     await tester.pumpWidget(const FolooApp());
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('planPro')));
     await tester.enterText(find.byKey(const Key('loginEmailField')), 'qa');
     await tester.enterText(find.byKey(const Key('loginPasswordField')), 'demo');

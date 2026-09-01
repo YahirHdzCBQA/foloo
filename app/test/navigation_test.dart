@@ -10,6 +10,7 @@ void usePhoneViewport(WidgetTester tester) {
 }
 
 Future<void> enterBasicCapture(WidgetTester tester) async {
+  await tester.pumpAndSettle();
   await tester.enterText(
     find.byKey(const Key('loginEmailField')),
     'y.hernandez',

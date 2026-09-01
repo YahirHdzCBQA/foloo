@@ -31,6 +31,7 @@ Future<void> finishOnboarding(WidgetTester tester) async {
 void main() {
   testWidgets('validates empty login fields', (tester) async {
     await tester.pumpWidget(const FolooApp());
+    await tester.pumpAndSettle();
 
     await tapLogin(tester);
 
@@ -43,6 +44,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(const FolooApp());
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('loginPasswordField')),
       'secreto',
@@ -72,6 +74,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(const FolooApp());
+    await tester.pumpAndSettle();
     await enterDemoAccess(tester);
     expect(find.byKey(const ValueKey('profileScreen')), findsOneWidget);
     expect(find.byKey(const Key('profileCameraButton')), findsOneWidget);
@@ -87,6 +90,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(const FolooApp());
+    await tester.pumpAndSettle();
     await enterDemoAccess(tester);
     await finishOnboarding(tester);
 
@@ -121,6 +125,7 @@ void main() {
     addTearDown(tester.view.resetViewInsets);
 
     await tester.pumpWidget(const FolooApp());
+    await tester.pumpAndSettle();
     tester.view.viewInsets = const FakeViewPadding(bottom: 260);
     await tester.pumpAndSettle();
 

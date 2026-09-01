@@ -1,8 +1,9 @@
 # Current High-Level Architecture
 
 This document aligns conceptual responsibilities with the August 2026
-Basic/Pro specification. It selects no framework, provider, database, cloud or
-state-management technology.
+Basic/Pro specification. Drift/SQLite is selected by ADR-001 and AWS Cognito is
+selected as the production authentication provider by ADR-002. Other backend,
+cloud and state-management choices remain undecided.
 
 ## Product shape
 
@@ -16,6 +17,7 @@ not locked, greyed out or advertised.
 Shared Basic/Pro responsibilities include:
 
 - authenticated session and locally retained profile/preferences;
+- user-scoped local repositories keyed by the stable authentication identity;
 - event/direct origin selection and event CRUD with logical deletion;
 - rear-camera/gallery capture, 1568 px client preparation and editable fields;
 - one-screen, one-handed capture with local Voice Note and written fallback;
@@ -52,6 +54,9 @@ For Pro, the backend additionally owns:
 
 Basic performs no email or transcription. These are capability boundaries,
 not merely unfinished integrations.
+
+Authentication details and the FL-013A/FL-013B replacement boundary are in
+[`authentication.md`](authentication.md).
 
 ## Conceptual data flow
 

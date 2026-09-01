@@ -29,19 +29,22 @@ class ProfileRepository {
   final AppDatabase _database;
   final LocalIdFactory _idFactory;
 
-  Future<DemoProfile?> load() async {
-    final stored = await _database.profilePreferencesDao.profile();
+  Future<DemoProfile?> load(String userId) async {
+    final stored = await _database.profilePreferencesDao.profileForUser(userId);
     return stored == null
         ? null
         : DemoProfile(name: stored.name, company: stored.company);
   }
 
-  Future<void> save(DemoProfile profile) async {
-    final previous = await _database.profilePreferencesDao.profile();
+  Future<void> save(String userId, DemoProfile profile) async {
+    final previous = await _database.profilePreferencesDao.profileForUser(
+      userId,
+    );
     final now = DateTime.now().toUtc();
     await _database.profilePreferencesDao.saveProfile(
       LocalProfilesCompanion.insert(
         localId: previous?.localId ?? _idFactory(),
+        ownerUserId: Value(userId),
         name: profile.name,
         company: profile.company,
         createdAt: previous?.createdAt ?? now,
@@ -57,11 +60,27 @@ class PreferencesRepository {
 
   final AppDatabase _database;
 
+  Future<String?> read(String userId, String key) =>
+      _database.profilePreferencesDao.userPreference(userId, key);
+
+  Future<void> write(String userId, String key, String value) =>
+      _database.profilePreferencesDao.saveUserPreference(userId, key, value);
+}
+
+/// Device-global values used only before a user-scoped repository is known.
+class GlobalPreferencesRepository {
+  const GlobalPreferencesRepository(this._database);
+
+  final AppDatabase _database;
+
   Future<String?> read(String key) =>
-      _database.profilePreferencesDao.preference(key);
+      _database.profilePreferencesDao.globalPreference(key);
 
   Future<void> write(String key, String value) =>
-      _database.profilePreferencesDao.savePreference(key, value);
+      _database.profilePreferencesDao.saveGlobalPreference(key, value);
+
+  Future<void> delete(String key) =>
+      _database.profilePreferencesDao.deleteGlobalPreference(key);
 }
 
 /// Maps event CRUD and logical deletion to the local event DAO (EVT-*).
@@ -81,21 +100,28 @@ class EventRepository {
     ),
   );
 
-  Future<List<AppEvent>> list() async =>
-      (await _database.eventDao.listActive()).map(_fromStored).toList();
+  Future<List<AppEvent>> list(String userId) async =>
+      (await _database.eventDao.listActive(userId)).map(_fromStored).toList();
 
-  Stream<List<AppEvent>> watch() => _database.eventDao.watchActive().map(
-    (events) => events.map(_fromStored).toList(),
-  );
+  Stream<List<AppEvent>> watch(String userId) => _database.eventDao
+      .watchActive(userId)
+      .map((events) => events.map(_fromStored).toList());
 
-  Future<void> save(AppEvent event, {bool makeActive = false}) async {
+  Future<void> save(
+    String userId,
+    AppEvent event, {
+    bool makeActive = false,
+  }) async {
     await _database.transaction(() async {
-      if (makeActive || event.active) await _database.eventDao.deactivateAll();
-      final previous = await _database.eventDao.byId(event.id);
+      if (makeActive || event.active) {
+        await _database.eventDao.deactivateAll(userId);
+      }
+      final previous = await _database.eventDao.byId(userId, event.id);
       final now = DateTime.now().toUtc();
       await _database.eventDao.upsert(
         LocalEventsCompanion.insert(
           localId: event.id,
+          ownerUserId: Value(userId),
           commercialCode: Value(previous?.commercialCode),
           name: event.name,
           startsOn: event.startsOn.toUtc(),
@@ -110,15 +136,19 @@ class EventRepository {
     });
   }
 
-  Future<void> delete(AppEvent event) async {
+  Future<void> delete(String userId, AppEvent event) async {
     await _database.transaction(() async {
       final now = DateTime.now().toUtc();
-      await _database.eventDao.softDelete(event.id, now);
-      final remaining = await _database.eventDao.listActive();
+      await _database.eventDao.softDelete(userId, event.id, now);
+      final remaining = await _database.eventDao.listActive(userId);
       if (event.active &&
           remaining.isNotEmpty &&
           !remaining.any((item) => item.active)) {
-        await _database.eventDao.setActive(remaining.first.localId, now);
+        await _database.eventDao.setActive(
+          userId,
+          remaining.first.localId,
+          now,
+        );
       }
     });
   }
@@ -137,6 +167,7 @@ class LeadRepository {
   final LocalIdFactory _idFactory;
 
   Future<SessionLead> saveDraft(
+    String userId,
     LeadDraft draft, {
     required DemoProfile capturedBy,
   }) async {
@@ -172,6 +203,7 @@ class LeadRepository {
         await _database.leadDao.insertLead(
           LocalLeadsCompanion.insert(
             localId: localId,
+            ownerUserId: Value(userId),
             capturedAt: now,
             capturedBy: capturedBy.name,
             originKind: draft.originKind.name,
@@ -254,30 +286,37 @@ class LeadRepository {
     ),
   );
 
-  Stream<List<SessionLead>> watchAll() => _database.leadDao
-      .watchAll()
-      .asyncMap(_visibleBundles)
+  Stream<List<SessionLead>> watchAll(String userId) => _database.leadDao
+      .watchAll(userId)
+      .asyncMap((bundles) => _visibleBundles(userId, bundles))
       .map((bundles) => bundles.map(_fromStored).toList());
 
-  Future<List<SessionLead>> listAll() async =>
-      (await _visibleBundles(await _database.leadDao.listAll()))
-          .map(_fromStored)
-          .toList();
+  Future<List<SessionLead>> listAll(String userId) async =>
+      (await _visibleBundles(
+        userId,
+        await _database.leadDao.listAll(userId),
+      )).map(_fromStored).toList();
 
-  Future<List<StoredLead>> byEvent(String eventId) async {
-    final event = await _database.eventDao.byId(eventId);
+  Future<List<StoredLead>> byEvent(String userId, String eventId) async {
+    final event = await _database.eventDao.byId(userId, eventId);
     if (event == null || event.deleted) return const [];
-    return _database.leadDao.byEvent(eventId);
+    return _database.leadDao.byEvent(userId, eventId);
   }
 
-  Future<List<StoredLead>> byType(LeadType type) async =>
-      _visibleRows(await _database.leadDao.byType(type.name));
+  Future<List<StoredLead>> byType(String userId, LeadType type) async =>
+      _visibleRows(userId, await _database.leadDao.byType(userId, type.name));
 
-  Future<List<StoredLead>> search(String query) async =>
-      _visibleRows(await _database.leadDao.search(query));
+  Future<List<StoredLead>> search(String userId, String query) async =>
+      _visibleRows(userId, await _database.leadDao.search(userId, query));
 
-  Future<void> updateStructured(StoredLead lead) => _database.leadDao
-      .updateLead(lead.copyWith(updatedAt: DateTime.now().toUtc()));
+  Future<void> updateStructured(String userId, StoredLead lead) {
+    if (lead.ownerUserId != userId) {
+      throw StateError('Cannot update a lead owned by another user.');
+    }
+    return _database.leadDao.updateLead(
+      lead.copyWith(updatedAt: DateTime.now().toUtc()),
+    );
+  }
 
   Future<void> reconcileMediaReferences() async {
     for (final media in await _database.leadDao.allMedia()) {
@@ -288,9 +327,10 @@ class LeadRepository {
   }
 
   Future<List<StoredLeadBundle>> _visibleBundles(
+    String userId,
     List<StoredLeadBundle> bundles,
   ) async {
-    final visibleEventIds = (await _database.eventDao.listActive())
+    final visibleEventIds = (await _database.eventDao.listActive(userId))
         .map((event) => event.localId)
         .toSet();
     return bundles
@@ -302,8 +342,11 @@ class LeadRepository {
         .toList();
   }
 
-  Future<List<StoredLead>> _visibleRows(List<StoredLead> rows) async {
-    final visibleEventIds = (await _database.eventDao.listActive())
+  Future<List<StoredLead>> _visibleRows(
+    String userId,
+    List<StoredLead> rows,
+  ) async {
+    final visibleEventIds = (await _database.eventDao.listActive(userId))
         .map((event) => event.localId)
         .toSet();
     return rows
@@ -370,6 +413,7 @@ class LocalPersistence {
     this.deleteMediaOnClose = false,
   }) : profiles = ProfileRepository(database),
        preferences = PreferencesRepository(database),
+       globalPreferences = GlobalPreferencesRepository(database),
        events = EventRepository(database),
        leads = LeadRepository(database, mediaStorage);
 
@@ -378,6 +422,7 @@ class LocalPersistence {
   final bool deleteMediaOnClose;
   final ProfileRepository profiles;
   final PreferencesRepository preferences;
+  final GlobalPreferencesRepository globalPreferences;
   final EventRepository events;
   final LeadRepository leads;
 

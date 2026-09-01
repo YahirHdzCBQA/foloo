@@ -7,6 +7,8 @@ mixin _$ProfilePreferencesDaoMixin on DatabaseAccessor<AppDatabase> {
   $LocalProfilesTable get localProfiles => attachedDatabase.localProfiles;
   $LocalPreferencesTable get localPreferences =>
       attachedDatabase.localPreferences;
+  $LocalUserPreferencesTable get localUserPreferences =>
+      attachedDatabase.localUserPreferences;
   ProfilePreferencesDaoManager get managers =>
       ProfilePreferencesDaoManager(this);
 }
@@ -20,6 +22,11 @@ class ProfilePreferencesDaoManager {
       $$LocalPreferencesTableTableManager(
         _db.attachedDatabase,
         _db.localPreferences,
+      );
+  $$LocalUserPreferencesTableTableManager get localUserPreferences =>
+      $$LocalUserPreferencesTableTableManager(
+        _db.attachedDatabase,
+        _db.localUserPreferences,
       );
 }
 
@@ -73,6 +80,17 @@ class $LocalProfilesTable extends LocalProfiles
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _ownerUserIdMeta = const VerificationMeta(
+    'ownerUserId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerUserId = GeneratedColumn<String>(
+    'owner_user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
   late final GeneratedColumn<String> name = GeneratedColumn<String>(
@@ -118,6 +136,7 @@ class $LocalProfilesTable extends LocalProfiles
   @override
   List<GeneratedColumn> get $columns => [
     localId,
+    ownerUserId,
     name,
     company,
     createdAt,
@@ -142,6 +161,15 @@ class $LocalProfilesTable extends LocalProfiles
       );
     } else if (isInserting) {
       context.missing(_localIdMeta);
+    }
+    if (data.containsKey('owner_user_id')) {
+      context.handle(
+        _ownerUserIdMeta,
+        ownerUserId.isAcceptableOrUnknown(
+          data['owner_user_id']!,
+          _ownerUserIdMeta,
+        ),
+      );
     }
     if (data.containsKey('name')) {
       context.handle(
@@ -188,6 +216,10 @@ class $LocalProfilesTable extends LocalProfiles
         DriftSqlType.string,
         data['${effectivePrefix}local_id'],
       )!,
+      ownerUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_user_id'],
+      ),
       name: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}name'],
@@ -215,12 +247,14 @@ class $LocalProfilesTable extends LocalProfiles
 
 class StoredProfile extends DataClass implements Insertable<StoredProfile> {
   final String localId;
+  final String? ownerUserId;
   final String name;
   final String company;
   final DateTime createdAt;
   final DateTime updatedAt;
   const StoredProfile({
     required this.localId,
+    this.ownerUserId,
     required this.name,
     required this.company,
     required this.createdAt,
@@ -230,6 +264,9 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['local_id'] = Variable<String>(localId);
+    if (!nullToAbsent || ownerUserId != null) {
+      map['owner_user_id'] = Variable<String>(ownerUserId);
+    }
     map['name'] = Variable<String>(name);
     map['company'] = Variable<String>(company);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -240,6 +277,9 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
   LocalProfilesCompanion toCompanion(bool nullToAbsent) {
     return LocalProfilesCompanion(
       localId: Value(localId),
+      ownerUserId: ownerUserId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ownerUserId),
       name: Value(name),
       company: Value(company),
       createdAt: Value(createdAt),
@@ -254,6 +294,7 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return StoredProfile(
       localId: serializer.fromJson<String>(json['localId']),
+      ownerUserId: serializer.fromJson<String?>(json['ownerUserId']),
       name: serializer.fromJson<String>(json['name']),
       company: serializer.fromJson<String>(json['company']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -265,6 +306,7 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'localId': serializer.toJson<String>(localId),
+      'ownerUserId': serializer.toJson<String?>(ownerUserId),
       'name': serializer.toJson<String>(name),
       'company': serializer.toJson<String>(company),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -274,12 +316,14 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
 
   StoredProfile copyWith({
     String? localId,
+    Value<String?> ownerUserId = const Value.absent(),
     String? name,
     String? company,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => StoredProfile(
     localId: localId ?? this.localId,
+    ownerUserId: ownerUserId.present ? ownerUserId.value : this.ownerUserId,
     name: name ?? this.name,
     company: company ?? this.company,
     createdAt: createdAt ?? this.createdAt,
@@ -288,6 +332,9 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
   StoredProfile copyWithCompanion(LocalProfilesCompanion data) {
     return StoredProfile(
       localId: data.localId.present ? data.localId.value : this.localId,
+      ownerUserId: data.ownerUserId.present
+          ? data.ownerUserId.value
+          : this.ownerUserId,
       name: data.name.present ? data.name.value : this.name,
       company: data.company.present ? data.company.value : this.company,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -299,6 +346,7 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
   String toString() {
     return (StringBuffer('StoredProfile(')
           ..write('localId: $localId, ')
+          ..write('ownerUserId: $ownerUserId, ')
           ..write('name: $name, ')
           ..write('company: $company, ')
           ..write('createdAt: $createdAt, ')
@@ -308,12 +356,14 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
   }
 
   @override
-  int get hashCode => Object.hash(localId, name, company, createdAt, updatedAt);
+  int get hashCode =>
+      Object.hash(localId, ownerUserId, name, company, createdAt, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is StoredProfile &&
           other.localId == this.localId &&
+          other.ownerUserId == this.ownerUserId &&
           other.name == this.name &&
           other.company == this.company &&
           other.createdAt == this.createdAt &&
@@ -322,6 +372,7 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
 
 class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
   final Value<String> localId;
+  final Value<String?> ownerUserId;
   final Value<String> name;
   final Value<String> company;
   final Value<DateTime> createdAt;
@@ -329,6 +380,7 @@ class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
   final Value<int> rowid;
   const LocalProfilesCompanion({
     this.localId = const Value.absent(),
+    this.ownerUserId = const Value.absent(),
     this.name = const Value.absent(),
     this.company = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -337,6 +389,7 @@ class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
   });
   LocalProfilesCompanion.insert({
     required String localId,
+    this.ownerUserId = const Value.absent(),
     required String name,
     required String company,
     required DateTime createdAt,
@@ -349,6 +402,7 @@ class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
        updatedAt = Value(updatedAt);
   static Insertable<StoredProfile> custom({
     Expression<String>? localId,
+    Expression<String>? ownerUserId,
     Expression<String>? name,
     Expression<String>? company,
     Expression<DateTime>? createdAt,
@@ -357,6 +411,7 @@ class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
   }) {
     return RawValuesInsertable({
       if (localId != null) 'local_id': localId,
+      if (ownerUserId != null) 'owner_user_id': ownerUserId,
       if (name != null) 'name': name,
       if (company != null) 'company': company,
       if (createdAt != null) 'created_at': createdAt,
@@ -367,6 +422,7 @@ class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
 
   LocalProfilesCompanion copyWith({
     Value<String>? localId,
+    Value<String?>? ownerUserId,
     Value<String>? name,
     Value<String>? company,
     Value<DateTime>? createdAt,
@@ -375,6 +431,7 @@ class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
   }) {
     return LocalProfilesCompanion(
       localId: localId ?? this.localId,
+      ownerUserId: ownerUserId ?? this.ownerUserId,
       name: name ?? this.name,
       company: company ?? this.company,
       createdAt: createdAt ?? this.createdAt,
@@ -388,6 +445,9 @@ class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
     final map = <String, Expression>{};
     if (localId.present) {
       map['local_id'] = Variable<String>(localId.value);
+    }
+    if (ownerUserId.present) {
+      map['owner_user_id'] = Variable<String>(ownerUserId.value);
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
@@ -411,6 +471,7 @@ class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
   String toString() {
     return (StringBuffer('LocalProfilesCompanion(')
           ..write('localId: $localId, ')
+          ..write('ownerUserId: $ownerUserId, ')
           ..write('name: $name, ')
           ..write('company: $company, ')
           ..write('createdAt: $createdAt, ')
@@ -437,6 +498,17 @@ class $LocalEventsTable extends LocalEvents
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ownerUserIdMeta = const VerificationMeta(
+    'ownerUserId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerUserId = GeneratedColumn<String>(
+    'owner_user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _commercialCodeMeta = const VerificationMeta(
     'commercialCode',
@@ -543,6 +615,7 @@ class $LocalEventsTable extends LocalEvents
   @override
   List<GeneratedColumn> get $columns => [
     localId,
+    ownerUserId,
     commercialCode,
     name,
     startsOn,
@@ -572,6 +645,15 @@ class $LocalEventsTable extends LocalEvents
       );
     } else if (isInserting) {
       context.missing(_localIdMeta);
+    }
+    if (data.containsKey('owner_user_id')) {
+      context.handle(
+        _ownerUserIdMeta,
+        ownerUserId.isAcceptableOrUnknown(
+          data['owner_user_id']!,
+          _ownerUserIdMeta,
+        ),
+      );
     }
     if (data.containsKey('commercial_code')) {
       context.handle(
@@ -656,6 +738,10 @@ class $LocalEventsTable extends LocalEvents
         DriftSqlType.string,
         data['${effectivePrefix}local_id'],
       )!,
+      ownerUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_user_id'],
+      ),
       commercialCode: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}commercial_code'],
@@ -703,6 +789,7 @@ class $LocalEventsTable extends LocalEvents
 
 class StoredEvent extends DataClass implements Insertable<StoredEvent> {
   final String localId;
+  final String? ownerUserId;
   final String? commercialCode;
   final String name;
   final DateTime startsOn;
@@ -714,6 +801,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
   final DateTime updatedAt;
   const StoredEvent({
     required this.localId,
+    this.ownerUserId,
     this.commercialCode,
     required this.name,
     required this.startsOn,
@@ -728,6 +816,9 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['local_id'] = Variable<String>(localId);
+    if (!nullToAbsent || ownerUserId != null) {
+      map['owner_user_id'] = Variable<String>(ownerUserId);
+    }
     if (!nullToAbsent || commercialCode != null) {
       map['commercial_code'] = Variable<String>(commercialCode);
     }
@@ -745,6 +836,9 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
   LocalEventsCompanion toCompanion(bool nullToAbsent) {
     return LocalEventsCompanion(
       localId: Value(localId),
+      ownerUserId: ownerUserId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ownerUserId),
       commercialCode: commercialCode == null && nullToAbsent
           ? const Value.absent()
           : Value(commercialCode),
@@ -766,6 +860,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return StoredEvent(
       localId: serializer.fromJson<String>(json['localId']),
+      ownerUserId: serializer.fromJson<String?>(json['ownerUserId']),
       commercialCode: serializer.fromJson<String?>(json['commercialCode']),
       name: serializer.fromJson<String>(json['name']),
       startsOn: serializer.fromJson<DateTime>(json['startsOn']),
@@ -784,6 +879,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'localId': serializer.toJson<String>(localId),
+      'ownerUserId': serializer.toJson<String?>(ownerUserId),
       'commercialCode': serializer.toJson<String?>(commercialCode),
       'name': serializer.toJson<String>(name),
       'startsOn': serializer.toJson<DateTime>(startsOn),
@@ -798,6 +894,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
 
   StoredEvent copyWith({
     String? localId,
+    Value<String?> ownerUserId = const Value.absent(),
     Value<String?> commercialCode = const Value.absent(),
     String? name,
     DateTime? startsOn,
@@ -809,6 +906,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
     DateTime? updatedAt,
   }) => StoredEvent(
     localId: localId ?? this.localId,
+    ownerUserId: ownerUserId.present ? ownerUserId.value : this.ownerUserId,
     commercialCode: commercialCode.present
         ? commercialCode.value
         : this.commercialCode,
@@ -824,6 +922,9 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
   StoredEvent copyWithCompanion(LocalEventsCompanion data) {
     return StoredEvent(
       localId: data.localId.present ? data.localId.value : this.localId,
+      ownerUserId: data.ownerUserId.present
+          ? data.ownerUserId.value
+          : this.ownerUserId,
       commercialCode: data.commercialCode.present
           ? data.commercialCode.value
           : this.commercialCode,
@@ -844,6 +945,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
   String toString() {
     return (StringBuffer('StoredEvent(')
           ..write('localId: $localId, ')
+          ..write('ownerUserId: $ownerUserId, ')
           ..write('commercialCode: $commercialCode, ')
           ..write('name: $name, ')
           ..write('startsOn: $startsOn, ')
@@ -860,6 +962,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
   @override
   int get hashCode => Object.hash(
     localId,
+    ownerUserId,
     commercialCode,
     name,
     startsOn,
@@ -875,6 +978,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
       identical(this, other) ||
       (other is StoredEvent &&
           other.localId == this.localId &&
+          other.ownerUserId == this.ownerUserId &&
           other.commercialCode == this.commercialCode &&
           other.name == this.name &&
           other.startsOn == this.startsOn &&
@@ -888,6 +992,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
 
 class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
   final Value<String> localId;
+  final Value<String?> ownerUserId;
   final Value<String?> commercialCode;
   final Value<String> name;
   final Value<DateTime> startsOn;
@@ -900,6 +1005,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
   final Value<int> rowid;
   const LocalEventsCompanion({
     this.localId = const Value.absent(),
+    this.ownerUserId = const Value.absent(),
     this.commercialCode = const Value.absent(),
     this.name = const Value.absent(),
     this.startsOn = const Value.absent(),
@@ -913,6 +1019,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
   });
   LocalEventsCompanion.insert({
     required String localId,
+    this.ownerUserId = const Value.absent(),
     this.commercialCode = const Value.absent(),
     required String name,
     required DateTime startsOn,
@@ -931,6 +1038,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
        updatedAt = Value(updatedAt);
   static Insertable<StoredEvent> custom({
     Expression<String>? localId,
+    Expression<String>? ownerUserId,
     Expression<String>? commercialCode,
     Expression<String>? name,
     Expression<DateTime>? startsOn,
@@ -944,6 +1052,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
   }) {
     return RawValuesInsertable({
       if (localId != null) 'local_id': localId,
+      if (ownerUserId != null) 'owner_user_id': ownerUserId,
       if (commercialCode != null) 'commercial_code': commercialCode,
       if (name != null) 'name': name,
       if (startsOn != null) 'starts_on': startsOn,
@@ -960,6 +1069,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
 
   LocalEventsCompanion copyWith({
     Value<String>? localId,
+    Value<String?>? ownerUserId,
     Value<String?>? commercialCode,
     Value<String>? name,
     Value<DateTime>? startsOn,
@@ -973,6 +1083,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
   }) {
     return LocalEventsCompanion(
       localId: localId ?? this.localId,
+      ownerUserId: ownerUserId ?? this.ownerUserId,
       commercialCode: commercialCode ?? this.commercialCode,
       name: name ?? this.name,
       startsOn: startsOn ?? this.startsOn,
@@ -991,6 +1102,9 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
     final map = <String, Expression>{};
     if (localId.present) {
       map['local_id'] = Variable<String>(localId.value);
+    }
+    if (ownerUserId.present) {
+      map['owner_user_id'] = Variable<String>(ownerUserId.value);
     }
     if (commercialCode.present) {
       map['commercial_code'] = Variable<String>(commercialCode.value);
@@ -1029,6 +1143,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
   String toString() {
     return (StringBuffer('LocalEventsCompanion(')
           ..write('localId: $localId, ')
+          ..write('ownerUserId: $ownerUserId, ')
           ..write('commercialCode: $commercialCode, ')
           ..write('name: $name, ')
           ..write('startsOn: $startsOn, ')
@@ -1060,6 +1175,17 @@ class $LocalLeadsTable extends LocalLeads
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ownerUserIdMeta = const VerificationMeta(
+    'ownerUserId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerUserId = GeneratedColumn<String>(
+    'owner_user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _commercialFolioMeta = const VerificationMeta(
     'commercialFolio',
@@ -1301,6 +1427,7 @@ class $LocalLeadsTable extends LocalLeads
   @override
   List<GeneratedColumn> get $columns => [
     localId,
+    ownerUserId,
     commercialFolio,
     capturedAt,
     capturedBy,
@@ -1343,6 +1470,15 @@ class $LocalLeadsTable extends LocalLeads
       );
     } else if (isInserting) {
       context.missing(_localIdMeta);
+    }
+    if (data.containsKey('owner_user_id')) {
+      context.handle(
+        _ownerUserIdMeta,
+        ownerUserId.isAcceptableOrUnknown(
+          data['owner_user_id']!,
+          _ownerUserIdMeta,
+        ),
+      );
     }
     if (data.containsKey('commercial_folio')) {
       context.handle(
@@ -1538,6 +1674,10 @@ class $LocalLeadsTable extends LocalLeads
         DriftSqlType.string,
         data['${effectivePrefix}local_id'],
       )!,
+      ownerUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_user_id'],
+      ),
       commercialFolio: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}commercial_folio'],
@@ -1637,6 +1777,7 @@ class $LocalLeadsTable extends LocalLeads
 
 class StoredLead extends DataClass implements Insertable<StoredLead> {
   final String localId;
+  final String? ownerUserId;
   final String? commercialFolio;
   final DateTime capturedAt;
   final String capturedBy;
@@ -1661,6 +1802,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
   final DateTime updatedAt;
   const StoredLead({
     required this.localId,
+    this.ownerUserId,
     this.commercialFolio,
     required this.capturedAt,
     required this.capturedBy,
@@ -1688,6 +1830,9 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['local_id'] = Variable<String>(localId);
+    if (!nullToAbsent || ownerUserId != null) {
+      map['owner_user_id'] = Variable<String>(ownerUserId);
+    }
     if (!nullToAbsent || commercialFolio != null) {
       map['commercial_folio'] = Variable<String>(commercialFolio);
     }
@@ -1726,6 +1871,9 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
   LocalLeadsCompanion toCompanion(bool nullToAbsent) {
     return LocalLeadsCompanion(
       localId: Value(localId),
+      ownerUserId: ownerUserId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ownerUserId),
       commercialFolio: commercialFolio == null && nullToAbsent
           ? const Value.absent()
           : Value(commercialFolio),
@@ -1768,6 +1916,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return StoredLead(
       localId: serializer.fromJson<String>(json['localId']),
+      ownerUserId: serializer.fromJson<String?>(json['ownerUserId']),
       commercialFolio: serializer.fromJson<String?>(json['commercialFolio']),
       capturedAt: serializer.fromJson<DateTime>(json['capturedAt']),
       capturedBy: serializer.fromJson<String>(json['capturedBy']),
@@ -1801,6 +1950,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'localId': serializer.toJson<String>(localId),
+      'ownerUserId': serializer.toJson<String?>(ownerUserId),
       'commercialFolio': serializer.toJson<String?>(commercialFolio),
       'capturedAt': serializer.toJson<DateTime>(capturedAt),
       'capturedBy': serializer.toJson<String>(capturedBy),
@@ -1828,6 +1978,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
 
   StoredLead copyWith({
     String? localId,
+    Value<String?> ownerUserId = const Value.absent(),
     Value<String?> commercialFolio = const Value.absent(),
     DateTime? capturedAt,
     String? capturedBy,
@@ -1852,6 +2003,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
     DateTime? updatedAt,
   }) => StoredLead(
     localId: localId ?? this.localId,
+    ownerUserId: ownerUserId.present ? ownerUserId.value : this.ownerUserId,
     commercialFolio: commercialFolio.present
         ? commercialFolio.value
         : this.commercialFolio,
@@ -1884,6 +2036,9 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
   StoredLead copyWithCompanion(LocalLeadsCompanion data) {
     return StoredLead(
       localId: data.localId.present ? data.localId.value : this.localId,
+      ownerUserId: data.ownerUserId.present
+          ? data.ownerUserId.value
+          : this.ownerUserId,
       commercialFolio: data.commercialFolio.present
           ? data.commercialFolio.value
           : this.commercialFolio,
@@ -1933,6 +2088,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
   String toString() {
     return (StringBuffer('StoredLead(')
           ..write('localId: $localId, ')
+          ..write('ownerUserId: $ownerUserId, ')
           ..write('commercialFolio: $commercialFolio, ')
           ..write('capturedAt: $capturedAt, ')
           ..write('capturedBy: $capturedBy, ')
@@ -1962,6 +2118,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
   @override
   int get hashCode => Object.hashAll([
     localId,
+    ownerUserId,
     commercialFolio,
     capturedAt,
     capturedBy,
@@ -1990,6 +2147,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
       identical(this, other) ||
       (other is StoredLead &&
           other.localId == this.localId &&
+          other.ownerUserId == this.ownerUserId &&
           other.commercialFolio == this.commercialFolio &&
           other.capturedAt == this.capturedAt &&
           other.capturedBy == this.capturedBy &&
@@ -2016,6 +2174,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
 
 class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
   final Value<String> localId;
+  final Value<String?> ownerUserId;
   final Value<String?> commercialFolio;
   final Value<DateTime> capturedAt;
   final Value<String> capturedBy;
@@ -2041,6 +2200,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
   final Value<int> rowid;
   const LocalLeadsCompanion({
     this.localId = const Value.absent(),
+    this.ownerUserId = const Value.absent(),
     this.commercialFolio = const Value.absent(),
     this.capturedAt = const Value.absent(),
     this.capturedBy = const Value.absent(),
@@ -2067,6 +2227,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
   });
   LocalLeadsCompanion.insert({
     required String localId,
+    this.ownerUserId = const Value.absent(),
     this.commercialFolio = const Value.absent(),
     required DateTime capturedAt,
     required String capturedBy,
@@ -2107,6 +2268,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
        updatedAt = Value(updatedAt);
   static Insertable<StoredLead> custom({
     Expression<String>? localId,
+    Expression<String>? ownerUserId,
     Expression<String>? commercialFolio,
     Expression<DateTime>? capturedAt,
     Expression<String>? capturedBy,
@@ -2133,6 +2295,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
   }) {
     return RawValuesInsertable({
       if (localId != null) 'local_id': localId,
+      if (ownerUserId != null) 'owner_user_id': ownerUserId,
       if (commercialFolio != null) 'commercial_folio': commercialFolio,
       if (capturedAt != null) 'captured_at': capturedAt,
       if (capturedBy != null) 'captured_by': capturedBy,
@@ -2162,6 +2325,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
 
   LocalLeadsCompanion copyWith({
     Value<String>? localId,
+    Value<String?>? ownerUserId,
     Value<String?>? commercialFolio,
     Value<DateTime>? capturedAt,
     Value<String>? capturedBy,
@@ -2188,6 +2352,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
   }) {
     return LocalLeadsCompanion(
       localId: localId ?? this.localId,
+      ownerUserId: ownerUserId ?? this.ownerUserId,
       commercialFolio: commercialFolio ?? this.commercialFolio,
       capturedAt: capturedAt ?? this.capturedAt,
       capturedBy: capturedBy ?? this.capturedBy,
@@ -2219,6 +2384,9 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
     final map = <String, Expression>{};
     if (localId.present) {
       map['local_id'] = Variable<String>(localId.value);
+    }
+    if (ownerUserId.present) {
+      map['owner_user_id'] = Variable<String>(ownerUserId.value);
     }
     if (commercialFolio.present) {
       map['commercial_folio'] = Variable<String>(commercialFolio.value);
@@ -2296,6 +2464,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
   String toString() {
     return (StringBuffer('LocalLeadsCompanion(')
           ..write('localId: $localId, ')
+          ..write('ownerUserId: $ownerUserId, ')
           ..write('commercialFolio: $commercialFolio, ')
           ..write('capturedAt: $capturedAt, ')
           ..write('capturedBy: $capturedBy, ')
@@ -3079,6 +3248,324 @@ class LocalPreferencesCompanion extends UpdateCompanion<StoredPreference> {
   }
 }
 
+class $LocalUserPreferencesTable extends LocalUserPreferences
+    with TableInfo<$LocalUserPreferencesTable, StoredUserPreference> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalUserPreferencesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerUserIdMeta = const VerificationMeta(
+    'ownerUserId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerUserId = GeneratedColumn<String>(
+    'owner_user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueMeta = const VerificationMeta('value');
+  @override
+  late final GeneratedColumn<String> value = GeneratedColumn<String>(
+    'value',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [ownerUserId, key, value, updatedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_user_preferences';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StoredUserPreference> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_user_id')) {
+      context.handle(
+        _ownerUserIdMeta,
+        ownerUserId.isAcceptableOrUnknown(
+          data['owner_user_id']!,
+          _ownerUserIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerUserIdMeta);
+    }
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_keyMeta);
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+        _valueMeta,
+        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {ownerUserId, key};
+  @override
+  StoredUserPreference map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StoredUserPreference(
+      ownerUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_user_id'],
+      )!,
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalUserPreferencesTable createAlias(String alias) {
+    return $LocalUserPreferencesTable(attachedDatabase, alias);
+  }
+}
+
+class StoredUserPreference extends DataClass
+    implements Insertable<StoredUserPreference> {
+  final String ownerUserId;
+  final String key;
+  final String value;
+  final DateTime updatedAt;
+  const StoredUserPreference({
+    required this.ownerUserId,
+    required this.key,
+    required this.value,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_user_id'] = Variable<String>(ownerUserId);
+    map['key'] = Variable<String>(key);
+    map['value'] = Variable<String>(value);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  LocalUserPreferencesCompanion toCompanion(bool nullToAbsent) {
+    return LocalUserPreferencesCompanion(
+      ownerUserId: Value(ownerUserId),
+      key: Value(key),
+      value: Value(value),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory StoredUserPreference.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StoredUserPreference(
+      ownerUserId: serializer.fromJson<String>(json['ownerUserId']),
+      key: serializer.fromJson<String>(json['key']),
+      value: serializer.fromJson<String>(json['value']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerUserId': serializer.toJson<String>(ownerUserId),
+      'key': serializer.toJson<String>(key),
+      'value': serializer.toJson<String>(value),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  StoredUserPreference copyWith({
+    String? ownerUserId,
+    String? key,
+    String? value,
+    DateTime? updatedAt,
+  }) => StoredUserPreference(
+    ownerUserId: ownerUserId ?? this.ownerUserId,
+    key: key ?? this.key,
+    value: value ?? this.value,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  StoredUserPreference copyWithCompanion(LocalUserPreferencesCompanion data) {
+    return StoredUserPreference(
+      ownerUserId: data.ownerUserId.present
+          ? data.ownerUserId.value
+          : this.ownerUserId,
+      key: data.key.present ? data.key.value : this.key,
+      value: data.value.present ? data.value.value : this.value,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredUserPreference(')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('key: $key, ')
+          ..write('value: $value, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(ownerUserId, key, value, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StoredUserPreference &&
+          other.ownerUserId == this.ownerUserId &&
+          other.key == this.key &&
+          other.value == this.value &&
+          other.updatedAt == this.updatedAt);
+}
+
+class LocalUserPreferencesCompanion
+    extends UpdateCompanion<StoredUserPreference> {
+  final Value<String> ownerUserId;
+  final Value<String> key;
+  final Value<String> value;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const LocalUserPreferencesCompanion({
+    this.ownerUserId = const Value.absent(),
+    this.key = const Value.absent(),
+    this.value = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalUserPreferencesCompanion.insert({
+    required String ownerUserId,
+    required String key,
+    required String value,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : ownerUserId = Value(ownerUserId),
+       key = Value(key),
+       value = Value(value),
+       updatedAt = Value(updatedAt);
+  static Insertable<StoredUserPreference> custom({
+    Expression<String>? ownerUserId,
+    Expression<String>? key,
+    Expression<String>? value,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerUserId != null) 'owner_user_id': ownerUserId,
+      if (key != null) 'key': key,
+      if (value != null) 'value': value,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalUserPreferencesCompanion copyWith({
+    Value<String>? ownerUserId,
+    Value<String>? key,
+    Value<String>? value,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return LocalUserPreferencesCompanion(
+      ownerUserId: ownerUserId ?? this.ownerUserId,
+      key: key ?? this.key,
+      value: value ?? this.value,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerUserId.present) {
+      map['owner_user_id'] = Variable<String>(ownerUserId.value);
+    }
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<String>(value.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalUserPreferencesCompanion(')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('key: $key, ')
+          ..write('value: $value, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3089,6 +3576,16 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $LocalPreferencesTable localPreferences = $LocalPreferencesTable(
     this,
   );
+  late final $LocalUserPreferencesTable localUserPreferences =
+      $LocalUserPreferencesTable(this);
+  late final Index profileOwnerIdx = Index(
+    'profile_owner_idx',
+    'CREATE UNIQUE INDEX profile_owner_idx ON local_profiles (owner_user_id)',
+  );
+  late final Index eventOwnerIdx = Index(
+    'event_owner_idx',
+    'CREATE INDEX event_owner_idx ON local_events (owner_user_id)',
+  );
   late final Index leadEventIdx = Index(
     'lead_event_idx',
     'CREATE INDEX lead_event_idx ON local_leads (event_local_id)',
@@ -3096,6 +3593,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final Index leadCapturedIdx = Index(
     'lead_captured_idx',
     'CREATE INDEX lead_captured_idx ON local_leads (captured_at)',
+  );
+  late final Index leadOwnerIdx = Index(
+    'lead_owner_idx',
+    'CREATE INDEX lead_owner_idx ON local_leads (owner_user_id)',
   );
   late final Index mediaLeadIdx = Index(
     'media_lead_idx',
@@ -3115,8 +3616,12 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localLeads,
     localLeadMedia,
     localPreferences,
+    localUserPreferences,
+    profileOwnerIdx,
+    eventOwnerIdx,
     leadEventIdx,
     leadCapturedIdx,
+    leadOwnerIdx,
     mediaLeadIdx,
   ];
   @override
@@ -3141,6 +3646,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
 typedef $$LocalProfilesTableCreateCompanionBuilder =
     LocalProfilesCompanion Function({
       required String localId,
+      Value<String?> ownerUserId,
       required String name,
       required String company,
       required DateTime createdAt,
@@ -3150,6 +3656,7 @@ typedef $$LocalProfilesTableCreateCompanionBuilder =
 typedef $$LocalProfilesTableUpdateCompanionBuilder =
     LocalProfilesCompanion Function({
       Value<String> localId,
+      Value<String?> ownerUserId,
       Value<String> name,
       Value<String> company,
       Value<DateTime> createdAt,
@@ -3168,6 +3675,11 @@ class $$LocalProfilesTableFilterComposer
   });
   ColumnFilters<String> get localId => $composableBuilder(
     column: $table.localId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3206,6 +3718,11 @@ class $$LocalProfilesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get name => $composableBuilder(
     column: $table.name,
     builder: (column) => ColumnOrderings(column),
@@ -3238,6 +3755,11 @@ class $$LocalProfilesTableAnnotationComposer
   });
   GeneratedColumn<String> get localId =>
       $composableBuilder(column: $table.localId, builder: (column) => column);
+
+  GeneratedColumn<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
@@ -3284,6 +3806,7 @@ class $$LocalProfilesTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> localId = const Value.absent(),
+                Value<String?> ownerUserId = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String> company = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -3291,6 +3814,7 @@ class $$LocalProfilesTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => LocalProfilesCompanion(
                 localId: localId,
+                ownerUserId: ownerUserId,
                 name: name,
                 company: company,
                 createdAt: createdAt,
@@ -3300,6 +3824,7 @@ class $$LocalProfilesTableTableManager
           createCompanionCallback:
               ({
                 required String localId,
+                Value<String?> ownerUserId = const Value.absent(),
                 required String name,
                 required String company,
                 required DateTime createdAt,
@@ -3307,6 +3832,7 @@ class $$LocalProfilesTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => LocalProfilesCompanion.insert(
                 localId: localId,
+                ownerUserId: ownerUserId,
                 name: name,
                 company: company,
                 createdAt: createdAt,
@@ -3341,6 +3867,7 @@ typedef $$LocalProfilesTableProcessedTableManager =
 typedef $$LocalEventsTableCreateCompanionBuilder =
     LocalEventsCompanion Function({
       required String localId,
+      Value<String?> ownerUserId,
       Value<String?> commercialCode,
       required String name,
       required DateTime startsOn,
@@ -3355,6 +3882,7 @@ typedef $$LocalEventsTableCreateCompanionBuilder =
 typedef $$LocalEventsTableUpdateCompanionBuilder =
     LocalEventsCompanion Function({
       Value<String> localId,
+      Value<String?> ownerUserId,
       Value<String?> commercialCode,
       Value<String> name,
       Value<DateTime> startsOn,
@@ -3401,6 +3929,11 @@ class $$LocalEventsTableFilterComposer
   });
   ColumnFilters<String> get localId => $composableBuilder(
     column: $table.localId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3489,6 +4022,11 @@ class $$LocalEventsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get commercialCode => $composableBuilder(
     column: $table.commercialCode,
     builder: (column) => ColumnOrderings(column),
@@ -3546,6 +4084,11 @@ class $$LocalEventsTableAnnotationComposer
   });
   GeneratedColumn<String> get localId =>
       $composableBuilder(column: $table.localId, builder: (column) => column);
+
+  GeneratedColumn<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get commercialCode => $composableBuilder(
     column: $table.commercialCode,
@@ -3633,6 +4176,7 @@ class $$LocalEventsTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> localId = const Value.absent(),
+                Value<String?> ownerUserId = const Value.absent(),
                 Value<String?> commercialCode = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<DateTime> startsOn = const Value.absent(),
@@ -3645,6 +4189,7 @@ class $$LocalEventsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => LocalEventsCompanion(
                 localId: localId,
+                ownerUserId: ownerUserId,
                 commercialCode: commercialCode,
                 name: name,
                 startsOn: startsOn,
@@ -3659,6 +4204,7 @@ class $$LocalEventsTableTableManager
           createCompanionCallback:
               ({
                 required String localId,
+                Value<String?> ownerUserId = const Value.absent(),
                 Value<String?> commercialCode = const Value.absent(),
                 required String name,
                 required DateTime startsOn,
@@ -3671,6 +4217,7 @@ class $$LocalEventsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => LocalEventsCompanion.insert(
                 localId: localId,
+                ownerUserId: ownerUserId,
                 commercialCode: commercialCode,
                 name: name,
                 startsOn: startsOn,
@@ -3742,6 +4289,7 @@ typedef $$LocalEventsTableProcessedTableManager =
     >;
 typedef $$LocalLeadsTableCreateCompanionBuilder = LocalLeadsCompanion Function({
   required String localId,
+  Value<String?> ownerUserId,
   Value<String?> commercialFolio,
   required DateTime capturedAt,
   required String capturedBy,
@@ -3768,6 +4316,7 @@ typedef $$LocalLeadsTableCreateCompanionBuilder = LocalLeadsCompanion Function({
 });
 typedef $$LocalLeadsTableUpdateCompanionBuilder = LocalLeadsCompanion Function({
   Value<String> localId,
+  Value<String?> ownerUserId,
   Value<String?> commercialFolio,
   Value<DateTime> capturedAt,
   Value<String> capturedBy,
@@ -3847,6 +4396,11 @@ class $$LocalLeadsTableFilterComposer
   });
   ColumnFilters<String> get localId => $composableBuilder(
     column: $table.localId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4018,6 +4572,11 @@ class $$LocalLeadsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get commercialFolio => $composableBuilder(
     column: $table.commercialFolio,
     builder: (column) => ColumnOrderings(column),
@@ -4158,6 +4717,11 @@ class $$LocalLeadsTableAnnotationComposer
   });
   GeneratedColumn<String> get localId =>
       $composableBuilder(column: $table.localId, builder: (column) => column);
+
+  GeneratedColumn<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get commercialFolio => $composableBuilder(
     column: $table.commercialFolio,
@@ -4318,6 +4882,7 @@ class $$LocalLeadsTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> localId = const Value.absent(),
+                Value<String?> ownerUserId = const Value.absent(),
                 Value<String?> commercialFolio = const Value.absent(),
                 Value<DateTime> capturedAt = const Value.absent(),
                 Value<String> capturedBy = const Value.absent(),
@@ -4343,6 +4908,7 @@ class $$LocalLeadsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => LocalLeadsCompanion(
                 localId: localId,
+                ownerUserId: ownerUserId,
                 commercialFolio: commercialFolio,
                 capturedAt: capturedAt,
                 capturedBy: capturedBy,
@@ -4370,6 +4936,7 @@ class $$LocalLeadsTableTableManager
           createCompanionCallback:
               ({
                 required String localId,
+                Value<String?> ownerUserId = const Value.absent(),
                 Value<String?> commercialFolio = const Value.absent(),
                 required DateTime capturedAt,
                 required String capturedBy,
@@ -4395,6 +4962,7 @@ class $$LocalLeadsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => LocalLeadsCompanion.insert(
                 localId: localId,
+                ownerUserId: ownerUserId,
                 commercialFolio: commercialFolio,
                 capturedAt: capturedAt,
                 capturedBy: capturedBy,
@@ -5041,6 +5609,205 @@ typedef $$LocalPreferencesTableProcessedTableManager =
       StoredPreference,
       PrefetchHooks Function()
     >;
+typedef $$LocalUserPreferencesTableCreateCompanionBuilder =
+    LocalUserPreferencesCompanion Function({
+      required String ownerUserId,
+      required String key,
+      required String value,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$LocalUserPreferencesTableUpdateCompanionBuilder =
+    LocalUserPreferencesCompanion Function({
+      Value<String> ownerUserId,
+      Value<String> key,
+      Value<String> value,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$LocalUserPreferencesTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalUserPreferencesTable> {
+  $$LocalUserPreferencesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalUserPreferencesTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalUserPreferencesTable> {
+  $$LocalUserPreferencesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalUserPreferencesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalUserPreferencesTable> {
+  $$LocalUserPreferencesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<String> get value =>
+      $composableBuilder(column: $table.value, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$LocalUserPreferencesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalUserPreferencesTable,
+          StoredUserPreference,
+          $$LocalUserPreferencesTableFilterComposer,
+          $$LocalUserPreferencesTableOrderingComposer,
+          $$LocalUserPreferencesTableAnnotationComposer,
+          $$LocalUserPreferencesTableCreateCompanionBuilder,
+          $$LocalUserPreferencesTableUpdateCompanionBuilder,
+          (
+            StoredUserPreference,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalUserPreferencesTable,
+              StoredUserPreference
+            >,
+          ),
+          StoredUserPreference,
+          PrefetchHooks Function()
+        > {
+  $$LocalUserPreferencesTableTableManager(
+    _$AppDatabase db,
+    $LocalUserPreferencesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalUserPreferencesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalUserPreferencesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$LocalUserPreferencesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerUserId = const Value.absent(),
+                Value<String> key = const Value.absent(),
+                Value<String> value = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalUserPreferencesCompanion(
+                ownerUserId: ownerUserId,
+                key: key,
+                value: value,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerUserId,
+                required String key,
+                required String value,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => LocalUserPreferencesCompanion.insert(
+                ownerUserId: ownerUserId,
+                key: key,
+                value: value,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalUserPreferencesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalUserPreferencesTable,
+      StoredUserPreference,
+      $$LocalUserPreferencesTableFilterComposer,
+      $$LocalUserPreferencesTableOrderingComposer,
+      $$LocalUserPreferencesTableAnnotationComposer,
+      $$LocalUserPreferencesTableCreateCompanionBuilder,
+      $$LocalUserPreferencesTableUpdateCompanionBuilder,
+      (
+        StoredUserPreference,
+        BaseReferences<
+          _$AppDatabase,
+          $LocalUserPreferencesTable,
+          StoredUserPreference
+        >,
+      ),
+      StoredUserPreference,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5055,4 +5822,6 @@ class $AppDatabaseManager {
       $$LocalLeadMediaTableTableManager(_db, _db.localLeadMedia);
   $$LocalPreferencesTableTableManager get localPreferences =>
       $$LocalPreferencesTableTableManager(_db, _db.localPreferences);
+  $$LocalUserPreferencesTableTableManager get localUserPreferences =>
+      $$LocalUserPreferencesTableTableManager(_db, _db.localUserPreferences);
 }

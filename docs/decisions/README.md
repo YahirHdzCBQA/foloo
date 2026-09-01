@@ -39,3 +39,6 @@ an ADR is reviewed and accepted.
 - [`ADR-001-persistencia-local-drift-sqlite.md`](ADR-001-persistencia-local-drift-sqlite.md)
   — Drift/SQLite for structured local data and private filesystem storage for
   binary media (FL-012).
+- [`ADR-002-autenticacion-aws-cognito.md`](ADR-002-autenticacion-aws-cognito.md)
+  — Cognito as the production provider behind AuthService; FL-013A uses only
+  the replaceable development adapter until AWS DEV exists.

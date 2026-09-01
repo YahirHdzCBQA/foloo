@@ -7,6 +7,7 @@
   "loginEnter": "Sign in",
   "loginUserRequired": "Enter your username",
   "loginPasswordRequired": "Enter your password",
+  "authenticationFailed": "Sign-in failed. Check your details and try again.",
   "loginShowPassword": "Show password",
   "loginHidePassword": "Hide password",
   "demoPlan": "DEMO PLAN",

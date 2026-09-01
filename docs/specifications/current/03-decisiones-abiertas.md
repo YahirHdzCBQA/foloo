@@ -159,13 +159,15 @@ Ojo: `tipo` pasó de dos valores (v1.0) a tres en Basic. Si el CRM tiene su prop
 
 ### `D-09` · Alta de usuarios
 
-Hay login pero no hay pantalla de registro ni de recuperación de contraseña en los mockups.
+**Resuelta para V1 por FL-013A.** Hay login pero no hay pantalla de registro ni
+de recuperación de contraseña en los mockups.
 
-**Asumido para Basic:** las cuentas se crean a mano del lado del servidor y se entregan al equipo comercial. Recuperación de contraseña por fuera de la app.
+Las cuentas se crean por administrador/empresa y se entregan al equipo
+comercial. Quedan fuera de V1: crear cuenta, recuperación de contraseña, MFA y
+login social. AWS Cognito será el proveedor real según ADR-002; su integración
+se ejecutará en FL-013B cuando exista AWS DEV.
 
-**Confirmar:** si eso alcanza para el primer evento o hace falta al menos un "olvidé mi contraseña".
-
-**Decide:** Desarrollador + Dirección.
+**Decidió:** Dirección / solicitud FL-013A, 2026-08-31.
 
 ---
 

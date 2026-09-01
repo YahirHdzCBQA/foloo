@@ -7,6 +7,7 @@
   "loginEnter": "Entrar",
   "loginUserRequired": "Escribe tu usuario",
   "loginPasswordRequired": "Escribe tu contraseña",
+  "authenticationFailed": "No se pudo iniciar sesión. Revisa tus datos e intenta otra vez.",
   "loginShowPassword": "Mostrar contraseña",
   "loginHidePassword": "Ocultar contraseña",
   "demoPlan": "PLAN DEMO",
