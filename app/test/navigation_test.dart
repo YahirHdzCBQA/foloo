@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/app.dart';
+import 'package:foloo/widgets/event_date_field.dart';
 
 void usePhoneViewport(WidgetTester tester) {
   tester.view.physicalSize = const Size(390, 844);
@@ -138,6 +139,13 @@ void main() {
     expect(find.byKey(const Key('captureEventDropdown')), findsOneWidget);
     await tester.tap(find.byKey(const Key('captureCreateEventButton')));
     await tester.pumpAndSettle();
+    final now = DateTime.now();
+    expect(
+      tester
+          .widget<EventDateField>(find.byKey(const Key('newEventStartDate')))
+          .date,
+      DateTime(now.year, now.month, now.day),
+    );
     expect(find.text('Crear evento'), findsOneWidget);
     await tester.tap(find.text('Cancelar'));
     await tester.pumpAndSettle();

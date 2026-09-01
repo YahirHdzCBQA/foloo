@@ -137,21 +137,27 @@ class EventRepository {
   }
 
   Future<void> delete(String userId, AppEvent event) async {
+    await _database.eventDao.softDelete(
+      userId,
+      event.id,
+      DateTime.now().toUtc(),
+    );
+  }
+
+  Future<void> activate(String userId, String eventId) async {
     await _database.transaction(() async {
-      final now = DateTime.now().toUtc();
-      await _database.eventDao.softDelete(userId, event.id, now);
-      final remaining = await _database.eventDao.listActive(userId);
-      if (event.active &&
-          remaining.isNotEmpty &&
-          !remaining.any((item) => item.active)) {
-        await _database.eventDao.setActive(
-          userId,
-          remaining.first.localId,
-          now,
-        );
+      final event = await _database.eventDao.byId(userId, eventId);
+      if (event == null || event.deleted) {
+        throw StateError('Cannot activate an unavailable event.');
       }
+      final now = DateTime.now().toUtc();
+      await _database.eventDao.deactivateAll(userId);
+      await _database.eventDao.setActive(userId, eventId, now);
     });
   }
+
+  Future<void> clearActive(String userId) =>
+      _database.eventDao.deactivateAll(userId);
 }
 
 /// Commits validated drafts and durable media metadata as one local unit.
@@ -174,6 +180,7 @@ class LeadRepository {
     final localId = _idFactory();
     String? cardPath;
     String? audioPath;
+    final referencePaths = <String>[];
     var mediaIncomplete = false;
     try {
       try {
@@ -197,6 +204,25 @@ class LeadRepository {
         mediaIncomplete = true;
       } on MediaPersistenceException {
         mediaIncomplete = true;
+      }
+      for (
+        var index = 0;
+        index < draft.referenceImageLocalPaths.length;
+        index++
+      ) {
+        try {
+          final path = await _mediaStorage.persist(
+            sourcePath: draft.referenceImageLocalPaths[index],
+            leadLocalId: localId,
+            type: LocalMediaType.referenceImage,
+            slot: index.toString(),
+          );
+          if (path != null) referencePaths.add(path);
+        } on FileSystemException {
+          mediaIncomplete = true;
+        } on MediaPersistenceException {
+          mediaIncomplete = true;
+        }
       }
       final now = DateTime.now().toUtc();
       await _database.transaction(() async {
@@ -246,6 +272,15 @@ class LeadRepository {
             now: now,
           );
         }
+        for (var index = 0; index < referencePaths.length; index++) {
+          await _insertMedia(
+            id: '$localId-reference-$index',
+            leadId: localId,
+            type: LocalMediaType.referenceImage,
+            path: referencePaths[index],
+            now: now.add(Duration(microseconds: index)),
+          );
+        }
       });
       return SessionLead(
         localId: localId,
@@ -256,6 +291,7 @@ class LeadRepository {
           audioLocalPath: audioPath,
           clearCardImage: cardPath == null,
           clearAudio: audioPath == null,
+          referenceImageLocalPaths: referencePaths,
         ),
         uploadState: SessionUploadState.local,
         mediaIncomplete: mediaIncomplete,
@@ -263,6 +299,9 @@ class LeadRepository {
     } catch (_) {
       await _mediaStorage.deleteIfManaged(cardPath);
       await _mediaStorage.deleteIfManaged(audioPath);
+      for (final path in referencePaths) {
+        await _mediaStorage.deleteIfManaged(path);
+      }
       rethrow;
     }
   }
@@ -361,9 +400,13 @@ class LeadRepository {
   SessionLead _fromStored(StoredLeadBundle bundle) {
     StoredLeadMedia? card;
     StoredLeadMedia? voice;
+    final references = <StoredLeadMedia>[];
     for (final media in bundle.media) {
       if (media.mediaType == LocalMediaType.cardImage.name) card = media;
       if (media.mediaType == LocalMediaType.voiceNote.name) voice = media;
+      if (media.mediaType == LocalMediaType.referenceImage.name) {
+        references.add(media);
+      }
     }
     final stored = bundle.lead;
     return SessionLead(
@@ -400,6 +443,9 @@ class LeadRepository {
           (jsonDecode(stored.contentNamesJson) as List<dynamic>).cast<String>(),
         ),
         transcription: stored.transcription,
+        referenceImageLocalPaths: references
+            .map((media) => media.localPath)
+            .toList(),
       ),
     );
   }

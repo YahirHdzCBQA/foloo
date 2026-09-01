@@ -276,7 +276,7 @@ Escenario: Exportar sin conexión incluye pendientes
 
 ---
 
-## E-10 · Eventos — `EVT-01` … `EVT-11`
+## E-10 · Eventos — `EVT-01` … `EVT-12`
 
 ```gherkin
 Escenario: Crear evento y capturar en él
@@ -308,6 +308,21 @@ Escenario: Un solo evento activo
   Dado 5 eventos existentes
   Cuando el vendedor activa uno distinto
   Entonces exactamente uno queda marcado como "Activo"
+
+Escenario: Selección automática usa la fecha local real
+  Dado que no hubo una selección manual válida durante la interacción
+  Y existen eventos futuros con fechas distintas
+  Cuando la fecha local del dispositivo cambia de día
+  Entonces queda activo el evento vigente que incluye hoy o, si no existe,
+    el futuro cuya fecha de inicio está más próxima a hoy
+  Y el cálculo no usa una fecha fija del código
+
+Escenario: La selección manual tiene prioridad
+  Dado que el vendedor eligió manualmente un evento válido
+  Cuando cambia el día o existe otro evento futuro más cercano
+  Entonces la selección manual se conserva
+  Cuando crea un evento nuevo
+  Entonces el evento recién creado queda activo y cuenta como selección manual
 ```
 
 ---

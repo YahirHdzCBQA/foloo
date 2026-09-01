@@ -101,6 +101,30 @@ Escenario: Los adjuntos quedan congelados
   Entonces sigue mostrando los 2 archivos que efectivamente recibió
 ```
 
+## EP-03A · Imágenes adicionales del contacto — `CAP-22`, `REG-13`
+
+```gherkin
+Escenario: Agregar, quitar y limitar imágenes antes de guardar
+  Dado que el vendedor usa una cuenta Pro en el paso 04
+  Entonces ve "Imágenes de referencia (opcional)" con contador "0 de 3"
+  Cuando agrega tres imágenes desde cámara o galería
+  Entonces ve las tres previsualizaciones y ya no puede agregar una cuarta
+  Cuando quita una antes de guardar
+  Entonces el contador dice "2 de 3" y vuelve a estar disponible Agregar
+
+Escenario: Persistencia y consulta posterior
+  Dado que un lead Pro se guardó con dos imágenes adicionales
+  Cuando se cierra y abre de nuevo la base local
+  Y se consulta el lead desde Registros
+  Entonces el detalle muestra las dos imágenes
+  Y tocar una abre su vista completa
+
+Escenario: Basic no expone imágenes adicionales
+  Dado el mismo binario con una cuenta Basic
+  Cuando recorre toda la captura y el detalle
+  Entonces no existe el bloque de imágenes adicionales
+```
+
 ---
 
 ## EP-04 · Plantillas de correo — `PLT-01` … `PLT-10`

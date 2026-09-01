@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/app.dart';
+import 'package:foloo/services/contact_image_picker_service.dart';
 import 'package:foloo/theme/foloo_theme.dart';
 import 'package:foloo/services/pdf_picker_service.dart';
+import 'package:image/image.dart' as image;
+import 'package:image_picker/image_picker.dart';
 
 class _FakePdfPicker implements PdfPickerService {
   const _FakePdfPicker();
@@ -13,6 +16,19 @@ class _FakePdfPicker implements PdfPickerService {
     byteSize: 3250586,
     localPath: '/tmp/catalogo-empaque-2026.pdf',
   );
+}
+
+class _FakeContactImagePicker implements ContactImagePickerService {
+  var calls = 0;
+
+  @override
+  Future<PickedContactImage?> pick(ImageSource source) async {
+    calls++;
+    return PickedContactImage(
+      path: '/tmp/reference-$calls.png',
+      bytes: image.encodePng(image.Image(width: 2, height: 2)),
+    );
+  }
 }
 
 void phone(WidgetTester tester) {
@@ -27,8 +43,14 @@ Future<void> login(
   required bool pro,
   bool direct = false,
   PdfPickerService? pdfPickerService,
+  ContactImagePickerService? contactImagePickerService,
 }) async {
-  await tester.pumpWidget(FolooApp(pdfPickerService: pdfPickerService));
+  await tester.pumpWidget(
+    FolooApp(
+      pdfPickerService: pdfPickerService,
+      contactImagePickerService: contactImagePickerService,
+    ),
+  );
   await tester.pumpAndSettle();
   if (pro) {
     await tester.tap(find.byKey(const Key('planPro')));
@@ -115,7 +137,42 @@ void main() {
     await drawer(tester);
     expect(find.byKey(const Key('drawerContent')), findsNothing);
     expect(find.byKey(const Key('drawerEmail')), findsNothing);
+    expect(find.byKey(const Key('addReferenceImageButton')), findsNothing);
     expect(find.textContaining('BASIC ·'), findsOneWidget);
+  });
+
+  testWidgets('CAP-22 Pro adds, limits and removes three reference images', (
+    tester,
+  ) async {
+    phone(tester);
+    final picker = _FakeContactImagePicker();
+    await login(tester, pro: true, contactImagePickerService: picker);
+    final add = find.byKey(const Key('addReferenceImageButton'));
+    await tester.scrollUntilVisible(
+      add,
+      320,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('0 de 3'), findsOneWidget);
+
+    for (var index = 0; index < 3; index++) {
+      await tester.tap(add);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('referenceImageGalleryOption')));
+      await tester.pumpAndSettle();
+    }
+
+    expect(picker.calls, 3);
+    expect(find.byKey(const Key('referenceImage-0')), findsOneWidget);
+    expect(find.byKey(const Key('referenceImage-1')), findsOneWidget);
+    expect(find.byKey(const Key('referenceImage-2')), findsOneWidget);
+    expect(find.byKey(const Key('addReferenceImageButton')), findsNothing);
+    expect(find.text('3 de 3'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Quitar imagen de referencia').first);
+    await tester.pump();
+    expect(find.text('2 de 3'), findsOneWidget);
+    expect(find.byKey(const Key('addReferenceImageButton')), findsOneWidget);
   });
 
   testWidgets('Pro exposes content library and email editor', (tester) async {

@@ -37,7 +37,8 @@ class LeadDraft {
     this.contentFileIds = const <String>[],
     this.contentNames = const <String>[],
     this.transcription,
-  });
+    this.referenceImageLocalPaths = const <String>[],
+  }) : assert(referenceImageLocalPaths.length <= 3);
 
   final String name;
   final String lastName;
@@ -58,6 +59,7 @@ class LeadDraft {
   final List<String> contentFileIds;
   final List<String> contentNames;
   final String? transcription;
+  final List<String> referenceImageLocalPaths;
 
   String get fullName => '$name $lastName'.trim();
   bool get hasVoiceNote => audioLocalPath?.isNotEmpty ?? false;
@@ -69,6 +71,7 @@ class LeadDraft {
     String? audioLocalPath,
     bool clearCardImage = false,
     bool clearAudio = false,
+    List<String>? referenceImageLocalPaths,
   }) => LeadDraft(
     name: name,
     lastName: lastName,
@@ -91,5 +94,7 @@ class LeadDraft {
     contentFileIds: contentFileIds,
     contentNames: contentNames,
     transcription: transcription,
+    referenceImageLocalPaths:
+        referenceImageLocalPaths ?? this.referenceImageLocalPaths,
   );
 }

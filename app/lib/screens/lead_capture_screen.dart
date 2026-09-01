@@ -20,6 +20,7 @@ import '../models/lead_draft.dart';
 import '../models/session_lead.dart';
 import '../models/voice_note_state.dart';
 import '../services/card_text_recognition_service.dart';
+import '../services/contact_image_picker_service.dart';
 import '../services/voice_note_service.dart';
 import '../services/pdf_picker_service.dart';
 import '../theme/foloo_theme.dart';
@@ -61,6 +62,7 @@ class LeadCaptureScreen extends StatefulWidget {
     this.initialPlace,
     this.voiceNoteService,
     this.isOnline = false,
+    this.contactImagePickerService,
     super.key,
   });
 
@@ -82,6 +84,7 @@ class LeadCaptureScreen extends StatefulWidget {
   final DemoProfile profile;
   final VoiceNoteService? voiceNoteService;
   final bool isOnline;
+  final ContactImagePickerService? contactImagePickerService;
   final AppPlan plan;
   final List<ContentFile> contentFiles;
 
@@ -113,6 +116,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   final _placeFocus = FocusNode();
   final _relationshipContentKey = GlobalKey();
   late final VoiceNoteService _voiceNoteService;
+  late final ContactImagePickerService _contactImagePicker;
   late final StreamSubscription<void> _playbackCompletedSubscription;
 
   // Derived media and manual-edit guards for OCR-05.
@@ -136,12 +140,15 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   bool _voiceNoteTransferred = false;
   late Set<String> _selectedContentIds;
   Timer? _recordingTimer;
+  final List<PickedContactImage> _referenceImages = [];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _voiceNoteService = widget.voiceNoteService ?? DeviceVoiceNoteService();
+    _contactImagePicker =
+        widget.contactImagePickerService ?? DeviceContactImagePickerService();
     _place.text = widget.initialPlace ?? '';
     _selectedContentIds = _defaultContentIds();
     _playbackCompletedSubscription = _voiceNoteService.playbackCompleted.listen(
@@ -287,6 +294,55 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       _imageMessage = null;
       _ocrFailed = false;
     });
+  }
+
+  Future<void> _showReferenceImageSource() async {
+    if (_referenceImages.length >= 3) return;
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                context.l10n.referenceImagePickerTitle,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                key: const Key('referenceImageCameraOption'),
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: Text(context.l10n.takePhoto),
+                onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
+              ),
+              ListTile(
+                key: const Key('referenceImageGalleryOption'),
+                leading: const Icon(Icons.photo_outlined),
+                title: Text(context.l10n.chooseGallery),
+                onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+    try {
+      final image = await _contactImagePicker.pick(source);
+      if (image == null || !mounted || _referenceImages.length >= 3) return;
+      setState(() => _referenceImages.add(image));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.imageOpenError)));
+    }
   }
 
   void _clearLeadFields() {
@@ -705,6 +761,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       transcription: widget.plan.isPro && _voiceNote.hasRecording
           ? DemoProData.transcript
           : null,
+      referenceImageLocalPaths: widget.plan.isPro
+          ? _referenceImages.map((image) => image.path).toList()
+          : const <String>[],
     );
     late final SessionLead record;
     try {
@@ -776,6 +835,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       _voiceNoteMessage = null;
       _voiceActionInProgress = false;
       _voiceNoteTransferred = false;
+      _referenceImages.clear();
     });
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
   }
@@ -1641,6 +1701,75 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             ),
             // TODO(BACKEND/AUDIO): Connect recording/transcription when the audio feature is implemented.
           ],
+          if (widget.plan.isPro) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    context.l10n.referenceImagesOptional,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Text(
+                  context.l10n.selectedOfTotal(_referenceImages.length, 3),
+                  style: TextStyle(
+                    color: FolooPalette.of(context).inkSecondary,
+                    fontSize: 10.5,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (
+                  var index = 0;
+                  index < _referenceImages.length;
+                  index++
+                ) ...[
+                  Expanded(
+                    child: _ReferenceImageTile(
+                      key: Key('referenceImage-$index'),
+                      bytes: Uint8List.fromList(_referenceImages[index].bytes),
+                      removeTooltip: context.l10n.removeReferenceImage,
+                      onRemove: () =>
+                          setState(() => _referenceImages.removeAt(index)),
+                    ),
+                  ),
+                  if (index < _referenceImages.length - 1 ||
+                      _referenceImages.length < 3)
+                    const SizedBox(width: 8),
+                ],
+                if (_referenceImages.length < 3)
+                  Expanded(
+                    child: _AddReferenceImageTile(
+                      key: const Key('addReferenceImageButton'),
+                      label: context.l10n.addReferenceImage,
+                      onTap: _showReferenceImageSource,
+                    ),
+                  ),
+                for (
+                  var index = _referenceImages.length + 1;
+                  index < 3;
+                  index++
+                )
+                  const Expanded(child: SizedBox.shrink()),
+              ],
+            ),
+            const SizedBox(height: 7),
+            Text(
+              context.l10n.referenceImagesHelp,
+              style: TextStyle(
+                color: FolooPalette.of(context).inkSecondary,
+                fontSize: 10.5,
+              ),
+            ),
+          ],
           if (_voiceNote.isRecording) ...[
             Align(
               alignment: Alignment.centerLeft,
@@ -1802,6 +1931,92 @@ class _AudioActionButton extends StatelessWidget {
                 ? FolooPalette.of(context).inkMuted
                 : FolooPalette.of(context).ink,
           ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _ReferenceImageTile extends StatelessWidget {
+  const _ReferenceImageTile({
+    required this.bytes,
+    required this.removeTooltip,
+    required this.onRemove,
+    super.key,
+  });
+
+  final Uint8List bytes;
+  final String removeTooltip;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    children: [
+      AspectRatio(
+        aspectRatio: 1,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(FolooRadii.sm),
+          child: Image.memory(bytes, fit: BoxFit.cover),
+        ),
+      ),
+      Positioned(
+        right: 2,
+        top: 2,
+        child: IconButton(
+          tooltip: removeTooltip,
+          onPressed: onRemove,
+          style: IconButton.styleFrom(
+            minimumSize: const Size(44, 44),
+            backgroundColor: FolooColors.ink.withValues(alpha: .88),
+            foregroundColor: FolooColors.white,
+          ),
+          icon: const Icon(Icons.close, size: 16),
+        ),
+      ),
+    ],
+  );
+}
+
+class _AddReferenceImageTile extends StatelessWidget {
+  const _AddReferenceImageTile({
+    required this.label,
+    required this.onTap,
+    super.key,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => AspectRatio(
+    aspectRatio: 1,
+    child: Material(
+      color: FolooPalette.of(context).paper,
+      borderRadius: BorderRadius.circular(FolooRadii.sm),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(FolooRadii.sm),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.photo_camera_outlined, size: 18),
+                SizedBox(width: 5),
+                Icon(Icons.photo_outlined, size: 18),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     ),

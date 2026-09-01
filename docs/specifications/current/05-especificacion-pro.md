@@ -68,6 +68,7 @@ La frase que se dice cien veces en una expo es *"ahorita te mando la informació
 | `estadoTranscripcion` | **nuevo** · `pendiente` \| `lista` \| `noDisponible` | El lead se guarda antes de que exista transcripción |
 | `estadoCorreoLead` | **nuevo** · `enviado` \| `enCola` \| `fallido` | No existe en Basic |
 | `estadoCorreoMarketing` | **nuevo** · `enviado` \| `enCola` \| `fallido` | No existe en Basic |
+| `imagenesReferencia` | **nuevo** · lista de 0 a 3 referencias de media local | Imágenes opcionales del contacto; distintas de la foto de tarjeta y del contenido PDF |
 
 **Orden de columnas en la hoja.** Los cinco campos nuevos se **agregan al final** del orden definido en `01-especificacion.md` §3.2. Nunca se intercalan. Así, activar Pro sobre una cuenta que venía usando Basic no obliga a migrar ni una fila ya escrita (`SAL-12`).
 
@@ -99,7 +100,7 @@ La frase que se dice cien veces en una expo es *"ahorita te mando la informació
 |---|---|---|
 | `P-05` | Lead directo | Gana el campo **Lugar**, obligatorio, con la ayuda "Dónde surgió la conversación. Sustituye {lugar} en el correo; se guarda en tu base general de leads." |
 | `P-06` | Crear evento | Gana el bloque "Contenido para este evento" con contador ("2 de 3") y lista de archivos con scroll propio. En el primer uso (`P-03`) el bloque es opcional y dice: "Puedes subirlo ahora o más tarde desde el menú. Sin contenido el correo de seguimiento sale igual, solo sin adjuntos." |
-| `P-09` | Captura pasos 03–04 | El paso 03 gana **Contenido a compartir**. El paso 04 gana el bloque **Transcripción** y la etiqueta "Nota de voz (opcional)". |
+| `P-09` | Captura pasos 03–04 | El paso 03 gana **Contenido a compartir**. El paso 04 gana el bloque **Transcripción**, la etiqueta "Nota de voz (opcional)" y **Imágenes de referencia (opcional)** con un máximo de tres. |
 | `P-10` | Acuse | Pasa de 3 a **4 confirmaciones**, con subtítulo de detalle en cada una. |
 | `P-11` | Menú lateral | Gana los destinos **Contenido** y **Correo**. La insignia dice "Pro". |
 
@@ -230,6 +231,8 @@ Estos IDs ya existen en `01-especificacion.md`. En Pro cambian así:
 | `NAV-08` | Destinos nuevos en el menú: **Contenido** con contador de archivos y **Correo**. | Debe |
 | `SYN-10` | La cola de sincronización maneja también archivos de la biblioteca pendientes de subir, separada de la cola de leads. Un PDF de 3 MB atorado no puede bloquear la subida de leads. | Debe |
 | `SYN-11` | La idempotencia por folio (`SYN-04`) cubre los adjuntos: reenviar un folio no manda un segundo correo con los mismos archivos. | Debe |
+| `CAP-22` | En Pro, el paso 04 permite agregar y quitar antes de guardar entre 0 y 3 imágenes adicionales relacionadas con el contacto. Son opcionales, se guardan localmente con el Lead antes de cualquier red y no se confunden con la foto de tarjeta ni con los PDF de Contenido. En Basic el bloque está ausente. | Debe |
+| `REG-13` | El detalle Pro de una conexión muestra las imágenes adicionales persistidas y permite abrir cada una en vista completa. Cambiar o eliminar esas imágenes desde el detalle no está permitido. En Basic el bloque está ausente. | Debe |
 
 ---
 
@@ -255,6 +258,7 @@ Estos IDs ya existen en `01-especificacion.md`. En Pro cambian así:
 | `RC-09` | Los archivos de la biblioteca son material de la empresa, no datos personales. Aun así, los enlaces de descarga no deben quedar públicos por URL si contienen información comercial sensible. |
 | `RC-10` | El aviso de privacidad y la opción de baja viven **fuera del cuerpo editable** de la plantilla (`PLT-08`). Un usuario no puede dejar la app en incumplimiento borrando una línea. |
 | `RC-11` | Si el lead se da de baja, la baja aplica también a los correos con adjuntos. No hay excepción por "es información que pidió". |
+| `RC-12` | Las imágenes adicionales del contacto son datos personales y quedan sujetas al mismo acceso, cifrado y periodo de retención que la foto de tarjeta (`RC-03`, `RC-06`). |
 
 ---
 

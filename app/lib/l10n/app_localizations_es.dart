@@ -616,7 +616,29 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get mediaSaveWarning =>
-      'El lead quedó guardado, pero una foto o nota de voz opcional no pudo conservarse.';
+      'El lead quedó guardado, pero uno de sus archivos opcionales no pudo conservarse.';
+
+  @override
+  String get referenceImagesOptional => 'Imágenes de referencia (opcional)';
+
+  @override
+  String get referenceImagesHelp =>
+      'Pizarrón, muestra, empaque — lo que necesites recordar.';
+
+  @override
+  String get addReferenceImage => 'Agregar';
+
+  @override
+  String get removeReferenceImage => 'Quitar imagen de referencia';
+
+  @override
+  String get referenceImagePickerTitle => 'Agregar imagen';
+
+  @override
+  String get referenceImagesDetail => 'Imágenes de referencia';
+
+  @override
+  String get referenceImagePreview => 'Ver imagen de referencia';
 
   @override
   String get captureAnother => 'Capturar otro ahora';

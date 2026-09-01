@@ -17,6 +17,7 @@ LeadDraft draft({
   String? eventId = 'event-1',
   String? cardPath,
   String? audioPath,
+  List<String> referencePaths = const [],
   DateTime? ignoredCapturedAt,
 }) => LeadDraft(
   name: name,
@@ -34,6 +35,7 @@ LeadDraft draft({
   cardImageLocalPath: cardPath,
   audioLocalPath: audioPath,
   audioSeconds: audioPath == null ? 0 : 18,
+  referenceImageLocalPaths: referencePaths,
 );
 
 AppEvent event({String name = 'Expo Uno'}) => AppEvent(
@@ -212,6 +214,61 @@ void main() {
       await storage.deleteIfManaged(sourceCard.path);
       expect(await managedOrphan.exists(), isFalse);
       expect(await sourceCard.exists(), isTrue);
+      await database.close();
+    },
+  );
+
+  test(
+    'CAP-22 reference images persist privately and survive reopen',
+    () async {
+      final sourceA = File('${temporary.path}/reference-a.jpg');
+      final sourceB = File('${temporary.path}/reference-b.png');
+      await sourceA.writeAsBytes([1, 2, 3]);
+      await sourceB.writeAsBytes([4, 5, 6]);
+      var database = openDatabase();
+      await EventRepository(database).save(userId, event(), makeActive: true);
+      var leads = LeadRepository(
+        database,
+        PrivateMediaStorage(mediaRoot),
+        idFactory: () => 'lead-references',
+      );
+
+      final saved = await leads.saveDraft(
+        userId,
+        draft(referencePaths: [sourceA.path, sourceB.path]),
+        capturedBy: const DemoProfile(name: 'Yahir', company: 'CBQA'),
+      );
+      expect(saved.lead.referenceImageLocalPaths, hasLength(2));
+      expect(
+        saved.lead.referenceImageLocalPaths.every(
+          (path) => path.contains('reference_images'),
+        ),
+        isTrue,
+      );
+      expect(
+        saved.lead.referenceImageLocalPaths.every(
+          (path) => File(path).existsSync(),
+        ),
+        isTrue,
+      );
+      await database.close();
+
+      database = openDatabase();
+      leads = LeadRepository(database, PrivateMediaStorage(mediaRoot));
+      final reopened = (await leads.listAll(userId)).single;
+      expect(reopened.lead.referenceImageLocalPaths, hasLength(2));
+      expect(
+        reopened.lead.referenceImageLocalPaths.every(
+          (path) => File(path).existsSync(),
+        ),
+        isTrue,
+      );
+      expect(
+        (await database.leadDao.mediaFor(reopened.localId)).where(
+          (media) => media.mediaType == LocalMediaType.referenceImage.name,
+        ),
+        hasLength(2),
+      );
       await database.close();
     },
   );

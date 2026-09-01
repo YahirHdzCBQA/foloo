@@ -55,14 +55,18 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
   final List<ContentFile> _newFiles = [];
   late final PdfPickerService _pdfPicker;
   late final String _eventId;
-  DateTime _startsOn = DateTime(2026, 8, 12);
-  DateTime _endsOn = DateTime(2026, 8, 14);
+  late DateTime _startsOn;
+  late DateTime _endsOn;
 
   @override
   void initState() {
     super.initState();
     _pdfPicker = widget.pdfPickerService ?? const DevicePdfPickerService();
-    _eventId = 'demo-${DateTime.now().microsecondsSinceEpoch}';
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    _startsOn = today;
+    _endsOn = today;
+    _eventId = 'demo-${now.microsecondsSinceEpoch}';
   }
 
   List<ContentFile> get _availableFiles => [

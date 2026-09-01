@@ -32,6 +32,8 @@ import 'screens/origin_selection_screen.dart';
 import 'screens/profile_setup_screen.dart';
 import 'screens/records_screen.dart';
 import 'services/connectivity_service.dart';
+import 'services/contact_image_picker_service.dart';
+import 'services/event_selection_policy.dart';
 import 'services/pdf_picker_service.dart';
 import 'theme/foloo_theme.dart';
 
@@ -49,6 +51,8 @@ class FolooApp extends StatefulWidget {
     this.connectivityService,
     this.pdfPickerService,
     this.authRepository,
+    this.contactImagePickerService,
+    this.nowProvider,
     super.key,
   });
 
@@ -59,12 +63,14 @@ class FolooApp extends StatefulWidget {
   final ConnectivityService? connectivityService;
   final PdfPickerService? pdfPickerService;
   final AuthRepository? authRepository;
+  final ContactImagePickerService? contactImagePickerService;
+  final DateTime Function()? nowProvider;
 
   @override
   State<FolooApp> createState() => _FolooAppState();
 }
 
-class _FolooAppState extends State<FolooApp> {
+class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   // Session orchestration and capability fixtures.
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   _AuthenticatedStage _stage = _AuthenticatedStage.profile;
@@ -89,6 +95,10 @@ class _FolooAppState extends State<FolooApp> {
   late final AuthRepository _authRepository;
   late final bool _ownsAuthRepository;
   bool _appInitialized = false;
+  Timer? _eventDayTimer;
+  String? _eventSelectionMode;
+
+  DateTime get _now => widget.nowProvider?.call() ?? DateTime.now();
 
   String get _userId {
     final user = _authRepository.state.user;
@@ -122,6 +132,7 @@ class _FolooAppState extends State<FolooApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _persistence = widget.persistence ?? LocalPersistence.inMemory();
     _ownsAuthRepository = widget.authRepository == null;
     _authRepository =
@@ -148,6 +159,26 @@ class _FolooAppState extends State<FolooApp> {
     _locale = _defaultLocale;
     unawaited(_initializeConnectivity());
     unawaited(_initializeApplication());
+    _scheduleEventDayRefresh();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshAutomaticEventSelection());
+      _scheduleEventDayRefresh();
+    }
+  }
+
+  void _scheduleEventDayRefresh() {
+    _eventDayTimer?.cancel();
+    if (widget.nowProvider != null) return;
+    final now = _now;
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    _eventDayTimer = Timer(tomorrow.difference(now), () {
+      unawaited(_refreshAutomaticEventSelection());
+      _scheduleEventDayRefresh();
+    });
   }
 
   void _onAuthStateChanged() {
@@ -201,12 +232,44 @@ class _FolooAppState extends State<FolooApp> {
       'themeMode',
     );
     final storedLocale = await _persistence.preferences.read(userId, 'locale');
+    final storedEventSelectionMode = await _persistence.preferences.read(
+      userId,
+      'eventSelectionMode',
+    );
+    final hasActive = storedEvents.any((event) => event.active);
+    final shouldChooseAutomatically =
+        storedEventSelectionMode != 'manual' || !hasActive;
+    if (shouldChooseAutomatically) {
+      final preferred = EventSelectionPolicy.automaticChoice(
+        storedEvents,
+        now: _now,
+      );
+      if (preferred == null) {
+        await _persistence.events.clearActive(userId);
+        storedEvents = storedEvents
+            .map((event) => event.copyWith(active: false))
+            .toList();
+      } else {
+        await _persistence.events.activate(userId, preferred.id);
+        storedEvents = storedEvents
+            .map((event) => event.copyWith(active: event.id == preferred.id))
+            .toList();
+      }
+      await _persistence.preferences.write(
+        userId,
+        'eventSelectionMode',
+        'automatic',
+      );
+    }
     final storedLeads = await _persistence.leads.listAll(userId);
     if (!mounted) return;
     setState(() {
       _profile = storedProfile ?? DemoBasicData.profile;
       _profileCompleted = storedProfile != null;
       _events = storedEvents;
+      _eventSelectionMode = shouldChooseAutomatically
+          ? 'automatic'
+          : (storedEventSelectionMode ?? 'manual');
       _contentFiles = List.of(DemoProData.files);
       _sessionLeads
         ..clear()
@@ -267,6 +330,9 @@ class _FolooAppState extends State<FolooApp> {
   }
 
   void _selectOrigin(OriginSelection selection) {
+    if (selection.kind == LeadOriginKind.event && selection.event != null) {
+      unawaited(_activateEvent(selection.event!, manual: true));
+    }
     setState(() {
       _origin = selection;
       _destination = AppDestination.home;
@@ -290,6 +356,9 @@ class _FolooAppState extends State<FolooApp> {
   }
 
   void _changeCaptureOrigin(LeadOriginKind kind, AppEvent? event) {
+    if (kind == LeadOriginKind.event && event != null) {
+      unawaited(_activateEvent(event, manual: true));
+    }
     setState(
       () => _origin = OriginSelection(
         kind: kind,
@@ -328,6 +397,11 @@ class _FolooAppState extends State<FolooApp> {
   Future<void> _createEvent(AppEvent event) async {
     try {
       await _persistence.events.save(_userId, event, makeActive: true);
+      await _persistence.preferences.write(
+        _userId,
+        'eventSelectionMode',
+        'manual',
+      );
     } catch (_) {
       if (mounted) _showPersistenceError();
       return;
@@ -338,11 +412,63 @@ class _FolooAppState extends State<FolooApp> {
         event.copyWith(active: true),
         ..._events.map((item) => item.copyWith(active: false)),
       ];
+      _eventSelectionMode = 'manual';
       _origin = OriginSelection(
         kind: LeadOriginKind.event,
         event: _events.first,
       );
     });
+  }
+
+  Future<void> _activateEvent(AppEvent event, {required bool manual}) async {
+    try {
+      await _persistence.events.activate(_userId, event.id);
+      await _persistence.preferences.write(
+        _userId,
+        'eventSelectionMode',
+        manual ? 'manual' : 'automatic',
+      );
+    } catch (_) {
+      if (mounted) _showPersistenceError();
+      return;
+    }
+    if (!mounted) return;
+    final selectedEvent = event.copyWith(active: true);
+    setState(() {
+      _eventSelectionMode = manual ? 'manual' : 'automatic';
+      _events = _events
+          .map((item) => item.copyWith(active: item.id == event.id))
+          .toList();
+      if (_origin?.kind == LeadOriginKind.event) {
+        _origin = OriginSelection(
+          kind: LeadOriginKind.event,
+          event: selectedEvent,
+        );
+      }
+    });
+  }
+
+  Future<void> _refreshAutomaticEventSelection() async {
+    if (!_appInitialized ||
+        _authRepository.state.status != AuthStatus.authenticated ||
+        _eventSelectionMode != 'automatic') {
+      return;
+    }
+    final preferred = EventSelectionPolicy.automaticChoice(_events, now: _now);
+    if (preferred == null) {
+      await _persistence.events.clearActive(_userId);
+      if (!mounted) return;
+      setState(() {
+        _events = _events
+            .map((event) => event.copyWith(active: false))
+            .toList();
+        if (_origin?.kind == LeadOriginKind.event) _origin = null;
+      });
+      return;
+    }
+    final current = _events.where((event) => event.active);
+    if (current.isNotEmpty && current.first.id == preferred.id) return;
+    await _activateEvent(preferred, manual: false);
   }
 
   void _addContentFile(ContentFile file) {
@@ -375,18 +501,22 @@ class _FolooAppState extends State<FolooApp> {
       return;
     }
     if (!mounted) return;
+    final deletedActive = event.active;
     setState(() {
       _events.removeWhere((item) => item.id == event.id);
       if (_origin?.event?.id == event.id) {
-        if (_events.isNotEmpty) {
-          _events = [_events.first.copyWith(active: true), ..._events.skip(1)];
-        }
-        final replacement = _events.isEmpty ? null : _events.first;
-        _origin = replacement == null
-            ? const OriginSelection(kind: LeadOriginKind.direct)
-            : OriginSelection(kind: LeadOriginKind.event, event: replacement);
+        _origin = null;
       }
+      if (deletedActive) _eventSelectionMode = 'automatic';
     });
+    if (deletedActive) {
+      await _persistence.preferences.write(
+        _userId,
+        'eventSelectionMode',
+        'automatic',
+      );
+      await _refreshAutomaticEventSelection();
+    }
   }
 
   void _showPersistenceError() {
@@ -398,6 +528,8 @@ class _FolooAppState extends State<FolooApp> {
   @override
   void dispose() {
     unawaited(_connectivitySubscription?.cancel());
+    WidgetsBinding.instance.removeObserver(this);
+    _eventDayTimer?.cancel();
     _authRepository.removeListener(_onAuthStateChanged);
     if (_ownsAuthRepository) _authRepository.dispose();
     unawaited(_persistence.close());
@@ -501,6 +633,7 @@ class _FolooAppState extends State<FolooApp> {
           plan: _plan,
           contentFiles: List.unmodifiable(_contentFiles),
           isOnline: _isOnline,
+          contactImagePickerService: widget.contactImagePickerService,
         ),
         RecordsScreen(
           key: const ValueKey('recordsScreen'),

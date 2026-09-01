@@ -53,6 +53,7 @@ class OriginSelectionScreen extends StatefulWidget {
 class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
   LeadOriginKind _kind = LeadOriginKind.event;
   AppEvent? _event;
+  bool _manuallySelected = false;
   final _place = TextEditingController();
 
   @override
@@ -62,6 +63,14 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
     _event = active.isNotEmpty
         ? active.first
         : (widget.events.isEmpty ? null : widget.events.first);
+  }
+
+  @override
+  void didUpdateWidget(covariant OriginSelectionScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_manuallySelected) return;
+    final active = widget.events.where((event) => event.active);
+    _event = active.isEmpty ? null : active.first;
   }
 
   @override
@@ -83,6 +92,7 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
     setState(() {
       _kind = LeadOriginKind.event;
       _event = event;
+      _manuallySelected = true;
     });
   }
 
@@ -185,7 +195,10 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
                           final selected = event.id == _event?.id;
                           return InkWell(
                             key: Key('originEvent-${event.id}'),
-                            onTap: () => setState(() => _event = event),
+                            onTap: () => setState(() {
+                              _event = event;
+                              _manuallySelected = true;
+                            }),
                             borderRadius: BorderRadius.circular(FolooRadii.md),
                             child: Container(
                               padding: const EdgeInsets.all(15),

@@ -1223,8 +1223,50 @@ abstract class AppLocalizations {
   /// No description provided for @mediaSaveWarning.
   ///
   /// In es, this message translates to:
-  /// **'El lead quedó guardado, pero una foto o nota de voz opcional no pudo conservarse.'**
+  /// **'El lead quedó guardado, pero uno de sus archivos opcionales no pudo conservarse.'**
   String get mediaSaveWarning;
+
+  /// No description provided for @referenceImagesOptional.
+  ///
+  /// In es, this message translates to:
+  /// **'Imágenes de referencia (opcional)'**
+  String get referenceImagesOptional;
+
+  /// No description provided for @referenceImagesHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Pizarrón, muestra, empaque — lo que necesites recordar.'**
+  String get referenceImagesHelp;
+
+  /// No description provided for @addReferenceImage.
+  ///
+  /// In es, this message translates to:
+  /// **'Agregar'**
+  String get addReferenceImage;
+
+  /// No description provided for @removeReferenceImage.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar imagen de referencia'**
+  String get removeReferenceImage;
+
+  /// No description provided for @referenceImagePickerTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Agregar imagen'**
+  String get referenceImagePickerTitle;
+
+  /// No description provided for @referenceImagesDetail.
+  ///
+  /// In es, this message translates to:
+  /// **'Imágenes de referencia'**
+  String get referenceImagesDetail;
+
+  /// No description provided for @referenceImagePreview.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver imagen de referencia'**
+  String get referenceImagePreview;
 
   /// No description provided for @captureAnother.
   ///

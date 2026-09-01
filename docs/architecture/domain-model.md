@@ -63,7 +63,9 @@ photo and notes are optional; absence never blocks a valid lead.
 
 Pro adds to Lead: required conditional `lugar` for direct leads, optional
 `transcripcion`, frozen `adjuntos`, `estadoTranscripcion`,
-`estadoCorreoLead`, and `estadoCorreoMarketing`. The Pro specification says
+`estadoCorreoLead`, `estadoCorreoMarketing`, and up to three local
+`imagenesReferencia`. Reference images are Lead media, separate from the card
+photo and content PDFs; ownership derives through the Lead. The Pro specification says
 five columns are appended while listing six lead changes; this internal
 counting conflict must be clarified before finalizing the spreadsheet schema.
 No existing Basic column may move.
@@ -83,6 +85,8 @@ Pro adds `archivos` to Evento and introduces:
 - User corrections always win over extraction.
 - Provider calls and credentials stay behind the Foloo backend.
 - Media access is authenticated and retention is governed by `RC-03`/`D-11`.
+- Pro reference images use the same durable private-media boundary as card and
+  voice media; a future remote representation is intentionally not inferred.
 - Final local schema, folio concurrency, sync reconciliation, file-cache
   limits, deletion enforcement and Pro capability downgrade require decisions
   or ADRs. Do not infer them from the Flutter prototype.

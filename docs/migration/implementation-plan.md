@@ -49,6 +49,8 @@ adaptation.
 
 - IDs/scenarios: `AUT-01`–`AUT-09`, `EVT-01`–`EVT-11`, `CAP-01`–`CAP-04`,
   `E-01`, `E-02`, `E-10`.
+- `EVT-12` agrega la selección automática por fecha local, con prioridad de
+  cualquier selección manual válida y reevaluación diaria de selecciones auto.
 - Replace demo login, add first-use profile, session persistence, origin
   selection and Mis eventos CRUD/logical deletion.
 - Dependencies: auth/backend and persistence ADRs, `D-03`, `D-09`, `D-10`,
@@ -156,6 +158,8 @@ path, following the package recommendation to defer attachments.
 
 - IDs/scenarios: `CON-01`–`CON-16`, `SYN-10`, `SYN-11`, `RNF-14`–`RNF-16`,
   `EP-01`–`EP-03`, `EP-08`, `EP-09`.
+- `CAP-22`/`REG-13` agregan hasta tres imágenes locales de referencia por Lead
+  Pro y su consulta posterior, sin exponer el bloque en Basic.
 - Dependencies: `DP-01`, `DP-02`, `DP-09`–`DP-11`, file/cache ADR and email
   foundation.
 - **Affects:** five Pro-related surfaces/deltas, event create, capture step 03,

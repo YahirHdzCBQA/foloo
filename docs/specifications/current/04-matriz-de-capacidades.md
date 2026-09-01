@@ -63,6 +63,7 @@
 | Nota de voz: grabar, reproducir, borrar | ● | ● | Idéntico |
 | **Transcripción de la nota de voz** | ○ | ● | `TRA-01`. Invierte `D-01` para Pro |
 | Nota escrita | ● | ● | Idéntico |
+| **Imágenes adicionales del contacto (0–3)** | ○ | ● | Captura, persistencia local y consulta · `CAP-22`, `REG-13` |
 | Texto del botón principal | ◐ | ◐ | Basic: "Guardar" · Pro: `Guarda y da "foloo"` |
 
 ### Acuse
@@ -91,6 +92,7 @@
 | Lista, búsqueda, filtros por tipo | ● | ● | Idéntico |
 | Detalle de la conexión en solo lectura | ● | ● | Idéntico salvo transcripción |
 | Transcripción visible en el detalle | ○ | ● | `TRA-04` |
+| Imágenes adicionales visibles en el detalle | ○ | ● | `REG-13` |
 | Exportación XLS / CSV | ● | ● | Idéntico |
 | Sincronización manual y automática | ● | ● | Idéntico |
 

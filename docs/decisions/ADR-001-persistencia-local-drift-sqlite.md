@@ -24,8 +24,9 @@ SQLite. D-03 (folio comercial) y D-11 (retención de medios) siguen abiertas.
   medios.
 - Cada entidad usa un identificador técnico local estable. El folio comercial
   del lead es nullable y no forma parte de la identidad local.
-- Las imágenes y notas de voz se copian a directorios privados de soporte de la
-  aplicación. SQLite guarda únicamente ruta, tipo, duración y estado local.
+- Las imágenes de tarjeta, las imágenes adicionales Pro y las notas de voz se
+  copian a directorios privados de soporte de la aplicación. SQLite guarda
+  únicamente ruta, tipo, duración y estado local.
 - Guardar un lead copia sus medios y luego inserta lead + referencias dentro de
   una transacción Drift. Si falla la transacción se eliminan las copias nuevas y
   no se muestra el acuse.
@@ -53,6 +54,9 @@ SQLite. D-03 (folio comercial) y D-11 (retención de medios) siguen abiertas.
   dependencia de cifrado de forma implícita.
 - Campos Pro son nullable y solo los usa la capacidad Pro; RNF-18 impide que se
   expongan en Basic.
+- `CAP-22` reutiliza `local_lead_media`: el tipo diferencia cada imagen de
+  referencia y el ownership se deriva desde Lead. No necesita una tabla nueva
+  ni cambia `schemaVersion`.
 
 ## Alternativas consideradas
 

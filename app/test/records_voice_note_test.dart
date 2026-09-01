@@ -1,11 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/models/app_destination.dart';
 import 'package:foloo/models/app_event.dart';
+import 'package:foloo/models/app_plan.dart';
 import 'package:foloo/models/lead_draft.dart';
 import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/screens/records_screen.dart';
 import 'package:foloo/theme/foloo_theme.dart';
+import 'package:image/image.dart' as image_codec;
 
 import 'support/fake_voice_note_service.dart';
 
@@ -16,6 +20,7 @@ LeadDraft lead({
   String eventId = 'expo-alimentaria',
   String eventName = DemoEventData.eventName,
   String name = 'Mariana',
+  List<String> referenceImagePaths = const [],
 }) => LeadDraft(
   name: name,
   lastName: 'Sandoval Ruiz',
@@ -32,6 +37,7 @@ LeadDraft lead({
   audioLocalPath: audioPath,
   audioSeconds: audioSeconds,
   cardImageLocalPath: cardImagePath,
+  referenceImageLocalPaths: referenceImagePaths,
 );
 
 Widget recordsApp(
@@ -40,6 +46,7 @@ Widget recordsApp(
   ValueChanged<AppDestination>? onDestinationSelected,
   bool darkMode = false,
   List<AppEvent> events = const [],
+  AppPlan plan = AppPlan.basic,
 }) => MaterialApp(
   theme: FolooTheme.light,
   darkTheme: FolooTheme.dark,
@@ -49,6 +56,7 @@ Widget recordsApp(
     darkMode: darkMode,
     events: events,
     voiceNoteService: service,
+    plan: plan,
     onDestinationSelected: onDestinationSelected ?? (_) {},
     onAppearanceChanged: (_) {},
     onLogout: () {},
@@ -233,6 +241,50 @@ void main() {
       expect(find.byKey(const Key('detailCardImageDialog')), findsNothing);
     },
   );
+
+  testWidgets('REG-13 Pro detail shows and opens reference images', (
+    tester,
+  ) async {
+    final temporary = Directory.systemTemp.createTempSync(
+      'foloo_reference_detail_',
+    );
+    addTearDown(() => temporary.delete(recursive: true));
+    final image = File('${temporary.path}/reference.png');
+    image.writeAsBytesSync(
+      image_codec.encodePng(image_codec.Image(width: 2, height: 2)),
+    );
+    final service = FakeVoiceNoteService();
+    final record = SessionLead(
+      localId: 'lead-reference',
+      folio: null,
+      capturedAt: DateTime(2026, 9, 1),
+      lead: lead(referenceImagePaths: [image.path]),
+    );
+    await tester.pumpWidget(
+      recordsApp(service, records: [record], plan: AppPlan.pro),
+    );
+
+    await tester.tap(find.text('Mariana Sandoval Ruiz'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('detailReferenceImages')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Imágenes de referencia'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('detailReferenceImage-0')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const Key('detailReferenceImageDialog')), findsOneWidget);
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tapAt(const Offset(4, 4));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const Key('detailReferenceImageDialog')), findsNothing);
+  });
 
   testWidgets('export dialog opens and switches format without layout errors', (
     tester,

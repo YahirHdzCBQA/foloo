@@ -19,6 +19,7 @@ Shared Basic/Pro responsibilities include:
 - authenticated session and locally retained profile/preferences;
 - user-scoped local repositories keyed by the stable authentication identity;
 - event/direct origin selection and event CRUD with logical deletion;
+- date-based automatic event choice only when no valid manual choice exists;
 - rear-camera/gallery capture, 1568 px client preparation and editable fields;
 - one-screen, one-handed capture with local Voice Note and written fallback;
 - durable local-first lead/media storage, visible queues and retry controls;
@@ -31,7 +32,9 @@ other Basic capture, local consultation and export remain available.
 
 Pro additionally presents server-enabled content, template, attachment,
 transcription and email states. It locally caches approved content, but does
-not send mail or call providers itself.
+not send mail or call providers itself. Pro may also retain up to three
+contact-reference images as local Lead media; their future backend delivery
+contract is not part of this decision.
 
 ## Foloo backend responsibilities
 

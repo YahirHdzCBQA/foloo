@@ -1070,6 +1070,54 @@ class ConnectionDetailScreen extends StatelessWidget {
                 ),
               ),
             ],
+            if (plan.isPro && lead.referenceImageLocalPaths.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              Text(
+                context.l10n.referenceImagesDetail,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 10),
+              GridView.builder(
+                key: const Key('detailReferenceImages'),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: lead.referenceImageLocalPaths.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemBuilder: (context, index) {
+                  final path = lead.referenceImageLocalPaths[index];
+                  return Semantics(
+                    button: true,
+                    label: context.l10n.referenceImagePreview,
+                    child: InkWell(
+                      key: Key('detailReferenceImage-$index'),
+                      onTap: () => _showReferenceImage(context, path),
+                      borderRadius: BorderRadius.circular(FolooRadii.sm),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(FolooRadii.sm),
+                        child: Image.file(
+                          File(path),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => ColoredBox(
+                            color: palette.paper,
+                            child: Icon(
+                              Icons.broken_image_outlined,
+                              color: palette.inkSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
             if (lead.note.isNotEmpty) ...[
               const SizedBox(height: 20),
               Text(
@@ -1207,6 +1255,39 @@ class ConnectionDetailScreen extends StatelessWidget {
           ),
         ),
       );
+
+  static Future<void> _showReferenceImage(
+    BuildContext context,
+    String imagePath,
+  ) => showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: .82),
+    builder: (dialogContext) => Dialog(
+      key: const Key('detailReferenceImageDialog'),
+      backgroundColor: Colors.black,
+      insetPadding: const EdgeInsets.all(12),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: double.infinity,
+        height: MediaQuery.sizeOf(dialogContext).height * .76,
+        child: InteractiveViewer(
+          minScale: 1,
+          maxScale: 4,
+          child: Image.file(
+            File(imagePath),
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => const Center(
+              child: Icon(
+                Icons.broken_image_outlined,
+                color: Colors.white,
+                size: 36,
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _ReadOnlyValue extends StatelessWidget {
