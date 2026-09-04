@@ -9,7 +9,7 @@ completion. `04-matriz-de-capacidades.md` always governs edition membership.
 | Current IDs | Area | Authoritative definition | Acceptance coverage | Decision dependencies |
 |---|---|---|---|---|
 | `AUT-01`–`AUT-09` | Login, profile and session | `current/01-especificacion.md` §6.1 | `E-01`, `E-11` | `D-09` |
-| `EVT-01`–`EVT-11` | Event CRUD and active event | §6.2 | `E-01`, `E-10` | `D-03`, `D-10` |
+| `EVT-01`–`EVT-13` | Event CRUD, active event and date grouping | §6.2 | `E-01`, `E-10` | `D-03`, `D-10` |
 | `CAP-01`–`CAP-04` | Event/direct origin | §6.3 | `E-02` | `D-03`, `D-10` |
 | `OCR-01`–`OCR-09` | Card capture and extraction | §6.4 | `E-03` | `D-05` |
 | `CAP-05`–`CAP-08` | Lead data and validation | §6.5 | `E-03`, `E-04`, `E-06` | none explicit |
@@ -31,11 +31,12 @@ completion. `04-matriz-de-capacidades.md` always governs edition membership.
 | `SAL-05`–`SAL-10`, `SAL-13`–`SAL-15` | Automated email | §5 | `EP-03`, `EP-04`, `EP-06`, `EP-11` | `D-08`, `DP-02`–`DP-04`, `DP-12` |
 | `PLT-01`–`PLT-10` | Email templates | §6 | `EP-04`, `EP-07`, `EP-11` | `DP-03` |
 | `TRA-01`–`TRA-08` | Server-side transcription | §7 | `EP-05` | `DP-05`, `DP-06`; `TRA-08` explicitly blocked |
-| `CAP-20`–`CAP-21` | Pro direct lead and acknowledgement | §8 | `EP-06`, `EP-07` | `DP-07` |
+| `CAP-20`–`CAP-23` | Pro direct lead, acknowledgement and contact-reference images | §8 | `EP-03A`, `EP-06`, `EP-07` | `D-11`, `DP-07` |
+| `REG-13` | Pro reference images in read-only detail | §8 | `EP-03A` | `D-04`, `D-11` |
 | `NAV-08` | Pro menu destinations | §8 | `EP-10` | `DP-08` |
 | `SYN-10`–`SYN-11` | Independent file/lead queues | §8 | `EP-08` | `DP-01`, `DP-12` |
 | `RNF-14`–`RNF-18` | Pro non-functional delta | §9 | `EP-09`, `EP-10`, `EP-11` | `DP-02`, `DP-05`, `DP-08`, `DP-11`, `DP-12` |
-| `RC-08`–`RC-11`; Pro variants of `RC-01`/`RC-02` | Pro compliance delta | §10 | `EP-04`, `EP-05`, `EP-11` | `D-11`, `DP-03`, `DP-12` |
+| `RC-08`–`RC-12`; Pro variants of `RC-01`/`RC-02` | Pro compliance delta | §10 | `EP-03A`, `EP-04`, `EP-05`, `EP-11` | `D-11`, `DP-03`, `DP-12` |
 
 ## Demonstrable legacy crosswalk
 

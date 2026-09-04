@@ -32,6 +32,7 @@ import '../widgets/progress_header.dart';
 import '../widgets/section_card.dart';
 import '../widgets/segmented_bubble.dart';
 import 'lead_confirmation_screen.dart';
+import 'multi_photo_capture_screen.dart';
 
 /// Reports an origin change without coupling capture to root application state.
 typedef LeadOriginChanged = void Function(LeadOriginKind kind, AppEvent? event);
@@ -334,6 +335,25 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       ),
     );
     if (source == null || !mounted) return;
+    if (source == ImageSource.camera) {
+      final images = await Navigator.push<List<PickedContactImage>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MultiPhotoCaptureScreen(
+            initialImages: List.unmodifiable(_referenceImages),
+            picker: _contactImagePicker,
+          ),
+        ),
+      );
+      if (images != null && mounted) {
+        setState(() {
+          _referenceImages
+            ..clear()
+            ..addAll(images.take(3));
+        });
+      }
+      return;
+    }
     try {
       final image = await _contactImagePicker.pick(source);
       if (image == null || !mounted || _referenceImages.length >= 3) return;

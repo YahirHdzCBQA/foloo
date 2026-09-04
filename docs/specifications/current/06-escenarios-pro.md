@@ -101,7 +101,7 @@ Escenario: Los adjuntos quedan congelados
   Entonces sigue mostrando los 2 archivos que efectivamente recibió
 ```
 
-## EP-03A · Imágenes adicionales del contacto — `CAP-22`, `REG-13`
+## EP-03A · Imágenes adicionales del contacto — `CAP-22`, `CAP-23`, `REG-13`
 
 ```gherkin
 Escenario: Agregar, quitar y limitar imágenes antes de guardar
@@ -118,6 +118,25 @@ Escenario: Persistencia y consulta posterior
   Y se consulta el lead desde Registros
   Entonces el detalle muestra las dos imágenes
   Y tocar una abre su vista completa
+
+Escenario: Capturar una, dos o tres fotos sin volver al formulario
+  Dado que el vendedor abre "Tomar foto" sin imágenes adicionales previas
+  Cuando captura una foto
+  Entonces permanece en la sesión fotográfica y ve un indicador de una foto
+  Y puede confirmar con ✓ o capturar otra
+  Cuando captura una segunda y una tercera foto
+  Entonces los indicadores muestran el total acumulado
+  Y al llegar a tres no puede capturar una cuarta
+  Cuando confirma con ✓
+  Entonces vuelve a CaptureLead y ve las mismas previsualizaciones
+
+Escenario: Completar posteriormente el espacio restante
+  Dado que CaptureLead ya contiene dos imágenes adicionales
+  Cuando el vendedor vuelve a abrir "Tomar foto"
+  Entonces la sesión muestra que ya existen dos
+  Y solo permite capturar una imagen adicional
+  Cuando confirma
+  Entonces CaptureLead contiene exactamente tres imágenes
 
 Escenario: Basic no expone imágenes adicionales
   Dado el mismo binario con una cuenta Basic

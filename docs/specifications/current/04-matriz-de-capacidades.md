@@ -63,7 +63,7 @@
 | Nota de voz: grabar, reproducir, borrar | ● | ● | Idéntico |
 | **Transcripción de la nota de voz** | ○ | ● | `TRA-01`. Invierte `D-01` para Pro |
 | Nota escrita | ● | ● | Idéntico |
-| **Imágenes adicionales del contacto (0–3)** | ○ | ● | Captura, persistencia local y consulta · `CAP-22`, `REG-13` |
+| **Imágenes adicionales del contacto (0–3)** | ○ | ● | Captura individual o sesión continua de cámara, persistencia local y consulta · `CAP-22`, `CAP-23`, `REG-13` |
 | Texto del botón principal | ◐ | ◐ | Basic: "Guardar" · Pro: `Guarda y da "foloo"` |
 
 ### Acuse

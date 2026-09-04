@@ -268,6 +268,7 @@ Al guardar: guardado local → cola → backend → fila en la hoja del evento, 
 | `EVT-10` | No se puede eliminar un evento con leads pendientes de subir sin advertirlo explícitamente. | Debería | Art. 2 |
 | `EVT-11` | El encabezado del menú y el pie muestran el evento activo con su código (ej. `EXP-260812 · Expo Alimentaria`). | Debería | nuevo |
 | `EVT-12` | La selección manual válida nunca se sustituye automáticamente y un evento recién creado queda activo. Cuando durante la interacción no existe selección manual ni evento activo, la app elige por la fecha local real del dispositivo: primero un evento que incluya hoy y, si no existe, el futuro con `fechaInicio` más cercana. Si no hay evento actual o futuro, espera una selección manual. Una selección automática se vuelve a evaluar al cambiar el día; una manual se conserva. | Debe | Decisión PO 2026-09-01 |
+| `EVT-13` | "Mis eventos" separa, sin duplicados, tres bloques calculados con la fecha local real: **Evento activo** contiene únicamente el seleccionado; **Eventos futuros** contiene el resto cuyo `fechaFin` es hoy o posterior, incluidos los eventos de varios días todavía vigentes, ordenados por `fechaInicio` ascendente; **Eventos pasados** contiene los que tienen `fechaFin` anterior a hoy, ordenados por `fechaFin` descendente. Se conserva la misma tarjeta y todas sus acciones. | Debe | Decisión PO 2026-09-02 |
 
 ### 6.3 Origen del lead
 

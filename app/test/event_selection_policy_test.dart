@@ -48,4 +48,53 @@ void main() {
       );
     });
   });
+
+  group('EVT-13 Mis eventos date grouping', () {
+    test('keeps the active event separate and orders future and past', () {
+      final active = event(
+        'active',
+        DateTime(2026, 10, 1),
+        DateTime(2026, 10, 2),
+      ).copyWith(active: true);
+      final groups = EventGroupingPolicy.group([
+        event('past-far', DateTime(2026, 8, 20), DateTime(2026, 8, 20)),
+        event('future-far', DateTime(2026, 9, 8), DateTime(2026, 9, 9)),
+        active,
+        event('past-near', DateTime(2026, 8, 30), DateTime(2026, 8, 30)),
+        event('future-near', DateTime(2026, 9, 3), DateTime(2026, 9, 4)),
+      ], now: DateTime(2026, 9, 2, 23, 59));
+
+      expect(groups.active?.id, 'active');
+      expect(groups.future.map((item) => item.id), [
+        'future-near',
+        'future-far',
+      ]);
+      expect(groups.past.map((item) => item.id), ['past-near', 'past-far']);
+      expect(
+        [...groups.future, ...groups.past].where((item) => item.id == 'active'),
+        isEmpty,
+      );
+    });
+
+    test('multi-day event changes group only after its local end date', () {
+      final spanning = event(
+        'spanning',
+        DateTime(2026, 9, 1),
+        DateTime(2026, 9, 3),
+      );
+
+      expect(
+        EventGroupingPolicy.group([
+          spanning,
+        ], now: DateTime(2026, 9, 2)).future.single.id,
+        'spanning',
+      );
+      expect(
+        EventGroupingPolicy.group([
+          spanning,
+        ], now: DateTime(2026, 9, 4)).past.single.id,
+        'spanning',
+      );
+    });
+  });
 }

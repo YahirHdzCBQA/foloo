@@ -276,7 +276,7 @@ Escenario: Exportar sin conexión incluye pendientes
 
 ---
 
-## E-10 · Eventos — `EVT-01` … `EVT-12`
+## E-10 · Eventos — `EVT-01` … `EVT-13`
 
 ```gherkin
 Escenario: Crear evento y capturar en él
@@ -323,6 +323,23 @@ Escenario: La selección manual tiene prioridad
   Entonces la selección manual se conserva
   Cuando crea un evento nuevo
   Entonces el evento recién creado queda activo y cuenta como selección manual
+
+Escenario: Mis eventos se agrupa y ordena por la fecha local
+  Dado que hoy es 2 de septiembre
+  Y hay un evento activo, eventos futuros y eventos pasados
+  Cuando abre "Mis eventos"
+  Entonces el activo aparece una sola vez bajo "Evento activo"
+  Y los futuros aparecen bajo "Eventos futuros" del más próximo al más lejano
+  Y los pasados aparecen bajo "Eventos pasados" del más reciente al más antiguo
+  Y ningún evento se duplica entre bloques
+
+Escenario: Un evento de varios días todavía no es pasado
+  Dado un evento no activo que inició ayer y termina mañana
+  Cuando abre "Mis eventos"
+  Entonces aparece en "Eventos futuros"
+  Cuando la fecha local pasa al día posterior a su fecha de fin
+  Entonces aparece en "Eventos pasados"
+  Y el cálculo no usa una fecha fija del código
 ```
 
 ---

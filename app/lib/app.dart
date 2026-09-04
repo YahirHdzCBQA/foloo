@@ -165,6 +165,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      if (mounted) setState(() {});
       unawaited(_refreshAutomaticEventSelection());
       _scheduleEventDayRefresh();
     }
@@ -176,6 +177,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     final now = _now;
     final tomorrow = DateTime(now.year, now.month, now.day + 1);
     _eventDayTimer = Timer(tomorrow.difference(now), () {
+      if (mounted) setState(() {});
       unawaited(_refreshAutomaticEventSelection());
       _scheduleEventDayRefresh();
     });
@@ -664,6 +666,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           onBack: _backFromEvents,
           plan: _plan,
           contentFiles: List.unmodifiable(_contentFiles),
+          nowProvider: widget.nowProvider,
         ),
         if (_plan.isPro)
           ContentScreen(

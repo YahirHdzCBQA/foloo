@@ -635,6 +635,15 @@ class AppLocalizationsEs extends AppLocalizations {
   String get referenceImagePickerTitle => 'Agregar imagen';
 
   @override
+  String get referencePhotoSessionTitle => 'Fotos de referencia';
+
+  @override
+  String get takeAnotherPhoto => 'Tomar otra foto';
+
+  @override
+  String get finishPhotos => 'Finalizar fotos';
+
+  @override
   String get referenceImagesDetail => 'Imágenes de referencia';
 
   @override
@@ -684,6 +693,15 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get active => 'Activo';
+
+  @override
+  String get activeEventSection => 'Evento activo';
+
+  @override
+  String get futureEventsSection => 'Eventos futuros';
+
+  @override
+  String get pastEventsSection => 'Eventos pasados';
 
   @override
   String eventStats(Object date, Object leads, Object pending) {

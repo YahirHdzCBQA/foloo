@@ -1256,6 +1256,24 @@ abstract class AppLocalizations {
   /// **'Agregar imagen'**
   String get referenceImagePickerTitle;
 
+  /// No description provided for @referencePhotoSessionTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Fotos de referencia'**
+  String get referencePhotoSessionTitle;
+
+  /// No description provided for @takeAnotherPhoto.
+  ///
+  /// In es, this message translates to:
+  /// **'Tomar otra foto'**
+  String get takeAnotherPhoto;
+
+  /// No description provided for @finishPhotos.
+  ///
+  /// In es, this message translates to:
+  /// **'Finalizar fotos'**
+  String get finishPhotos;
+
   /// No description provided for @referenceImagesDetail.
   ///
   /// In es, this message translates to:
@@ -1345,6 +1363,24 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Activo'**
   String get active;
+
+  /// No description provided for @activeEventSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Evento activo'**
+  String get activeEventSection;
+
+  /// No description provided for @futureEventsSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Eventos futuros'**
+  String get futureEventsSection;
+
+  /// No description provided for @pastEventsSection.
+  ///
+  /// In es, this message translates to:
+  /// **'Eventos pasados'**
+  String get pastEventsSection;
 
   /// No description provided for @eventStats.
   ///

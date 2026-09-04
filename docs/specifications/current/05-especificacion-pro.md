@@ -232,6 +232,7 @@ Estos IDs ya existen en `01-especificacion.md`. En Pro cambian así:
 | `SYN-10` | La cola de sincronización maneja también archivos de la biblioteca pendientes de subir, separada de la cola de leads. Un PDF de 3 MB atorado no puede bloquear la subida de leads. | Debe |
 | `SYN-11` | La idempotencia por folio (`SYN-04`) cubre los adjuntos: reenviar un folio no manda un segundo correo con los mismos archivos. | Debe |
 | `CAP-22` | En Pro, el paso 04 permite agregar y quitar antes de guardar entre 0 y 3 imágenes adicionales relacionadas con el contacto. Son opcionales, se guardan localmente con el Lead antes de cualquier red y no se confunden con la foto de tarjeta ni con los PDF de Contenido. En Basic el bloque está ausente. | Debe |
+| `CAP-23` | "Tomar foto" para imágenes adicionales abre una sesión enfocada que conserva visualmente las fotos tomadas, permite capturar otra sin volver a CaptureLead y finaliza con una acción de confirmación `✓`. La sesión respeta el máximo total de tres: si ya existen dos imágenes solo admite una más; al alcanzar tres queda lista para finalizar. Galería conserva su flujo y comparte el mismo límite. | Debe |
 | `REG-13` | El detalle Pro de una conexión muestra las imágenes adicionales persistidas y permite abrir cada una en vista completa. Cambiar o eliminar esas imágenes desde el detalle no está permitido. En Basic el bloque está ausente. | Debe |
 
 ---

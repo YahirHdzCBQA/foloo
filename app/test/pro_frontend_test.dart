@@ -175,6 +175,33 @@ void main() {
     expect(find.byKey(const Key('addReferenceImageButton')), findsOneWidget);
   });
 
+  testWidgets('CAP-23 camera stays in a photo session until confirmation', (
+    tester,
+  ) async {
+    phone(tester);
+    final picker = _FakeContactImagePicker();
+    await login(tester, pro: true, contactImagePickerService: picker);
+    final add = find.byKey(const Key('addReferenceImageButton'));
+    await tester.scrollUntilVisible(
+      add,
+      320,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('referenceImageCameraOption')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('multiPhotoCaptureScreen')), findsOneWidget);
+    expect(find.text('1 de 3'), findsOneWidget);
+    expect(find.byKey(const Key('cardSection')), findsNothing);
+    await tester.tap(find.byKey(const Key('finishMultiPhotoSession')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('multiPhotoCaptureScreen')), findsNothing);
+    expect(find.byKey(const Key('referenceImage-0')), findsOneWidget);
+  });
+
   testWidgets('Pro exposes content library and email editor', (tester) async {
     phone(tester);
     await login(tester, pro: true);

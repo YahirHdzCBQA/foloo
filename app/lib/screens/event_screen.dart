@@ -11,6 +11,7 @@ import '../models/app_destination.dart';
 import '../models/app_event.dart';
 import '../models/app_plan.dart';
 import '../models/pro_demo_data.dart';
+import '../services/event_selection_policy.dart';
 import '../services/pdf_picker_service.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
@@ -18,7 +19,7 @@ import '../widgets/app_drawer.dart';
 import '../widgets/create_event_dialog.dart';
 import '../widgets/event_date_field.dart';
 
-/// Displays Mis eventos and its in-place editor (EVT-01–EVT-11).
+/// Displays Mis eventos and its in-place editor (EVT-01–EVT-13).
 class EventScreen extends StatefulWidget {
   const EventScreen({
     required this.events,
@@ -35,6 +36,7 @@ class EventScreen extends StatefulWidget {
     this.plan = AppPlan.basic,
     this.contentFiles = const [],
     this.pdfPickerService,
+    this.nowProvider,
     this.profile = DemoBasicData.profile,
     super.key,
   });
@@ -54,6 +56,7 @@ class EventScreen extends StatefulWidget {
   final AppPlan plan;
   final List<ContentFile> contentFiles;
   final PdfPickerService? pdfPickerService;
+  final DateTime Function()? nowProvider;
 
   @override
   State<EventScreen> createState() => _EventScreenState();
@@ -186,139 +189,7 @@ class _EventScreenState extends State<EventScreen> {
                       ),
                     ),
                   )
-                : ListView.separated(
-                    key: const Key('eventsList'),
-                    padding: const EdgeInsets.fromLTRB(20, 26, 20, 28),
-                    itemCount: widget.events.length + 1,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      if (index == widget.events.length) {
-                        return Container(
-                          margin: const EdgeInsets.only(top: 6),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: palette.paper,
-                            borderRadius: BorderRadius.circular(FolooRadii.md),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.lock_outline,
-                                size: 18,
-                                color: palette.inkSecondary,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  context.l10n.eventDeleteHelp,
-                                  style: TextStyle(
-                                    color: palette.inkSecondary,
-                                    fontSize: 13,
-                                    height: 1.45,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                      final event = widget.events[index];
-                      return InkWell(
-                        key: Key('event-${event.id}'),
-                        onTap: () => _startEditing(event),
-                        borderRadius: BorderRadius.circular(FolooRadii.md),
-                        child: Container(
-                          height: 62,
-                          padding: const EdgeInsets.fromLTRB(13, 5, 6, 5),
-                          decoration: BoxDecoration(
-                            color: palette.paper,
-                            borderRadius: BorderRadius.circular(FolooRadii.md),
-                            border: event.active
-                                ? Border.all(color: palette.ink)
-                                : null,
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            event.name,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 14.5,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                        if (event.active) ...[
-                                          const SizedBox(width: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 3,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: palette.card,
-                                              border: Border.all(
-                                                color: palette.ink,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(99),
-                                            ),
-                                            child: Text(
-                                              context.l10n.active,
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      context.l10n.eventStats(
-                                        _date(event.startsOn),
-                                        context.l10n.leadCount(
-                                          event.demoLeadCount,
-                                        ),
-                                        event.demoPendingCount > 0
-                                            ? ' · ${context.l10n.pendingCount(event.demoPendingCount)}'
-                                            : '',
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: palette.inkSecondary,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: context.l10n.deleteEvent,
-                                onPressed: () => widget.onDelete(event),
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  size: 19,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                : _buildGroupedEventList(palette),
           ),
         ],
       ),
@@ -337,6 +208,168 @@ class _EventScreenState extends State<EventScreen> {
       ),
     );
   }
+
+  Widget _buildGroupedEventList(FolooPalette palette) {
+    final groups = EventGroupingPolicy.group(
+      widget.events,
+      now: widget.nowProvider?.call() ?? DateTime.now(),
+    );
+    final children = <Widget>[];
+
+    void addSection(Key key, String title, List<AppEvent> events) {
+      if (events.isEmpty) return;
+      if (children.isNotEmpty) children.add(const SizedBox(height: 18));
+      children.add(
+        Text(
+          title,
+          key: key,
+          style: TextStyle(
+            color: palette.inkSecondary,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: .7,
+          ),
+        ),
+      );
+      children.add(const SizedBox(height: 8));
+      for (var index = 0; index < events.length; index++) {
+        if (index > 0) children.add(const SizedBox(height: 8));
+        children.add(_buildEventCard(events[index], palette));
+      }
+    }
+
+    if (groups.active != null) {
+      addSection(
+        const Key('activeEventsSection'),
+        context.l10n.activeEventSection,
+        [groups.active!],
+      );
+    }
+    addSection(
+      const Key('futureEventsSection'),
+      context.l10n.futureEventsSection,
+      groups.future,
+    );
+    addSection(
+      const Key('pastEventsSection'),
+      context.l10n.pastEventsSection,
+      groups.past,
+    );
+    children.add(const SizedBox(height: 20));
+    children.add(
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: palette.paper,
+          borderRadius: BorderRadius.circular(FolooRadii.md),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.lock_outline, size: 18, color: palette.inkSecondary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                context.l10n.eventDeleteHelp,
+                style: TextStyle(
+                  color: palette.inkSecondary,
+                  fontSize: 13,
+                  height: 1.45,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return ListView(
+      key: const Key('eventsList'),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+      children: children,
+    );
+  }
+
+  Widget _buildEventCard(AppEvent event, FolooPalette palette) => InkWell(
+    key: Key('event-${event.id}'),
+    onTap: () => _startEditing(event),
+    borderRadius: BorderRadius.circular(FolooRadii.md),
+    child: Container(
+      height: 62,
+      padding: const EdgeInsets.fromLTRB(13, 5, 6, 5),
+      decoration: BoxDecoration(
+        color: palette.paper,
+        borderRadius: BorderRadius.circular(FolooRadii.md),
+        border: event.active ? Border.all(color: palette.ink) : null,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        event.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (event.active) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: palette.card,
+                          border: Border.all(color: palette.ink),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Text(
+                          context.l10n.active,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  context.l10n.eventStats(
+                    _date(event.startsOn),
+                    context.l10n.leadCount(event.demoLeadCount),
+                    event.demoPendingCount > 0
+                        ? ' · ${context.l10n.pendingCount(event.demoPendingCount)}'
+                        : '',
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: palette.inkSecondary, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: context.l10n.deleteEvent,
+            onPressed: () => widget.onDelete(event),
+            icon: const Icon(Icons.delete_outline, size: 19),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _buildEditor(AppEvent event) {
     final palette = FolooPalette.of(context);
