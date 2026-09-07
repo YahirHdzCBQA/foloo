@@ -16,7 +16,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get languageEnglish => 'EN';
 
   @override
-  String get loginUser => 'USUARIO';
+  String get loginUser => 'CORREO';
 
   @override
   String get loginPassword => 'CONTRASEÑA';
@@ -25,7 +25,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get loginEnter => 'Entrar';
 
   @override
-  String get loginUserRequired => 'Escribe tu usuario';
+  String get loginUserRequired => 'Escribe tu correo';
 
   @override
   String get loginPasswordRequired => 'Escribe tu contraseña';
@@ -39,6 +39,81 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get loginHidePassword => 'Ocultar contraseña';
+
+  @override
+  String get createAccount => 'Crear cuenta';
+
+  @override
+  String get createAccountTitle => 'Crea tu cuenta';
+
+  @override
+  String get createAccountHelp =>
+      'Usa tu correo y una contraseña. Después te enviaremos un código.';
+
+  @override
+  String get confirmAccountTitle => 'Confirma tu correo';
+
+  @override
+  String get confirmAccountHelp =>
+      'Escribe el código que enviamos a tu correo.';
+
+  @override
+  String get confirmationCode => 'CÓDIGO DE CONFIRMACIÓN';
+
+  @override
+  String get confirmationCodeRequired => 'Escribe el código de confirmación';
+
+  @override
+  String get confirmAccount => 'Confirmar cuenta';
+
+  @override
+  String get resendCode => 'Reenviar código';
+
+  @override
+  String get backToLogin => 'Volver a iniciar sesión';
+
+  @override
+  String get accountConfirmed => 'Cuenta confirmada. Ya puedes iniciar sesión.';
+
+  @override
+  String get confirmationCodeResent => 'Enviamos un nuevo código a tu correo.';
+
+  @override
+  String get authInvalidCredentials =>
+      'El correo o la contraseña no son correctos.';
+
+  @override
+  String get authEmailExists => 'Ya existe una cuenta con este correo.';
+
+  @override
+  String get authWeakPassword =>
+      'La contraseña no cumple los requisitos de seguridad.';
+
+  @override
+  String get authInvalidCode =>
+      'El código no es correcto. Revísalo e intenta otra vez.';
+
+  @override
+  String get authExpiredCode => 'El código venció. Solicita uno nuevo.';
+
+  @override
+  String get authUserNotConfirmed =>
+      'Confirma tu correo antes de iniciar sesión.';
+
+  @override
+  String get authAlreadyConfirmed =>
+      'La cuenta ya está confirmada. Inicia sesión.';
+
+  @override
+  String get authNetwork =>
+      'No hay conexión para completar esta acción. Intenta nuevamente.';
+
+  @override
+  String get authRateLimited =>
+      'Demasiados intentos. Espera un momento y vuelve a intentar.';
+
+  @override
+  String get authInvalidInput => 'Revisa los datos e intenta otra vez.';
 
   @override
   String get demoPlan => 'PLAN DEMO';

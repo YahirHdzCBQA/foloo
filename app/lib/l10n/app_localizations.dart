@@ -113,7 +113,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginUser.
   ///
   /// In es, this message translates to:
-  /// **'USUARIO'**
+  /// **'CORREO'**
   String get loginUser;
 
   /// No description provided for @loginPassword.
@@ -131,7 +131,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginUserRequired.
   ///
   /// In es, this message translates to:
-  /// **'Escribe tu usuario'**
+  /// **'Escribe tu correo'**
   String get loginUserRequired;
 
   /// No description provided for @loginPasswordRequired.
@@ -157,6 +157,138 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Ocultar contraseña'**
   String get loginHidePassword;
+
+  /// No description provided for @createAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear cuenta'**
+  String get createAccount;
+
+  /// No description provided for @createAccountTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Crea tu cuenta'**
+  String get createAccountTitle;
+
+  /// No description provided for @createAccountHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa tu correo y una contraseña. Después te enviaremos un código.'**
+  String get createAccountHelp;
+
+  /// No description provided for @confirmAccountTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Confirma tu correo'**
+  String get confirmAccountTitle;
+
+  /// No description provided for @confirmAccountHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribe el código que enviamos a tu correo.'**
+  String get confirmAccountHelp;
+
+  /// No description provided for @confirmationCode.
+  ///
+  /// In es, this message translates to:
+  /// **'CÓDIGO DE CONFIRMACIÓN'**
+  String get confirmationCode;
+
+  /// No description provided for @confirmationCodeRequired.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribe el código de confirmación'**
+  String get confirmationCodeRequired;
+
+  /// No description provided for @confirmAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'Confirmar cuenta'**
+  String get confirmAccount;
+
+  /// No description provided for @resendCode.
+  ///
+  /// In es, this message translates to:
+  /// **'Reenviar código'**
+  String get resendCode;
+
+  /// No description provided for @backToLogin.
+  ///
+  /// In es, this message translates to:
+  /// **'Volver a iniciar sesión'**
+  String get backToLogin;
+
+  /// No description provided for @accountConfirmed.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta confirmada. Ya puedes iniciar sesión.'**
+  String get accountConfirmed;
+
+  /// No description provided for @confirmationCodeResent.
+  ///
+  /// In es, this message translates to:
+  /// **'Enviamos un nuevo código a tu correo.'**
+  String get confirmationCodeResent;
+
+  /// No description provided for @authInvalidCredentials.
+  ///
+  /// In es, this message translates to:
+  /// **'El correo o la contraseña no son correctos.'**
+  String get authInvalidCredentials;
+
+  /// No description provided for @authEmailExists.
+  ///
+  /// In es, this message translates to:
+  /// **'Ya existe una cuenta con este correo.'**
+  String get authEmailExists;
+
+  /// No description provided for @authWeakPassword.
+  ///
+  /// In es, this message translates to:
+  /// **'La contraseña no cumple los requisitos de seguridad.'**
+  String get authWeakPassword;
+
+  /// No description provided for @authInvalidCode.
+  ///
+  /// In es, this message translates to:
+  /// **'El código no es correcto. Revísalo e intenta otra vez.'**
+  String get authInvalidCode;
+
+  /// No description provided for @authExpiredCode.
+  ///
+  /// In es, this message translates to:
+  /// **'El código venció. Solicita uno nuevo.'**
+  String get authExpiredCode;
+
+  /// No description provided for @authUserNotConfirmed.
+  ///
+  /// In es, this message translates to:
+  /// **'Confirma tu correo antes de iniciar sesión.'**
+  String get authUserNotConfirmed;
+
+  /// No description provided for @authAlreadyConfirmed.
+  ///
+  /// In es, this message translates to:
+  /// **'La cuenta ya está confirmada. Inicia sesión.'**
+  String get authAlreadyConfirmed;
+
+  /// No description provided for @authNetwork.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay conexión para completar esta acción. Intenta nuevamente.'**
+  String get authNetwork;
+
+  /// No description provided for @authRateLimited.
+  ///
+  /// In es, this message translates to:
+  /// **'Demasiados intentos. Espera un momento y vuelve a intentar.'**
+  String get authRateLimited;
+
+  /// No description provided for @authInvalidInput.
+  ///
+  /// In es, this message translates to:
+  /// **'Revisa los datos e intenta otra vez.'**
+  String get authInvalidInput;
 
   /// No description provided for @demoPlan.
   ///

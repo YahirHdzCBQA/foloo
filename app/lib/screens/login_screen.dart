@@ -6,6 +6,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../auth/auth_failure_localization.dart';
+import '../auth/auth_models.dart';
 import '../theme/brand_theme.dart';
 import '../models/app_plan.dart';
 import '../l10n/l10n.dart';
@@ -23,16 +25,20 @@ class LoginScreen extends StatefulWidget {
     required this.onAuthenticated,
     required this.selectedPlan,
     required this.onPlanChanged,
+    required this.onCreateAccount,
     this.authenticating = false,
-    this.authenticationFailed = false,
+    this.failure,
+    this.accountConfirmed = false,
     super.key,
   });
 
   final LoginRequested onAuthenticated;
   final AppPlan selectedPlan;
   final ValueChanged<AppPlan> onPlanChanged;
+  final VoidCallback onCreateAccount;
   final bool authenticating;
-  final bool authenticationFailed;
+  final AuthFailureCode? failure;
+  final bool accountConfirmed;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -179,10 +185,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                 validator: _validatePassword,
                                 onFieldSubmitted: (_) => _submit(),
                               ),
-                              if (widget.authenticationFailed) ...[
+                              if (widget.failure != null) ...[
                                 const SizedBox(height: 10),
                                 Text(
-                                  context.l10n.authenticationFailed,
+                                  localizedAuthFailure(
+                                    context.l10n,
+                                    widget.failure,
+                                  ),
                                   key: const Key('authenticationError'),
                                   style: TextStyle(
                                     color: Theme.of(context).colorScheme.error,
@@ -190,6 +199,29 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                               ],
+                              if (widget.accountConfirmed) ...[
+                                const SizedBox(height: 10),
+                                Text(
+                                  context.l10n.accountConfirmed,
+                                  key: const Key('accountConfirmedMessage'),
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 8),
+                              TextButton(
+                                key: const Key('openSignUpButton'),
+                                onPressed: widget.authenticating
+                                    ? null
+                                    : widget.onCreateAccount,
+                                style: TextButton.styleFrom(
+                                  foregroundColor: theme.colorScheme.onSurface,
+                                ),
+                                child: Text(context.l10n.createAccount),
+                              ),
                               const SizedBox(height: 22),
                               _FieldLabel(context.l10n.demoPlan),
                               const SizedBox(height: 8),

@@ -22,8 +22,10 @@ owners, assumptions and recommendations lives in the official package:
 ## Non-blocking Basic/shared decisions
 
 `D-07` destination/CRM alignment; `D-08` volume and sending account;
-`D-09` user provisioning; `D-10` sheet topology; `D-11` media retention;
+`D-10` sheet topology; `D-11` media retention;
 `D-12` font licensing.
+
+`D-09` was resolved by the Product Owner in FL-013B and recorded in ADR-002.
 
 ## Blocking Pro decisions
 

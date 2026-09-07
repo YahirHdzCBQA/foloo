@@ -16,7 +16,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get languageEnglish => 'EN';
 
   @override
-  String get loginUser => 'USERNAME';
+  String get loginUser => 'EMAIL';
 
   @override
   String get loginPassword => 'PASSWORD';
@@ -25,7 +25,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginEnter => 'Sign in';
 
   @override
-  String get loginUserRequired => 'Enter your username';
+  String get loginUserRequired => 'Enter your email';
 
   @override
   String get loginPasswordRequired => 'Enter your password';
@@ -39,6 +39,78 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get loginHidePassword => 'Hide password';
+
+  @override
+  String get createAccount => 'Create account';
+
+  @override
+  String get createAccountTitle => 'Create your account';
+
+  @override
+  String get createAccountHelp =>
+      'Use your email and a password. We will then send you a code.';
+
+  @override
+  String get confirmAccountTitle => 'Confirm your email';
+
+  @override
+  String get confirmAccountHelp => 'Enter the code we sent to your email.';
+
+  @override
+  String get confirmationCode => 'CONFIRMATION CODE';
+
+  @override
+  String get confirmationCodeRequired => 'Enter the confirmation code';
+
+  @override
+  String get confirmAccount => 'Confirm account';
+
+  @override
+  String get resendCode => 'Resend code';
+
+  @override
+  String get backToLogin => 'Back to sign in';
+
+  @override
+  String get accountConfirmed => 'Account confirmed. You can now sign in.';
+
+  @override
+  String get confirmationCodeResent => 'We sent a new code to your email.';
+
+  @override
+  String get authInvalidCredentials => 'The email or password is incorrect.';
+
+  @override
+  String get authEmailExists => 'An account with this email already exists.';
+
+  @override
+  String get authWeakPassword =>
+      'The password does not meet the security requirements.';
+
+  @override
+  String get authInvalidCode =>
+      'That code is not correct. Check it and try again.';
+
+  @override
+  String get authExpiredCode => 'That code has expired. Request a new one.';
+
+  @override
+  String get authUserNotConfirmed => 'Confirm your email before signing in.';
+
+  @override
+  String get authAlreadyConfirmed =>
+      'The account is already confirmed. Sign in.';
+
+  @override
+  String get authNetwork =>
+      'A connection is required for this action. Try again.';
+
+  @override
+  String get authRateLimited =>
+      'Too many attempts. Wait a moment and try again.';
+
+  @override
+  String get authInvalidInput => 'Check the information and try again.';
 
   @override
   String get demoPlan => 'DEMO PLAN';

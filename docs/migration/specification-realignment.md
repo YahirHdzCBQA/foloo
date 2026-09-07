@@ -21,7 +21,7 @@ existing Flutter implementation is audited evidence only.
 
 | Area | Before | Now | Current trace |
 |---|---|---|---|
-| Authentication | Explicitly out of V1; demo gate only | Real login, persistent session, first-use profile and profile editing | `AUT-01`–`AUT-09` |
+| Authentication | Explicitly out of V1; demo gate only | Self sign-up, email confirmation, Cognito login/session, first-use profile and ownership by `sub` | `AUT-01`–`AUT-13` |
 | Events | Four reusable settings values | Full event entity, active event, create/list/edit/logical delete and counts | `EVT-01`–`EVT-11` |
 | Lead origin | Event only | Event or direct lead, persisted across captures | `CAP-01`–`CAP-04` |
 | Lead type | Partner/customer | Adds `Proveedor`; selection is three large controls | `CAP-09`, `CAP-10` |

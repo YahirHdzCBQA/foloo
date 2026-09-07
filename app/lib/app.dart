@@ -24,6 +24,7 @@ import 'models/lead_draft.dart';
 import 'models/pro_demo_data.dart';
 import 'models/session_lead.dart';
 import 'screens/event_screen.dart';
+import 'screens/account_access_screen.dart';
 import 'screens/content_screen.dart';
 import 'screens/email_screen.dart';
 import 'screens/lead_capture_screen.dart';
@@ -38,6 +39,8 @@ import 'services/pdf_picker_service.dart';
 import 'theme/foloo_theme.dart';
 
 enum _AuthenticatedStage { profile, origin, shell }
+
+enum _AccessStage { login, signUp, confirmation }
 
 /// Coordinates the top-level Foloo flow from login through the capture shell.
 ///
@@ -74,6 +77,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   // Session orchestration and capability fixtures.
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   _AuthenticatedStage _stage = _AuthenticatedStage.profile;
+  _AccessStage _accessStage = _AccessStage.login;
+  String? _pendingConfirmationEmail;
+  bool _accountJustConfirmed = false;
   ThemeMode _themeMode = ThemeMode.light;
   AppDestination _destination = AppDestination.home;
   // DEMO: Development plan selector used to preview the capability boundary.
@@ -311,9 +317,54 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       password: password,
     );
     final user = _authRepository.state.user;
-    if (!authenticated || user == null) return false;
+    if (!authenticated || user == null) {
+      if (_authRepository.failure == AuthFailureCode.userNotConfirmed &&
+          mounted) {
+        setState(() {
+          _pendingConfirmationEmail = username.trim();
+          _accessStage = _AccessStage.confirmation;
+        });
+      }
+      return false;
+    }
     await _loadUserState(user.id);
     return true;
+  }
+
+  Future<void> _signUp(String email, String password) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    final result = await _authRepository.signUp(
+      email: normalizedEmail,
+      password: password,
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      _pendingConfirmationEmail = normalizedEmail;
+      _accessStage = result.confirmationRequired
+          ? _AccessStage.confirmation
+          : _AccessStage.login;
+      _accountJustConfirmed = !result.confirmationRequired;
+    });
+  }
+
+  Future<void> _confirmSignUp(String code) async {
+    final email = _pendingConfirmationEmail;
+    if (email == null) return;
+    final confirmed = await _authRepository.confirmSignUp(
+      email: email,
+      code: code,
+    );
+    if (!mounted || !confirmed) return;
+    setState(() {
+      _accountJustConfirmed = true;
+      _accessStage = _AccessStage.login;
+    });
+  }
+
+  Future<bool> _resendSignUpCode() async {
+    final email = _pendingConfirmationEmail;
+    if (email == null) return false;
+    return _authRepository.resendSignUpCode(email: email);
   }
 
   Future<void> _completeProfile(DemoProfile profile) async {
@@ -382,6 +433,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       _contentFiles = List.of(DemoProData.files);
       _sessionLeads.clear();
       _origin = null;
+      _accessStage = _AccessStage.login;
+      _pendingConfirmationEmail = null;
+      _accountJustConfirmed = false;
     });
   }
 
@@ -575,16 +629,53 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       home: !_appInitialized
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
           : _authRepository.state.status != AuthStatus.authenticated
-          ? LoginScreen(
-              key: const ValueKey('loginScreen'),
-              onAuthenticated: _authenticate,
-              authenticating:
-                  _authRepository.state.status == AuthStatus.initializing,
-              authenticationFailed:
-                  _authRepository.state.status == AuthStatus.error,
-              selectedPlan: _plan,
-              onPlanChanged: (plan) => setState(() => _plan = plan),
-            )
+          ? switch (_accessStage) {
+              _AccessStage.login => LoginScreen(
+                key: const ValueKey('loginScreen'),
+                onAuthenticated: _authenticate,
+                authenticating:
+                    _authRepository.state.status == AuthStatus.initializing,
+                failure: _authRepository.state.status == AuthStatus.error
+                    ? _authRepository.failure ?? AuthFailureCode.unexpected
+                    : null,
+                accountConfirmed: _accountJustConfirmed,
+                onCreateAccount: () {
+                  _authRepository.clearFailure();
+                  setState(() {
+                    _accountJustConfirmed = false;
+                    _accessStage = _AccessStage.signUp;
+                  });
+                },
+                selectedPlan: _plan,
+                onPlanChanged: (plan) => setState(() => _plan = plan),
+              ),
+              _AccessStage.signUp => SignUpScreen(
+                key: const ValueKey('signUpScreen'),
+                onSubmit: _signUp,
+                onBack: () {
+                  _authRepository.clearFailure();
+                  setState(() => _accessStage = _AccessStage.login);
+                },
+                busy: _authRepository.state.status == AuthStatus.initializing,
+                failure: _authRepository.state.status == AuthStatus.error
+                    ? _authRepository.failure ?? AuthFailureCode.unexpected
+                    : null,
+              ),
+              _AccessStage.confirmation => ConfirmSignUpScreen(
+                key: const ValueKey('confirmationScreen'),
+                email: _pendingConfirmationEmail ?? '',
+                onSubmit: _confirmSignUp,
+                onResend: _resendSignUpCode,
+                onBack: () {
+                  _authRepository.clearFailure();
+                  setState(() => _accessStage = _AccessStage.login);
+                },
+                busy: _authRepository.state.status == AuthStatus.initializing,
+                failure: _authRepository.state.status == AuthStatus.error
+                    ? _authRepository.failure ?? AuthFailureCode.unexpected
+                    : null,
+              ),
+            }
           : switch (_stage) {
               _AuthenticatedStage.profile => ProfileSetupScreen(
                 key: const ValueKey('profileScreen'),

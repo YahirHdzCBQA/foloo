@@ -7,16 +7,26 @@ library;
 import 'package:flutter/widgets.dart';
 
 import 'app.dart';
+import 'auth/auth_repository.dart';
+import 'auth/cognito_auth_service.dart';
+import 'auth/cognito_configuration.dart';
+import 'auth/cognito_runtime.dart';
 import 'data/repositories/local_repositories.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await CognitoRuntime.configure(
+    CognitoConfigurations.forEnvironment(FolooEnvironment.dev),
+  );
   final persistence = await LocalPersistence.production();
   runApp(
     FolooApp(
       useSystemLocale: true,
       persistence: persistence,
       useDemoFixtures: false,
+      authRepository: AuthRepository(
+        const CognitoAuthService(AmplifyCognitoAuthClient()),
+      ),
     ),
   );
 }

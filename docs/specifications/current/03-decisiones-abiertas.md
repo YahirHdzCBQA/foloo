@@ -159,15 +159,17 @@ Ojo: `tipo` pasó de dos valores (v1.0) a tres en Basic. Si el CRM tiene su prop
 
 ### `D-09` · Alta de usuarios
 
-**Resuelta para V1 por FL-013A.** Hay login pero no hay pantalla de registro ni
-de recuperación de contraseña en los mockups.
+**Resuelta y sustituida por decisión explícita de Producto en FL-013B.** Cognito
+DEV permite auto registro con correo y contraseña y confirmación mediante código
+enviado por email. La cuenta Cognito contiene identidad y sesión; nombre,
+empresa, imagen, preferencias, plan y datos operativos continúan en Foloo.
 
-Las cuentas se crean por administrador/empresa y se entregan al equipo
-comercial. Quedan fuera de V1: crear cuenta, recuperación de contraseña, MFA y
-login social. AWS Cognito será el proveedor real según ADR-002; su integración
-se ejecutará en FL-013B cuando exista AWS DEV.
+La recuperación de cuenta está habilitada en Cognito, pero su experiencia de UI
+se difiere. MFA de usuarios está deshabilitado y, junto con passwordless y login
+social, queda fuera de alcance. La decisión administrativa de FL-013A del
+2026-08-31 queda supersedida; no se reasignan datos históricos a un nuevo `sub`.
 
-**Decidió:** Dirección / solicitud FL-013A, 2026-08-31.
+**Decidió:** Product Owner / solicitud FL-013B, 2026-09-04.
 
 ---
 

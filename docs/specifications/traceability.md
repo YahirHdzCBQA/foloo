@@ -8,7 +8,7 @@ completion. `04-matriz-de-capacidades.md` always governs edition membership.
 
 | Current IDs | Area | Authoritative definition | Acceptance coverage | Decision dependencies |
 |---|---|---|---|---|
-| `AUT-01`–`AUT-09` | Login, profile and session | `current/01-especificacion.md` §6.1 | `E-01`, `E-11` | `D-09` |
+| `AUT-01`–`AUT-13` | Account creation, confirmation, login, profile and session | `current/01-especificacion.md` §6.1 | `E-01`, `E-11` | `D-09`, ADR-002 |
 | `EVT-01`–`EVT-13` | Event CRUD, active event and date grouping | §6.2 | `E-01`, `E-10` | `D-03`, `D-10` |
 | `CAP-01`–`CAP-04` | Event/direct origin | §6.3 | `E-02` | `D-03`, `D-10` |
 | `OCR-01`–`OCR-09` | Card capture and extraction | §6.4 | `E-03` | `D-05` |

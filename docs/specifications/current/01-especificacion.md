@@ -242,7 +242,7 @@ Al guardar: guardado local → cola → backend → fila en la hoja del evento, 
 
 | ID | Requerimiento | Prioridad | Traza v1.0 |
 |---|---|---|---|
-| `AUT-01` | Iniciar sesión con usuario y contraseña. El workspace se resuelve del lado del servidor: el vendedor no elige servidor, instancia ni evento en esta pantalla. | Debe | nuevo |
+| `AUT-01` | Iniciar sesión con **correo y contraseña** mediante el User Pool Cognito de Foloo. El workspace se resuelve del lado del servidor: el vendedor no elige servidor, instancia ni evento en esta pantalla. | Debe | nuevo |
 | `AUT-02` | La sesión persiste al cerrar y reabrir la app. Reabrir no debe volver a pedir contraseña mientras la sesión sea válida. | Debe | RF-34 |
 | `AUT-03` | Mostrar la contraseña con un toque, para poder verificar lo escrito de pie y con prisa. | Debería | nuevo |
 | `AUT-04` | Tras el primer login, pedir el perfil una sola vez: nombre completo, empresa y foto (cámara o galería). La foto es opcional; nombre y empresa no. | Debe | RF-33 |
@@ -251,6 +251,10 @@ Al guardar: guardado local → cola → backend → fila en la hoja del evento, 
 | `AUT-07` | "Cerrar sesión" vive al fondo del menú, con su propio contorno, fuera del alcance cómodo del pulgar, para que no se toque por accidente. | Debe | nuevo |
 | `AUT-08` | Al cerrar sesión, los leads **pendientes de subir no se borran**. Al volver a entrar el mismo usuario, siguen en cola. | Debe | Art. 2 |
 | `AUT-09` | Mostrar en el pie del login y del menú la versión de la app y la empresa (ej. `Foloo v1.0.4 · CBQA Solutions`). | Debería | nuevo |
+| `AUT-10` | Permitir que una persona cree su propia cuenta con correo y contraseña. El alta de cuenta no solicita nombre, empresa, foto, plan ni otros datos del perfil Foloo. | Debe | decisión FL-013B |
+| `AUT-11` | Después del alta, exigir el código que Cognito envía al correo. Permitir reenviarlo cuando el proveedor lo autorice y comunicar en ES/EN, sin mensajes crudos de AWS, código inválido o vencido, cuenta ya confirmada, red y error inesperado. | Debe | decisión FL-013B |
+| `AUT-12` | Cognito `sub` es la identidad técnica estable para ownership local. El correo no es primary identifier; perfil Foloo, eventos, leads y medios pertenecen al `sub` autenticado. Los tokens no se guardan en Drift. | Debe | decisión FL-013B |
+| `AUT-13` | Cognito tiene recuperación de cuenta habilitada, pero su UI queda diferida. MFA de usuario, passwordless y login social están fuera del alcance actual. | Debe | decisión FL-013B |
 
 ### 6.2 Eventos
 

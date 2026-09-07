@@ -6,9 +6,23 @@ Escenarios verificables, en Gherkin, trazados a los IDs de `01-especificacion.md
 
 ---
 
-## E-01 · Entrar y preparar la jornada — `AUT-01`, `AUT-04`, `EVT-03`
+## E-01 · Crear cuenta, entrar y preparar la jornada — `AUT-01`, `AUT-02`, `AUT-04`, `AUT-10`–`AUT-13`, `EVT-03`
 
 ```gherkin
+Escenario: Crear y confirmar una cuenta
+  Dado que el correo no tiene una cuenta Foloo confirmada
+  Cuando la persona crea una cuenta con correo y contraseña válidos
+  Entonces Cognito envía un código de confirmación al correo
+  Y la app solicita únicamente ese código, sin pedir datos del perfil Foloo
+  Cuando introduce el código correcto
+  Entonces la cuenta queda confirmada y puede iniciar sesión
+
+Escenario: Recuperarse de un código de confirmación inválido o vencido
+  Dado que la persona está confirmando su cuenta
+  Cuando introduce un código inválido o vencido
+  Entonces la app explica el problema en el idioma activo sin mostrar texto crudo de AWS
+  Y permite corregirlo o reenviar el código cuando Cognito lo autoriza
+
 Escenario: Primer arranque, usuario sin eventos
   Dado que la app se instala por primera vez
   Cuando el vendedor entra con usuario y contraseña válidos
@@ -28,6 +42,18 @@ Escenario: La sesión sobrevive al cierre de la app
   Dado que el vendedor inició sesión
   Cuando mata la app y la vuelve a abrir
   Entonces entra directo, sin pedir contraseña
+
+Escenario: Restaurar identidad y datos del mismo usuario
+  Dado que una sesión Cognito válida pertenece al sub "abc-123"
+  Cuando Foloo restaura la sesión
+  Entonces usa "abc-123" para consultar perfil, eventos, leads y medios locales
+  Y no usa el correo ni reasigna filas históricas sin owner
+
+Escenario: Cerrar sesión conserva el trabajo local
+  Dado que el usuario autenticado tiene perfil, eventos, leads y medios locales
+  Cuando cierra sesión
+  Entonces Cognito invalida su sesión y Foloo regresa al login
+  Pero no borra ni reasigna sus datos locales
 ```
 
 ---

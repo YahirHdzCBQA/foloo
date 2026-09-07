@@ -28,6 +28,20 @@ class _MemoryAuthStore implements DevelopmentAuthStore {
 
 class _FailingAuthService implements AuthService {
   @override
+  Future<AuthSignUpResult> signUp({
+    required String email,
+    required String password,
+  }) => throw StateError('fake failure');
+
+  @override
+  Future<void> confirmSignUp({required String email, required String code}) =>
+      throw StateError('fake failure');
+
+  @override
+  Future<void> resendSignUpCode({required String email}) =>
+      throw StateError('fake failure');
+
+  @override
   Future<AuthUser?> restoreSession() async => null;
 
   @override

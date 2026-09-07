@@ -14,6 +14,21 @@ class _RestoredAuthService implements AuthService {
   Future<AuthUser?> restoreSession() async => user;
 
   @override
+  Future<AuthSignUpResult> signUp({
+    required String email,
+    required String password,
+  }) async => const AuthSignUpResult(confirmationRequired: true);
+
+  @override
+  Future<void> confirmSignUp({
+    required String email,
+    required String code,
+  }) async {}
+
+  @override
+  Future<void> resendSignUpCode({required String email}) async {}
+
+  @override
   Future<AuthUser> signIn({
     required String username,
     required String password,

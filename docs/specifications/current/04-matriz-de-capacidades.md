@@ -27,7 +27,7 @@
 
 | Capacidad | Basic | Pro | Nota |
 |---|:---:|:---:|---|
-| Login con usuario y contraseña | ● | ● | Idéntico |
+| Alta propia, confirmación por email y login con correo/contraseña | ● | ● | Idéntico · `AUT-01`, `AUT-10`, `AUT-11` |
 | Perfil del vendedor (nombre, empresa, foto) | ● | ● | Idéntico |
 | Insignia de plan en el menú | ◐ | ◐ | Etiqueta estática: "Basic" / "Pro" |
 | Cerrar sesión | ● | ● | Idéntico |

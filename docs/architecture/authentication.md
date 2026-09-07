@@ -1,21 +1,20 @@
 # Authentication and Local Ownership
 
-FL-013A establishes the shared Basic/Pro authentication boundary required by
-`AUT-01`, `AUT-02`, `AUT-04`–`AUT-08`, `RNF-02`, `RNF-06` and `RNF-18`.
-ADR-002 selects AWS Cognito for production but the real adapter remains blocked
-until AWS DEV exists.
+FL-013A established the shared Basic/Pro boundary. FL-013B connects the normal
+runtime to AWS Cognito for `AUT-01`, `AUT-02`, `AUT-04`–`AUT-13`, `RNF-02`,
+`RNF-06` and `RNF-18`. ADR-002 records the provider and configuration decision.
 
 ## Runtime boundary
 
 ```text
-Login / bootstrap / logout
+Sign-up / confirmation / login / bootstrap / logout
           ↓
      AuthRepository
           ↓
       AuthService
           ↓
-DevelopmentAuthService (FL-013A only)
-CognitoAuthService     (FL-013B)
+DevelopmentAuthService (tests / controlled development only)
+CognitoAuthService     (normal runtime)
 ```
 
 `AuthRepository` is the single authentication state source and exposes
@@ -49,18 +48,28 @@ Rows migrated from schema v1 retain `NULL` ownership. They are preserved but no
 authenticated user can query them. Assigning historical data is an explicit
 pending product migration; FL-013A does not guess.
 
-## FL-013B replacement checklist
+## FL-013B Cognito adapter
 
-When AWS DEV is available:
+The app configures only the public mobile identifiers supplied for DEV:
 
-1. Receive the real AWS Region, Cognito User Pool ID and Cognito App Client ID.
-2. Configure a public mobile App Client without Client Secret.
-3. Implement `CognitoAuthService` for email/password login, restore session,
-   mapped errors and logout.
-4. Map Cognito `sub` to `AuthUser.id`; never use email as ownership identity.
-5. Inject the Cognito adapter into the existing `AuthRepository`.
-6. Verify existing ownership, profile, event, lead, navigation and offline tests
-   unchanged, then add Cognito integration tests against AWS DEV.
+- Region `us-east-1`
+- User Pool `us-east-1_QVm3dWe4O`
+- App Client `6jong3atp2crqcsde6g215ant8`, without Client Secret
 
-FL-013B must not add sign-up, forgot password, MFA or social providers unless a
-later approved requirement changes the V1 administrative provisioning flow.
+`CognitoAuthService` provides self sign-up with email/password, email-code
+confirmation/resend, login, restore and logout. AWS exceptions are mapped to
+domain failures before reaching UI. `sub` becomes `AuthUser.id`; email remains a
+display/login attribute. Amplify owns secure token storage; Drift never stores
+tokens.
+
+After authentication the existing profile repository looks up the Foloo profile
+by `sub`. Missing required profile fields route to profile setup; complete
+profiles route to Home. Account recovery is provider-enabled but UI-deferred.
+MFA, passwordless and social login remain outside this boundary.
+
+Deferred password recovery has its own `AccountRecoveryService` capability.
+This keeps the current `AuthService` and `AuthRepository` lifecycle stable until
+a traced recovery UI is approved; FL-013B does not call the Cognito reset APIs.
+
+Fake/pre-auth rows remain untouched. A future migration needs an approved rule;
+authentication never claims or rewrites them automatically.

@@ -6,6 +6,33 @@ library;
 
 enum AuthStatus { initializing, authenticated, unauthenticated, error }
 
+/// Stable UI-safe authentication failures; provider messages never reach UI.
+enum AuthFailureCode {
+  invalidCredentials,
+  emailAlreadyRegistered,
+  weakPassword,
+  invalidConfirmationCode,
+  expiredConfirmationCode,
+  userNotConfirmed,
+  alreadyConfirmed,
+  network,
+  rateLimited,
+  invalidInput,
+  unexpected,
+}
+
+class FolooAuthException implements Exception {
+  const FolooAuthException(this.code);
+
+  final AuthFailureCode code;
+}
+
+class AuthSignUpResult {
+  const AuthSignUpResult({required this.confirmationRequired});
+
+  final bool confirmationRequired;
+}
+
 /// Minimal authenticated identity required to scope local data.
 class AuthUser {
   const AuthUser({required this.id, required this.username});

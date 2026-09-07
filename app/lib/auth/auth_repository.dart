@@ -16,6 +16,11 @@ class AuthRepository extends ChangeNotifier {
 
   AuthState get state => _state;
 
+  AuthFailureCode? get failure => switch (_state.error) {
+    FolooAuthException(:final code) => code,
+    _ => null,
+  };
+
   Future<void> initialize() async {
     _setState(const AuthState.initializing());
     try {
@@ -48,12 +53,60 @@ class AuthRepository extends ChangeNotifier {
     }
   }
 
+  Future<AuthSignUpResult?> signUp({
+    required String email,
+    required String password,
+  }) async {
+    _setState(const AuthState.initializing());
+    try {
+      final result = await _service.signUp(email: email, password: password);
+      _setState(const AuthState.unauthenticated());
+      return result;
+    } catch (error) {
+      _setState(AuthState.error(error));
+      return null;
+    }
+  }
+
+  Future<bool> confirmSignUp({
+    required String email,
+    required String code,
+  }) async {
+    _setState(const AuthState.initializing());
+    try {
+      await _service.confirmSignUp(email: email, code: code);
+      _setState(const AuthState.unauthenticated());
+      return true;
+    } catch (error) {
+      _setState(AuthState.error(error));
+      return false;
+    }
+  }
+
+  Future<bool> resendSignUpCode({required String email}) async {
+    _setState(const AuthState.initializing());
+    try {
+      await _service.resendSignUpCode(email: email);
+      _setState(const AuthState.unauthenticated());
+      return true;
+    } catch (error) {
+      _setState(AuthState.error(error));
+      return false;
+    }
+  }
+
   Future<void> signOut() async {
     try {
       await _service.signOut();
       _setState(const AuthState.unauthenticated());
     } catch (error) {
       _setState(AuthState.error(error));
+    }
+  }
+
+  void clearFailure() {
+    if (_state.status == AuthStatus.error) {
+      _setState(const AuthState.unauthenticated());
     }
   }
 

@@ -24,6 +24,34 @@ class DevelopmentAuthService implements AuthService {
   Future<AuthUser?> restoreSession() => _store.readSession();
 
   @override
+  Future<AuthSignUpResult> signUp({
+    required String email,
+    required String password,
+  }) async {
+    if (email.trim().isEmpty || password.isEmpty) {
+      throw const FolooAuthException(AuthFailureCode.invalidInput);
+    }
+    return const AuthSignUpResult(confirmationRequired: true);
+  }
+
+  @override
+  Future<void> confirmSignUp({
+    required String email,
+    required String code,
+  }) async {
+    if (email.trim().isEmpty || code.trim().isEmpty) {
+      throw const FolooAuthException(AuthFailureCode.invalidConfirmationCode);
+    }
+  }
+
+  @override
+  Future<void> resendSignUpCode({required String email}) async {
+    if (email.trim().isEmpty) {
+      throw const FolooAuthException(AuthFailureCode.invalidInput);
+    }
+  }
+
+  @override
   Future<AuthUser> signIn({
     required String username,
     required String password,

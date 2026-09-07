@@ -1,17 +1,16 @@
 # ADR-002 — Frontera de autenticación con AWS Cognito
 
 - Estado: **Aceptado**
-- Fecha: 2026-08-31
+- Fecha: 2026-08-31; actualizada por FL-013B el 2026-09-04
 - Alcance: compartido Basic/Pro
-- Trazas: AUT-01, AUT-02, AUT-04–AUT-08, RNF-02, RNF-06, RNF-18 y E-01
+- Trazas: AUT-01, AUT-02, AUT-04–AUT-13, RNF-02, RNF-06, RNF-18 y E-01
 
 ## Contexto
 
 Foloo necesita una identidad estable para restaurar sesión y aislar perfil,
-eventos, leads y preferencias locales. La cuenta AWS y el ambiente DEV todavía
-no existen, por lo que no están disponibles Region, User Pool ID ni App Client
-ID. La integración real no puede configurarse sin inventar infraestructura o
-credenciales.
+eventos, leads y preferencias locales. FL-013A estableció esa frontera antes de
+que existiera AWS DEV. FL-013B recibe un User Pool DEV real, público para la app
+móvil y sin Client Secret, y sustituye el adaptador de runtime.
 
 La decisión de producto y arquitectura de FL-013 establece AWS Cognito como el
 proveedor real. FL-013A debe permitir continuar el desarrollo local sin
@@ -26,8 +25,16 @@ convertir credenciales demo en autenticación de producción.
 - FL-013A usa `DevelopmentAuthService`, un adaptador local explícitamente no
   productivo. Emite identificadores `fake-user-*` independientes del correo y
   conserva solo la identidad/sesión temporal; nunca conserva la contraseña.
-- FL-013B implementará `CognitoAuthService` y lo inyectará detrás de la misma
-  frontera. El App Client móvil será público y no tendrá Client Secret.
+- FL-013B implementa `CognitoAuthService` con `amplify_flutter` y
+  `amplify_auth_cognito` y lo inyecta detrás de la misma frontera. El App Client
+  móvil es público y no tiene Client Secret.
+- Runtime normal usa Cognito DEV (`us-east-1`, User Pool
+  `us-east-1_QVm3dWe4O`, App Client `6jong3atp2crqcsde6g215ant8`). La
+  configuración está centralizada y deja PROD sin valores inventados.
+- Se permite self sign-up únicamente con email/password y confirmación por
+  código de email. Reenvío y errores se traducen a errores de dominio ES/EN.
+- MFA de usuario y passwordless están deshabilitados. Account recovery está
+  habilitado en el proveedor, pero la UI de recuperación se difiere.
 - La identidad de autenticación (`AuthUser.id`, futuro Cognito `sub`) es distinta
   del perfil comercial Foloo almacenado en Drift.
 - Offline y autenticación son estados independientes. Perder conectividad no
@@ -39,8 +46,8 @@ convertir credenciales demo en autenticación de producción.
 
 - Autenticación directa en widgets: rechazada porque dispersa sesión y obliga a
   rehacer pantallas al integrar Cognito.
-- Instalar/configurar Cognito con identificadores ficticios: rechazada porque no
-  existe AWS DEV y violaría RNF-06.
+- Guardar Access Key, Secret Access Key, Client Secret o tokens en Drift:
+  rechazado; Amplify administra la sesión en almacenamiento seguro de plataforma.
 - Usar correo como identificador técnico: rechazado; el identificador estable
   será Cognito `sub`.
 - Detener FL-013 completa: rechazado; ownership y persistencia pueden probarse
@@ -49,10 +56,11 @@ convertir credenciales demo en autenticación de producción.
 ## Consecuencias
 
 - La sesión y los datos locales pueden probarse con varios usuarios sin AWS.
-- FakeAuth no valida credenciales contra un directorio real y no es apto para
-  producción; su presencia debe impedir considerar FL-013 completa.
-- FL-013B requiere AWS Region, Cognito User Pool ID y Cognito App Client ID.
-  Sustituirá solo el adaptador y verificará restore session, login, errores y
-  logout reales.
-- No se agregan SDKs AWS, secretos, backend, Terraform ni sincronización en
-  FL-013A.
+- FakeAuth permanece exclusivamente para tests y desarrollo controlado; no es
+  la fuente de verdad del runtime normal.
+- Amplify conserva los tokens fuera de Drift. Logout elimina estado de sesión,
+  no perfil, eventos, leads ni medios.
+- Las filas heredadas con owner nulo o `fake-user-*` se preservan y no se
+  reasignan silenciosamente. Su migración requiere una futura decisión.
+- No se agregan secretos, credenciales IAM, backend, Terraform, sincronización
+  ni determinación Basic/Pro mediante Cognito.

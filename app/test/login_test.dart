@@ -35,7 +35,7 @@ void main() {
 
     await tapLogin(tester);
 
-    expect(find.text('Escribe tu usuario'), findsOneWidget);
+    expect(find.text('Escribe tu correo'), findsOneWidget);
     expect(find.text('Escribe tu contraseña'), findsOneWidget);
     expect(find.byKey(const Key('hamburgerMenuButton')), findsNothing);
   });

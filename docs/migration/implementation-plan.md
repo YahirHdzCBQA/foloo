@@ -47,15 +47,22 @@ adaptation.
 
 **Objective:** implement the beginning-of-day flow before per-lead capture.
 
-- IDs/scenarios: `AUT-01`–`AUT-09`, `EVT-01`–`EVT-13`, `CAP-01`–`CAP-04`,
+**Authentication delivery status (2026-09-04):** FL-013A **COMPLETED**
+(repository boundary and local ownership); FL-013B **COMPLETED, pending manual
+device validation** (real Cognito DEV adapter, self sign-up, confirmation,
+session restore and logout). This status does not authorize FL-014.
+
+- IDs/scenarios: `AUT-01`–`AUT-13`, `EVT-01`–`EVT-13`, `CAP-01`–`CAP-04`,
   `E-01`, `E-02`, `E-10`.
 - `EVT-12` agrega la selección automática por fecha local, con prioridad de
   cualquier selección manual válida y reevaluación diaria de selecciones auto.
 - `EVT-13` presenta Mis eventos en bloques activo/futuros/pasados con orden
   estable por fechas locales y sin duplicar el activo.
-- Replace demo login, add first-use profile, session persistence, origin
-  selection and Mis eventos CRUD/logical deletion.
-- Dependencies: auth/backend and persistence ADRs, `D-03`, `D-09`, `D-10`,
+- FL-013A supplies the repository boundary and local ownership. FL-013B replaces
+  the runtime adapter with Cognito DEV, adds self sign-up/email confirmation,
+  session restore and `sub` mapping; profile, origin and event behavior remain
+  in the Foloo layer.
+- Dependencies: ADR-001, ADR-002, `D-03`, resolved `D-09`, `D-10`,
   legal deletion boundary `RC-07`.
 - **Affects:** `FolooApp`, login, drawer, hard-coded Evento and DemoEventData.
 
