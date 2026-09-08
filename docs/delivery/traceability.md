@@ -42,7 +42,7 @@ no existe compatibilidad funcional Basic/Pro.
 - Fuente: hoja `Pendientes` del XLSX entregado; el archivo original no se editó.
 - Estados: **I** implementado localmente con evidencia; **P** parcial/demo o
   falta aceptación remota; **F** sin implementación suficiente.
-- Totales aproximados: **14 I · 22 P · 29 F = 65**.
+- Totales aproximados: **15 I · 21 P · 29 F = 65**.
 
 Ningún **I** sustituye QA de dispositivo, backend, seguridad o aceptación de
 Producto. El código de edition gating existente es obsoleto aunque la función
@@ -66,7 +66,7 @@ interna sea reutilizable.
 | f1-12 | I | `_revealFirstInvalidField` y tests de captura | FL-013 |
 | f1-13 | P | Drift y ConnectivityService; UI local disponible | FL-012/012.1; no hay sync/email offline real |
 | f1-14 | P | LeadConfirmationScreen y retorno | FL-004/009; estados siguen demo |
-| f1-15 | P | AppDrawer con destinos/evento | FL-003/009; falta saldo y retirar plan |
+| f1-15 | P | AppDrawer expone todos los destinos V1 sin selector/gating | FL-003/009/013D; falta saldo real |
 | f1-16 | P | RecordsScreen con evento/búsqueda/tipo/estado | FL-004/012.1; contrato visible no completo |
 | f1-17 | I | orden local y `_EmptyRecords` | FL-004/012 |
 | f1-18 | F | detalle actual es consulta, no edición persistente | FL-014 propuesta |
@@ -75,7 +75,7 @@ interna sea reutilizable.
 | f1-21 | P | PrivateMediaStorage persiste tarjeta/voz | FL-012; no existe subida BD/S3 |
 | f1-22 | I | reproducción, pausa, borrado y regrabación antes/después cubiertos por widget tests | FL-006/010/013; política remota futura sigue en D-06 |
 | f1-23 | F | no existe tope productivo | bloqueado D-05 |
-| f1-24 | P | multi-photo, Drift media y visor | FL-013A refinement; aún condicionado por AppPlan |
+| f1-24 | I | multi-photo, Drift media y visor disponibles para toda cuenta | FL-013A refinement/013D |
 | f1-25 | I | themes, toggle y preferencia por usuario | FL-009/011/012 |
 | f1-26 | P | ARB ES/EN, selector y localization tests | FL-011; quedan demos/cadenas por auditar |
 
@@ -112,7 +112,7 @@ interna sea reutilizable.
 | f4-02 | P | Cognito real y `sub` ownership | FL-013B; workspace remoto no existe |
 | f4-03 | P | storage privado local para medios | FL-012; falta S3/retención |
 | f4-04 | F | sin servicio de correo/dominio/rebotes | bloqueado D-09 |
-| f4-05 | F | confirmación aún contiene demo “hoja” | retirar en FL-014; Sheets backlog |
+| f4-05 | F | confirmación informa solo el guardado local real | Google Sheets sigue fuera de V1; salida remota pendiente |
 | f4-06 | F | no hay modelo org/teams aprobado | bloqueado D-10 |
 | f4-07 | P | config Cognito DEV/PROD centralizada | FL-013B; sin staging/secret ops |
 | f4-08 | F | sin CI/CD/distribución documentada | FL plataforma |
@@ -138,17 +138,16 @@ interna sea reutilizable.
 | f5-11 | F | sin tag/release notes/soporte V1 | salida a producción |
 | f5-12 | F | sin generador XLSX/CSV | después de f2-06/f2-07 |
 
-## Código obsoleto por la unificación
+## Convergencia de runtime completada en FL-013D
 
-- `AppPlan.basic/pro`, selector demo y condicionales `isPro`.
-- `pro_demo_data.dart` como autoridad de contenido/transcripción/estados.
-- Tests que prueban ausencia/presencia por edición.
-- Texto o UI de transcripción.
-- Estados de “hoja de cálculo” en acuse.
-
-Se conservan temporalmente porque FL-013C no modifica features. Deben retirarse
-en la primera FL de realineación móvil sin perder la implementación reutilizable
-de contenido, correo e imágenes.
+- Eliminados `AppPlan`, selector demo, condicionales `isPro` y fixtures con
+  nombres de edición.
+- Contenido, Correo, lugar directo, asignación de PDF e imágenes de referencia
+  quedan accesibles para toda cuenta V1.
+- Retiradas la UI de transcripción automática y las afirmaciones de Google
+  Sheets en acuse/estado. La columna Drift histórica se conserva nullable para
+  leer bases existentes sin reset ni pérdida.
+- Cognito, ownership y schemaVersion permanecen sin cambios.
 
 ## FL históricas con evidencia reutilizable
 
@@ -167,5 +166,5 @@ de contenido, correo e imágenes.
 ## Conclusión
 
 El repositorio ya tiene una base móvil local considerable, pero no una V1
-productiva. Los bloques mayores faltantes son: retirar gating, detalle editable,
+productiva. Los bloques mayores faltantes son: detalle editable,
 sync/API/S3/cloud, correo, export real, monetización y salida de tiendas.

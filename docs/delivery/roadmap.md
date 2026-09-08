@@ -10,15 +10,15 @@ de fecha. Cada FL termina solo con requisitos/escenarios trazados y evidencia.
 - **FL-013B COMPLETADO en código; validación manual pendiente:** Cognito DEV,
   alta/confirmación/login/restore/logout y `sub`.
 - **FL-013C COMPLETADO al aprobar este paquete:** realineación documental.
+- **FL-013D COMPLETADO:** runtime unificado, sin selector/gating Basic/Pro;
+  Contenido, Correo e imágenes disponibles para toda cuenta V1 y transcripción
+  automática retirada de la UI.
 - No continuar automáticamente.
 
-## Propuesta FL-014 — Convergencia móvil a una sola V1
+## Propuesta FL-014 — Brechas locales restantes de V1
 
-**Objetivo:** retirar la edición obsoleta sin ampliar backend.
+**Objetivo:** completar las brechas locales restantes sin ampliar backend.
 
-- Eliminar selector/gating `AppPlan.basic/pro` y tests de edition.
-- Eliminar UI/transcripción demo y menciones de Google Sheets/“en la hoja”.
-- Exponer Contenido, Correo e imágenes a toda cuenta V1.
 - Completar perfil con puesto/teléfono y edición.
 - Completar detalle editable para campos no-media y persistencia local.
 - Normalizar estado/copy ES/EN y conservar módulos existentes.
