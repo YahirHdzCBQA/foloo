@@ -1,8 +1,7 @@
 # Foloo · aplicación Flutter
 
-Implementación móvil de Foloo V1. El producto vigente es una sola versión; el
-selector y gating `AppPlan.basic/pro` que aún aparecen en el código son deuda
-heredada y deben retirarse en FL-014, no extenderse.
+Implementación móvil de Foloo V1. El producto vigente es una sola versión y
+el runtime no contiene selector ni gating por edición.
 
 ## Base existente
 

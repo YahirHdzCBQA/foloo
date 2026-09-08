@@ -11,7 +11,7 @@ Widget captureApp() => MaterialApp(
   home: LeadCaptureScreen(
     originKind: LeadOriginKind.event,
     eventName: DemoEventData.eventName,
-    events: DemoBasicData.events,
+    events: DemoAppData.events,
     recordsCount: 0,
     darkMode: false,
     onLeadSaved: (lead) =>

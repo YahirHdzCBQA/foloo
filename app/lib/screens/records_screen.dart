@@ -1,7 +1,7 @@
 /// Searchable session records and read-only connection detail.
 ///
-/// Provides local demo filtering, export choices, sync affordances and voice
-/// playback. Superseded edition conditionals remain only until FL-014 cleanup.
+/// Provides local filtering, export choices, sync affordances and voice
+/// playback for the unified V1 product.
 library;
 
 import 'dart:async';
@@ -12,8 +12,7 @@ import 'package:intl/intl.dart';
 
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
-import '../models/app_plan.dart';
-import '../models/pro_demo_data.dart';
+import '../models/content_file.dart';
 import '../models/lead_draft.dart';
 import '../models/session_lead.dart';
 import '../services/voice_note_service.dart';
@@ -34,7 +33,7 @@ String _uploadStateLabel(BuildContext context, SessionUploadState state) =>
     switch (state) {
       SessionUploadState.local => context.l10n.pendingUpload,
       SessionUploadState.pending => context.l10n.pendingUpload,
-      SessionUploadState.inSheet => context.l10n.inSheet,
+      SessionUploadState.synced => context.l10n.synced,
     };
 
 /// Lists leads loaded from durable local persistence (REG-01–REG-08).
@@ -45,10 +44,9 @@ class RecordsScreen extends StatefulWidget {
     required this.onDestinationSelected,
     required this.onAppearanceChanged,
     required this.onLogout,
-    this.plan = AppPlan.basic,
     this.contentFiles = const [],
     this.events = const [],
-    this.profile = DemoBasicData.profile,
+    this.profile = DemoAppData.profile,
     this.voiceNoteService,
     super.key,
   });
@@ -60,7 +58,6 @@ class RecordsScreen extends StatefulWidget {
   final VoidCallback onLogout;
   final DemoProfile profile;
   final VoiceNoteService? voiceNoteService;
-  final AppPlan plan;
   final List<ContentFile> contentFiles;
   final List<AppEvent> events;
 
@@ -245,7 +242,6 @@ class _RecordsScreenState extends State<RecordsScreen>
           audioPlaying:
               _activeAudioPath == record.lead.audioLocalPath && _audioPlaying,
           onToggleAudio: () => _toggleAudio(record),
-          plan: widget.plan,
         ),
       ),
     );
@@ -358,12 +354,11 @@ class _RecordsScreenState extends State<RecordsScreen>
     final palette = FolooPalette.of(context);
     final records = _visibleRecords;
     final pending = records
-        .where((record) => record.uploadState != SessionUploadState.inSheet)
+        .where((record) => record.uploadState != SessionUploadState.synced)
         .length;
     return Scaffold(
       key: _scaffoldKey,
       endDrawer: AppDrawer(
-        plan: widget.plan,
         contentCount: widget.contentFiles.length,
         profile: widget.profile,
         activeDestination: AppDestination.records,
@@ -765,7 +760,7 @@ class _RecordRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = FolooPalette.of(context);
-    final pending = record.uploadState != SessionUploadState.inSheet;
+    final pending = record.uploadState != SessionUploadState.synced;
     return Material(
       color: palette.card,
       borderRadius: BorderRadius.circular(FolooRadii.md),
@@ -861,19 +856,17 @@ class _RecordRow extends StatelessWidget {
 
 /// Current read-only detail scaffold for one captured connection (REG-05).
 ///
-/// V1 requires later editable fields; automatic transcription remains backlog.
+/// V1 requires later editable fields; automatic transcription is not exposed.
 class ConnectionDetailScreen extends StatelessWidget {
   const ConnectionDetailScreen({
     required this.record,
     required this.audioPlaying,
     required this.onToggleAudio,
-    required this.plan,
     super.key,
   });
   final SessionLead record;
   final bool audioPlaying;
   final VoidCallback onToggleAudio;
-  final AppPlan plan;
 
   @override
   Widget build(BuildContext context) {
@@ -948,13 +941,13 @@ class ConnectionDetailScreen extends StatelessWidget {
                 _DetailPill(
                   key: const Key('detailUploadStatePill'),
                   label: _uploadStateLabel(context, record.uploadState),
-                  color: record.uploadState != SessionUploadState.inSheet
+                  color: record.uploadState != SessionUploadState.synced
                       ? palette.ink
                       : palette.success,
-                  tint: record.uploadState != SessionUploadState.inSheet
+                  tint: record.uploadState != SessionUploadState.synced
                       ? pendingTint
                       : palette.successTint,
-                  icon: record.uploadState != SessionUploadState.inSheet
+                  icon: record.uploadState != SessionUploadState.synced
                       ? Icons.sync
                       : Icons.check,
                 ),
@@ -1070,7 +1063,7 @@ class ConnectionDetailScreen extends StatelessWidget {
                 ),
               ),
             ],
-            if (plan.isPro && lead.referenceImageLocalPaths.isNotEmpty) ...[
+            if (lead.referenceImageLocalPaths.isNotEmpty) ...[
               const SizedBox(height: 20),
               Text(
                 context.l10n.referenceImagesDetail,
@@ -1137,60 +1130,21 @@ class ConnectionDetailScreen extends StatelessWidget {
                 ),
               ),
             ],
-            if (plan.isPro) ...[
-              const SizedBox(height: 20),
-              Text(
-                context.l10n.transcription,
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                key: const Key('detailTranscription'),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: palette.paper,
-                  borderRadius: BorderRadius.circular(FolooRadii.md),
-                ),
-                child: Text(
-                  lead.transcription ??
-                      (lead.hasVoiceNote
-                          ? context.l10n.processingDemo
-                          : context.l10n.voiceUnavailable),
-                ),
-              ),
-              if (lead.contentNames.isNotEmpty) ...[
-                const SizedBox(height: 18),
-                Text(
-                  context.l10n.sentContentDemo,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 8),
-                ...lead.contentNames.map(
-                  (name) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.picture_as_pdf_outlined),
-                    title: Text(name),
-                    subtitle: Text(context.l10n.frozenAttachment),
-                  ),
-                ),
-              ],
+            if (lead.contentNames.isNotEmpty) ...[
               const SizedBox(height: 18),
               Text(
-                context.l10n.emailStatusDemo,
+                context.l10n.sentContentDemo,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 8),
-              _ReadOnlyValue(
-                label: context.l10n.leadEmail,
-                value: lead.email.isEmpty
-                    ? context.l10n.queued
-                    : context.l10n.sentDemo,
+              ...lead.contentNames.map(
+                (name) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.picture_as_pdf_outlined),
+                  title: Text(name),
+                  subtitle: Text(context.l10n.frozenAttachment),
+                ),
               ),
-              _ReadOnlyValue(
-                label: context.l10n.adminCopy,
-                value: context.l10n.sentDemo,
-              ),
-              // TODO(PRODUCTION): Replace Pro demo states with backend truth.
             ],
             const SizedBox(height: 22),
             Text(

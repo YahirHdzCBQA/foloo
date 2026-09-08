@@ -1,4 +1,4 @@
-/// Native image-selection boundary for optional Pro contact-reference media.
+/// Native image-selection boundary for optional V1 contact-reference media.
 ///
 /// The interface keeps CAP-22 testable without coupling capture state to the
 /// image_picker platform channel.

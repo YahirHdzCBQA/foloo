@@ -1,6 +1,6 @@
 /// Root application shell for the Foloo frontend prototype.
 ///
-/// Owns navigation and demo capability selection while loading durable profile,
+/// Owns navigation while loading durable profile,
 /// preferences, events and captured leads from the local repository boundary.
 library;
 
@@ -19,9 +19,8 @@ import 'data/repositories/local_repositories.dart';
 
 import 'models/app_destination.dart';
 import 'models/app_event.dart';
-import 'models/app_plan.dart';
 import 'models/lead_draft.dart';
-import 'models/pro_demo_data.dart';
+import 'models/content_file.dart';
 import 'models/session_lead.dart';
 import 'screens/event_screen.dart';
 import 'screens/account_access_screen.dart';
@@ -44,7 +43,7 @@ enum _AccessStage { login, signUp, confirmation }
 
 /// Coordinates the top-level Foloo flow from login through the capture shell.
 ///
-/// ES: Coordina navegación, capacidades demo y datos locales durables.
+/// ES: Coordina navegación y datos locales durables.
 class FolooApp extends StatefulWidget {
   const FolooApp({
     this.initialLocale,
@@ -74,7 +73,7 @@ class FolooApp extends StatefulWidget {
 }
 
 class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
-  // Session orchestration and capability fixtures.
+  // Session orchestration and local fixtures.
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   _AuthenticatedStage _stage = _AuthenticatedStage.profile;
   _AccessStage _accessStage = _AccessStage.login;
@@ -82,11 +81,8 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   bool _accountJustConfirmed = false;
   ThemeMode _themeMode = ThemeMode.light;
   AppDestination _destination = AppDestination.home;
-  // DEMO: Superseded edition selector retained only until FL-014 cleanup.
-  // DEMO: Remove the superseded edition selector during FL-014 convergence.
-  AppPlan _plan = AppPlan.basic;
   AppDestination _eventsReturnDestination = AppDestination.home;
-  DemoProfile _profile = DemoBasicData.profile;
+  DemoProfile _profile = DemoAppData.profile;
   bool _profileCompleted = false;
   late List<AppEvent> _events;
   late List<ContentFile> _contentFiles;
@@ -123,7 +119,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       return event.copyWith(
         leadCount: records.length,
         pendingCount: records
-            .where((record) => record.uploadState != SessionUploadState.inSheet)
+            .where((record) => record.uploadState != SessionUploadState.synced)
             .length,
       );
     }).toList();
@@ -150,8 +146,8 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
         );
     _authRepository.addListener(_onAuthStateChanged);
     _connectivity = widget.connectivityService ?? DeviceConnectivityService();
-    _events = List.of(DemoBasicData.events);
-    _contentFiles = List.of(DemoProData.files);
+    _events = List.of(DemoAppData.events);
+    _contentFiles = List.of(DemoContentData.files);
     final system = WidgetsBinding.instance.platformDispatcher.locale;
     final requested =
         widget.initialLocale ??
@@ -230,7 +226,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     final storedProfile = await _persistence.profiles.load(userId);
     var storedEvents = await _persistence.events.list(userId);
     if (storedEvents.isEmpty && widget.useDemoFixtures) {
-      for (final event in DemoBasicData.events) {
+      for (final event in DemoAppData.events) {
         await _persistence.events.save(userId, event, makeActive: event.active);
       }
       storedEvents = await _persistence.events.list(userId);
@@ -272,13 +268,13 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     final storedLeads = await _persistence.leads.listAll(userId);
     if (!mounted) return;
     setState(() {
-      _profile = storedProfile ?? DemoBasicData.profile;
+      _profile = storedProfile ?? DemoAppData.profile;
       _profileCompleted = storedProfile != null;
       _events = storedEvents;
       _eventSelectionMode = shouldChooseAutomatically
           ? 'automatic'
           : (storedEventSelectionMode ?? 'manual');
-      _contentFiles = List.of(DemoProData.files);
+      _contentFiles = List.of(DemoContentData.files);
       _sessionLeads
         ..clear()
         ..addAll(storedLeads);
@@ -428,9 +424,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       _destination = AppDestination.home;
       _stage = _AuthenticatedStage.profile;
       _profileCompleted = false;
-      _profile = DemoBasicData.profile;
+      _profile = DemoAppData.profile;
       _events = [];
-      _contentFiles = List.of(DemoProData.files);
+      _contentFiles = List.of(DemoContentData.files);
       _sessionLeads.clear();
       _origin = null;
       _accessStage = _AccessStage.login;
@@ -646,8 +642,6 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
                     _accessStage = _AccessStage.signUp;
                   });
                 },
-                selectedPlan: _plan,
-                onPlanChanged: (plan) => setState(() => _plan = plan),
               ),
               _AccessStage.signUp => SignUpScreen(
                 key: const ValueKey('signUpScreen'),
@@ -688,7 +682,6 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
                 onCreateEvent: _createEvent,
                 onContentAdded: _addContentFile,
                 pdfPickerService: widget.pdfPickerService,
-                plan: _plan,
                 contentFiles: List.unmodifiable(_contentFiles),
               ),
               _AuthenticatedStage.shell => _buildShell(),
@@ -723,7 +716,6 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           onDestinationSelected: _selectDestination,
           onAppearanceChanged: _setAppearance,
           onLogout: _logout,
-          plan: _plan,
           contentFiles: List.unmodifiable(_contentFiles),
           isOnline: _isOnline,
           contactImagePickerService: widget.contactImagePickerService,
@@ -736,7 +728,6 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           onDestinationSelected: _selectDestination,
           onAppearanceChanged: _setAppearance,
           onLogout: _logout,
-          plan: _plan,
           contentFiles: List.unmodifiable(_contentFiles),
           events: List.unmodifiable(events),
         ),
@@ -755,49 +746,42 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           onUpdate: _updateEvent,
           onDelete: _deleteEvent,
           onBack: _backFromEvents,
-          plan: _plan,
           contentFiles: List.unmodifiable(_contentFiles),
           nowProvider: widget.nowProvider,
         ),
-        if (_plan.isPro)
-          ContentScreen(
-            key: const ValueKey('contentScreen'),
-            files: List.unmodifiable(_contentFiles),
-            events: List.unmodifiable(events),
-            recordsCount: _sessionLeads.length,
-            profile: _profile,
-            darkMode: darkMode,
-            onDestinationSelected: _selectDestination,
-            onAppearanceChanged: _setAppearance,
-            onLogout: _logout,
-            onFileAdded: _addContentFile,
-            onFileUpdated: (file) => setState(
-              () => _contentFiles = _contentFiles
-                  .map((item) => item.id == file.id ? file : item)
-                  .toList(),
-            ),
-            onFileDeleted: (file) => setState(
-              () => _contentFiles.removeWhere((item) => item.id == file.id),
-            ),
-            pdfPickerService: widget.pdfPickerService,
-          )
-        else
-          const SizedBox.shrink(),
-        if (_plan.isPro)
-          EmailScreen(
-            key: const ValueKey('emailScreen'),
-            recordsCount: _sessionLeads.length,
-            contentCount: _contentFiles.length,
-            records: List.unmodifiable(_sessionLeads),
-            contentFiles: List.unmodifiable(_contentFiles),
-            profile: _profile,
-            darkMode: darkMode,
-            onDestinationSelected: _selectDestination,
-            onAppearanceChanged: _setAppearance,
-            onLogout: _logout,
-          )
-        else
-          const SizedBox.shrink(),
+        ContentScreen(
+          key: const ValueKey('contentScreen'),
+          files: List.unmodifiable(_contentFiles),
+          events: List.unmodifiable(events),
+          recordsCount: _sessionLeads.length,
+          profile: _profile,
+          darkMode: darkMode,
+          onDestinationSelected: _selectDestination,
+          onAppearanceChanged: _setAppearance,
+          onLogout: _logout,
+          onFileAdded: _addContentFile,
+          onFileUpdated: (file) => setState(
+            () => _contentFiles = _contentFiles
+                .map((item) => item.id == file.id ? file : item)
+                .toList(),
+          ),
+          onFileDeleted: (file) => setState(
+            () => _contentFiles.removeWhere((item) => item.id == file.id),
+          ),
+          pdfPickerService: widget.pdfPickerService,
+        ),
+        EmailScreen(
+          key: const ValueKey('emailScreen'),
+          recordsCount: _sessionLeads.length,
+          contentCount: _contentFiles.length,
+          records: List.unmodifiable(_sessionLeads),
+          contentFiles: List.unmodifiable(_contentFiles),
+          profile: _profile,
+          darkMode: darkMode,
+          onDestinationSelected: _selectDestination,
+          onAppearanceChanged: _setAppearance,
+          onLogout: _logout,
+        ),
       ],
     );
   }

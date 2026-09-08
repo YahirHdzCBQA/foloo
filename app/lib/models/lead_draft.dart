@@ -1,6 +1,6 @@
 /// In-progress lead values shared between capture and confirmation.
 ///
-/// This frontend object is not the final local-storage or spreadsheet schema.
+/// This frontend object is not the final local-storage or API schema.
 library;
 
 /// Commercial relationship selected for a lead (CAP-09 / CAP-10).
@@ -36,7 +36,6 @@ class LeadDraft {
     this.place,
     this.contentFileIds = const <String>[],
     this.contentNames = const <String>[],
-    this.transcription,
     this.referenceImageLocalPaths = const <String>[],
   }) : assert(referenceImageLocalPaths.length <= 3);
 
@@ -58,7 +57,7 @@ class LeadDraft {
   final String? place;
   final List<String> contentFileIds;
   final List<String> contentNames;
-  final String? transcription;
+
   final List<String> referenceImageLocalPaths;
 
   String get fullName => '$name $lastName'.trim();
@@ -93,7 +92,6 @@ class LeadDraft {
     place: place,
     contentFileIds: contentFileIds,
     contentNames: contentNames,
-    transcription: transcription,
     referenceImageLocalPaths:
         referenceImageLocalPaths ?? this.referenceImageLocalPaths,
   );

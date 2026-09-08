@@ -7,8 +7,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../models/app_event.dart';
-import '../models/app_plan.dart';
-import '../models/pro_demo_data.dart';
+import '../models/content_file.dart';
 import '../models/lead_draft.dart';
 import '../services/pdf_picker_service.dart';
 import '../theme/brand_theme.dart';
@@ -31,7 +30,6 @@ class OriginSelectionScreen extends StatefulWidget {
     required this.events,
     required this.onContinue,
     required this.onCreateEvent,
-    required this.plan,
     required this.contentFiles,
     this.onContentAdded,
     this.pdfPickerService,
@@ -41,7 +39,6 @@ class OriginSelectionScreen extends StatefulWidget {
   final List<AppEvent> events;
   final ValueChanged<OriginSelection> onContinue;
   final ValueChanged<AppEvent> onCreateEvent;
-  final AppPlan plan;
   final List<ContentFile> contentFiles;
   final ValueChanged<ContentFile>? onContentAdded;
   final PdfPickerService? pdfPickerService;
@@ -82,7 +79,6 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
   Future<void> _createEvent() async {
     final event = await showCreateEventDialog(
       context,
-      plan: widget.plan,
       contentFiles: widget.contentFiles,
       pdfPickerService: widget.pdfPickerService,
       onContentAdded: widget.onContentAdded,
@@ -159,25 +155,23 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
                         height: 1.5,
                       ),
                     ),
-                    if (widget.plan.isPro) ...[
-                      const SizedBox(height: 24),
-                      TextField(
-                        key: const Key('originPlaceField'),
-                        controller: _place,
-                        onChanged: (_) => setState(() {}),
-                        decoration: InputDecoration(
-                          labelText: context.l10n.place,
-                        ),
+                    const SizedBox(height: 24),
+                    TextField(
+                      key: const Key('originPlaceField'),
+                      controller: _place,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        labelText: context.l10n.place,
                       ),
-                      const SizedBox(height: 7),
-                      Text(
-                        context.l10n.directPlacePersistentHelp('{lugar}'),
-                        style: TextStyle(
-                          color: palette.inkSecondary,
-                          fontSize: 12,
-                        ),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      context.l10n.directPlacePersistentHelp('{lugar}'),
+                      style: TextStyle(
+                        color: palette.inkSecondary,
+                        fontSize: 12,
                       ),
-                    ],
+                    ),
                     const SizedBox(height: 80),
                   ],
                 )
@@ -282,9 +276,7 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
           child: FilledButton(
             key: const Key('originContinueButton'),
             onPressed:
-                (direct &&
-                        (!widget.plan.isPro ||
-                            _place.text.trim().isNotEmpty)) ||
+                (direct && _place.text.trim().isNotEmpty) ||
                     (!direct && _event != null)
                 ? () => widget.onContinue(
                     OriginSelection(

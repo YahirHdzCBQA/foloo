@@ -6,7 +6,7 @@ library;
 
 import 'package:flutter/material.dart';
 
-/// Closed visual vocabulary extracted from `Foloo Mockups Basic.html`.
+/// Closed visual vocabulary extracted from the approved Foloo mockups.
 abstract final class FolooColors {
   static const white = Color(0xFFFFFFFF);
   static const ink = Color(0xFF1F1F1F);
@@ -19,7 +19,7 @@ abstract final class FolooColors {
   static const secondary = Color(0xFF5C5C5C);
   static const limeTint = Color(0xFFF7FEDF);
 
-  // Status hues are copied from the rendered Basic mockup. Do not replace
+  // Status hues are copied from the rendered V1 mockup. Do not replace
   // them with the former dark prototype colors.
   static const success = Color(0xFF3F6B15);
   static const warning = Color(0xFFB4790A);
@@ -27,7 +27,7 @@ abstract final class FolooColors {
   static const pending = warning;
 
   // Interest semaphore and record rails are deliberately brighter than the
-  // semantic status palette, exactly as rendered in the Basic mockups.
+  // semantic status palette, exactly as rendered in the V1 mockups.
   static const interestLow = lime;
   static const interestMedium = Color(0xFFFFF900);
   static const interestHigh = Color(0xFFFF2500);

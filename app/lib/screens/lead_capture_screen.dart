@@ -14,8 +14,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
-import '../models/app_plan.dart';
-import '../models/pro_demo_data.dart';
+import '../models/content_file.dart';
 import '../models/lead_draft.dart';
 import '../models/session_lead.dart';
 import '../models/voice_note_state.dart';
@@ -38,8 +37,6 @@ import 'multi_photo_capture_screen.dart';
 typedef LeadOriginChanged = void Function(LeadOriginKind kind, AppEvent? event);
 
 /// Displays the single-screen four-section capture experience (CAP-01).
-///
-/// DEMO: Superseded edition conditionals remain until FL-014 convergence.
 class LeadCaptureScreen extends StatefulWidget {
   const LeadCaptureScreen({
     required this.originKind,
@@ -54,9 +51,8 @@ class LeadCaptureScreen extends StatefulWidget {
     required this.onCreateEvent,
     this.onContentAdded,
     this.pdfPickerService,
-    this.plan = AppPlan.basic,
     this.contentFiles = const [],
-    this.profile = DemoBasicData.profile,
+    this.profile = DemoAppData.profile,
     this.eventId,
     this.eventName,
     this.initialPlace,
@@ -85,7 +81,6 @@ class LeadCaptureScreen extends StatefulWidget {
   final VoiceNoteService? voiceNoteService;
   final bool isOnline;
   final ContactImagePickerService? contactImagePickerService;
-  final AppPlan plan;
   final List<ContentFile> contentFiles;
 
   @override
@@ -172,7 +167,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   }
 
   Set<String> _defaultContentIds() {
-    if (!widget.plan.isPro) return {};
     final event = _selectedEvent;
     if (event == null) return {};
     return widget.contentFiles
@@ -418,7 +412,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   Future<void> _createEventFromCapture() async {
     final event = await showCreateEventDialog(
       context,
-      plan: widget.plan,
       contentFiles: widget.contentFiles,
       pdfPickerService: widget.pdfPickerService,
       onContentAdded: widget.onContentAdded,
@@ -696,8 +689,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
 
   Future<void> _revealFirstInvalidField() async {
     FocusNode? target;
-    if (widget.plan.isPro &&
-        widget.originKind == LeadOriginKind.direct &&
+    if (widget.originKind == LeadOriginKind.direct &&
         _place.text.trim().isEmpty) {
       target = _placeFocus;
     } else if (_name.text.trim().isEmpty) {
@@ -733,7 +725,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   // Validation and local demo submission
   // ---------------------------------------------------------------------------
 
-  /// Validates shared fields plus capability-specific requirements before
+  /// Validates V1 fields before
   /// handing an immutable draft to the session-local application store.
   Future<void> _submit() async {
     FocusManager.instance.primaryFocus?.unfocus();
@@ -769,7 +761,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       cardImageLocalPath: _cardPath,
       audioLocalPath: _voiceNote.hasRecording ? _voiceNote.localPath : null,
       audioSeconds: _voiceNote.hasRecording ? _voiceNote.elapsed.inSeconds : 0,
-      place: widget.plan.isPro && widget.originKind == LeadOriginKind.direct
+      place: widget.originKind == LeadOriginKind.direct
           ? _place.text.trim()
           : null,
       contentFileIds: _selectedContentIds.toList(),
@@ -777,12 +769,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
           .where((file) => _selectedContentIds.contains(file.id))
           .map((file) => file.displayName)
           .toList(),
-      transcription: widget.plan.isPro && _voiceNote.hasRecording
-          ? DemoProData.transcript
-          : null,
-      referenceImageLocalPaths: widget.plan.isPro
-          ? _referenceImages.map((image) => image.path).toList()
-          : const <String>[],
+      referenceImageLocalPaths: _referenceImages
+          .map((image) => image.path)
+          .toList(),
     );
     late final SessionLead record;
     try {
@@ -811,7 +800,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       MaterialPageRoute<void>(
         builder: (_) => LeadConfirmationScreen(
           record: record,
-          plan: widget.plan,
           onCaptureAnother: () {
             Navigator.of(context).pop();
             _reset();
@@ -896,7 +884,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       key: _scaffoldKey,
       backgroundColor: FolooPalette.of(context).card,
       endDrawer: AppDrawer(
-        plan: widget.plan,
         contentCount: widget.contentFiles.length,
         profile: widget.profile,
         activeDestination: AppDestination.home,
@@ -990,11 +977,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                     onPressed: _submit,
                     iconAlignment: IconAlignment.end,
                     icon: const Icon(Icons.send_outlined),
-                    label: Text(
-                      widget.plan.isPro
-                          ? context.l10n.savePro
-                          : context.l10n.save,
-                    ),
+                    label: Text(context.l10n.saveAndFoloo),
                   ),
                 ),
               ),
@@ -1057,22 +1040,20 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                     height: 1.35,
                   ),
                 ),
-                if (widget.plan.isPro) ...[
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    key: const Key('directPlaceField'),
-                    controller: _place,
-                    focusNode: _placeFocus,
-                    decoration: InputDecoration(labelText: context.l10n.place),
-                    validator: (value) =>
-                        _required(value, context.l10n.placeRequired),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    context.l10n.directPlaceHelp('{lugar}'),
-                    style: TextStyle(color: palette.inkSecondary, fontSize: 11),
-                  ),
-                ],
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const Key('directPlaceField'),
+                  controller: _place,
+                  focusNode: _placeFocus,
+                  decoration: InputDecoration(labelText: context.l10n.place),
+                  validator: (value) =>
+                      _required(value, context.l10n.placeRequired),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  context.l10n.directPlaceHelp('{lugar}'),
+                  style: TextStyle(color: palette.inkSecondary, fontSize: 11),
+                ),
               ],
             )
           else ...[
@@ -1493,8 +1474,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               ),
             ],
           ),
-          if (widget.plan.isPro &&
-              widget.originKind == LeadOriginKind.event &&
+          if (widget.originKind == LeadOriginKind.event &&
               _defaultContentForEvent.isNotEmpty) ...[
             const SizedBox(height: 20),
             Text(
@@ -1689,106 +1669,65 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               ],
             ),
           ],
-          if (widget.plan.isPro) ...[
-            const SizedBox(height: 12),
-            Container(
-              key: const Key('transcriptionDemo'),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: FolooPalette.of(context).paper,
-                borderRadius: BorderRadius.circular(FolooRadii.md),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.l10n.transcriptionDemo,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: .8,
-                    ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  context.l10n.referenceImagesOptional,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _voiceNote.hasRecording
-                        ? context.l10n.demoTranscript
-                        : context.l10n.transcriptionPending,
-                  ),
-                ],
+                ),
               ),
-            ),
-            // TODO(BACKEND/AUDIO): Connect recording/transcription when the audio feature is implemented.
-          ],
-          if (widget.plan.isPro) ...[
-            const SizedBox(height: 16),
-            Row(
-              children: [
+              Text(
+                context.l10n.selectedOfTotal(_referenceImages.length, 3),
+                style: TextStyle(
+                  color: FolooPalette.of(context).inkSecondary,
+                  fontSize: 10.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var index = 0; index < _referenceImages.length; index++) ...[
                 Expanded(
-                  child: Text(
-                    context.l10n.referenceImagesOptional,
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  child: _ReferenceImageTile(
+                    key: Key('referenceImage-$index'),
+                    bytes: Uint8List.fromList(_referenceImages[index].bytes),
+                    removeTooltip: context.l10n.removeReferenceImage,
+                    onRemove: () =>
+                        setState(() => _referenceImages.removeAt(index)),
                   ),
                 ),
-                Text(
-                  context.l10n.selectedOfTotal(_referenceImages.length, 3),
-                  style: TextStyle(
-                    color: FolooPalette.of(context).inkSecondary,
-                    fontSize: 10.5,
+                if (index < _referenceImages.length - 1 ||
+                    _referenceImages.length < 3)
+                  const SizedBox(width: 8),
+              ],
+              if (_referenceImages.length < 3)
+                Expanded(
+                  child: _AddReferenceImageTile(
+                    key: const Key('addReferenceImageButton'),
+                    label: context.l10n.addReferenceImage,
+                    onTap: _showReferenceImageSource,
                   ),
                 ),
-              ],
+              for (var index = _referenceImages.length + 1; index < 3; index++)
+                const Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+          const SizedBox(height: 7),
+          Text(
+            context.l10n.referenceImagesHelp,
+            style: TextStyle(
+              color: FolooPalette.of(context).inkSecondary,
+              fontSize: 10.5,
             ),
-            const SizedBox(height: 8),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (
-                  var index = 0;
-                  index < _referenceImages.length;
-                  index++
-                ) ...[
-                  Expanded(
-                    child: _ReferenceImageTile(
-                      key: Key('referenceImage-$index'),
-                      bytes: Uint8List.fromList(_referenceImages[index].bytes),
-                      removeTooltip: context.l10n.removeReferenceImage,
-                      onRemove: () =>
-                          setState(() => _referenceImages.removeAt(index)),
-                    ),
-                  ),
-                  if (index < _referenceImages.length - 1 ||
-                      _referenceImages.length < 3)
-                    const SizedBox(width: 8),
-                ],
-                if (_referenceImages.length < 3)
-                  Expanded(
-                    child: _AddReferenceImageTile(
-                      key: const Key('addReferenceImageButton'),
-                      label: context.l10n.addReferenceImage,
-                      onTap: _showReferenceImageSource,
-                    ),
-                  ),
-                for (
-                  var index = _referenceImages.length + 1;
-                  index < 3;
-                  index++
-                )
-                  const Expanded(child: SizedBox.shrink()),
-              ],
-            ),
-            const SizedBox(height: 7),
-            Text(
-              context.l10n.referenceImagesHelp,
-              style: TextStyle(
-                color: FolooPalette.of(context).inkSecondary,
-                fontSize: 10.5,
-              ),
-            ),
-          ],
+          ),
           if (_voiceNote.isRecording) ...[
             Align(
               alignment: Alignment.centerLeft,

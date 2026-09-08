@@ -1,7 +1,7 @@
 /// Authentication gate for the Foloo frontend.
 ///
-/// Includes shared language selection and the isolated development plan
-/// selector. Credential handling is delegated to AuthRepository.
+/// Includes shared language selection. Credential handling is delegated to
+/// AuthRepository and is independent from product capabilities.
 library;
 
 import 'package:flutter/material.dart';
@@ -9,22 +9,18 @@ import 'package:flutter/material.dart';
 import '../auth/auth_failure_localization.dart';
 import '../auth/auth_models.dart';
 import '../theme/brand_theme.dart';
-import '../models/app_plan.dart';
 import '../l10n/l10n.dart';
 import '../widgets/language_selector.dart';
-import '../widgets/segmented_bubble.dart';
 
 typedef LoginRequested = Future<bool> Function(
   String username,
   String password,
 );
 
-/// Collects demo credentials before entering profile and origin setup.
+/// Collects account credentials before entering profile and origin setup.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
     required this.onAuthenticated,
-    required this.selectedPlan,
-    required this.onPlanChanged,
     required this.onCreateAccount,
     this.authenticating = false,
     this.failure,
@@ -33,8 +29,6 @@ class LoginScreen extends StatefulWidget {
   });
 
   final LoginRequested onAuthenticated;
-  final AppPlan selectedPlan;
-  final ValueChanged<AppPlan> onPlanChanged;
   final VoidCallback onCreateAccount;
   final bool authenticating;
   final AuthFailureCode? failure;
@@ -221,43 +215,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                   foregroundColor: theme.colorScheme.onSurface,
                                 ),
                                 child: Text(context.l10n.createAccount),
-                              ),
-                              const SizedBox(height: 22),
-                              _FieldLabel(context.l10n.demoPlan),
-                              const SizedBox(height: 8),
-                              SegmentedBubble<AppPlan>(
-                                key: const Key('demoPlanSelector'),
-                                selected: widget.selectedPlan,
-                                onSelected: widget.onPlanChanged,
-                                options: const [
-                                  SegmentedBubbleOption(
-                                    key: Key('planBasic'),
-                                    value: AppPlan.basic,
-                                    label: 'Basic',
-                                    leading: Icon(
-                                      Icons.circle_outlined,
-                                      size: 14,
-                                    ),
-                                  ),
-                                  SegmentedBubbleOption(
-                                    key: Key('planPro'),
-                                    value: AppPlan.pro,
-                                    label: 'Pro',
-                                    leading: Icon(
-                                      Icons.auto_awesome_outlined,
-                                      size: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                context.l10n.demoPlanHelp,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: FolooBrand.gray,
-                                  fontSize: 10,
-                                ),
                               ),
                             ],
                           ),

@@ -74,6 +74,8 @@ class LocalLeads extends Table {
   TextColumn get contentFileIdsJson =>
       text().withDefault(const Constant('[]'))();
   TextColumn get contentNamesJson => text().withDefault(const Constant('[]'))();
+  // Legacy nullable column retained to read existing databases without reset.
+  // It is no longer mapped into the V1 domain model (VOZ-08).
   TextColumn get transcription => text().nullable()();
   TextColumn get syncState => text().withDefault(const Constant('local'))();
   DateTimeColumn get createdAt => dateTime()();

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/models/app_destination.dart';
 import 'package:foloo/models/app_event.dart';
-import 'package:foloo/models/app_plan.dart';
 import 'package:foloo/models/lead_draft.dart';
 import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/screens/records_screen.dart';
@@ -46,7 +45,6 @@ Widget recordsApp(
   ValueChanged<AppDestination>? onDestinationSelected,
   bool darkMode = false,
   List<AppEvent> events = const [],
-  AppPlan plan = AppPlan.basic,
 }) => MaterialApp(
   theme: FolooTheme.light,
   darkTheme: FolooTheme.dark,
@@ -56,7 +54,6 @@ Widget recordsApp(
     darkMode: darkMode,
     events: events,
     voiceNoteService: service,
-    plan: plan,
     onDestinationSelected: onDestinationSelected ?? (_) {},
     onAppearanceChanged: (_) {},
     onLogout: () {},
@@ -242,7 +239,7 @@ void main() {
     },
   );
 
-  testWidgets('REG-13 Pro detail shows and opens reference images', (
+  testWidgets('REG-06 V1 detail shows and opens reference images', (
     tester,
   ) async {
     final temporary = Directory.systemTemp.createTempSync(
@@ -260,9 +257,7 @@ void main() {
       capturedAt: DateTime(2026, 9, 1),
       lead: lead(referenceImagePaths: [image.path]),
     );
-    await tester.pumpWidget(
-      recordsApp(service, records: [record], plan: AppPlan.pro),
-    );
+    await tester.pumpWidget(recordsApp(service, records: [record]));
 
     await tester.tap(find.text('Mariana Sandoval Ruiz'));
     await tester.pump();

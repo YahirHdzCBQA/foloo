@@ -1,11 +1,12 @@
-/// Session-only fixtures for V1 content and email-template surfaces.
+/// Session models and fixtures for Foloo V1 content and email-template surfaces.
 ///
-/// DEMO: CON-* and PLT-* require backend-owned durable data in production.
+/// The fixtures support local UI validation only. CON-* and PLT-* require
+/// durable local/server-owned data in later delivery work.
 library;
 
 import 'app_event.dart';
 
-/// Metadata for a demo PDF assigned to one or more events.
+/// Metadata for a PDF assigned to one or more events.
 class ContentFile {
   const ContentFile({
     required this.id,
@@ -45,12 +46,8 @@ class ContentFile {
   bool appliesTo(AppEvent event) => allEvents || eventIds.contains(event.id);
 }
 
-/// Centralized Pro fixtures used by content, capture and confirmation demos.
-abstract final class DemoProData {
-  static const adminEmail = 'marketing@cbqasolutions.com';
-  static const transcript =
-      'Platicamos sobre automatizar la inspección de calidad. Solicita una demo con su equipo técnico.';
-
+/// Local fixtures used while the V1 content repository remains pending.
+abstract final class DemoContentData {
   static const files = <ContentFile>[
     ContentFile(
       id: 'scanley-ims',
@@ -79,7 +76,7 @@ abstract final class DemoProData {
   ];
 }
 
-/// Editable in-memory representation of one Pro follow-up template.
+/// Editable in-memory representation of one V1 follow-up template.
 class DemoEmailTemplate {
   const DemoEmailTemplate({required this.subject, required this.body});
   final String subject;

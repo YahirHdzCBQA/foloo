@@ -8,14 +8,13 @@ import 'package:flutter/material.dart';
 
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
-import '../models/app_plan.dart';
 import '../models/session_lead.dart';
 import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 import 'language_selector.dart';
 
-/// Renders navigation; legacy edition checks remain until FL-014 convergence.
+/// Renders every destination available in the unified V1 product.
 class AppDrawer extends StatelessWidget {
   const AppDrawer({
     required this.activeDestination,
@@ -24,9 +23,8 @@ class AppDrawer extends StatelessWidget {
     required this.onDestinationSelected,
     required this.onAppearanceChanged,
     required this.onLogout,
-    required this.plan,
     this.contentCount = 0,
-    this.profile = DemoBasicData.profile,
+    this.profile = DemoAppData.profile,
     super.key,
   });
 
@@ -37,7 +35,6 @@ class AppDrawer extends StatelessWidget {
   final ValueChanged<bool> onAppearanceChanged;
   final VoidCallback onLogout;
   final DemoProfile profile;
-  final AppPlan plan;
   final int contentCount;
 
   String get _initials => profile.name
@@ -167,29 +164,27 @@ class AppDrawer extends StatelessWidget {
                         () => onDestinationSelected(AppDestination.home),
                       ),
                     ),
-                    if (plan.isPro) ...[
-                      _DestinationTile(
-                        key: const Key('drawerContent'),
-                        icon: Icons.folder_copy_outlined,
-                        label: context.l10n.drawerContent,
-                        trailing: '$contentCount',
-                        selected: activeDestination == AppDestination.content,
-                        onTap: () => _afterClose(
-                          context,
-                          () => onDestinationSelected(AppDestination.content),
-                        ),
+                    _DestinationTile(
+                      key: const Key('drawerContent'),
+                      icon: Icons.folder_copy_outlined,
+                      label: context.l10n.drawerContent,
+                      trailing: '$contentCount',
+                      selected: activeDestination == AppDestination.content,
+                      onTap: () => _afterClose(
+                        context,
+                        () => onDestinationSelected(AppDestination.content),
                       ),
-                      _DestinationTile(
-                        key: const Key('drawerEmail'),
-                        icon: Icons.mail_outline,
-                        label: context.l10n.drawerEmail,
-                        selected: activeDestination == AppDestination.email,
-                        onTap: () => _afterClose(
-                          context,
-                          () => onDestinationSelected(AppDestination.email),
-                        ),
+                    ),
+                    _DestinationTile(
+                      key: const Key('drawerEmail'),
+                      icon: Icons.mail_outline,
+                      label: context.l10n.drawerEmail,
+                      selected: activeDestination == AppDestination.email,
+                      onTap: () => _afterClose(
+                        context,
+                        () => onDestinationSelected(AppDestination.email),
                       ),
-                    ],
+                    ),
                     _DestinationTile(
                       key: const Key('drawerRecords'),
                       icon: Icons.people_outline,
@@ -303,7 +298,7 @@ class AppDrawer extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${plan.label.toUpperCase()} · ${DemoEventData.eventCode}',
+                    DemoEventData.eventCode,
                     style: TextStyle(
                       color: FolooColors.gray,
                       fontSize: 9,

@@ -1,7 +1,7 @@
 /// Shared event list, creation and editing experience.
 ///
-/// Manages frontend event state and exposes Pro content assignments only when
-/// the capability exists; deletion does not imply remote data deletion.
+/// Manages frontend event state and V1 content assignments; deletion does not
+/// imply remote data deletion.
 library;
 
 import 'package:flutter/material.dart';
@@ -9,8 +9,7 @@ import 'package:intl/intl.dart';
 
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
-import '../models/app_plan.dart';
-import '../models/pro_demo_data.dart';
+import '../models/content_file.dart';
 import '../services/event_selection_policy.dart';
 import '../services/pdf_picker_service.dart';
 import '../theme/foloo_theme.dart';
@@ -33,11 +32,10 @@ class EventScreen extends StatefulWidget {
     required this.onUpdate,
     required this.onDelete,
     required this.onBack,
-    this.plan = AppPlan.basic,
     this.contentFiles = const [],
     this.pdfPickerService,
     this.nowProvider,
-    this.profile = DemoBasicData.profile,
+    this.profile = DemoAppData.profile,
     super.key,
   });
 
@@ -53,7 +51,6 @@ class EventScreen extends StatefulWidget {
   final ValueChanged<AppEvent> onDelete;
   final VoidCallback onBack;
   final DemoProfile profile;
-  final AppPlan plan;
   final List<ContentFile> contentFiles;
   final PdfPickerService? pdfPickerService;
   final DateTime Function()? nowProvider;
@@ -115,7 +112,6 @@ class _EventScreenState extends State<EventScreen> {
   Future<void> _createEvent() async {
     final created = await showCreateEventDialog(
       context,
-      plan: widget.plan,
       contentFiles: widget.contentFiles,
       pdfPickerService: widget.pdfPickerService,
       onContentAdded: widget.onContentAdded,
@@ -133,7 +129,6 @@ class _EventScreenState extends State<EventScreen> {
   }
 
   Widget _drawer() => AppDrawer(
-    plan: widget.plan,
     contentCount: widget.contentFiles.length,
     profile: widget.profile,
     activeDestination: AppDestination.events,

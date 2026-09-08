@@ -1,7 +1,7 @@
 /// Reusable pill-style segmented selector from the Foloo design system.
 ///
 /// Keeps origin and email-template choices visually consistent while leaving
-/// the selected value and capability rules to their owning screen.
+/// the selected value and domain rules to their owning screen.
 library;
 
 import 'package:flutter/material.dart';

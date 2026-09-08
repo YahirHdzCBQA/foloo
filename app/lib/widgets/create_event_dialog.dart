@@ -1,14 +1,12 @@
 /// Shared event-creation dialog used from onboarding, capture and Mis eventos.
 ///
-/// DEMO: A superseded selector still controls content assignment until FL-014;
-/// unified V1 requires the content flow for every account.
+/// Content assignment is available to every V1 account (EVT-11/CON-06).
 library;
 
 import 'package:flutter/material.dart';
 
 import '../models/app_event.dart';
-import '../models/app_plan.dart';
-import '../models/pro_demo_data.dart';
+import '../models/content_file.dart';
 import '../services/pdf_picker_service.dart';
 import '../l10n/l10n.dart';
 import 'content_assignment_sheet.dart';
@@ -17,7 +15,6 @@ import 'event_date_field.dart';
 /// Opens event creation and returns a session model after local validation.
 Future<AppEvent?> showCreateEventDialog(
   BuildContext context, {
-  AppPlan plan = AppPlan.basic,
   List<ContentFile> contentFiles = const [],
   PdfPickerService? pdfPickerService,
   ValueChanged<ContentFile>? onContentAdded,
@@ -25,7 +22,6 @@ Future<AppEvent?> showCreateEventDialog(
   return showDialog<AppEvent>(
     context: context,
     builder: (_) => _CreateEventDialog(
-      plan: plan,
       contentFiles: contentFiles,
       pdfPickerService: pdfPickerService,
       onContentAdded: onContentAdded,
@@ -35,12 +31,10 @@ Future<AppEvent?> showCreateEventDialog(
 
 class _CreateEventDialog extends StatefulWidget {
   const _CreateEventDialog({
-    required this.plan,
     required this.contentFiles,
     required this.pdfPickerService,
     required this.onContentAdded,
   });
-  final AppPlan plan;
   final List<ContentFile> contentFiles;
   final PdfPickerService? pdfPickerService;
   final ValueChanged<ContentFile>? onContentAdded;
@@ -181,53 +175,51 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
             ),
           ],
         ),
-        if (widget.plan.isPro) ...[
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            key: const Key('createEventUploadContentButton'),
-            onPressed: _uploadContent,
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-              foregroundColor: Theme.of(context).colorScheme.onSurface,
-            ),
-            icon: const Icon(Icons.upload_file_outlined),
-            label: Text(context.l10n.uploadContent),
+        const SizedBox(height: 16),
+        FilledButton.icon(
+          key: const Key('createEventUploadContentButton'),
+          onPressed: _uploadContent,
+          style: FilledButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+            foregroundColor: Theme.of(context).colorScheme.onSurface,
           ),
-          if (_availableFiles.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Text(
-              '${context.l10n.contentForEvent} · ${context.l10n.selectedOfTotal(_selectedFiles.length, _availableFiles.length)}',
-              style: const TextStyle(fontWeight: FontWeight.w900),
+          icon: const Icon(Icons.upload_file_outlined),
+          label: Text(context.l10n.uploadContent),
+        ),
+        if (_availableFiles.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text(
+            '${context.l10n.contentForEvent} · ${context.l10n.selectedOfTotal(_selectedFiles.length, _availableFiles.length)}',
+            style: const TextStyle(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            context.l10n.contentAssignmentHelp,
+            style: TextStyle(fontSize: 11),
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            width: double.maxFinite,
+            height: 150,
+            child: ListView(
+              children: _availableFiles
+                  .map(
+                    (file) => CheckboxListTile(
+                      dense: true,
+                      value: _selectedFiles.contains(file.id),
+                      title: Text(file.displayName),
+                      onChanged: (selected) => setState(() {
+                        if (selected ?? false) {
+                          _selectedFiles.add(file.id);
+                        } else {
+                          _selectedFiles.remove(file.id);
+                        }
+                      }),
+                    ),
+                  )
+                  .toList(),
             ),
-            const SizedBox(height: 4),
-            Text(
-              context.l10n.contentAssignmentHelp,
-              style: TextStyle(fontSize: 11),
-            ),
-            const SizedBox(height: 6),
-            SizedBox(
-              width: double.maxFinite,
-              height: 150,
-              child: ListView(
-                children: _availableFiles
-                    .map(
-                      (file) => CheckboxListTile(
-                        dense: true,
-                        value: _selectedFiles.contains(file.id),
-                        title: Text(file.displayName),
-                        onChanged: (selected) => setState(() {
-                          if (selected ?? false) {
-                            _selectedFiles.add(file.id);
-                          } else {
-                            _selectedFiles.remove(file.id);
-                          }
-                        }),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ),
-          ],
+          ),
         ],
       ],
     ),

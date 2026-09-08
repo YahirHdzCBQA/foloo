@@ -26,8 +26,8 @@ class ProfileSetupScreen extends StatefulWidget {
 
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _name = TextEditingController(text: DemoBasicData.profile.name);
-  final _company = TextEditingController(text: DemoBasicData.profile.company);
+  final _name = TextEditingController(text: DemoAppData.profile.name);
+  final _company = TextEditingController(text: DemoAppData.profile.company);
   final _picker = ImagePicker();
   Uint8List? _profileBytes;
 

@@ -8,8 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
-import '../models/app_plan.dart';
-import '../models/pro_demo_data.dart';
+import '../models/content_file.dart';
 import '../services/pdf_picker_service.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
@@ -108,7 +107,6 @@ class _ContentScreenState extends State<ContentScreen> {
       key: _scaffoldKey,
       backgroundColor: palette.card,
       endDrawer: AppDrawer(
-        plan: AppPlan.pro,
         contentCount: widget.files.length,
         profile: widget.profile,
         activeDestination: AppDestination.content,

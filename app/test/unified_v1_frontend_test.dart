@@ -40,7 +40,6 @@ void phone(WidgetTester tester) {
 
 Future<void> login(
   WidgetTester tester, {
-  required bool pro,
   bool direct = false,
   PdfPickerService? pdfPickerService,
   ContactImagePickerService? contactImagePickerService,
@@ -52,10 +51,6 @@ Future<void> login(
     ),
   );
   await tester.pumpAndSettle();
-  if (pro) {
-    await tester.tap(find.byKey(const Key('planPro')));
-    await tester.pump();
-  }
   await tester.enterText(find.byKey(const Key('loginEmailField')), 'qa');
   await tester.enterText(find.byKey(const Key('loginPasswordField')), 'demo');
   await tester.tap(find.byKey(const Key('loginButton')));
@@ -65,12 +60,10 @@ Future<void> login(
   if (direct) {
     await tester.tap(find.byKey(const Key('originDirectTab')));
     await tester.pump();
-    if (pro) {
-      await tester.enterText(
-        find.byKey(const Key('originPlaceField')),
-        'Oficinas del cliente',
-      );
-    }
+    await tester.enterText(
+      find.byKey(const Key('originPlaceField')),
+      'Oficinas del cliente',
+    );
   }
   await tester.ensureVisible(find.byKey(const Key('originContinueButton')));
   await tester.pumpAndSettle();
@@ -90,13 +83,12 @@ void main() {
     expect(foreground, FolooColors.ink);
   });
 
-  testWidgets('Pro onboarding requires Lugar and create-event shows content', (
+  testWidgets('V1 onboarding requires Lugar and create-event shows content', (
     tester,
   ) async {
     phone(tester);
     await tester.pumpWidget(const FolooApp());
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('planPro')));
     await tester.enterText(find.byKey(const Key('loginEmailField')), 'qa');
     await tester.enterText(find.byKey(const Key('loginPasswordField')), 'demo');
     await tester.tap(find.byKey(const Key('loginButton')));
@@ -129,24 +121,25 @@ void main() {
     );
   });
 
-  testWidgets('development selector keeps Basic free of Pro destinations', (
+  testWidgets('unified V1 has no plan selector and exposes all destinations', (
     tester,
   ) async {
     phone(tester);
-    await login(tester, pro: false);
+    await login(tester);
     await drawer(tester);
-    expect(find.byKey(const Key('drawerContent')), findsNothing);
-    expect(find.byKey(const Key('drawerEmail')), findsNothing);
-    expect(find.byKey(const Key('addReferenceImageButton')), findsNothing);
-    expect(find.textContaining('BASIC ·'), findsOneWidget);
+    expect(find.byKey(const Key('drawerContent')), findsOneWidget);
+    expect(find.byKey(const Key('drawerEmail')), findsOneWidget);
+    expect(find.byKey(const Key('demoPlanSelector')), findsNothing);
+    expect(find.textContaining('BASIC ·'), findsNothing);
+    expect(find.textContaining('PRO ·'), findsNothing);
   });
 
-  testWidgets('CAP-22 Pro adds, limits and removes three reference images', (
+  testWidgets('CAP-08 V1 adds, limits and removes three reference images', (
     tester,
   ) async {
     phone(tester);
     final picker = _FakeContactImagePicker();
-    await login(tester, pro: true, contactImagePickerService: picker);
+    await login(tester, contactImagePickerService: picker);
     final add = find.byKey(const Key('addReferenceImageButton'));
     await tester.scrollUntilVisible(
       add,
@@ -175,12 +168,12 @@ void main() {
     expect(find.byKey(const Key('addReferenceImageButton')), findsOneWidget);
   });
 
-  testWidgets('CAP-23 camera stays in a photo session until confirmation', (
+  testWidgets('CAP-08 camera stays in a photo session until confirmation', (
     tester,
   ) async {
     phone(tester);
     final picker = _FakeContactImagePicker();
-    await login(tester, pro: true, contactImagePickerService: picker);
+    await login(tester, contactImagePickerService: picker);
     final add = find.byKey(const Key('addReferenceImageButton'));
     await tester.scrollUntilVisible(
       add,
@@ -202,13 +195,13 @@ void main() {
     expect(find.byKey(const Key('referenceImage-0')), findsOneWidget);
   });
 
-  testWidgets('Pro exposes content library and email editor', (tester) async {
+  testWidgets('V1 exposes content library and email editor', (tester) async {
     phone(tester);
-    await login(tester, pro: true);
+    await login(tester);
     await drawer(tester);
     expect(find.byKey(const Key('drawerContent')), findsOneWidget);
     expect(find.byKey(const Key('drawerEmail')), findsOneWidget);
-    expect(find.textContaining('PRO ·'), findsOneWidget);
+    expect(find.textContaining('PRO ·'), findsNothing);
     await tester.tap(find.byKey(const Key('drawerContent')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('contentScreen')), findsOneWidget);
@@ -222,9 +215,9 @@ void main() {
     expect(find.byKey(const Key('emailPreview')), findsOneWidget);
   });
 
-  testWidgets('CON-08 uploads content while creating an event', (tester) async {
+  testWidgets('CON-06 uploads content while creating an event', (tester) async {
     phone(tester);
-    await login(tester, pro: true, pdfPickerService: const _FakePdfPicker());
+    await login(tester, pdfPickerService: const _FakePdfPicker());
     await drawer(tester);
     await tester.tap(find.byKey(const Key('drawerEvents')));
     await tester.pumpAndSettle();
@@ -271,7 +264,7 @@ void main() {
     tester,
   ) async {
     phone(tester);
-    await login(tester, pro: true, pdfPickerService: const _FakePdfPicker());
+    await login(tester, pdfPickerService: const _FakePdfPicker());
     await drawer(tester);
     await tester.tap(find.byKey(const Key('drawerContent')));
     await tester.pumpAndSettle();
@@ -295,7 +288,7 @@ void main() {
     tester,
   ) async {
     phone(tester);
-    await login(tester, pro: true, pdfPickerService: const _FakePdfPicker());
+    await login(tester, pdfPickerService: const _FakePdfPicker());
     await drawer(tester);
     await tester.tap(find.byKey(const Key('drawerContent')));
     await tester.pumpAndSettle();
@@ -317,9 +310,9 @@ void main() {
     expect(find.textContaining('catalogo-empaque-2026.pdf'), findsOneWidget);
   });
 
-  testWidgets('dark Pro selections use the visible lime remap', (tester) async {
+  testWidgets('dark V1 selections use the visible lime remap', (tester) async {
     phone(tester);
-    await login(tester, pro: true);
+    await login(tester);
     await drawer(tester);
     await tester.tap(find.byKey(const Key('appearanceSwitch')));
     await tester.pumpAndSettle();
@@ -339,26 +332,27 @@ void main() {
   });
 
   testWidgets(
-    'Pro direct lead requires Lugar and keeps Pro capture deltas visible',
+    'V1 direct lead requires Lugar and does not expose transcription',
     (tester) async {
       phone(tester);
-      await login(tester, pro: true, direct: true);
+      await login(tester, direct: true);
       expect(find.byKey(const Key('directPlaceField')), findsOneWidget);
       await tester.scrollUntilVisible(
-        find.byKey(const Key('transcriptionDemo')),
+        find.byKey(const Key('addReferenceImageButton')),
         350,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.textContaining('TRANSCRIPCIÓN'), findsOneWidget);
+      expect(find.byKey(const Key('transcriptionDemo')), findsNothing);
+      expect(find.textContaining('Transcripción'), findsNothing);
       expect(find.text('Guarda y da “foloo”'), findsOneWidget);
     },
   );
 
-  testWidgets('Pro event capture selects assigned content by default', (
+  testWidgets('V1 event capture selects assigned content by default', (
     tester,
   ) async {
     phone(tester);
-    await login(tester, pro: true);
+    await login(tester);
     await tester.scrollUntilVisible(
       find.byKey(const Key('captureContent-scanley-ims')),
       300,
@@ -382,7 +376,7 @@ void main() {
     tester,
   ) async {
     phone(tester);
-    await login(tester, pro: true);
+    await login(tester);
     await drawer(tester);
     await tester.tap(find.byKey(const Key('drawerContent')));
     await tester.pumpAndSettle();
@@ -411,11 +405,11 @@ void main() {
     );
   });
 
-  testWidgets('Pro templates are independent and reject unknown variables', (
+  testWidgets('V1 templates are independent and reject unknown variables', (
     tester,
   ) async {
     phone(tester);
-    await login(tester, pro: true);
+    await login(tester);
     await drawer(tester);
     await tester.tap(find.byKey(const Key('drawerEmail')));
     await tester.pumpAndSettle();
@@ -445,11 +439,11 @@ void main() {
     expect(find.byKey(const Key('emailVariableError')), findsOneWidget);
   });
 
-  testWidgets('Pro direct save shows four demo confirmations and keeps Lugar', (
+  testWidgets('direct save confirms local persistence and keeps Lugar', (
     tester,
   ) async {
     phone(tester);
-    await login(tester, pro: true, direct: true);
+    await login(tester, direct: true);
     await tester.enterText(
       find.byKey(const Key('directPlaceField')),
       'Oficinas del cliente',
@@ -472,9 +466,9 @@ void main() {
     await tester.tap(find.byKey(const Key('leadType-partner')));
     await tester.tap(find.byKey(const Key('saveLeadButton')));
     await tester.pumpAndSettle();
-    expect(find.text('Correo al lead'), findsOneWidget);
-    expect(find.text('Copia Admin'), findsOneWidget);
-    expect(find.text('Contenido adjunto'), findsOneWidget);
+    expect(find.text('Guardado en el dispositivo'), findsOneWidget);
+    expect(find.text('Correo al lead'), findsNothing);
+    expect(find.text('Copia Admin'), findsNothing);
     await tester.tap(find.byKey(const Key('captureAnotherButton')));
     await tester.pumpAndSettle();
     expect(

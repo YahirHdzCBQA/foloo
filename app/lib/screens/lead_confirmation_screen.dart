@@ -1,7 +1,4 @@
-/// Acknowledgement shown after a lead is accepted by the local demo store.
-///
-/// DEMO: Superseded edition-aware status fixtures remain until FL-014 removes
-/// Google Sheets/transcription claims and uses truthful processing state.
+/// Acknowledgement shown after a lead is accepted by the durable local store.
 library;
 
 import 'dart:async';
@@ -9,8 +6,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/session_lead.dart';
-import '../models/app_plan.dart';
-import '../models/pro_demo_data.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 
@@ -19,13 +14,11 @@ class LeadConfirmationScreen extends StatefulWidget {
   const LeadConfirmationScreen({
     required this.record,
     required this.onCaptureAnother,
-    this.plan = AppPlan.basic,
     super.key,
   });
 
   final SessionLead record;
   final VoidCallback onCaptureAnother;
-  final AppPlan plan;
 
   @override
   State<LeadConfirmationScreen> createState() => _LeadConfirmationScreenState();
@@ -38,8 +31,7 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
   @override
   void initState() {
     super.initState();
-    // DEMO: Navigation timing copied from the Basic mockup. D-06 still owns the
-    // production acknowledgement semantics.
+    // CAP-11: keep the approved short automatic return to a clean capture.
     _returnTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       if (_seconds <= 1) {
@@ -66,7 +58,7 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
   Widget build(BuildContext context) {
     final palette = FolooPalette.of(context);
     final record = widget.record;
-    final statuses = _statusRows(record);
+    final statuses = _statusRows();
     final dark = Theme.of(context).brightness == Brightness.dark;
     final confirmationBackground = dark ? FolooColors.ink : palette.card;
     return Scaffold(
@@ -235,32 +227,7 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
   static String _time(DateTime date) =>
       '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:${date.second.toString().padLeft(2, '0')}';
 
-  List<(String, String)> _statusRows(SessionLead record) {
-    final basic = <(String, String)>[
-      (
-        context.l10n.eventSpreadsheet,
-        record.folio == null
-            ? context.l10n.demoQueued
-            : context.l10n.demoRow(record.folio!),
-      ),
-    ];
-    if (!widget.plan.isPro) return basic;
-    final attachedNames = record.lead.contentNames;
-    return [
-      ...basic,
-      (
-        context.l10n.leadEmail,
-        record.lead.email.isEmpty
-            ? context.l10n.demoQueued
-            : context.l10n.demoValue(record.lead.email),
-      ),
-      (context.l10n.adminCopy, context.l10n.demoValue(DemoProData.adminEmail)),
-      (
-        context.l10n.attachedContent,
-        attachedNames.isEmpty
-            ? context.l10n.demoNoFiles
-            : context.l10n.demoValue(attachedNames.join(' · ')),
-      ),
-    ];
+  List<(String, String)> _statusRows() {
+    return [(context.l10n.savedOnDevice, context.l10n.savedOnDeviceDetail)];
   }
 }

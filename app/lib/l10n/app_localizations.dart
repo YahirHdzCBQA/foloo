@@ -290,18 +290,6 @@ abstract class AppLocalizations {
   /// **'Revisa los datos e intenta otra vez.'**
   String get authInvalidInput;
 
-  /// No description provided for @demoPlan.
-  ///
-  /// In es, this message translates to:
-  /// **'PLAN DEMO'**
-  String get demoPlan;
-
-  /// No description provided for @demoPlanHelp.
-  ///
-  /// In es, this message translates to:
-  /// **'Selector temporal para desarrollo y QA.'**
-  String get demoPlanHelp;
-
   /// No description provided for @drawerClose.
   ///
   /// In es, this message translates to:
@@ -710,11 +698,11 @@ abstract class AppLocalizations {
   /// **'Guardar'**
   String get save;
 
-  /// No description provided for @savePro.
+  /// No description provided for @saveAndFoloo.
   ///
   /// In es, this message translates to:
   /// **'Guarda y da “foloo”'**
-  String get savePro;
+  String get saveAndFoloo;
 
   /// No description provided for @recordsTitle.
   ///
@@ -1118,41 +1106,11 @@ abstract class AppLocalizations {
   /// **'Nota de voz'**
   String get voiceNote;
 
-  /// No description provided for @processingDemo.
-  ///
-  /// In es, this message translates to:
-  /// **'Procesando · demo'**
-  String get processingDemo;
-
-  /// No description provided for @voiceUnavailable.
-  ///
-  /// In es, this message translates to:
-  /// **'No disponible · no hay nota de voz'**
-  String get voiceUnavailable;
-
   /// No description provided for @sentContentDemo.
   ///
   /// In es, this message translates to:
   /// **'Contenido enviado · demo'**
   String get sentContentDemo;
-
-  /// No description provided for @emailStatusDemo.
-  ///
-  /// In es, this message translates to:
-  /// **'Estado de correo · demo'**
-  String get emailStatusDemo;
-
-  /// No description provided for @queued.
-  ///
-  /// In es, this message translates to:
-  /// **'En cola'**
-  String get queued;
-
-  /// No description provided for @sentDemo.
-  ///
-  /// In es, this message translates to:
-  /// **'Enviado · demo'**
-  String get sentDemo;
 
   /// No description provided for @editFileEvents.
   ///
@@ -1207,12 +1165,6 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Se guarda en tu teléfono. Se sube cuando haya señal.'**
   String get offlineSaveHelp;
-
-  /// No description provided for @transcriptionPending.
-  ///
-  /// In es, this message translates to:
-  /// **'Pendiente. Aparecerá después de guardar la nota de voz.'**
-  String get transcriptionPending;
 
   /// No description provided for @cardOpenError.
   ///
@@ -1346,6 +1298,18 @@ abstract class AppLocalizations {
   /// **'Lead guardado'**
   String get savedLead;
 
+  /// No description provided for @savedOnDevice.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardado en el dispositivo'**
+  String get savedOnDevice;
+
+  /// No description provided for @savedOnDeviceDetail.
+  ///
+  /// In es, this message translates to:
+  /// **'El lead y sus archivos disponibles quedaron guardados localmente.'**
+  String get savedOnDeviceDetail;
+
   /// No description provided for @localSaveError.
   ///
   /// In es, this message translates to:
@@ -1442,52 +1406,16 @@ abstract class AppLocalizations {
   /// **'Capturó'**
   String get capturedBy;
 
-  /// No description provided for @eventSpreadsheet.
-  ///
-  /// In es, this message translates to:
-  /// **'En la hoja de cálculo del evento'**
-  String get eventSpreadsheet;
-
-  /// No description provided for @demoRow.
-  ///
-  /// In es, this message translates to:
-  /// **'Fila demo · {folio}'**
-  String demoRow(Object folio);
-
-  /// No description provided for @demoQueued.
-  ///
-  /// In es, this message translates to:
-  /// **'Demo · en cola'**
-  String get demoQueued;
-
-  /// No description provided for @demoValue.
-  ///
-  /// In es, this message translates to:
-  /// **'Demo · {value}'**
-  String demoValue(Object value);
-
-  /// No description provided for @attachedContent.
-  ///
-  /// In es, this message translates to:
-  /// **'Contenido adjunto'**
-  String get attachedContent;
-
-  /// No description provided for @demoNoFiles.
-  ///
-  /// In es, this message translates to:
-  /// **'Demo · sin archivos'**
-  String get demoNoFiles;
-
   /// No description provided for @eventDeleteHelp.
   ///
   /// In es, this message translates to:
-  /// **'Al eliminar un evento sus leads dejan de aparecer en la app. La hoja de cálculo no se toca.'**
+  /// **'Al eliminar un evento, dejará de aparecer en la app. Sus leads permanecen guardados.'**
   String get eventDeleteHelp;
 
   /// No description provided for @eventDeletedHelp.
   ///
   /// In es, this message translates to:
-  /// **'Sus leads dejan de aparecer en la app. La hoja de cálculo no se toca.'**
+  /// **'El evento deja de aparecer en la app. Sus leads permanecen guardados.'**
   String get eventDeletedHelp;
 
   /// No description provided for @active.
@@ -1598,18 +1526,6 @@ abstract class AppLocalizations {
   /// **'este evento'**
   String get thisEventLower;
 
-  /// No description provided for @transcriptionDemo.
-  ///
-  /// In es, this message translates to:
-  /// **'TRANSCRIPCIÓN · DEMO'**
-  String get transcriptionDemo;
-
-  /// No description provided for @demoTranscript.
-  ///
-  /// In es, this message translates to:
-  /// **'Platicamos sobre el siguiente paso y el material que se compartirá. Confirmar seguimiento después del evento.'**
-  String get demoTranscript;
-
   /// No description provided for @directPlacePersistentHelp.
   ///
   /// In es, this message translates to:
@@ -1664,23 +1580,17 @@ abstract class AppLocalizations {
   /// **'Contacto'**
   String get contact;
 
-  /// No description provided for @transcription.
-  ///
-  /// In es, this message translates to:
-  /// **'Transcripción'**
-  String get transcription;
-
   /// No description provided for @recordDetails.
   ///
   /// In es, this message translates to:
   /// **'Registro'**
   String get recordDetails;
 
-  /// No description provided for @inSheet.
+  /// No description provided for @synced.
   ///
   /// In es, this message translates to:
-  /// **'En la hoja'**
-  String get inSheet;
+  /// **'Sincronizado'**
+  String get synced;
 
   /// No description provided for @createFirstEvent.
   ///

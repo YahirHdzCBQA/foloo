@@ -10,7 +10,7 @@ void usePhoneViewport(WidgetTester tester) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-Future<void> enterBasicCapture(WidgetTester tester) async {
+Future<void> enterCapture(WidgetTester tester) async {
   await tester.pumpAndSettle();
   await tester.enterText(
     find.byKey(const Key('loginEmailField')),
@@ -68,7 +68,7 @@ void main() {
   ) async {
     usePhoneViewport(tester);
     await tester.pumpWidget(const FolooApp());
-    await enterBasicCapture(tester);
+    await enterCapture(tester);
     await openDrawer(tester);
     expect(find.text('Registros'), findsOneWidget);
     expect(find.text('Mis eventos'), findsOneWidget);
@@ -95,7 +95,7 @@ void main() {
   ) async {
     usePhoneViewport(tester);
     await tester.pumpWidget(const FolooApp());
-    await enterBasicCapture(tester);
+    await enterCapture(tester);
     await selectDrawerDestination(tester, const Key('drawerEvents'));
     expect(find.byKey(const ValueKey('eventsScreen')), findsOneWidget);
     expect(find.text('Mis eventos'), findsWidgets);
@@ -121,7 +121,7 @@ void main() {
   ) async {
     usePhoneViewport(tester);
     await tester.pumpWidget(const FolooApp());
-    await enterBasicCapture(tester);
+    await enterCapture(tester);
 
     expect(find.byKey(const Key('captureOriginSection')), findsOneWidget);
     expect(find.byKey(const Key('captureEventDropdown')), findsOneWidget);
@@ -156,7 +156,7 @@ void main() {
   ) async {
     usePhoneViewport(tester);
     await tester.pumpWidget(const FolooApp());
-    await enterBasicCapture(tester);
+    await enterCapture(tester);
 
     await tester.tap(find.byKey(const Key('captureCreateEventButton')));
     await tester.pumpAndSettle();
@@ -220,7 +220,7 @@ void main() {
   ) async {
     usePhoneViewport(tester);
     await tester.pumpWidget(const FolooApp());
-    await enterBasicCapture(tester);
+    await enterCapture(tester);
     await completeRequiredLead(tester);
     expect(find.text('Lead guardado'), findsOneWidget);
     await tester.tap(find.byKey(const Key('captureAnotherButton')));
@@ -266,7 +266,7 @@ void main() {
   ) async {
     usePhoneViewport(tester);
     await tester.pumpWidget(const FolooApp());
-    await enterBasicCapture(tester);
+    await enterCapture(tester);
     await openDrawer(tester);
     await tester.tap(find.byKey(const Key('appearanceSwitch')));
     await tester.pumpAndSettle();
@@ -279,10 +279,12 @@ void main() {
     expect(find.byKey(const Key('loginButton')), findsOneWidget);
   });
 
-  testWidgets('Basic capture excludes Pro and legacy controls', (tester) async {
+  testWidgets('V1 capture excludes backlog transcription controls', (
+    tester,
+  ) async {
     usePhoneViewport(tester);
     await tester.pumpWidget(const FolooApp());
-    await enterBasicCapture(tester);
+    await enterCapture(tester);
     await tester.scrollUntilVisible(
       find.byKey(const Key('relationshipSection')),
       300,

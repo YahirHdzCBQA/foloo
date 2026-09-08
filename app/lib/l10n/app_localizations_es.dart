@@ -116,12 +116,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get authInvalidInput => 'Revisa los datos e intenta otra vez.';
 
   @override
-  String get demoPlan => 'PLAN DEMO';
-
-  @override
-  String get demoPlanHelp => 'Selector temporal para desarrollo y QA.';
-
-  @override
   String get drawerClose => 'Cerrar menú';
 
   @override
@@ -329,7 +323,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get save => 'Guardar';
 
   @override
-  String get savePro => 'Guarda y da “foloo”';
+  String get saveAndFoloo => 'Guarda y da “foloo”';
 
   @override
   String get recordsTitle => 'Registros';
@@ -558,22 +552,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get voiceNote => 'Nota de voz';
 
   @override
-  String get processingDemo => 'Procesando · demo';
-
-  @override
-  String get voiceUnavailable => 'No disponible · no hay nota de voz';
-
-  @override
   String get sentContentDemo => 'Contenido enviado · demo';
-
-  @override
-  String get emailStatusDemo => 'Estado de correo · demo';
-
-  @override
-  String get queued => 'En cola';
-
-  @override
-  String get sentDemo => 'Enviado · demo';
 
   @override
   String get editFileEvents => 'Editar eventos del archivo';
@@ -602,10 +581,6 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get offlineSaveHelp =>
       'Se guarda en tu teléfono. Se sube cuando haya señal.';
-
-  @override
-  String get transcriptionPending =>
-      'Pendiente. Aparecerá después de guardar la nota de voz.';
 
   @override
   String get cardOpenError =>
@@ -686,6 +661,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get savedLead => 'Lead guardado';
 
   @override
+  String get savedOnDevice => 'Guardado en el dispositivo';
+
+  @override
+  String get savedOnDeviceDetail =>
+      'El lead y sus archivos disponibles quedaron guardados localmente.';
+
+  @override
   String get localSaveError =>
       'No se pudo guardar en el dispositivo. Revisa el espacio disponible e inténtalo de nuevo.';
 
@@ -737,34 +719,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get capturedBy => 'Capturó';
 
   @override
-  String get eventSpreadsheet => 'En la hoja de cálculo del evento';
-
-  @override
-  String demoRow(Object folio) {
-    return 'Fila demo · $folio';
-  }
-
-  @override
-  String get demoQueued => 'Demo · en cola';
-
-  @override
-  String demoValue(Object value) {
-    return 'Demo · $value';
-  }
-
-  @override
-  String get attachedContent => 'Contenido adjunto';
-
-  @override
-  String get demoNoFiles => 'Demo · sin archivos';
-
-  @override
   String get eventDeleteHelp =>
-      'Al eliminar un evento sus leads dejan de aparecer en la app. La hoja de cálculo no se toca.';
+      'Al eliminar un evento, dejará de aparecer en la app. Sus leads permanecen guardados.';
 
   @override
   String get eventDeletedHelp =>
-      'Sus leads dejan de aparecer en la app. La hoja de cálculo no se toca.';
+      'El evento deja de aparecer en la app. Sus leads permanecen guardados.';
 
   @override
   String get active => 'Activo';
@@ -837,13 +797,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get thisEventLower => 'este evento';
 
   @override
-  String get transcriptionDemo => 'TRANSCRIPCIÓN · DEMO';
-
-  @override
-  String get demoTranscript =>
-      'Platicamos sobre el siguiente paso y el material que se compartirá. Confirmar seguimiento después del evento.';
-
-  @override
   String directPlacePersistentHelp(Object lugar) {
     return 'Dónde surgió la conversación. Sustituye $lugar en el correo; se conserva para la siguiente captura.';
   }
@@ -886,13 +839,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get contact => 'Contacto';
 
   @override
-  String get transcription => 'Transcripción';
-
-  @override
   String get recordDetails => 'Registro';
 
   @override
-  String get inSheet => 'En la hoja';
+  String get synced => 'Sincronizado';
 
   @override
   String get createFirstEvent => 'Crea el primero para comenzar a capturar.';

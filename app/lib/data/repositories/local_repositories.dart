@@ -247,7 +247,6 @@ class LeadRepository {
             place: Value(draft.place),
             contentFileIdsJson: Value(jsonEncode(draft.contentFileIds)),
             contentNamesJson: Value(jsonEncode(draft.contentNames)),
-            transcription: Value(draft.transcription),
             syncState: const Value('local'),
             createdAt: now,
             updatedAt: now,
@@ -414,7 +413,9 @@ class LeadRepository {
       folio: stored.commercialFolio,
       capturedAt: stored.capturedAt.toLocal(),
       uploadState: switch (stored.syncState) {
-        'enHoja' => SessionUploadState.inSheet,
+        // Historical values are preserved but interpreted as provider-neutral.
+        'enHoja' => SessionUploadState.synced,
+        'synced' => SessionUploadState.synced,
         'pendiente' => SessionUploadState.pending,
         _ => SessionUploadState.local,
       },
@@ -442,7 +443,6 @@ class LeadRepository {
         contentNames: List<String>.from(
           (jsonDecode(stored.contentNamesJson) as List<dynamic>).cast<String>(),
         ),
-        transcription: stored.transcription,
         referenceImageLocalPaths: references
             .map((media) => media.localPath)
             .toList(),

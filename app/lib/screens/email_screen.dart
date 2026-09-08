@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
 import '../models/lead_draft.dart';
-import '../models/pro_demo_data.dart';
+import '../models/content_file.dart';
 import '../models/session_lead.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
@@ -17,7 +17,7 @@ import '../widgets/segmented_bubble.dart';
 
 enum _TemplateKind { event, direct }
 
-/// Edits the event or direct-lead Pro template for the current demo session.
+/// Edits the event or direct-lead V1 template for the current demo session.
 class EmailScreen extends StatefulWidget {
   const EmailScreen({
     required this.recordsCount,

@@ -1,4 +1,4 @@
-/// Header for focused Pro modules that use a back action instead of the Drawer.
+/// Header for focused V1 modules that use a back action instead of the Drawer.
 ///
 /// Used by Content and Email subflows to preserve a consistent hierarchy.
 library;

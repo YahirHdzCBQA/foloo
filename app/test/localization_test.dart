@@ -11,8 +11,7 @@ void phone(WidgetTester tester) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-Future<void> enterShell(WidgetTester tester, {bool pro = false}) async {
-  if (pro) await tester.tap(find.byKey(const Key('planPro')));
+Future<void> enterShell(WidgetTester tester) async {
   await tester.enterText(find.byKey(const Key('loginEmailField')), 'qa');
   await tester.enterText(find.byKey(const Key('loginPasswordField')), 'demo');
   await tester.tap(find.byKey(const Key('loginButton')));
@@ -75,7 +74,7 @@ void main() {
     await openDrawer(tester);
     expect(find.text('Records'), findsOneWidget);
     expect(find.text('My events'), findsOneWidget);
-    expect(find.byKey(const Key('drawerContent')), findsNothing);
+    expect(find.byKey(const Key('drawerContent')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('languageEs')));
     await tester.pumpAndSettle();
@@ -83,13 +82,13 @@ void main() {
     expect(find.text('Records'), findsNothing);
   });
 
-  testWidgets('Pro destinations are localized but remain Pro-only', (
+  testWidgets('V1 destinations are localized for every account', (
     tester,
   ) async {
     phone(tester);
     await tester.pumpWidget(const FolooApp(initialLocale: Locale('en')));
     await tester.pumpAndSettle();
-    await enterShell(tester, pro: true);
+    await enterShell(tester);
     await openDrawer(tester);
     expect(find.text('Content'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);

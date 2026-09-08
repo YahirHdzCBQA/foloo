@@ -1,4 +1,4 @@
-/// Focused Pro camera session for collecting contact-reference images.
+/// Focused V1 camera session for collecting contact-reference images.
 ///
 /// It stages up to three photos and returns them to CaptureLead only after the
 /// seller confirms, keeping the platform image picker behind its service boundary.

@@ -113,12 +113,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authInvalidInput => 'Check the information and try again.';
 
   @override
-  String get demoPlan => 'DEMO PLAN';
-
-  @override
-  String get demoPlanHelp => 'Temporary selector for development and QA.';
-
-  @override
   String get drawerClose => 'Close menu';
 
   @override
@@ -326,7 +320,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get save => 'Save';
 
   @override
-  String get savePro => 'Save and give them a “foloo”';
+  String get saveAndFoloo => 'Save and give them a “foloo”';
 
   @override
   String get recordsTitle => 'Records';
@@ -555,22 +549,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get voiceNote => 'Voice note';
 
   @override
-  String get processingDemo => 'Processing · demo';
-
-  @override
-  String get voiceUnavailable => 'Unavailable · no voice note';
-
-  @override
   String get sentContentDemo => 'Content sent · demo';
-
-  @override
-  String get emailStatusDemo => 'Email status · demo';
-
-  @override
-  String get queued => 'Queued';
-
-  @override
-  String get sentDemo => 'Sent · demo';
 
   @override
   String get editFileEvents => 'Edit file events';
@@ -599,10 +578,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get offlineSaveHelp =>
       'Saved on your phone. It uploads when a connection is available.';
-
-  @override
-  String get transcriptionPending =>
-      'Pending. It will appear after the voice note is saved.';
 
   @override
   String get cardOpenError =>
@@ -682,6 +657,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get savedLead => 'Lead saved';
 
   @override
+  String get savedOnDevice => 'Saved on this device';
+
+  @override
+  String get savedOnDeviceDetail =>
+      'The lead and its available files were saved locally.';
+
+  @override
   String get localSaveError =>
       'The lead could not be saved on this device. Check available space and try again.';
 
@@ -733,34 +715,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get capturedBy => 'Captured by';
 
   @override
-  String get eventSpreadsheet => 'In the event spreadsheet';
-
-  @override
-  String demoRow(Object folio) {
-    return 'Demo row · $folio';
-  }
-
-  @override
-  String get demoQueued => 'Demo · queued';
-
-  @override
-  String demoValue(Object value) {
-    return 'Demo · $value';
-  }
-
-  @override
-  String get attachedContent => 'Attached content';
-
-  @override
-  String get demoNoFiles => 'Demo · no files';
-
-  @override
   String get eventDeleteHelp =>
-      'Deleting an event removes its leads from the app. The spreadsheet is not changed.';
+      'Deleting an event removes it from the app. Its leads remain saved.';
 
   @override
   String get eventDeletedHelp =>
-      'Its leads will no longer appear in the app. The spreadsheet is not changed.';
+      'The event no longer appears in the app. Its leads remain saved.';
 
   @override
   String get active => 'Active';
@@ -833,13 +793,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get thisEventLower => 'this event';
 
   @override
-  String get transcriptionDemo => 'TRANSCRIPTION · DEMO';
-
-  @override
-  String get demoTranscript =>
-      'We discussed the next step and the material that will be shared. Confirm follow-up after the event.';
-
-  @override
   String directPlacePersistentHelp(Object lugar) {
     return 'Where the conversation took place. Replaces $lugar in the email and is kept for the next capture.';
   }
@@ -882,13 +835,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get contact => 'Contact';
 
   @override
-  String get transcription => 'Transcription';
-
-  @override
   String get recordDetails => 'Record';
 
   @override
-  String get inSheet => 'In the sheet';
+  String get synced => 'Synced';
 
   @override
   String get createFirstEvent => 'Create the first one to start capturing.';

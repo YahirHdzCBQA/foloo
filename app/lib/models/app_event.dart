@@ -55,8 +55,8 @@ class DemoProfile {
   final String company;
 }
 
-/// Centralized Basic fixtures used to exercise event and profile flows.
-abstract final class DemoBasicData {
+/// Centralized V1 fixtures used to exercise event and profile flows.
+abstract final class DemoAppData {
   static const profile = DemoProfile(
     name: 'Yahir Hernández',
     company: 'CBQA Solutions',
