@@ -9,6 +9,21 @@
 - Google ML Kit en dispositivo para OCR de tarjetas.
 - Un solo producto: no existe una frontera Basic/Pro.
 
+### Autenticación y ownership
+
+`UI → AuthRepository → AuthService → CognitoAuthService`; FakeAuth queda solo
+para tests/desarrollo controlado. Cognito DEV usa región `us-east-1`, User Pool
+`us-east-1_QVm3dWe4O` y App Client público
+`6jong3atp2crqcsde6g215ant8` sin Client Secret. Self sign-up es email/password,
+con código por email; MFA de usuario, passwordless y social login están fuera.
+El `sub` es ownership estable. Perfil Foloo no es un atributo Cognito.
+
+### Idioma y apariencia
+
+Flutter ARB mantiene ES/EN con un estado compartido por Login y Drawer; español
+es fallback. Nombres propios, enums persistidos y tokens de plantilla no se
+traducen. Claro/oscuro remapea tokens y preferencias por usuario.
+
 ## Dirección V1, todavía no implementada
 
 ```text
@@ -68,6 +83,6 @@ No forman parte de V1 Google Sheets, Transcribe/IA, QR, Teams o HQ dashboard.
 
 ## Decisiones pendientes
 
-Ver `../specifications/current/03-decisiones-abiertas.md`: pago/tiendas,
+Ver `../product/open-decisions.md`: pago/tiendas,
 precio/vencimiento/reembolso, Voice Note, edición post-guardado, export,
 límites PDF, correo, Teams, mockups, base cloud y retención.

@@ -1,4 +1,4 @@
-# 03 · Decisiones abiertas — Foloo V1
+# Decisiones abiertas — Foloo V1
 
 Estas decisiones no se resuelven por inferencia. Cada una bloquea únicamente el
 trabajo indicado.
@@ -82,20 +82,3 @@ Drift, Cognito ni modelar contratos.
 ### `D-13` · Retención, cifrado local y eliminación legal
 
 **Bloquea:** producción de `INF-02`, `RC-02`–`RC-04`.
-
-## Decisiones cerradas por la realineación
-
-- `R-01`: existe una sola versión Foloo V1; Basic/Pro queda superseded.
-- `R-02`: Google ML Kit en dispositivo es el OCR V1.
-- `R-03`: no hay transcripción automática/IA en V1.
-- `R-04`: XLSX y CSV por evento reingresan a V1 por actualización 2026-09-08.
-- `R-05`: Google Sheets pasa a backlog y se elimina del acuse/infra V1.
-- `R-06`: Cognito self sign-up por email, confirmación y `sub` se conservan
-  de FL-013B conforme ADR-002.
-- `R-07`: Drift/SQLite se conserva conforme ADR-001.
-- `R-08`: el modelo comercial es cinco leads gratis y suscripción anual; no
-  es una edición con menos capacidades.
-
-Las antiguas `D-*` y `DP-*` de Basic/Pro no se renumeran ni se reutilizan:
-su texto completo está en
-`../../legacy/basic-pro-package-2026-09-04/specifications/current/`.

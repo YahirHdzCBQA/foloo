@@ -12,28 +12,25 @@ the same functional capabilities. Commercial access is volume-based: five
 saved leads are free; attempting to save the sixth requires an annual
 subscription. Lack of payment never deletes or hides existing data.
 
-The old edition documents and implementation artifacts remain under
-`docs/legacy/` for auditability only. They must not drive new work.
+The old edition documents were removed after consolidation. Git history remains
+the audit source; they must not be recreated as current requirements.
 
 ## SDD map
 
-- `docs/specifications/current/`: unified V1 authority and acceptance criteria.
-- `docs/specifications/traceability.md`: IDs to scenarios, evidence and work.
+- `docs/product/`: unified V1 authority, scenarios and open decisions.
 - `docs/architecture/`: current mobile boundaries and future cloud direction.
-- `docs/decisions/`: accepted ADRs and unresolved construction decisions.
-- `docs/migration/`: source reconciliation, 65-item audit and V1 roadmap.
-- `docs/requirements/`: register of product inputs.
-- `docs/legacy/`: superseded Basic/Pro and earlier specifications.
+- `docs/decisions/`: accepted ADRs only.
+- `docs/delivery/`: the sole roadmap and consolidated traceability/audit.
 
 ## Reading order
 
-1. `docs/specifications/current/00-constitucion.md`
-2. `01-especificacion.md`
-3. `02-escenarios-de-aceptacion.md`
-4. `04-matriz-de-capacidades.md`
-5. `03-decisiones-abiertas.md`
-6. Current traceability, architecture, ADRs and implementation plan
-7. `AGENTS.md` before proposing or implementing changes
+1. `docs/product/product-spec.md`
+2. `docs/product/acceptance-scenarios.md`
+3. `docs/product/open-decisions.md`
+4. Architecture and accepted ADRs
+5. `docs/delivery/traceability.md` and the single
+   `docs/delivery/roadmap.md`
+6. `AGENTS.md` before proposing or implementing changes
 
 The 2026-09-08 operational workbook explicitly updates the 2026-09-07 scope by
 restoring per-event XLSX/CSV export. No workbook status is accepted as code

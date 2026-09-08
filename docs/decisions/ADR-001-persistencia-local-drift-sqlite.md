@@ -3,8 +3,8 @@
 - Estado: **Aceptado**
 - Fecha: 2026-08-26
 - Alcance: Foloo V1 unificado
-- Trazas: CAP-15, SYN-01, SYN-02, AUT-08, EVT-*, REG-*, VOZ-02,
-  RNF-06, RNF-18 y RC-06
+- Trazas: CAP-08, CAP-09, SYN-01, SYN-02, SYN-09, AUT-10–AUT-12,
+  EVT-*, REG-*, VOZ-04, RNF-05, RNF-07, RC-02 y RC-03
 
 ## Contexto
 
@@ -15,7 +15,7 @@ de voz también podían permanecer en ubicaciones temporales del picker o del
 grabador.
 
 La decisión de producto/técnica de FL-012 selecciona explícitamente Drift sobre
-SQLite. D-03 (folio comercial) y D-11 (retención de medios) siguen abiertas.
+SQLite. La retención/cifrado/eliminación sigue abierta en D-13.
 
 ## Decisión
 
@@ -36,7 +36,7 @@ SQLite. D-03 (folio comercial) y D-11 (retención de medios) siguen abiertas.
   sin adjudicarlas y crea preferencias por usuario.
 - No se precargan fixtures de producto en la base de producción. Los fixtures
   continúan aislados para previews y pruebas de interfaz.
-- Cerrar sesión no borra la base ni los medios (AUT-08).
+- Cerrar sesión no borra la base ni los medios (AUT-11).
 - Perfil, eventos, leads y preferencias se consultan por el id estable de la
   identidad autenticada. La media deriva ownership desde Lead.
 
@@ -45,11 +45,11 @@ SQLite. D-03 (folio comercial) y D-11 (retención de medios) siguen abiertas.
 - La aplicación puede reabrir y consultar leads/eventos locales sin red.
 - Los estados de sincronización son únicamente locales; este ADR no crea cola,
   reintentos, endpoints ni sincronización real.
-- No se aplica borrado automático de medios mientras D-11 siga abierta. Solo se
+- No se aplica borrado automático de medios mientras D-13 siga abierta. Solo se
   limpian copias creadas por una operación que no llegó a confirmarse y
   referencias cuyo archivo ya no existe.
 - SQLite y el sandbox privado del sistema operativo **no satisfacen por sí
-  solos RC-06 (cifrado local)**. Cifrado, manejo de llaves y aislamiento por
+  solos RC-02/RC-03 (cifrado y acceso)**. Cifrado, manejo de llaves y aislamiento por
   cuenta quedan pendientes de decisiones específicas; no se agrega una
   dependencia de cifrado de forma implícita.
 - Los campos que el prototipo llamó Pro siguen nullable por compatibilidad, pero

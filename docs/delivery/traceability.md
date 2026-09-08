@@ -1,4 +1,42 @@
-# Auditoría de los 65 pendientes contra el repositorio
+# Trazabilidad y estado de implementación — Foloo V1
+
+## Requisito → escenario → decisión/ADR → evidencia
+
+| IDs | Escenario | Decisión/ADR | Evidencia / pendientes |
+|---|---|---|---|
+| `AUT-*` | E-01 | ADR-002 | `app/lib/auth/`; f1-01, f1-02, f4-02 |
+| `EVT-*` | E-02 | ADR-001 | EventScreen/repositorios/policy; f1-03–05 |
+| `CAP-*`, `OCR-*` | E-03–E-05 | ADR-001; D-11 | captura/ML Kit/Drift; f1-06–09, 11–14, 24 |
+| `VOZ-*` | E-04 | ADR-001; D-05/D-06 | voice service/media/tests; f1-10, 21–23 |
+| `SYN-*` | E-05/E-09 | ADR-001; D-12/D-13 | Drift/connectivity; f1-13,20,21; f4-01,03 |
+| `REG-*` | E-06/E-10 | D-06/D-07 | Records y diálogo demo; f1-16–19, f2-06/07, f5-12 |
+| `CON-*` | E-07 | D-08/D-11 | content/picker/sheet; f2-01–03 |
+| `PLT-*`, `SAL-*` | E-08 | D-09 | editor demo; f2-04/05, f4-04/12 |
+| `NAV-*` | E-12 | ADR-001 | drawer/theme/l10n; f1-15/25/26 |
+| `MON-*` | E-11 | D-01–D-04/D-11 | sin implementación; f3-01–08 |
+| `INF-*`, `RC-*` | E-09/E-12 | D-09/D-10/D-12/D-13 | ADR-001/002; f4-* |
+| `REL-*`, `RNF-*` | E-12 | decisiones aplicables | suite local parcial; f5-01–12 |
+
+Los IDs antiguos aún presentes en código/tests describen el origen histórico de
+una implementación. El texto actual de `docs/product/product-spec.md` gobierna;
+no existe compatibilidad funcional Basic/Pro.
+
+### Compatibilidad de trazas existentes en código/tests
+
+| Traza histórica aún visible | Traza V1 actual |
+|---|---|
+| `AUT-08` logout | `AUT-11` |
+| `AUT-10` alta | `AUT-04` |
+| `AUT-11` confirmación/reenvío | `AUT-05`, `AUT-06` |
+| `AUT-12` Cognito `sub` | `AUT-10` |
+| `EVT-12` selección automática | `EVT-06` |
+| `EVT-13` agrupación por fecha | `EVT-07`, `EVT-08` |
+| `CAP-22`, `CAP-23`, `REG-13` imágenes | `CAP-08`, `REG-06` |
+| `CON-08` contenido al crear evento | `CON-06`, `EVT-11` |
+| `SYN-05` indicador de conexión | `SYN-03` |
+| `REG-07` detalle solo lectura | `REG-05`; edición vigente en `REG-07` |
+
+## Auditoría de los 65 pendientes contra el repositorio
 
 - Corte: commit `f5f207c`, 2026-09-08.
 - Fuente: hoja `Pendientes` del XLSX entregado; el archivo original no se editó.

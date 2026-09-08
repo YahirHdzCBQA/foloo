@@ -1,20 +1,19 @@
 # Foloo Agent Instructions
 
 Foloo follows Specification-Driven Development (SDD). The current product is
-the single, unified Foloo V1 defined in `docs/specifications/current/`. There
+the single, unified Foloo V1 defined in `docs/product/`. There
 are no Basic/Pro editions, feature gates, upgrade paths or plan selector in the
-current product model. Existing edition code and all material under
-`docs/legacy/` are implementation evidence or history, never product authority.
+current product model. Existing edition code is implementation evidence only.
+Removed historical documents remain available through Git history.
 
 ## Authority and Reading Order
 
-1. `00-constitucion.md` contains non-negotiable product and design principles.
-2. `01-especificacion.md` defines the unified Foloo V1 requirements.
-3. `02-escenarios-de-aceptacion.md` defines acceptance behavior.
-4. `04-matriz-de-capacidades.md` groups the single product into capabilities;
-   it is not a commercial feature matrix.
-5. `03-decisiones-abiertas.md` blocks only the branches explicitly named there.
-6. Accepted ADRs govern technology choices without overriding product scope.
+1. `docs/product/product-spec.md` defines principles, scope and requirements.
+2. `docs/product/acceptance-scenarios.md` defines acceptance behavior.
+3. `docs/product/open-decisions.md` blocks only the branches named there.
+4. `docs/delivery/traceability.md` connects requirements to evidence/FLs.
+5. `docs/delivery/roadmap.md` is the only current implementation roadmap.
+6. Accepted ADRs govern technology without overriding product scope.
 
 The validated 2026-09-07 MVP scope is the primary source for this package. The
 2026-09-08 operational workbook is a later update where it explicitly changes
@@ -25,12 +24,15 @@ backlog. Contradictions without a dated resolution stay open.
 
 Read, in order:
 
-1. `docs/specifications/current/00-constitucion.md`
-2. `docs/specifications/current/01-especificacion.md`
-3. the relevant sections of `02-escenarios-de-aceptacion.md`
-4. `04-matriz-de-capacidades.md`
-5. `03-decisiones-abiertas.md`
-6. relevant architecture, ADR, migration and traceability documents
+1. `docs/product/product-spec.md`
+2. the relevant scenarios in `docs/product/acceptance-scenarios.md`
+3. `docs/product/open-decisions.md`
+4. `docs/architecture/overview.md` and relevant domain/ADR material
+5. `docs/delivery/traceability.md` and `docs/delivery/roadmap.md`
+
+No historical SDD is kept in the operational documentation tree. Git history
+is the audit source for removed Basic/Pro documents; never reconstruct them as
+current requirements.
 
 ## Implementation Rules
 

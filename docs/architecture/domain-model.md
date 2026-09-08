@@ -1,6 +1,6 @@
 # Modelo conceptual vigente — Foloo V1
 
-Navega las entidades de `../specifications/current/01-especificacion.md`; no es
+Navega las entidades de `../product/product-spec.md`; no es
 un esquema SQL/API definitivo.
 
 ## Ownership

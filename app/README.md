@@ -16,7 +16,7 @@ heredada y deben retirarse en FL-014, no extenderse.
 
 No existen todavía sync/API/S3, correo productivo, exportación real,
 monetización o plataforma cloud. Google Sheets y transcripción automática no
-pertenecen a V1. Consulta `../docs/migration/current-implementation-gap-analysis.md`.
+pertenecen a V1. Consulta `../docs/delivery/traceability.md`.
 
 ## Validación local
 

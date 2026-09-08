@@ -7,8 +7,8 @@ Los ADR aceptados complementan, pero no sustituyen, el alcance V1.
 - Pendientes: sync/API, S3/acceso/retención, persistencia cloud, correo y pagos.
 
 Las decisiones de producto/técnica aún abiertas están en
-`../specifications/current/03-decisiones-abiertas.md`. No se aprueba un
+`../product/open-decisions.md`. No se aprueba un
 proveedor o contrato porque aparezca como ejemplo en un documento histórico.
 
-El paquete Basic/Pro previo se conserva en
-`../legacy/basic-pro-package-2026-09-04/decisions/`.
+La documentación Basic/Pro fue eliminada después de consolidar sus decisiones
+vigentes en el producto unificado.

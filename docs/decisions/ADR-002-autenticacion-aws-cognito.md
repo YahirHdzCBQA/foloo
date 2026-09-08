@@ -35,7 +35,7 @@ convertir credenciales demo en autenticación de producción.
   código de email. Reenvío y errores se traducen a errores de dominio ES/EN.
 - MFA de usuario y passwordless están deshabilitados. Account recovery está
   habilitado en el proveedor, pero la UI de recuperación se difiere.
-- La identidad de autenticación (`AuthUser.id`, futuro Cognito `sub`) es distinta
+- La identidad de autenticación (`AuthUser.id`, Cognito `sub`) es distinta
   del perfil comercial Foloo almacenado en Drift.
 - Offline y autenticación son estados independientes. Perder conectividad no
   invalida una sesión restaurada.

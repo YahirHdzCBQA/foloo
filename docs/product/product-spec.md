@@ -1,10 +1,24 @@
-# 01 · Especificación funcional — Foloo V1 unificado
+# Especificación de producto — Foloo V1
 
 - Estado: vigente
 - Corte funcional: 2026-09-08
 - Producto: una sola app móvil Flutter para iOS y Android
 - Autoridad: alcance validado 2026-09-07 con actualización explícita del tablero
   operativo 2026-09-08
+
+## Principios no negociables
+
+- El contexto es de pie, con una mano, presión y conectividad irregular.
+- Lead y medios se guardan durablemente antes de cualquier red.
+- Señal, correo o pago nunca borran ni ocultan datos capturados.
+- Ningún secreto de servicio vive en Flutter; Cognito protege sus tokens fuera
+  de Drift.
+- Offline es normal y está separado de autenticación/disponibilidad backend.
+- Estado y selección nunca dependen solo del color.
+- CTA principal fijo de 56 dp, objetivos táctiles ≥44 dp y UI vertical.
+- Lima se reserva para CTA, selección activa o marca.
+- ES/EN y claro/oscuro son de primera clase.
+- Lo no especificado o contradictorio se registra como decisión abierta.
 
 ## 1. Objetivo y modelo comercial
 
@@ -285,3 +299,32 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `REL-06` | Cuentas Apple/Google, assets ES/EN, permisos y legales listos. |
 | `REL-07` | Revisión de tiendas, versión etiquetada, notas y soporte definidos. |
 | `REL-08` | XLSX/CSV verificados con acentos y caracteres especiales. |
+
+## 7. Doce capacidades de V1
+
+| # | Capacidad | Requisitos principales |
+|---:|---|---|
+| 01 | OCR de tarjetas | `OCR-*` |
+| 02 | Clasificación e interés | `CAP-05`, `CAP-06` |
+| 03 | Eventos y Leads directos | `EVT-*` |
+| 04 | Plantillas con variables | `PLT-*` |
+| 05 | Contenido PDF | `CON-*` |
+| 06 | Gestión por evento | `REG-01`–`REG-04` |
+| 07 | Detalle de cada Lead | `REG-05`–`REG-08` |
+| 08 | Voice Note | `VOZ-*` |
+| 09 | Imágenes de referencia | `CAP-08`, `REG-06` |
+| 10 | Correo de seguimiento | `SAL-*` |
+| 11 | XLSX/CSV por evento | `REG-09`–`REG-13` |
+| 12 | Offline total y sincronización | `SYN-*` |
+
+Autenticación, navegación, monetización, infraestructura, calidad y cumplimiento
+son transversales. La matriz no representa planes comerciales.
+
+## 8. Fuente y reconciliación
+
+Precedencia: Alcance MVP validado 2026-09-07; Cambios de alcance y Ruta a
+producción del mismo día; después el tablero operativo 2026-09-08 donde declara
+una actualización explícita. Por ello XLSX/CSV reingresan a V1 y Google Sheets
+permanece backlog. ML Kit local reemplaza la antigua dirección de OCR remoto y
+la transcripción automática queda fuera. El proveedor de correo no se resolvió:
+ver `D-09`.
