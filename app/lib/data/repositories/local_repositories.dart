@@ -1,7 +1,7 @@
 /// Repository boundary between Foloo domain models and Drift/private files.
 ///
 /// Widgets must consume these repositories through application state and must
-/// not depend on Drift (CAP-15, SYN-01, RNF-18).
+/// not depend on Drift (CAP-09, SYN-01).
 library;
 
 import 'dart:convert';

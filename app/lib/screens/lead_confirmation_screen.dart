@@ -1,7 +1,7 @@
 /// Acknowledgement shown after a lead is accepted by the local demo store.
 ///
-/// Basic and Pro render capability-aware status fixtures while the production
-/// acknowledgement contract remains subject to D-06.
+/// DEMO: Superseded edition-aware status fixtures remain until FL-014 removes
+/// Google Sheets/transcription claims and uses truthful processing state.
 library;
 
 import 'dart:async';

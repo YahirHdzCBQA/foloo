@@ -1,7 +1,7 @@
 /// Searchable session records and read-only connection detail.
 ///
 /// Provides local demo filtering, export choices, sync affordances and voice
-/// playback while keeping Basic and Pro detail fields capability-aware.
+/// playback. Superseded edition conditionals remain only until FL-014 cleanup.
 library;
 
 import 'dart:async';
@@ -859,9 +859,9 @@ class _RecordRow extends StatelessWidget {
   }
 }
 
-/// Read-only detail for one captured connection (REG-07).
+/// Current read-only detail scaffold for one captured connection (REG-05).
 ///
-/// Voice playback is shared; transcription and delivery status remain Pro-only.
+/// V1 requires later editable fields; automatic transcription remains backlog.
 class ConnectionDetailScreen extends StatelessWidget {
   const ConnectionDetailScreen({
     required this.record,

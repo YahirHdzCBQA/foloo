@@ -1,48 +1,40 @@
 # Foloo
 
-Foloo is a mobile, offline-first lead-capture product for commercial teams
-working at events. The repository contains the current Specification-Driven
-Development foundation and an existing Flutter prototype under `app/`.
+Foloo V1 is one mobile, offline-first product for capturing and following up
+commercial leads at events or direct encounters. The repository contains its
+current Specification-Driven Development foundation and a Flutter application
+under `app/`.
 
-## Product editions
+## One product version
 
-- **Foloo Basic** is the complete capture nucleus defined in
-  `docs/specifications/current/01-especificacion.md`.
-- **Foloo Pro = Basic + delta** from
-  `docs/specifications/current/05-especificacion-pro.md`.
-- `docs/specifications/current/04-matriz-de-capacidades.md` is the sole source
-  of truth for which edition owns each capability.
+The former Basic/Pro split was superseded on 2026-09-07. Every V1 account has
+the same functional capabilities. Commercial access is volume-based: five
+saved leads are free; attempting to save the sixth requires an annual
+subscription. Lack of payment never deletes or hides existing data.
 
-The Flutter prototype predates this realignment. It demonstrates portions of
-capture, local OCR, Voice Note, confirmation, navigation and session records,
-but is not yet an implementation of current Basic or Pro. See the gap analysis
-before using existing code as a starting point.
+The old edition documents and implementation artifacts remain under
+`docs/legacy/` for auditability only. They must not drive new work.
 
 ## SDD map
 
-- `docs/specifications/current/`: current official Basic/Pro package.
-- `docs/architecture/`: current conceptual boundaries and data model.
-- `docs/decisions/`: ADR process and routing to unresolved decisions.
-- `docs/migration/`: old-to-current comparison, implementation gaps and the
-  recommended migration sequence.
-- `docs/requirements/`: original historical business requirements.
-- `docs/legacy/`: superseded specifications and decisions, retained only for
-  traceability.
+- `docs/specifications/current/`: unified V1 authority and acceptance criteria.
+- `docs/specifications/traceability.md`: IDs to scenarios, evidence and work.
+- `docs/architecture/`: current mobile boundaries and future cloud direction.
+- `docs/decisions/`: accepted ADRs and unresolved construction decisions.
+- `docs/migration/`: source reconciliation, 65-item audit and V1 roadmap.
+- `docs/requirements/`: register of product inputs.
+- `docs/legacy/`: superseded Basic/Pro and earlier specifications.
 
 ## Reading order
 
-1. `00-constitucion.md`
-2. `01-especificacion.md` and `02-escenarios-de-aceptacion.md`
-3. `03-decisiones-abiertas.md`
-4. For Pro or shared scope: `04`, `05`, `06` and `07` in order
-5. Current architecture, traceability and migration documents
-6. `AGENTS.md` before proposing or implementing changes
+1. `docs/specifications/current/00-constitucion.md`
+2. `01-especificacion.md`
+3. `02-escenarios-de-aceptacion.md`
+4. `04-matriz-de-capacidades.md`
+5. `03-decisiones-abiertas.md`
+6. Current traceability, architecture, ADRs and implementation plan
+7. `AGENTS.md` before proposing or implementing changes
 
-Do not treat recommendations as decisions, or the current Flutter behavior as
-product authority.
-
-## Flutter prototype
-
-The app is located in `app/`. Its current capabilities and known conflicts are
-documented in `docs/migration/current-implementation-gap-analysis.md`; its
-local run instructions remain in `app/README.md`.
+The 2026-09-08 operational workbook explicitly updates the 2026-09-07 scope by
+restoring per-event XLSX/CSV export. No workbook status is accepted as code
+completion without repository evidence.

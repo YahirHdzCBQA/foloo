@@ -1,10 +1,9 @@
-# Specification Migration
+# Migración al alcance vigente
 
-- `specification-realignment.md`: authoritative before/now change record,
-  Basic/Pro boundary, legacy disposition and newly detected conflicts.
-- `current-implementation-gap-analysis.md`: current Flutter and visual-system
-  audit with status and KEEP/ADAPT/REMOVE/MOVE/DECISION recommendations.
-- `implementation-plan.md`: ordered, blocker-aware future development phases.
+- `specification-realignment.md`: decisiones y contradicciones de FL-013C.
+- `current-implementation-gap-analysis.md`: auditoría de los 65 pendientes.
+- `implementation-plan.md`: propuesta FL-014+ para una sola V1.
+- `basic-frontend-implementation-report.md`: evidencia histórica; no vigente.
 
-These documents explain migration; they do not override the official package
-in `../specifications/current/` and do not authorize implementation.
+El paquete anterior está preservado bajo
+`../legacy/basic-pro-package-2026-09-04/`.

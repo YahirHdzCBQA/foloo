@@ -15,7 +15,7 @@ import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 import 'language_selector.dart';
 
-/// Renders capability-aware navigation and keeps Pro destinations out of Basic.
+/// Renders navigation; legacy edition checks remain until FL-014 convergence.
 class AppDrawer extends StatelessWidget {
   const AppDrawer({
     required this.activeDestination,

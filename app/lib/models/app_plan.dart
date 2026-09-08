@@ -1,9 +1,10 @@
-/// Demo representation of the Basic/Pro account capability.
+/// Superseded development-only edition selector retained until FL-014 cleanup.
 ///
-/// DEMO: RNF-18 requires this value to be supplied by the backend in product.
+/// DEMO: Foloo V1 has one capability set; do not extend this enum or source it
+/// from the backend. It exists only to avoid functional changes in FL-013C.
 enum AppPlan { basic, pro }
 
-/// Convenience checks used to keep Pro-only surfaces absent from Basic.
+/// Compatibility checks for the superseded demo UI.
 extension AppPlanLabel on AppPlan {
   String get label => this == AppPlan.basic ? 'Basic' : 'Pro';
   bool get isPro => this == AppPlan.pro;

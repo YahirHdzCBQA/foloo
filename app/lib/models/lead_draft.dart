@@ -14,8 +14,8 @@ enum LeadOriginKind { event, direct }
 
 /// Snapshot of the current capture when the user submits a valid lead.
 ///
-/// Basic fields are shared. Pro-only values remain optional and must never be
-/// surfaced to Basic accounts (RNF-18 and the capability matrix).
+/// Some optional fields originated in the superseded edition prototype. They
+/// now belong to the single V1 model and remain nullable for local compatibility.
 class LeadDraft {
   const LeadDraft({
     required this.name,

@@ -1,7 +1,7 @@
 /// Pre-capture origin selection for event and direct connections.
 ///
-/// The shared Basic flow reveals the Pro-only direct location requirement only
-/// when that account capability is active.
+/// The unified V1 flow reveals the direct location field only when direct
+/// origin is selected.
 library;
 
 import 'package:flutter/material.dart';

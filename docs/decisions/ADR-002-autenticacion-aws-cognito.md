@@ -2,8 +2,8 @@
 
 - Estado: **Aceptado**
 - Fecha: 2026-08-31; actualizada por FL-013B el 2026-09-04
-- Alcance: compartido Basic/Pro
-- Trazas: AUT-01, AUT-02, AUT-04–AUT-13, RNF-02, RNF-06, RNF-18 y E-01
+- Alcance: Foloo V1 unificado
+- Trazas: AUT-01–AUT-13, SYN-03, SYN-09 y E-01
 
 ## Contexto
 
@@ -39,8 +39,8 @@ convertir credenciales demo en autenticación de producción.
   del perfil comercial Foloo almacenado en Drift.
 - Offline y autenticación son estados independientes. Perder conectividad no
   invalida una sesión restaurada.
-- El plan/capabilities no se infiere de FakeAuth ni de Cognito; sigue separado
-  hasta el contrato previsto por RNF-18/FL-020.
+- Trial y suscripción no se infieren de FakeAuth ni de Cognito; pertenecen al
+  backend Foloo futuro bajo `MON-*`.
 
 ## Alternativas consideradas
 
@@ -63,4 +63,4 @@ convertir credenciales demo en autenticación de producción.
 - Las filas heredadas con owner nulo o `fake-user-*` se preservan y no se
   reasignan silenciosamente. Su migración requiere una futura decisión.
 - No se agregan secretos, credenciales IAM, backend, Terraform, sincronización
-  ni determinación Basic/Pro mediante Cognito.
+  ni determinación comercial mediante Cognito.

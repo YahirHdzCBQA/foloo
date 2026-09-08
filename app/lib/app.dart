@@ -82,8 +82,8 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   bool _accountJustConfirmed = false;
   ThemeMode _themeMode = ThemeMode.light;
   AppDestination _destination = AppDestination.home;
-  // DEMO: Development plan selector used to preview the capability boundary.
-  // RNF-18 requires production capabilities to come from the account backend.
+  // DEMO: Superseded edition selector retained only until FL-014 cleanup.
+  // DEMO: Remove the superseded edition selector during FL-014 convergence.
   AppPlan _plan = AppPlan.basic;
   AppDestination _eventsReturnDestination = AppDestination.home;
   DemoProfile _profile = DemoBasicData.profile;

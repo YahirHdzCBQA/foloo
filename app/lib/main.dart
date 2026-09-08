@@ -1,6 +1,6 @@
 /// Foloo application entry point.
 ///
-/// Starts the shared Basic/Pro Flutter shell and delegates application state
+/// Starts the unified Foloo V1 Flutter shell and delegates application state
 /// to [FolooApp]. ES: Punto de entrada de la aplicación.
 library;
 

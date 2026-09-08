@@ -1,4 +1,4 @@
-/// Pro-only content library for locally selected, event-scoped PDFs.
+/// V1 content library for locally selected, event-scoped PDFs.
 ///
 /// The screen owns native selection and session metadata only; upload,
 /// persistence and delivery remain backend work.
@@ -17,9 +17,9 @@ import '../widgets/app_drawer.dart';
 import '../widgets/content_assignment_sheet.dart';
 import '../widgets/module_header.dart';
 
-/// Lists and edits session-only Pro content metadata.
+/// Lists and edits session-only V1 content metadata.
 ///
-/// Basic accounts must never be routed to this surface (RNF-18).
+/// DEMO: Durable content storage and upload remain future work.
 class ContentScreen extends StatefulWidget {
   const ContentScreen({
     required this.files,

@@ -1,7 +1,6 @@
-/// Pro-only email-template editor and deterministic preview.
+/// V1 email-template editor and deterministic preview.
 ///
-/// Edits remain in memory; no message is sent and Basic accounts must not see
-/// this destination (PLT-* / RNF-18).
+/// DEMO: Edits remain in memory and no message is sent (PLT-* / SAL-*).
 library;
 
 import 'package:flutter/material.dart';

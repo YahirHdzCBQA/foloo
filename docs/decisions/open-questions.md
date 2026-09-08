@@ -1,55 +1,23 @@
-# Current Open-Decision Index
+# Índice vigente de decisiones abiertas
 
-This file does not restate or resolve decisions. The full, authoritative text,
-owners, assumptions and recommendations lives in the official package:
+La definición completa está en
+`../specifications/current/03-decisiones-abiertas.md`.
 
-- Basic/shared: `../specifications/current/03-decisiones-abiertas.md`
-- Pro delta: `../specifications/current/07-decisiones-abiertas-pro.md`
-
-## Blocking Basic/shared decisions
-
-| ID | Area blocked |
+| ID | Bloquea |
 |---|---|
-| `D-01` | Basic transcription boundary and related retention implications |
-| `D-02` | Removal of `siguientePaso` and the Basic data/sheet model |
-| `D-03` | Folio uniqueness/idempotency and acknowledgement |
-| `D-04` | Post-save editing and read-only detail |
-| `D-05` | Backend ownership of extraction, sheet and files |
-| `D-06` | Exact acknowledgement content |
-| `D-13` | Product success metric after email moved to Pro; no code blocked |
-| `D-14` | Basic privacy-notice delivery (`RC-01`) |
+| `D-01` | estrategia de cobro/paywall/tiendas |
+| `D-02` | precio, moneda y regiones |
+| `D-03` | vencimiento, avisos y gracia |
+| `D-04` | cancelación/reembolsos |
+| `D-05` | límite Voice Note |
+| `D-06` | edición de medios post-guardado |
+| `D-07` | contrato XLSX/CSV |
+| `D-08` | límites/caché PDF |
+| `D-09` | proveedor de correo SES vs requisito Google Workspace |
+| `D-10` | contrato API futuro Teams |
+| `D-11` | cinco mockups faltantes |
+| `D-12` | motor cloud |
+| `D-13` | retención/cifrado/eliminación |
 
-## Non-blocking Basic/shared decisions
-
-`D-07` destination/CRM alignment; `D-08` volume and sending account;
-`D-10` sheet topology; `D-11` media retention;
-`D-12` font licensing.
-
-`D-09` was resolved by the Product Owner in FL-013B and recorded in ADR-002.
-
-## Blocking Pro decisions
-
-| ID | Area blocked |
-|---|---|
-| `DP-01` | Content storage model, attachments and independent file queue |
-| `DP-02` | Attachment limits and email delivery |
-| `DP-03` | Template ownership and editor |
-| `DP-04` | Copia Admin configuration |
-| `DP-12` | Entire Pro email subsystem |
-| `DP-05` | Transcription construction/rollout planning |
-
-Pro also inherits applicable Basic/shared decisions. `DP-05` changes how
-`D-01` applies to Pro; it does not authorize a provider choice.
-
-## Non-blocking Pro decisions
-
-`DP-06` transcription editing; `DP-07` offline acknowledgement;
-`DP-08` capability delivery/downgrade; `DP-09` event/content editing;
-`DP-10` content naming safeguards; `DP-11` cache limit and eviction.
-
-## Historical questions
-
-The former `OQ-A*` list is preserved at
-`../legacy/decisions/open-questions-v1.md`. It is superseded. Several topics
-now map to `D-*`/`DP-*`, but no equivalence should be assumed unless recorded
-in the migration analysis.
+Cerrado por FL-013C: una sola V1, ML Kit local, sin transcripción, exportación
+XLSX/CSV en V1 y Google Sheets en backlog. Las antiguas D/DP no son vigentes.

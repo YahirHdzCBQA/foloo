@@ -1,102 +1,69 @@
-# 00 · Constitución de Foloo Basic
+# 00 · Constitución de Foloo V1
 
-Principios no negociables. Cualquier decisión de implementación que contradiga uno de estos artículos es un defecto, aunque la funcionalidad "sirva".
+Vigente desde 2026-09-08. Estas reglas no se negocian por conveniencia técnica,
+estado de red, pago o comportamiento heredado del prototipo.
 
----
+## Artículo 1 — El contexto de uso manda
 
-## Artículo 1 — El contexto de uso manda sobre todo lo demás
+Foloo se usa de pie, con una mano, bajo presión y con conectividad irregular.
+El flujo principal vive en orientación vertical, conserva contexto y permite
+capturar un lead en menos de 60 segundos.
 
-La app se usa **de pie, en el piso de una expo, con una sola mano**, mientras la persona sostiene una tarjeta que le acaban de dar y alguien le sigue hablando. El wifi del recinto es malo o inexistente.
+## Artículo 2 — El lead nunca se pierde ni se oculta
 
-De ahí se derivan cuatro reglas que no se negocian:
+Guardar confirma primero una escritura durable local y después intenta red.
+Cerrar sesión, perder señal, fallar un correo o vencer una suscripción no borra
+ni oculta perfiles, eventos, leads o medios ya capturados.
 
-1. Un lead completo se registra en **menos de 60 segundos**, desde abrir la app hasta el acuse.
-2. **Todo funciona sin conexión.** Lo que necesita red se degrada; nunca bloquea.
-3. **Nada de teclear lo que ya está impreso** en la tarjeta.
-4. **Un solo pulgar alcanza todos los controles** de la acción principal.
+## Artículo 3 — Ninguna credencial de servicio vive en el teléfono
 
-Si una funcionalidad es correcta pero agrega pasos, la funcionalidad está mal.
+El cliente móvil no contiene secretos IAM, Client Secret, credenciales de
+correo, storage ni pagos. Amplify administra tokens de Cognito en el mecanismo
+seguro de plataforma; Drift no almacena tokens.
 
----
+## Artículo 4 — Offline es un estado normal
 
-## Artículo 2 — El lead nunca se pierde
+La aplicación conserva captura y consulta local sin red. Las colas y estados
+pendientes se comunican con icono y palabra. Offline no significa logout ni
+confirma que el backend esté caído.
 
-El guardado local ocurre **antes** de cualquier intento de red, siempre. Ningún fallo de OCR, de hoja de cálculo, de subida de archivos o de conexión puede impedir que un lead quede registrado.
+## Artículo 5 — El estado nunca depende solo del color
 
-Corolario: **no existe un estado en el que el usuario pierda datos ya capturados.** Ni al cerrar la app, ni al perder señal, ni al fallar un servicio externo, ni al eliminar un evento.
+Interés, sincronización, error, selección y pago se expresan con texto o icono
+además del color, con contraste válido en claro y oscuro.
 
----
+## Artículo 6 — El sistema visual es cerrado
 
-## Artículo 3 — Ninguna credencial vive en el teléfono
-
-Las llaves de API — visión, hoja de cálculo, almacenamiento y, donde exista, correo — viven **solo en el servidor**. La app habla exclusivamente con el backend propio de Foloo por HTTPS.
-
-Razón de negocio: un APK se descompila. Una llave expuesta es una fuga de datos personales de terceros y una multa.
-
-Corolario arquitectónico: **la app entrega el registro, el servidor decide a dónde va.** Cambiar el destino de los datos (hoja → CRM) no debe obligar a publicar una versión nueva de la app.
-
----
-
-## Artículo 4 — Offline no es un error
-
-Estar sin conexión es el estado normal en una expo, no una falla. Se comunica con calma: gris, icono `wifi-off` y una frase que tranquiliza.
-
-> "Se guarda en tu teléfono. Se sube cuando haya señal."
-
-Nunca en rojo. Nunca con signo de admiración. Nunca bloqueando.
-
----
-
-## Artículo 5 — Ningún estado se comunica solo con color
-
-Sincronizado, pendiente, sin conexión y error llevan **siempre** icono **y** palabra, además del color. Un usuario con daltonismo, con el teléfono al sol o con brillo bajo tiene que poder leer el estado.
-
----
-
-## Artículo 6 — El sistema de diseño es cerrado
-
-Cuatro colores: `#FFFFFF`, `#1F1F1F`, `#C9FA00` (lima), `#888888`. Todo lo demás se **deriva** de ellos y está en `tokens/colors.css`. No se inventan valores.
-
-- Texto sobre lima siempre `#1F1F1F`. Blanco sobre lima está prohibido.
-- **Un solo elemento lima por pantalla.** Dos elementos lima significan que nada es primario.
-- Tema claro primero; el oscuro es un remapeo de tokens, no una reescritura.
-- Tres tipografías con roles exclusivos: **Nexa Black/Heavy** para títulos y números grandes, **Poppins 500/600** para botones, etiquetas y chips (≤20 caracteres), **DM Sans 400/500/700** para todo el texto largo y todo el contenido del usuario.
-- Sin gradientes, sin vidrio, sin glow, sin neón, sin imágenes de fondo, sin sombras internas. Radio 0px no existe: el círculo es la forma base de la marca.
-- Presupuesto de movimiento: retroalimentación 100 ms · cambio de estado 150 ms · hojas 200 ms · **techo duro 250 ms**. `prefers-reduced-motion` colapsa todo a 1 ms.
-- El **único momento expresivo** del sistema es la confirmación de lead guardado.
-
----
+Se reutilizan tokens, componentes y assets aprobados. Lima se reserva para CTA,
+selección activa o detalle de marca; no se inventan estilos por pantalla.
 
 ## Artículo 7 — Ergonomía de una mano
 
-- Área táctil mínima absoluta: **48 dp**. Ningún control por debajo.
-- La acción principal vive en un **dock fijo inferior de 56 dp** de alto, con hairline de 1px arriba.
-- **Las acciones destructivas nunca van en el tercio inferior.** "Eliminar evento" y "Cerrar sesión" viven lejos del pulgar, con su propio contorno.
-- Orientación **vertical únicamente**.
+Acción principal fija de 56 dp; objetivos táctiles de al menos 44 dp; acciones
+destructivas separadas y protegidas; listas, buscadores y selectores evitan
+desplazamiento horizontal innecesario.
 
----
+## Artículo 8 — Una sola Foloo V1, ES/EN
 
-## Artículo 8 — La voz del producto
+Todos los usuarios reciben las mismas capacidades V1. Español e inglés son de
+primera clase. No existen pantallas o controles Basic/Pro. El idioma no cambia
+datos, permisos ni reglas de negocio.
 
-- Se habla de **tú**. El producto nunca dice "nosotros".
-- Sentence case en todo. Sin ALL CAPS salvo el eyebrow de 11px.
-- Sin signos de admiración. Sin emoji, nunca, en ningún lugar.
-- Los errores dicen qué pasó y cuál es la salida, y no piden disculpas:
-  > "Tarjeta ilegible. Escribe los datos a mano."
-  > Nunca: "Ups, algo salió mal."
-- Los estados vacíos son invitaciones a capturar, no callejones.
-- Español y inglés son ambos de primera clase. El español corre 15–30% más largo: sin botones de ancho fijo, sin etiquetas forzadas a una línea.
+## Artículo 9 — El pago limita creación, no propiedad
 
----
+El trial permite cinco leads guardados por cuenta. El intento de guardar el
+sexto se conserva intacto mientras se presenta el paywall. Una cuenta no activa
+puede consultar, editar, exportar y operar datos previos; solo se bloquea crear
+nuevos leads. Quien ya pagó no se bloquea solo por perder red.
 
-## Artículo 9 — Datos personales de terceros
+## Artículo 10 — Datos personales desde el dispositivo
 
-Se están capturando datos de personas que no son el usuario. La LFPDPPP aplica desde el primer lead, no desde el primer cliente, y **aplica igual cuando la app no envía nada**: el deber nace al guardar el dato, no al usarlo. El cumplimiento (`RC-*`) no es backlog.
+Tarjetas, contacto, voz e imágenes de referencia son datos personales desde su
+persistencia local. Deben tener acceso, cifrado, retención y eliminación
+definidos antes de producción.
 
----
+## Artículo 11 — Lo no escrito se decide
 
-## Artículo 10 — Lo que no está escrito, se pregunta
-
-El agente **no inventa** comportamiento faltante. Si algo no está en `01-especificacion.md` ni visible en los mockups, se busca en `03-decisiones-abiertas.md`. Si tampoco está ahí, se levanta como decisión nueva y se detiene esa rama del trabajo.
-
-Inventar un campo, un estado o un flujo cuesta más caro que preguntar.
+No se infieren proveedores, límites, precios, políticas de tiendas, contratos
+de API o estados de pago. Una contradicción sin actualización fechada se
+registra como decisión abierta.

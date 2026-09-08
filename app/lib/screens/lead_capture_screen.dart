@@ -1,4 +1,4 @@
-/// Continuous, scrollable lead-capture workflow shared by Basic and Pro.
+/// Continuous, scrollable lead-capture workflow for unified Foloo V1.
 ///
 /// Coordinates origin, card OCR, editable lead data, relationship, voice note
 /// and submission while delegating native work to dedicated services.
@@ -37,10 +37,9 @@ import 'multi_photo_capture_screen.dart';
 /// Reports an origin change without coupling capture to root application state.
 typedef LeadOriginChanged = void Function(LeadOriginKind kind, AppEvent? event);
 
-/// Displays the single-screen four-section capture experience (CAP-05).
+/// Displays the single-screen four-section capture experience (CAP-01).
 ///
-/// Pro additions are capability-gated and absent, rather than disabled, in
-/// Basic. ES: Coordina la captura completa de una conexión.
+/// DEMO: Superseded edition conditionals remain until FL-014 convergence.
 class LeadCaptureScreen extends StatefulWidget {
   const LeadCaptureScreen({
     required this.originKind,

@@ -1,7 +1,7 @@
 /// Shared event-creation dialog used from onboarding, capture and Mis eventos.
 ///
-/// Pro content assignment is included only when the caller supplies that
-/// capability; Basic retains the same core event fields.
+/// DEMO: A superseded selector still controls content assignment until FL-014;
+/// unified V1 requires the content flow for every account.
 library;
 
 import 'package:flutter/material.dart';

@@ -1,9 +1,17 @@
-# Historical Business Requirements
+# Fuentes de requerimientos
 
-`foloo-business-requirements-v1.pdf` is the original business-requirements
-baseline. It remains valuable for product rationale and legacy `RF-*`
-traceability, but it is no longer the current scope authority.
+La autoridad vigente se normaliza en `../specifications/current/`.
 
-The August 2026 Basic/Pro package in `../specifications/current/` supersedes it
-where behavior, identifiers, edition scope or acceptance criteria differ. See
-`../migration/specification-realignment.md` for the explicit change record.
+Fuentes principales de FL-013C:
+
+1. `Alcance_foloo.docx` — alcance MVP validado 2026-09-07.
+2. `Cambios_de_alcance_foloo.docx` — decisión versión única.
+3. `Roadmap_to_prod.docx` — ruta a producción 2026-09-07.
+4. `foloo-ruta-a-v1-2026-09-08.xlsx` — actualización operativa posterior.
+
+Los binarios fueron suministrados fuera del repositorio y no se editaron. La
+discrepancia exportación fuera/dentro se resuelve por la actualización explícita
+del 8-sep; las demás contradicciones permanecen en decisiones/reconciliación.
+
+Los PDF, RF históricos y paquete Basic/Pro se conservan solo como motivación y
+auditoría; nunca sobrescriben el alcance V1.

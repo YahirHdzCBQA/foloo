@@ -1,7 +1,7 @@
 /// Local recording and playback boundary for lead voice notes.
 ///
-/// Basic and Pro share this device lifecycle. Pro transcription is a separate
-/// server capability and is never performed by this service.
+/// Foloo V1 owns this device lifecycle. Automatic transcription is backlog and
+/// is never performed by this service.
 library;
 
 import 'dart:async';

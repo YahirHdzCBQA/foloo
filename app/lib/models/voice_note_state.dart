@@ -1,7 +1,7 @@
 /// Immutable UI state for the local voice-note lifecycle.
 ///
-/// Recording/playback is shared by Basic and Pro; transcription is Pro-only
-/// and is intentionally not represented here (VOZ-07 / TRA-*).
+/// Recording/playback belongs to Foloo V1; automatic transcription is backlog
+/// and is intentionally not represented here (VOZ-08).
 library;
 
 /// Mutually exclusive phases of local recording and playback.

@@ -1,51 +1,32 @@
-# Foloo Basic · frontend Flutter
+# Foloo · aplicación Flutter
 
-Este directorio contiene la implementación navegable de Foloo Basic alineada
-con `docs/specifications/current/` y con el mockup HTML oficial de agosto de
-2026.
+Implementación móvil de Foloo V1. El producto vigente es una sola versión; el
+selector y gating `AppPlan.basic/pro` que aún aparecen en el código son deuda
+heredada y deben retirarse en FL-014, no extenderse.
 
-## Alcance implementado
+## Base existente
 
-- Frontera `AuthRepository`/`AuthService`, sesión de desarrollo restaurable y
-  configuración inicial de perfil por usuario. FakeAuth no es autenticación de
-  producción; Cognito se integra en FL-013B.
-- Selección de origen: evento activo o lead directo.
-- Captura continua de cuatro secciones con foto, datos editables, los tipos
-  Proveedor/Partner/Cliente, interés, nota escrita y Voice Note local.
-- Confirmación Basic, regreso automático y captura consecutiva.
-- Registros de la sesión con filtros, detalle de solo lectura y reproducción de
-  Voice Note.
-- Mis eventos con alta, edición, eliminación lógica y ownership local.
-- Drawer derecho, cambio local claro/oscuro y cierre de sesión.
-- Diálogos visuales de exportación y acción visual de sincronización.
+- Cognito DEV detrás de AuthRepository/AuthService.
+- Perfil, eventos, Leads y preferencias por Cognito `sub`.
+- Drift/SQLite y medios privados locales.
+- Evento/directo, ML Kit, Voice Note, imágenes de referencia y Registros.
+- Tema claro/oscuro, ES/EN, contenido/plantillas demo y selector PDF.
 
-No hay backend, Cognito real, sincronización, entrega a Sheets ni exportación
-productiva. Drift/SQLite persiste perfil, preferencias, eventos, leads y media
-local con aislamiento por usuario. Basic no expone transcripción, contenido,
-plantillas ni correo.
+## Límites actuales
 
-## Dependencias de dispositivo
+No existen todavía sync/API/S3, correo productivo, exportación real,
+monetización o plataforma cloud. Google Sheets y transcripción automática no
+pertenecen a V1. Consulta `../docs/migration/current-implementation-gap-analysis.md`.
 
-- `image_picker`: cámara y galería.
-- `google_mlkit_text_recognition`: lectura local heredada exclusivamente para
-  la demostración; no representa la arquitectura productiva `OCR-03/OCR-04`.
-- `record`: grabación local.
-- `audioplayers`: reproducción local de Voice Note.
+## Validación local
 
-El formato AAC/M4A sigue siendo un detalle provisional. Límites, retención y
-persistencia productiva continúan bloqueados por `D-11`/`RC-03`.
-
-## Ejecutar localmente
+Desde este directorio:
 
 ```sh
-cd app
 flutter pub get
-flutter run -d <device-id>
-```
-
-Para validar sin abrir un dispositivo:
-
-```sh
+dart format .
 flutter analyze
 flutter test
 ```
+
+No ejecutar `flutter run` en tareas que lo prohíban.

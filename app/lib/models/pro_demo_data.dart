@@ -1,11 +1,11 @@
-/// Session-only fixtures for Pro content and email-template surfaces.
+/// Session-only fixtures for V1 content and email-template surfaces.
 ///
 /// DEMO: CON-* and PLT-* require backend-owned durable data in production.
 library;
 
 import 'app_event.dart';
 
-/// Metadata for a Pro PDF assigned to one or more events.
+/// Metadata for a demo PDF assigned to one or more events.
 class ContentFile {
   const ContentFile({
     required this.id,

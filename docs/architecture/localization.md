@@ -1,33 +1,17 @@
-# Localización Flutter
+# Localización de Foloo V1
 
-## Alcance
+Español (`es`) e inglés (`en`) son idiomas de primera clase en app, plantillas,
+correo, exportación visible y materiales de tienda (`NAV-05`, `NAV-06`,
+`RNF-06`).
 
-Esta implementación da trazabilidad a `NAV-09` y `RNF-19` para Basic y Pro.
-Los idiomas soportados son español (`es`) e inglés (`en`). La aplicación
-usa el idioma del sistema cuando es compatible y español para cualquier
-locale no soportado.
+Flutter usa ARB y `AppLanguageScope`. Login y Drawer comparten el mismo estado;
+el idioma compatible del sistema se usa inicialmente y español es fallback.
+La preferencia debe persistir localmente por `sub`.
 
-La preferencia se conserva durante la sesión en un único estado compartido
-por Login y Drawer. La persistencia durable queda fuera de FL-011 hasta que
-exista una foundation local aprobada.
+No se traducen marca, nombres propios, enums persistidos, extensiones XLSX/CSV
+ni tokens de plantilla como `{evento}`, `{lugar}`, `{contenido}` y
+`{capturadoPor}`. La capa visual resuelve etiquetas localizadas.
 
-## Implementación
-
-- `app/lib/l10n/app_es.arb` contiene el copy base en español.
-- `app/lib/l10n/app_en.arb` contiene las traducciones equivalentes en inglés.
-- `app/l10n.yaml` configura la generación oficial de Flutter.
-- `flutter gen-l10n` regenera `AppLocalizations` y sus implementaciones.
-- `AppLanguageScope` expone el mismo estado a ambos selectores compactos.
-
-Para agregar un idioma se crea su ARB con las mismas claves, se agrega el
-locale soportado por la generación y se ejecuta `flutter gen-l10n`. Las
-pantallas consumen claves semánticas mediante `context.l10n`; no contienen
-bifurcaciones de idioma.
-
-## Fronteras
-
-No se localizan nombres propios, marca Foloo, planes Basic/Pro, formatos XLS y
-CSV, identificadores de dominio ni tokens contractuales de plantilla como
-`{evento}`, `{lugar}` y `{contenido}`. Los enums conservan valores estables y
-la capa visual resuelve sus etiquetas localizadas. Cambiar el locale no cambia
-capabilities ni reglas de negocio.
+La antigua mención a planes/capabilities se elimina: cambiar idioma no cambia
+ninguna capacidad. Toda cadena demo pendiente debe auditarse antes de REL-01 y
+los archivos exportados deben conservar acentos (`REL-08`).

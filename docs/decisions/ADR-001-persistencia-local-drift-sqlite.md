@@ -2,7 +2,7 @@
 
 - Estado: **Aceptado**
 - Fecha: 2026-08-26
-- Alcance: compartido Basic/Pro
+- Alcance: Foloo V1 unificado
 - Trazas: CAP-15, SYN-01, SYN-02, AUT-08, EVT-*, REG-*, VOZ-02,
   RNF-06, RNF-18 y RC-06
 
@@ -19,12 +19,12 @@ SQLite. D-03 (folio comercial) y D-11 (retención de medios) siguen abiertas.
 
 ## Decisión
 
-- Una base Drift/SQLite, con un único esquema para Basic y Pro, guarda datos
+- Una base Drift/SQLite guarda datos
   estructurados de perfil local, preferencias, eventos, leads y metadatos de
   medios.
 - Cada entidad usa un identificador técnico local estable. El folio comercial
   del lead es nullable y no forma parte de la identidad local.
-- Las imágenes de tarjeta, las imágenes adicionales Pro y las notas de voz se
+- Las imágenes de tarjeta, las imágenes de referencia V1 y las notas de voz se
   copian a directorios privados de soporte de la aplicación. SQLite guarda
   únicamente ruta, tipo, duración y estado local.
 - Guardar un lead copia sus medios y luego inserta lead + referencias dentro de
@@ -52,9 +52,10 @@ SQLite. D-03 (folio comercial) y D-11 (retención de medios) siguen abiertas.
   solos RC-06 (cifrado local)**. Cifrado, manejo de llaves y aislamiento por
   cuenta quedan pendientes de decisiones específicas; no se agrega una
   dependencia de cifrado de forma implícita.
-- Campos Pro son nullable y solo los usa la capacidad Pro; RNF-18 impide que se
-  expongan en Basic.
-- `CAP-22` reutiliza `local_lead_media`: el tipo diferencia cada imagen de
+- Los campos que el prototipo llamó Pro siguen nullable por compatibilidad, pero
+  la frontera de edición fue superseded por FL-013C; todo el alcance V1 usa un
+  solo modelo funcional.
+- `CAP-08` reutiliza `local_lead_media`: el tipo diferencia cada imagen de
   referencia y el ownership se deriva desde Lead. No necesita una tabla nueva
   ni cambia `schemaVersion`.
 

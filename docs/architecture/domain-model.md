@@ -1,92 +1,43 @@
-# Current Conceptual Domain Model
+# Modelo conceptual vigente — Foloo V1
 
-This is a navigation aid for the authoritative entity definitions in
-`../specifications/current/01-especificacion.md` §3 and the Pro delta in
-`05-especificacion-pro.md` §2. It is not a database, Dart or API schema.
+Navega las entidades de `../specifications/current/01-especificacion.md`; no es
+un esquema SQL/API definitivo.
 
-## Edition boundary
+## Ownership
 
-- Basic owns `Usuario`, `Evento` and `Lead`.
-- Pro inherits those entities and adds `Archivo de contenido`, `Plantilla de
-  correo`, and the documented Lead/Evento fields.
-- The server-provided account capability controls which Pro fields and modules
-  are active. Basic must not expose placeholder Pro fields.
+Cognito `sub` → Perfil Foloo → Eventos/Leads/Preferencias. Medios derivan
+ownership por su Lead o archivo. Email nunca sustituye el identificador estable.
 
-## Basic Usuario
+## Entidades locales actuales
 
-`id`, `usuario`, `nombre`, `empresa` and `plan` are required; `fotoUrl` is
-optional. `plan` is supplied by the server. Authentication and profile data
-persist as required by `AUT-02`, `AUT-04` and `AUT-05`.
+- Perfil: hoy Drift guarda nombre/empresa; V1 agrega puesto/teléfono y foto.
+- Evento: id, owner, código, nombre, inicio/fin, activo, eliminado, contenido.
+- Lead: id técnico, owner, folio opcional, timestamp, origen/evento/lugar,
+  contacto, tipo/interés, nota, estados y medios.
+- LeadMedia: tarjeta, Voice Note o imagen de referencia, ruta privada local.
+- Preferencia: clave/valor por owner.
+- Contenido/plantilla/suscripción: aún no tienen modelo productivo durable
+  completo; las clases demo no son contrato.
 
-ADR-002 separates authentication identity from the editable Foloo profile. In
-FL-013A the temporary id is `fake-user-*`; FL-013B replaces it with Cognito
-`sub`. Drift ownership columns store this stable id, never the email/username.
-Profile, Evento and Lead are user-scoped. Lead media derives ownership through
-Lead rather than duplicating it.
+## Invariantes
 
-## Basic Evento
+- Persistir Lead y medios localmente antes de red.
+- Un Lead pertenece a un solo `sub`.
+- Evento/directo son mutuamente exclusivos; directo exige lugar.
+- Tipo es Cliente/Partner/Proveedor; interés es Bajo/Medio/Alto.
+- Voz, nota, tarjeta e imágenes de referencia son opcionales; máximo tres
+  referencias.
+- Adjuntos PDF enviados quedan congelados en la historia del Lead.
+- Correcciones no cambian owner ni eliminan medios sin una acción aprobada.
+- Pago inactivo no cambia visibilidad o propiedad de datos previos.
+- Identidad/idempotencia remota no se infiere del folio comercial.
 
-`id`, generated `codigo`, `nombre`, `fechaInicio`, `fechaFin`, `activo` and
-logical-deletion flag `eliminado` are required; `hojaUrl` is optional. Exactly
-one event is active. Deleting is logical and never deletes the spreadsheet or
-lead data (`EVT-02`, `EVT-08`, `RC-07`).
+## Modelo remoto futuro
 
-## Basic Lead column contract
+API/Lambda debe representar cuenta, perfil, evento, lead, media, archivo,
+plantilla, trabajo de correo y suscripción. Debe admitir evolución futura a
+organizaciones/vendedores sin incorporar Teams a V1. El motor cloud está
+abierto (`D-12`).
 
-The following order is authoritative for the Basic spreadsheet:
-
-| Order | Field | Required/constraint |
-|---:|---|---|
-| 1 | `folio` | required; human-readable idempotency key; generation blocked by `D-03` |
-| 2 | `fecha` | required ISO 8601 timestamp |
-| 3 | `origen` | required: `evento` or `directo` |
-| 4 | `evento` | required only for event origin |
-| 5 | `capturadoPor` | required from profile |
-| 6 | `nombre` | required |
-| 7 | `apellido` | optional |
-| 8 | `puesto` | optional |
-| 9 | `empresa` | required |
-| 10 | `correo` | required if telephone is absent; validate format when present |
-| 11 | `telefono` | required if email is absent |
-| 12 | `tipo` | required: `Cliente`, `Partner`, or `Proveedor`; no default |
-| 13 | `interes` | required: `Alto`, `Medio`, or `Bajo`; default `Medio` |
-| 14 | `nota` | optional written note |
-| 15 | `audioSegundos` | optional automatic duration |
-| 16 | `audioUrl` | optional protected uploaded link |
-| 17 | `tarjetaUrl` | optional uploaded link |
-| 18 | `estadoSync` | required: `local`, `pendiente`, or `enHoja` |
-
-`siguientePaso`, transcription and email states are not Basic fields. Audio,
-photo and notes are optional; absence never blocks a valid lead.
-
-## Pro delta
-
-Pro adds to Lead: required conditional `lugar` for direct leads, optional
-`transcripcion`, frozen `adjuntos`, `estadoTranscripcion`,
-`estadoCorreoLead`, `estadoCorreoMarketing`, and up to three local
-`imagenesReferencia`. Reference images are Lead media, separate from the card
-photo and content PDFs; ownership derives through the Lead. The Pro specification says
-five columns are appended while listing six lead changes; this internal
-counting conflict must be clarified before finalizing the spreadsheet schema.
-No existing Basic column may move.
-
-Pro adds `archivos` to Evento and introduces:
-
-- `Archivo de contenido`: identity, display/original names, PDF metadata,
-  server URL, optional cache path, all-events switch or event IDs, uploader and
-  creation time.
-- `Plantilla de correo`: exactly one event and one direct template per account,
-  with subject/body and audit metadata. Ownership remains blocked by `DP-03`.
-
-## Invariants and unresolved contracts
-
-- A lead is durably stored locally before any network attempt.
-- A repeated folio must not create duplicate rows, emails or attachments.
-- User corrections always win over extraction.
-- Provider calls and credentials stay behind the Foloo backend.
-- Media access is authenticated and retention is governed by `RC-03`/`D-11`.
-- Pro reference images use the same durable private-media boundary as card and
-  voice media; a future remote representation is intentionally not inferred.
-- Final local schema, folio concurrency, sync reconciliation, file-cache
-  limits, deletion enforcement and Pro capability downgrade require decisions
-  or ADRs. Do not infer them from the Flutter prototype.
+S3 guardará binarios con acceso autenticado y política de retención. La base
+cloud guardará metadata/referencias, no secretos en Flutter.

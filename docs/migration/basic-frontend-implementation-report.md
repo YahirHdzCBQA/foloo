@@ -1,4 +1,7 @@
-# Basic Frontend Implementation Report
+# Basic Frontend Implementation Report — superseded evidence
+
+> Historical report only. FL-013C replaced the Basic/Pro model with one Foloo
+> V1. This file is retained to trace earlier implementation decisions.
 
 Date: 2026-08-21
 
