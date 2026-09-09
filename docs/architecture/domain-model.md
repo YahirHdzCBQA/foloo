@@ -32,12 +32,25 @@ ownership por su Lead o archivo. Email nunca sustituye el identificador estable.
 - Pago inactivo no cambia visibilidad o propiedad de datos previos.
 - Identidad/idempotencia remota no se infiere del folio comercial.
 
-## Modelo remoto futuro
+## Modelo remoto desde FL-014
 
-API/Lambda debe representar cuenta, perfil, evento, lead, media, archivo,
-plantilla, trabajo de correo y suscripción. Debe admitir evolución futura a
-organizaciones/vendedores sin incorporar Teams a V1. El motor cloud está
-abierto (`D-12`).
+- `app_user`: identidad técnica por Cognito `sub`; email no es owner.
+- `account`: límite comercial personal actual.
+- `workspace` + `workspace_member`: límite de datos y membresía owner inicial;
+  prepara evolución sin implementar Teams.
+- `seller_profile`: perfil Foloo separado de Cognito.
+- `event`, `lead`: UUID suministrable por el cliente, `revision`, timestamps y
+  `deleted_at`; toda consulta se limita por workspace.
+- `lead_media`: metadata de tarjeta, referencia o Voice Note. Nunca contiene el
+  binario.
+- `content_file`: metadata preparada para PDF, sin simular subida.
+- `idempotency_record`: conserva el resultado de creaciones reintentables por
+  workspace/operación/clave.
+
+PostgreSQL en RDS es el motor cloud aceptado (ADR-003). Los UUID locales se
+mantienen como IDs remotos para evitar remapeos durante FL-015. La revisión se
+incrementa en cambios y permitirá precondiciones/conflictos futuros; FL-014 no
+implementa reconciliación.
 
 S3 guardará binarios con acceso autenticado y política de retención. La base
 cloud guardará metadata/referencias, no secretos en Flutter.

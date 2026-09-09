@@ -144,3 +144,25 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - El binario no expone secretos; medios requieren acceso autorizado.
 - Matriz iOS/Android, pruebas reales offline/OCR/pago, legales, tiendas y beta
   satisfacen cada REL antes de declarar V1 lista.
+
+## E-13 · Fundación backend y aislamiento cloud
+
+**Trazas:** `AUT-10`, `SYN-06`, `SYN-10`, `INF-01`, `INF-03`, `INF-05`–`INF-14`, `RC-03`.
+
+- Una solicitud sin JWT Cognito válido no llega a una ruta `/v1` protegida; la
+  Lambda rechaza además cualquier evento sin `sub` verificado.
+- En la primera solicitud autenticada se obtiene la cuenta/workspace personal
+  del `sub`; solicitudes posteriores recuperan la misma identidad técnica.
+- El usuario A no puede leer o mutar eventos, leads o metadata del workspace B,
+  aunque envíe sus UUID en path/body. Owner, workspace, `sub` y email del body
+  nunca deciden autorización.
+- UUID creados offline se conservan al crear recursos. Repetir la misma
+  creación con igual clave/payload retorna el mismo resultado; reutilizar la
+  clave con otro payload responde conflicto.
+- Payload inválido recibe 400; ausencia de identidad 401; falta de acceso 403;
+  recurso ajeno/no visible 404; conflicto de versión/idempotencia 409. La
+  respuesta contiene código, mensaje seguro y requestId.
+- RDS queda en subred privada, sin dirección pública, y su puerto 5432 solo
+  admite el Security Group de Lambda. DEV no crea NAT ni RDS Proxy.
+- Guardar local en Drift continúa sin depender de esta API; FL-014 no activa
+  sincronización ni subida de binarios.

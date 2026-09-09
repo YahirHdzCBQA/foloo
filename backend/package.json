@@ -1,0 +1,39 @@
+{
+  "name": "foloo-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write \"{src,test,infra,scripts}/**/*.{ts,json}\" \"*.{json,md}\" \"openapi/*.yaml\"",
+    "format:check": "prettier --check \"{src,test,infra,scripts}/**/*.{ts,json}\" \"*.{json,md}\" \"openapi/*.yaml\"",
+    "test": "node --import tsx --test test/**/*.test.ts",
+    "migrate": "tsx scripts/migrate.ts",
+    "cdk": "cdk"
+  },
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.0.0",
+    "pg": "^8.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "@types/aws-lambda": "^8.10.0",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.15.0",
+    "aws-cdk": "^2.0.0",
+    "aws-cdk-lib": "^2.0.0",
+    "constructs": "^10.0.0",
+    "esbuild": "^0.25.0",
+    "eslint": "^10.0.0",
+    "prettier": "^3.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.0.0"
+  }
+}

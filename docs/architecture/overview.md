@@ -24,7 +24,7 @@ Flutter ARB mantiene ES/EN con un estado compartido por Login y Drawer; español
 es fallback. Nombres propios, enums persistidos y tokens de plantilla no se
 traducen. Claro/oscuro remapea tokens y preferencias por usuario.
 
-## Dirección V1, todavía no implementada
+## Fundación cloud implementada en FL-014
 
 ```text
 Flutter
@@ -33,18 +33,42 @@ Drift / SQLite
   ↓
 Offline Sync
   ↓
-Foloo API
+Foloo API REST `/v1`
   ↓
-API Gateway
+API Gateway HTTP API + Cognito JWT authorizer
   ↓
 AWS Lambda (Node.js + TypeScript)
   ↓
-Persistencia cloud por decidir
+VPC privada → AWS RDS PostgreSQL
 ```
 
-S3 es la dirección para tarjeta, imágenes de referencia, Voice Note y PDF.
-Seleccionar base cloud, sincronización, API, S3 o correo requiere ADR/decisiones
-propias; este documento no los declara implementados.
+ADR-003 gobierna esta fundación. El código e IaC son reproducibles en
+`backend/`; el despliegue AWS no se presume realizado. S3 sigue siendo la
+dirección para tarjeta, imágenes de referencia, Voice Note y PDF en FL-016.
+Sincronización y correo requieren sus propias fases/decisiones.
+
+### Boundary de identidad y tenancy
+
+API Gateway valida issuer/audience/tiempo del JWT. La Lambda obtiene `sub` solo
+de `requestContext.authorizer.jwt.claims`; ignora campos de ownership del body.
+Una provisión transaccional e idempotente resuelve:
+
+`Cognito sub → user → personal account → personal workspace → owner membership`
+
+Eventos, Leads y metadata se consultan siempre por `workspace_id`. El modelo de
+membresía admite una evolución posterior, pero FL-014 no implementa Teams.
+
+### Red, secretos y conexiones DEV
+
+- VPC con subredes aisladas en dos AZ y sin NAT Gateway.
+- RDS PostgreSQL privado, Single-AZ, sin exposición pública.
+- SG RDS: inbound 5432 únicamente desde SG Lambda.
+- Credencial RDS generada en Secrets Manager; Lambda la lee mediante endpoint
+  VPC de Secrets Manager y permiso IAM limitado al secreto.
+- Pool PostgreSQL reutilizado por entorno Lambda, máximo dos conexiones por
+  entorno caliente, más concurrencia reservada DEV. RDS Proxy se reevalúa al
+  aumentar concurrencia; no se paga “por si acaso”.
+- Logs JSON con requestId y sin payload/token/PII. Retención DEV: una semana.
 
 ## Responsabilidades móviles
 
@@ -57,10 +81,12 @@ propias; este documento no los declara implementados.
 - Estado de conectividad separado de AuthState y disponibilidad del backend.
 - Caché futura de suscripción sin conceder autoridad de pago al cliente.
 
-## Responsabilidades del backend futuro
+## Responsabilidades del backend desde FL-014
 
-- Autoridad del trial y suscripción, webhooks y reconciliación.
-- API idempotente, ownership/tenancy y persistencia cloud.
+- API versionada, validación, error envelope e idempotencia de creación.
+- Ownership/tenancy y persistencia de cuenta/workspace, perfil, eventos, Leads
+  y metadata sin binarios.
+- Autoridad futura del trial y suscripción, webhooks y reconciliación.
 - Storage S3 protegido, retención y URLs no públicas.
 - Sync reanudable de Leads y medios con colas independientes.
 - Plantillas server-side, sustitución, adjuntos y correo.
@@ -85,4 +111,5 @@ No forman parte de V1 Google Sheets, Transcribe/IA, QR, Teams o HQ dashboard.
 
 Ver `../product/open-decisions.md`: pago/tiendas,
 precio/vencimiento/reembolso, Voice Note, edición post-guardado, export,
-límites PDF, correo, Teams, mockups, base cloud y retención.
+límites PDF, correo, Teams, mockups y retención. La base cloud quedó resuelta
+por ADR-003.

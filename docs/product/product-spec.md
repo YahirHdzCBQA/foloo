@@ -1,7 +1,7 @@
 # Especificación de producto — Foloo V1
 
 - Estado: vigente
-- Corte funcional: 2026-09-08
+- Corte funcional: 2026-09-09
 - Producto: una sola app móvil Flutter para iOS y Android
 - Autoridad: alcance validado 2026-09-07 con actualización explícita del tablero
   operativo 2026-09-08
@@ -267,9 +267,19 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | ID | Requerimiento |
 |---|---|
 | `INF-01` | Dirección: Flutter → Drift/SQLite → Offline Sync → Foloo API → API Gateway → Lambda Node.js/TypeScript → persistencia cloud. |
-| `INF-02` | S3 almacenará tarjeta, imágenes de referencia, voz y PDF con acceso autenticado y retención; no se implementa en FL-013C. |
-| `INF-03` | Tipo de base cloud no se selecciona sin ADR aceptado. |
+| `INF-02` | S3 almacenará tarjeta, imágenes de referencia, voz y PDF con acceso autenticado y retención; permanece para FL-016. |
+| `INF-03` | PostgreSQL en AWS RDS es la persistencia cloud relacional; RDS permanece privado y Lambda accede únicamente dentro de la VPC (ADR-003). |
 | `INF-04` | DEV/staging/PROD, secretos, CI/CD, observabilidad, respaldos y borrado requieren trabajo de infraestructura trazado. |
+| `INF-05` | La API Foloo usa rutas REST versionadas bajo `/v1` y valida inputs en runtime con un contrato de error estable. |
+| `INF-06` | API Gateway valida JWT Cognito contra issuer y App Client; el backend deriva ownership únicamente del `sub` verificado. |
+| `INF-07` | Cada identidad tiene una cuenta y workspace personal inicial, modelados mediante membresía para permitir evolución organizacional sin implementar Teams. |
+| `INF-08` | Recursos cloud usan UUID estable suministrable por el cliente, revisión, timestamps y borrado lógico; el folio comercial nunca es identidad técnica. |
+| `INF-09` | Escrituras de creación aceptan una clave de idempotencia y detectan su reutilización con otro payload; FL-015 consumirá esta base sin implementar sync aquí. |
+| `INF-10` | Binarios no se guardan en PostgreSQL; FL-014 conserva únicamente metadata y FL-016 incorporará S3. |
+| `INF-11` | RDS no es público; PostgreSQL acepta tráfico solo desde el Security Group de Lambda y DEV no incorpora NAT Gateway ni RDS Proxy. |
+| `INF-12` | Credenciales de base se generan/guardan en Secrets Manager y se leen por endpoint VPC privado; no existen credenciales AWS, DB o JWT en Flutter/repositorio. |
+| `INF-13` | La Lambda reutiliza un pool PostgreSQL pequeño entre invocaciones y limita concurrencia DEV para proteger el presupuesto de conexiones. |
+| `INF-14` | Logs JSON incluyen requestId y omiten tokens, contraseñas, payloads y PII; ningún error interno de AWS/PostgreSQL se expone al cliente. |
 | `RNF-01` | Captura completa objetivo menor a 60 s; arranque utilizable objetivo menor a 3 s. |
 | `RNF-02` | Flutter, iOS 15+, Android 10+, orientación retrato y piso visual 390×844. |
 | `RNF-03` | Controles táctiles ≥44 dp, CTA 56 dp, WCAG 2.2 AA y estado no solo por color. |

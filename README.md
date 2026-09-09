@@ -2,8 +2,8 @@
 
 Foloo V1 is one mobile, offline-first product for capturing and following up
 commercial leads at events or direct encounters. The repository contains its
-current Specification-Driven Development foundation and a Flutter application
-under `app/`.
+current Specification-Driven Development foundation, a Flutter application
+under `app/`, and the FL-014 cloud foundation under `backend/`.
 
 ## One product version
 
@@ -21,6 +21,8 @@ the audit source; they must not be recreated as current requirements.
 - `docs/architecture/`: current mobile boundaries and future cloud direction.
 - `docs/decisions/`: accepted ADRs only.
 - `docs/delivery/`: the sole roadmap and consolidated traceability/audit.
+- `backend/`: Node.js/TypeScript API, PostgreSQL migrations and AWS CDK IaC;
+  defined in repository but not presumed deployed.
 
 ## Reading order
 

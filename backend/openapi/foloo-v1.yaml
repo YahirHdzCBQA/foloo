@@ -1,0 +1,206 @@
+openapi: 3.0.3
+info:
+  title: Foloo API
+  version: 1.0.0-foundation
+  description: FL-014 authenticated foundation. Sync and binary upload are not implemented.
+servers:
+  - url: https://{apiId}.execute-api.us-east-1.amazonaws.com/v1
+    variables:
+      apiId:
+        default: replace-after-deploy
+security:
+  - cognitoJwt: []
+paths:
+  /workspace:
+    get:
+      operationId: getWorkspace
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+        "401": { $ref: "#/components/responses/ErrorResponse" }
+  /profile:
+    get:
+      operationId: getProfile
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+    put:
+      operationId: putProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SellerProfileInput" }
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
+  /events:
+    get:
+      operationId: listEvents
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+    post:
+      operationId: createEvent
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EventInput" }
+      responses:
+        "201": { $ref: "#/components/responses/DataResponse" }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
+        "409": { $ref: "#/components/responses/ErrorResponse" }
+  /leads:
+    get:
+      operationId: listLeads
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+    post:
+      operationId: createLead
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeadInput" }
+      responses:
+        "201": { $ref: "#/components/responses/DataResponse" }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
+        "404": { $ref: "#/components/responses/ErrorResponse" }
+        "409": { $ref: "#/components/responses/ErrorResponse" }
+  /leads/{leadId}/media:
+    parameters:
+      - name: leadId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: listLeadMedia
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+    post:
+      operationId: createLeadMediaMetadata
+      description: Persists metadata only. This operation does not upload a binary.
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeadMediaInput" }
+      responses:
+        "201": { $ref: "#/components/responses/DataResponse" }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
+        "404": { $ref: "#/components/responses/ErrorResponse" }
+        "409": { $ref: "#/components/responses/ErrorResponse" }
+components:
+  securitySchemes:
+    cognitoJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Cognito access token validated by API Gateway against the DEV issuer and App Client audience.
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 128 }
+  responses:
+    DataResponse:
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: {}
+    ErrorResponse:
+      description: Stable safe error envelope
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  schemas:
+    SellerProfileInput:
+      type: object
+      additionalProperties: false
+      required: [name, company]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        company: { type: string, minLength: 1, maxLength: 160 }
+        position: { type: string, nullable: true, maxLength: 160 }
+        phone: { type: string, nullable: true, maxLength: 40 }
+        photoUrl: { type: string, format: uri, nullable: true }
+    EventInput:
+      type: object
+      additionalProperties: false
+      required: [id, name, startsAt, endsAt]
+      properties:
+        id:
+          {
+            type: string,
+            format: uuid,
+            description: Stable UUID generated offline.,
+          }
+        name: { type: string, minLength: 1, maxLength: 160 }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+    LeadInput:
+      type: object
+      additionalProperties: false
+      required: [id, capturedAt, origin, firstName, company, leadType, interest]
+      properties:
+        id:
+          {
+            type: string,
+            format: uuid,
+            description: Stable UUID generated offline.,
+          }
+        capturedAt: { type: string, format: date-time }
+        origin: { type: string, enum: [event, direct] }
+        eventId: { type: string, format: uuid, nullable: true }
+        place: { type: string, nullable: true, maxLength: 240 }
+        firstName: { type: string, minLength: 1, maxLength: 160 }
+        lastName: { type: string, nullable: true, maxLength: 160 }
+        position: { type: string, nullable: true, maxLength: 160 }
+        company: { type: string, minLength: 1, maxLength: 160 }
+        email: { type: string, format: email, nullable: true }
+        phone: { type: string, nullable: true, maxLength: 40 }
+        leadType: { type: string, enum: [customer, partner, supplier] }
+        interest: { type: string, enum: [low, medium, high] }
+        writtenNote: { type: string, nullable: true, maxLength: 10000 }
+        commercialFolio: { type: string, nullable: true, maxLength: 80 }
+    LeadMediaInput:
+      type: object
+      additionalProperties: false
+      required: [id, kind, contentType, byteSize, capturedAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind:
+          { type: string, enum: [business_card, reference_image, voice_note] }
+        contentType: { type: string, maxLength: 120 }
+        byteSize: { type: integer, minimum: 0 }
+        capturedAt: { type: string, format: date-time }
+        durationMs: { type: integer, minimum: 0, nullable: true }
+        sha256: { type: string, pattern: "^[a-fA-F0-9]{64}$", nullable: true }
+    ContentFileMetadata:
+      description: Future PDF metadata contract; no FL-014 upload endpoint exists.
+      type: object
+      required: [id, displayName, contentType, byteSize, revision]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        contentType: { type: string, enum: [application/pdf] }
+        byteSize: { type: integer, minimum: 0 }
+        sha256: { type: string, nullable: true }
+        revision: { type: integer, minimum: 1 }
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            requestId: { type: string }

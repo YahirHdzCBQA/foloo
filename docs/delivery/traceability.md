@@ -8,13 +8,13 @@
 | `EVT-*` | E-02 | ADR-001 | EventScreen/repositorios/policy; f1-03–05 |
 | `CAP-*`, `OCR-*` | E-03–E-05 | ADR-001; D-11 | captura/ML Kit/Drift; f1-06–09, 11–14, 24 |
 | `VOZ-*` | E-04 | ADR-001; D-05/D-06 | voice service/media/tests; f1-10, 21–23 |
-| `SYN-*` | E-05/E-09 | ADR-001; D-12/D-13 | Drift/connectivity; f1-13,20,21; f4-01,03 |
+| `SYN-*` | E-05/E-09/E-13 | ADR-001/003; D-13 | Drift/connectivity y foundation API idempotente; sync móvil pendiente FL-015 |
 | `REG-*` | E-06/E-10 | D-06/D-07 | Records y diálogo demo; f1-16–19, f2-06/07, f5-12 |
 | `CON-*` | E-07 | D-08/D-11 | content/picker/sheet; f2-01–03 |
 | `PLT-*`, `SAL-*` | E-08 | D-09 | editor demo; f2-04/05, f4-04/12 |
 | `NAV-*` | E-12 | ADR-001 | drawer/theme/l10n; f1-15/25/26 |
 | `MON-*` | E-11 | D-01–D-04/D-11 | sin implementación; f3-01–08 |
-| `INF-*`, `RC-*` | E-09/E-12 | D-09/D-10/D-12/D-13 | ADR-001/002; f4-* |
+| `INF-*`, `RC-*` | E-09/E-12/E-13 | ADR-001/002/003; D-09/D-10/D-13 | `backend/`, IaC/migraciones/tests FL-014; despliegue pendiente |
 | `REL-*`, `RNF-*` | E-12 | decisiones aplicables | suite local parcial; f5-01–12 |
 
 Los IDs antiguos aún presentes en código/tests describen el origen histórico de
@@ -95,7 +95,7 @@ interna sea reutilizable.
 
 | ID | Estado | Evidencia actual | Cobertura / siguiente FL |
 |---|:---:|---|---|
-| f3-01 | F | sin contador server-side | bloqueado D-01/D-12 |
+| f3-01 | F | sin contador server-side | FL de monetización; política bloqueada por D-01 |
 | f3-02 | F | no hay saldo de trial real | FL de monetización |
 | f3-03 | F | no hay paywall aprobado | bloqueado D-01/D-11 |
 | f3-04 | F | no hay precio/productos | bloqueado D-02 |
@@ -148,6 +148,17 @@ interna sea reutilizable.
   Sheets en acuse/estado. La columna Drift histórica se conserva nullable para
   leer bases existentes sin reset ni pérdida.
 - Cognito, ownership y schemaVersion permanecen sin cambios.
+
+## Fundación cloud FL-014
+
+- `backend/src/` implementa la Lambda modular, validación, aislamiento por
+  workspace, idempotencia y contrato de errores bajo `/v1`.
+- `backend/db/migrations/` define PostgreSQL con UUID, constraints, revisión,
+  soft delete e índices; no almacena binarios.
+- `backend/infra/` define API Gateway JWT, Lambda/VPC, RDS privado, SGs y
+  Secrets Manager sin recrear Cognito.
+- `backend/openapi/foloo-v1.yaml` es el contrato desplegable de los endpoints
+  implementados. FL-014 no conecta Flutter ni ejecuta sync/S3.
 
 ## FL históricas con evidencia reutilizable
 

@@ -72,13 +72,6 @@ parcial, no una resolución de Diseño.
 
 **Bloquea:** fidelidad final de `MON-03`, `CON-02`, `CAP-08`, `VOZ-02`.
 
-### `D-12` · Base de datos cloud
-
-**Pregunta técnica:** motor, consistencia, tenancy, respaldo y costo.
-
-**Bloquea:** ADR e implementación de persistencia remota tras la API; no bloquea
-Drift, Cognito ni modelar contratos.
-
 ### `D-13` · Retención, cifrado local y eliminación legal
 
 **Bloquea:** producción de `INF-02`, `RC-02`–`RC-04`.

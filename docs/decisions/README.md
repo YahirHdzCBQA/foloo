@@ -4,7 +4,8 @@ Los ADR aceptados complementan, pero no sustituyen, el alcance V1.
 
 - ADR-001: Drift + SQLite y medios privados locales.
 - ADR-002: AWS Cognito mediante la frontera AuthRepository/AuthService.
-- Pendientes: sync/API, S3/acceso/retención, persistencia cloud, correo y pagos.
+- ADR-003: API Gateway/Lambda y PostgreSQL privado en AWS RDS.
+- Pendientes: sync, S3/acceso/retención, correo y pagos.
 
 Las decisiones de producto/técnica aún abiertas están en
 `../product/open-decisions.md`. No se aprueba un

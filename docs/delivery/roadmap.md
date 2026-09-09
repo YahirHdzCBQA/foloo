@@ -15,26 +15,28 @@ de fecha. Cada FL termina solo con requisitos/escenarios trazados y evidencia.
   automática retirada de la UI.
 - No continuar automáticamente.
 
-## Propuesta FL-014 — Brechas locales restantes de V1
+## FL-014 — Backend Foundation & API
 
-**Objetivo:** completar las brechas locales restantes sin ampliar backend.
+**Estado:** **COMPLETADO en repositorio; despliegue AWS y smoke test remoto
+pendientes de ejecución autorizada.**
 
-- Completar perfil con puesto/teléfono y edición.
-- Completar detalle editable para campos no-media y persistencia local.
-- Normalizar estado/copy ES/EN y conservar módulos existentes.
-- Trazas: `AUT-08`, `REG-05`–`REG-08`, `NAV-01`–`NAV-07`, `VOZ-08`,
-  `CON-*`.
-- Bloqueos: D-06/D-11 solo para medios/fidelidad faltante.
+- Backend Node.js/TypeScript, API Gateway `/v1`, Lambda y contratos.
+- Cognito `sub` verificado → cuenta/workspace → recursos.
+- PostgreSQL en RDS privado, migraciones e IaC AWS CDK reproducible.
+- UUID offline, revisión e idempotencia preparan sync sin activarla.
+- Trazas: `INF-01`, `INF-03`, `INF-05`–`INF-14`, `SYN-06`, `AUT-10`, E-13.
+- ADR-003 cierra D-12. No incluye S3, correo, monetización ni sync móvil.
 
-## Propuesta FL-015 — Contratos API, sync y persistencia cloud
+## Propuesta FL-015 — Sync offline
 
-**Objetivo:** cerrar ADRs y contratos antes de construir servicios.
+**Objetivo:** conectar Drift con la API existente mediante operaciones
+idempotentes y reconciliación local-first.
 
-- API idempotente, ownership/tenancy, modelo remoto y reconciliación.
-- Selección por ADR de base cloud; modelo preparado para Teams sin construirlo.
-- Estados/colas y contrato de trial/suscripción.
-- Trazas: `SYN-*`, `INF-01`, `INF-03`.
-- Bloqueos: D-10, D-12, D-13.
+- Cola por tipo de operación, retry/backoff, cursor y conflictos.
+- Mapping Drift ↔ contratos `/v1`; pruebas offline/reconexión sin duplicados.
+- No incluir binarios: S3 permanece FL-016.
+- Trazas: `SYN-04`–`SYN-10`, `RNF-07`.
+- Bloqueos: política de conflictos/retención que se identifique al diseñar FL-015.
 
 ## Propuesta FL-016 — Sync offline y S3 de medios
 
