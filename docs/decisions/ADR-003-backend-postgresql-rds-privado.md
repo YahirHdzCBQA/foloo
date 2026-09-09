@@ -33,8 +33,8 @@ en AWS RDS son obligatorios.
   interface VPC endpoint privado; el secreto no se materializa en código ni en
   variables de entorno. El rol Lambda recibe solo lectura de ese secreto.
 - DEV usa conexión directa con un pool pequeño reutilizado por entorno caliente
-  y concurrencia reservada limitada. No se agrega RDS Proxy por su costo fijo;
-  se debe reevaluar antes de elevar concurrencia o pasar a producción.
+  y la concurrencia no reservada disponible de la cuenta. No se agrega RDS
+  Proxy por su costo fijo; se reevalúa con métricas antes de producción.
 - UUID de eventos/leads/media pueden ser creados por Flutter y se preservan.
   `revision`, timestamps, soft deletion e idempotencia preparan FL-015. Los
   binarios permanecen fuera de PostgreSQL; S3 corresponde a FL-016.

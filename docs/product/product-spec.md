@@ -278,7 +278,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `INF-10` | Binarios no se guardan en PostgreSQL; FL-014 conserva únicamente metadata y FL-016 incorporará S3. |
 | `INF-11` | RDS no es público; PostgreSQL acepta tráfico solo desde el Security Group de Lambda y DEV no incorpora NAT Gateway ni RDS Proxy. |
 | `INF-12` | Credenciales de base se generan/guardan en Secrets Manager y se leen por endpoint VPC privado; no existen credenciales AWS, DB o JWT en Flutter/repositorio. |
-| `INF-13` | La Lambda reutiliza un pool PostgreSQL pequeño entre invocaciones y limita concurrencia DEV para proteger el presupuesto de conexiones. |
+| `INF-13` | La Lambda reutiliza un pool PostgreSQL pequeño entre invocaciones; DEV usa la concurrencia no reservada de la cuenta y reevalúa RDS Proxy/capacidad con métricas. |
 | `INF-14` | Logs JSON incluyen requestId y omiten tokens, contraseñas, payloads y PII; ningún error interno de AWS/PostgreSQL se expone al cliente. |
 | `RNF-01` | Captura completa objetivo menor a 60 s; arranque utilizable objetivo menor a 3 s. |
 | `RNF-02` | Flutter, iOS 15+, Android 10+, orientación retrato y piso visual 390×844. |

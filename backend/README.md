@@ -45,7 +45,8 @@ values in `.env` files committed to Git.
 - one protected API Lambda and one non-routed migration Lambda;
 - one API Gateway HTTP API with Cognito JWT authorizer using the existing DEV
   User Pool/App Client; Cognito is referenced by issuer values, never created;
-- CloudWatch logs retained seven days and API concurrency capped at 10.
+- CloudWatch logs retained seven days; Lambdas use the account's available
+  unreserved concurrency.
 
 RDS, allocated storage, two Secrets Manager secrets and the interface endpoint
 have recurring cost even while idle. API Gateway, Lambda and logs are mostly

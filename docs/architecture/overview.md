@@ -66,8 +66,8 @@ membresía admite una evolución posterior, pero FL-014 no implementa Teams.
 - Credencial RDS generada en Secrets Manager; Lambda la lee mediante endpoint
   VPC de Secrets Manager y permiso IAM limitado al secreto.
 - Pool PostgreSQL reutilizado por entorno Lambda, máximo dos conexiones por
-  entorno caliente, más concurrencia reservada DEV. RDS Proxy se reevalúa al
-  aumentar concurrencia; no se paga “por si acaso”.
+  entorno caliente. DEV usa la concurrencia no reservada disponible de la
+  cuenta; RDS Proxy se reevalúa si las métricas muestran presión de conexiones.
 - Logs JSON con requestId y sin payload/token/PII. Retención DEV: una semana.
 
 ## Responsabilidades móviles
