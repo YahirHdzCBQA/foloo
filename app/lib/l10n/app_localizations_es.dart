@@ -845,6 +845,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get synced => 'Sincronizado';
 
   @override
+  String get syncingState => 'Sincronizando';
+
+  @override
+  String get syncFailed => 'Falló sync · reintentar';
+
+  @override
   String get createFirstEvent => 'Crea el primero para comenzar a capturar.';
 
   @override

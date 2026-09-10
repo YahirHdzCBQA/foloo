@@ -249,6 +249,8 @@
   "contact": "Contacto",
   "recordDetails": "Registro",
   "synced": "Sincronizado",
+  "syncingState": "Sincronizando",
+  "syncFailed": "Falló sync · reintentar",
   "createFirstEvent": "Crea el primero para comenzar a capturar.",
   "leadsLabel": "leads",
   "returnToCaptureIn": "Regresas a captura en {seconds} s",

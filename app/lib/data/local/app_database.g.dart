@@ -63,6 +63,21 @@ class LeadDaoManager {
       );
 }
 
+mixin _$SyncDaoMixin on DatabaseAccessor<AppDatabase> {
+  $SyncOperationsTable get syncOperations => attachedDatabase.syncOperations;
+  SyncDaoManager get managers => SyncDaoManager(this);
+}
+
+class SyncDaoManager {
+  final _$SyncDaoMixin _db;
+  SyncDaoManager(this._db);
+  $$SyncOperationsTableTableManager get syncOperations =>
+      $$SyncOperationsTableTableManager(
+        _db.attachedDatabase,
+        _db.syncOperations,
+      );
+}
+
 class $LocalProfilesTable extends LocalProfiles
     with TableInfo<$LocalProfilesTable, StoredProfile> {
   @override
@@ -133,6 +148,18 @@ class $LocalProfilesTable extends LocalProfiles
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _syncStateMeta = const VerificationMeta(
+    'syncState',
+  );
+  @override
+  late final GeneratedColumn<String> syncState = GeneratedColumn<String>(
+    'sync_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('local'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     localId,
@@ -141,6 +168,7 @@ class $LocalProfilesTable extends LocalProfiles
     company,
     createdAt,
     updatedAt,
+    syncState,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -203,6 +231,12 @@ class $LocalProfilesTable extends LocalProfiles
     } else if (isInserting) {
       context.missing(_updatedAtMeta);
     }
+    if (data.containsKey('sync_state')) {
+      context.handle(
+        _syncStateMeta,
+        syncState.isAcceptableOrUnknown(data['sync_state']!, _syncStateMeta),
+      );
+    }
     return context;
   }
 
@@ -236,6 +270,10 @@ class $LocalProfilesTable extends LocalProfiles
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       )!,
+      syncState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_state'],
+      )!,
     );
   }
 
@@ -252,6 +290,7 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
   final String company;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String syncState;
   const StoredProfile({
     required this.localId,
     this.ownerUserId,
@@ -259,6 +298,7 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
     required this.company,
     required this.createdAt,
     required this.updatedAt,
+    required this.syncState,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -271,6 +311,7 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
     map['company'] = Variable<String>(company);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['sync_state'] = Variable<String>(syncState);
     return map;
   }
 
@@ -284,6 +325,7 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
       company: Value(company),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
+      syncState: Value(syncState),
     );
   }
 
@@ -299,6 +341,7 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
       company: serializer.fromJson<String>(json['company']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      syncState: serializer.fromJson<String>(json['syncState']),
     );
   }
   @override
@@ -311,6 +354,7 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
       'company': serializer.toJson<String>(company),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'syncState': serializer.toJson<String>(syncState),
     };
   }
 
@@ -321,6 +365,7 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
     String? company,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? syncState,
   }) => StoredProfile(
     localId: localId ?? this.localId,
     ownerUserId: ownerUserId.present ? ownerUserId.value : this.ownerUserId,
@@ -328,6 +373,7 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
     company: company ?? this.company,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
+    syncState: syncState ?? this.syncState,
   );
   StoredProfile copyWithCompanion(LocalProfilesCompanion data) {
     return StoredProfile(
@@ -339,6 +385,7 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
       company: data.company.present ? data.company.value : this.company,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      syncState: data.syncState.present ? data.syncState.value : this.syncState,
     );
   }
 
@@ -350,14 +397,22 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
           ..write('name: $name, ')
           ..write('company: $company, ')
           ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('syncState: $syncState')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(localId, ownerUserId, name, company, createdAt, updatedAt);
+  int get hashCode => Object.hash(
+    localId,
+    ownerUserId,
+    name,
+    company,
+    createdAt,
+    updatedAt,
+    syncState,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -367,7 +422,8 @@ class StoredProfile extends DataClass implements Insertable<StoredProfile> {
           other.name == this.name &&
           other.company == this.company &&
           other.createdAt == this.createdAt &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.syncState == this.syncState);
 }
 
 class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
@@ -377,6 +433,7 @@ class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
   final Value<String> company;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
+  final Value<String> syncState;
   final Value<int> rowid;
   const LocalProfilesCompanion({
     this.localId = const Value.absent(),
@@ -385,6 +442,7 @@ class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
     this.company = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.syncState = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LocalProfilesCompanion.insert({
@@ -394,6 +452,7 @@ class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
     required String company,
     required DateTime createdAt,
     required DateTime updatedAt,
+    this.syncState = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : localId = Value(localId),
        name = Value(name),
@@ -407,6 +466,7 @@ class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
     Expression<String>? company,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
+    Expression<String>? syncState,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -416,6 +476,7 @@ class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
       if (company != null) 'company': company,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (syncState != null) 'sync_state': syncState,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -427,6 +488,7 @@ class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
     Value<String>? company,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
+    Value<String>? syncState,
     Value<int>? rowid,
   }) {
     return LocalProfilesCompanion(
@@ -436,6 +498,7 @@ class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
       company: company ?? this.company,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      syncState: syncState ?? this.syncState,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -461,6 +524,9 @@ class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (syncState.present) {
+      map['sync_state'] = Variable<String>(syncState.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -476,6 +542,7 @@ class LocalProfilesCompanion extends UpdateCompanion<StoredProfile> {
           ..write('company: $company, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('syncState: $syncState, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -612,6 +679,18 @@ class $LocalEventsTable extends LocalEvents
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _syncStateMeta = const VerificationMeta(
+    'syncState',
+  );
+  @override
+  late final GeneratedColumn<String> syncState = GeneratedColumn<String>(
+    'sync_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('local'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     localId,
@@ -625,6 +704,7 @@ class $LocalEventsTable extends LocalEvents
     contentFileIdsJson,
     createdAt,
     updatedAt,
+    syncState,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -725,6 +805,12 @@ class $LocalEventsTable extends LocalEvents
     } else if (isInserting) {
       context.missing(_updatedAtMeta);
     }
+    if (data.containsKey('sync_state')) {
+      context.handle(
+        _syncStateMeta,
+        syncState.isAcceptableOrUnknown(data['sync_state']!, _syncStateMeta),
+      );
+    }
     return context;
   }
 
@@ -778,6 +864,10 @@ class $LocalEventsTable extends LocalEvents
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       )!,
+      syncState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_state'],
+      )!,
     );
   }
 
@@ -799,6 +889,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
   final String contentFileIdsJson;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String syncState;
   const StoredEvent({
     required this.localId,
     this.ownerUserId,
@@ -811,6 +902,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
     required this.contentFileIdsJson,
     required this.createdAt,
     required this.updatedAt,
+    required this.syncState,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -830,6 +922,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
     map['content_file_ids_json'] = Variable<String>(contentFileIdsJson);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['sync_state'] = Variable<String>(syncState);
     return map;
   }
 
@@ -850,6 +943,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
       contentFileIdsJson: Value(contentFileIdsJson),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
+      syncState: Value(syncState),
     );
   }
 
@@ -872,6 +966,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
       ),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      syncState: serializer.fromJson<String>(json['syncState']),
     );
   }
   @override
@@ -889,6 +984,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
       'contentFileIdsJson': serializer.toJson<String>(contentFileIdsJson),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'syncState': serializer.toJson<String>(syncState),
     };
   }
 
@@ -904,6 +1000,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
     String? contentFileIdsJson,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? syncState,
   }) => StoredEvent(
     localId: localId ?? this.localId,
     ownerUserId: ownerUserId.present ? ownerUserId.value : this.ownerUserId,
@@ -918,6 +1015,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
     contentFileIdsJson: contentFileIdsJson ?? this.contentFileIdsJson,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
+    syncState: syncState ?? this.syncState,
   );
   StoredEvent copyWithCompanion(LocalEventsCompanion data) {
     return StoredEvent(
@@ -938,6 +1036,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
           : this.contentFileIdsJson,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      syncState: data.syncState.present ? data.syncState.value : this.syncState,
     );
   }
 
@@ -954,7 +1053,8 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
           ..write('deleted: $deleted, ')
           ..write('contentFileIdsJson: $contentFileIdsJson, ')
           ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('syncState: $syncState')
           ..write(')'))
         .toString();
   }
@@ -972,6 +1072,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
     contentFileIdsJson,
     createdAt,
     updatedAt,
+    syncState,
   );
   @override
   bool operator ==(Object other) =>
@@ -987,7 +1088,8 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
           other.deleted == this.deleted &&
           other.contentFileIdsJson == this.contentFileIdsJson &&
           other.createdAt == this.createdAt &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.syncState == this.syncState);
 }
 
 class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
@@ -1002,6 +1104,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
   final Value<String> contentFileIdsJson;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
+  final Value<String> syncState;
   final Value<int> rowid;
   const LocalEventsCompanion({
     this.localId = const Value.absent(),
@@ -1015,6 +1118,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
     this.contentFileIdsJson = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.syncState = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LocalEventsCompanion.insert({
@@ -1029,6 +1133,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
     this.contentFileIdsJson = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
+    this.syncState = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : localId = Value(localId),
        name = Value(name),
@@ -1048,6 +1153,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
     Expression<String>? contentFileIdsJson,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
+    Expression<String>? syncState,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1063,6 +1169,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
         'content_file_ids_json': contentFileIdsJson,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (syncState != null) 'sync_state': syncState,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1079,6 +1186,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
     Value<String>? contentFileIdsJson,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
+    Value<String>? syncState,
     Value<int>? rowid,
   }) {
     return LocalEventsCompanion(
@@ -1093,6 +1201,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
       contentFileIdsJson: contentFileIdsJson ?? this.contentFileIdsJson,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      syncState: syncState ?? this.syncState,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1133,6 +1242,9 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (syncState.present) {
+      map['sync_state'] = Variable<String>(syncState.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1153,6 +1265,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
           ..write('contentFileIdsJson: $contentFileIdsJson, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('syncState: $syncState, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3566,6 +3679,793 @@ class LocalUserPreferencesCompanion
   }
 }
 
+class $SyncOperationsTable extends SyncOperations
+    with TableInfo<$SyncOperationsTable, StoredSyncOperation> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncOperationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _operationIdMeta = const VerificationMeta(
+    'operationId',
+  );
+  @override
+  late final GeneratedColumn<String> operationId = GeneratedColumn<String>(
+    'operation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ownerUserIdMeta = const VerificationMeta(
+    'ownerUserId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerUserId = GeneratedColumn<String>(
+    'owner_user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityTypeMeta = const VerificationMeta(
+    'entityType',
+  );
+  @override
+  late final GeneratedColumn<String> entityType = GeneratedColumn<String>(
+    'entity_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+    'entity_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _actionMeta = const VerificationMeta('action');
+  @override
+  late final GeneratedColumn<String> action = GeneratedColumn<String>(
+    'action',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadJsonMeta = const VerificationMeta(
+    'payloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+    'payload_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _idempotencyKeyMeta = const VerificationMeta(
+    'idempotencyKey',
+  );
+  @override
+  late final GeneratedColumn<String> idempotencyKey = GeneratedColumn<String>(
+    'idempotency_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _attemptCountMeta = const VerificationMeta(
+    'attemptCount',
+  );
+  @override
+  late final GeneratedColumn<int> attemptCount = GeneratedColumn<int>(
+    'attempt_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _nextAttemptAtMeta = const VerificationMeta(
+    'nextAttemptAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> nextAttemptAt =
+      GeneratedColumn<DateTime>(
+        'next_attempt_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    operationId,
+    ownerUserId,
+    entityType,
+    entityId,
+    action,
+    payloadJson,
+    idempotencyKey,
+    status,
+    attemptCount,
+    nextAttemptAt,
+    lastError,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_operations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StoredSyncOperation> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('operation_id')) {
+      context.handle(
+        _operationIdMeta,
+        operationId.isAcceptableOrUnknown(
+          data['operation_id']!,
+          _operationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_operationIdMeta);
+    }
+    if (data.containsKey('owner_user_id')) {
+      context.handle(
+        _ownerUserIdMeta,
+        ownerUserId.isAcceptableOrUnknown(
+          data['owner_user_id']!,
+          _ownerUserIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerUserIdMeta);
+    }
+    if (data.containsKey('entity_type')) {
+      context.handle(
+        _entityTypeMeta,
+        entityType.isAcceptableOrUnknown(data['entity_type']!, _entityTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityTypeMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityIdMeta);
+    }
+    if (data.containsKey('action')) {
+      context.handle(
+        _actionMeta,
+        action.isAcceptableOrUnknown(data['action']!, _actionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_actionMeta);
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+        _payloadJsonMeta,
+        payloadJson.isAcceptableOrUnknown(
+          data['payload_json']!,
+          _payloadJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('idempotency_key')) {
+      context.handle(
+        _idempotencyKeyMeta,
+        idempotencyKey.isAcceptableOrUnknown(
+          data['idempotency_key']!,
+          _idempotencyKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_idempotencyKeyMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('attempt_count')) {
+      context.handle(
+        _attemptCountMeta,
+        attemptCount.isAcceptableOrUnknown(
+          data['attempt_count']!,
+          _attemptCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('next_attempt_at')) {
+      context.handle(
+        _nextAttemptAtMeta,
+        nextAttemptAt.isAcceptableOrUnknown(
+          data['next_attempt_at']!,
+          _nextAttemptAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {operationId};
+  @override
+  StoredSyncOperation map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StoredSyncOperation(
+      operationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}operation_id'],
+      )!,
+      ownerUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_user_id'],
+      )!,
+      entityType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_type'],
+      )!,
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_id'],
+      )!,
+      action: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}action'],
+      )!,
+      payloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload_json'],
+      )!,
+      idempotencyKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}idempotency_key'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      attemptCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attempt_count'],
+      )!,
+      nextAttemptAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}next_attempt_at'],
+      ),
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncOperationsTable createAlias(String alias) {
+    return $SyncOperationsTable(attachedDatabase, alias);
+  }
+}
+
+class StoredSyncOperation extends DataClass
+    implements Insertable<StoredSyncOperation> {
+  final String operationId;
+  final String ownerUserId;
+  final String entityType;
+  final String entityId;
+  final String action;
+  final String payloadJson;
+  final String idempotencyKey;
+  final String status;
+  final int attemptCount;
+  final DateTime? nextAttemptAt;
+  final String? lastError;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const StoredSyncOperation({
+    required this.operationId,
+    required this.ownerUserId,
+    required this.entityType,
+    required this.entityId,
+    required this.action,
+    required this.payloadJson,
+    required this.idempotencyKey,
+    required this.status,
+    required this.attemptCount,
+    this.nextAttemptAt,
+    this.lastError,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['operation_id'] = Variable<String>(operationId);
+    map['owner_user_id'] = Variable<String>(ownerUserId);
+    map['entity_type'] = Variable<String>(entityType);
+    map['entity_id'] = Variable<String>(entityId);
+    map['action'] = Variable<String>(action);
+    map['payload_json'] = Variable<String>(payloadJson);
+    map['idempotency_key'] = Variable<String>(idempotencyKey);
+    map['status'] = Variable<String>(status);
+    map['attempt_count'] = Variable<int>(attemptCount);
+    if (!nullToAbsent || nextAttemptAt != null) {
+      map['next_attempt_at'] = Variable<DateTime>(nextAttemptAt);
+    }
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  SyncOperationsCompanion toCompanion(bool nullToAbsent) {
+    return SyncOperationsCompanion(
+      operationId: Value(operationId),
+      ownerUserId: Value(ownerUserId),
+      entityType: Value(entityType),
+      entityId: Value(entityId),
+      action: Value(action),
+      payloadJson: Value(payloadJson),
+      idempotencyKey: Value(idempotencyKey),
+      status: Value(status),
+      attemptCount: Value(attemptCount),
+      nextAttemptAt: nextAttemptAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextAttemptAt),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory StoredSyncOperation.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StoredSyncOperation(
+      operationId: serializer.fromJson<String>(json['operationId']),
+      ownerUserId: serializer.fromJson<String>(json['ownerUserId']),
+      entityType: serializer.fromJson<String>(json['entityType']),
+      entityId: serializer.fromJson<String>(json['entityId']),
+      action: serializer.fromJson<String>(json['action']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      idempotencyKey: serializer.fromJson<String>(json['idempotencyKey']),
+      status: serializer.fromJson<String>(json['status']),
+      attemptCount: serializer.fromJson<int>(json['attemptCount']),
+      nextAttemptAt: serializer.fromJson<DateTime?>(json['nextAttemptAt']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'operationId': serializer.toJson<String>(operationId),
+      'ownerUserId': serializer.toJson<String>(ownerUserId),
+      'entityType': serializer.toJson<String>(entityType),
+      'entityId': serializer.toJson<String>(entityId),
+      'action': serializer.toJson<String>(action),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'idempotencyKey': serializer.toJson<String>(idempotencyKey),
+      'status': serializer.toJson<String>(status),
+      'attemptCount': serializer.toJson<int>(attemptCount),
+      'nextAttemptAt': serializer.toJson<DateTime?>(nextAttemptAt),
+      'lastError': serializer.toJson<String?>(lastError),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  StoredSyncOperation copyWith({
+    String? operationId,
+    String? ownerUserId,
+    String? entityType,
+    String? entityId,
+    String? action,
+    String? payloadJson,
+    String? idempotencyKey,
+    String? status,
+    int? attemptCount,
+    Value<DateTime?> nextAttemptAt = const Value.absent(),
+    Value<String?> lastError = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => StoredSyncOperation(
+    operationId: operationId ?? this.operationId,
+    ownerUserId: ownerUserId ?? this.ownerUserId,
+    entityType: entityType ?? this.entityType,
+    entityId: entityId ?? this.entityId,
+    action: action ?? this.action,
+    payloadJson: payloadJson ?? this.payloadJson,
+    idempotencyKey: idempotencyKey ?? this.idempotencyKey,
+    status: status ?? this.status,
+    attemptCount: attemptCount ?? this.attemptCount,
+    nextAttemptAt: nextAttemptAt.present
+        ? nextAttemptAt.value
+        : this.nextAttemptAt,
+    lastError: lastError.present ? lastError.value : this.lastError,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  StoredSyncOperation copyWithCompanion(SyncOperationsCompanion data) {
+    return StoredSyncOperation(
+      operationId: data.operationId.present
+          ? data.operationId.value
+          : this.operationId,
+      ownerUserId: data.ownerUserId.present
+          ? data.ownerUserId.value
+          : this.ownerUserId,
+      entityType: data.entityType.present
+          ? data.entityType.value
+          : this.entityType,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      action: data.action.present ? data.action.value : this.action,
+      payloadJson: data.payloadJson.present
+          ? data.payloadJson.value
+          : this.payloadJson,
+      idempotencyKey: data.idempotencyKey.present
+          ? data.idempotencyKey.value
+          : this.idempotencyKey,
+      status: data.status.present ? data.status.value : this.status,
+      attemptCount: data.attemptCount.present
+          ? data.attemptCount.value
+          : this.attemptCount,
+      nextAttemptAt: data.nextAttemptAt.present
+          ? data.nextAttemptAt.value
+          : this.nextAttemptAt,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredSyncOperation(')
+          ..write('operationId: $operationId, ')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('action: $action, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('idempotencyKey: $idempotencyKey, ')
+          ..write('status: $status, ')
+          ..write('attemptCount: $attemptCount, ')
+          ..write('nextAttemptAt: $nextAttemptAt, ')
+          ..write('lastError: $lastError, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    operationId,
+    ownerUserId,
+    entityType,
+    entityId,
+    action,
+    payloadJson,
+    idempotencyKey,
+    status,
+    attemptCount,
+    nextAttemptAt,
+    lastError,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StoredSyncOperation &&
+          other.operationId == this.operationId &&
+          other.ownerUserId == this.ownerUserId &&
+          other.entityType == this.entityType &&
+          other.entityId == this.entityId &&
+          other.action == this.action &&
+          other.payloadJson == this.payloadJson &&
+          other.idempotencyKey == this.idempotencyKey &&
+          other.status == this.status &&
+          other.attemptCount == this.attemptCount &&
+          other.nextAttemptAt == this.nextAttemptAt &&
+          other.lastError == this.lastError &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class SyncOperationsCompanion extends UpdateCompanion<StoredSyncOperation> {
+  final Value<String> operationId;
+  final Value<String> ownerUserId;
+  final Value<String> entityType;
+  final Value<String> entityId;
+  final Value<String> action;
+  final Value<String> payloadJson;
+  final Value<String> idempotencyKey;
+  final Value<String> status;
+  final Value<int> attemptCount;
+  final Value<DateTime?> nextAttemptAt;
+  final Value<String?> lastError;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const SyncOperationsCompanion({
+    this.operationId = const Value.absent(),
+    this.ownerUserId = const Value.absent(),
+    this.entityType = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.action = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.idempotencyKey = const Value.absent(),
+    this.status = const Value.absent(),
+    this.attemptCount = const Value.absent(),
+    this.nextAttemptAt = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncOperationsCompanion.insert({
+    required String operationId,
+    required String ownerUserId,
+    required String entityType,
+    required String entityId,
+    required String action,
+    required String payloadJson,
+    required String idempotencyKey,
+    this.status = const Value.absent(),
+    this.attemptCount = const Value.absent(),
+    this.nextAttemptAt = const Value.absent(),
+    this.lastError = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : operationId = Value(operationId),
+       ownerUserId = Value(ownerUserId),
+       entityType = Value(entityType),
+       entityId = Value(entityId),
+       action = Value(action),
+       payloadJson = Value(payloadJson),
+       idempotencyKey = Value(idempotencyKey),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<StoredSyncOperation> custom({
+    Expression<String>? operationId,
+    Expression<String>? ownerUserId,
+    Expression<String>? entityType,
+    Expression<String>? entityId,
+    Expression<String>? action,
+    Expression<String>? payloadJson,
+    Expression<String>? idempotencyKey,
+    Expression<String>? status,
+    Expression<int>? attemptCount,
+    Expression<DateTime>? nextAttemptAt,
+    Expression<String>? lastError,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (operationId != null) 'operation_id': operationId,
+      if (ownerUserId != null) 'owner_user_id': ownerUserId,
+      if (entityType != null) 'entity_type': entityType,
+      if (entityId != null) 'entity_id': entityId,
+      if (action != null) 'action': action,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (idempotencyKey != null) 'idempotency_key': idempotencyKey,
+      if (status != null) 'status': status,
+      if (attemptCount != null) 'attempt_count': attemptCount,
+      if (nextAttemptAt != null) 'next_attempt_at': nextAttemptAt,
+      if (lastError != null) 'last_error': lastError,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncOperationsCompanion copyWith({
+    Value<String>? operationId,
+    Value<String>? ownerUserId,
+    Value<String>? entityType,
+    Value<String>? entityId,
+    Value<String>? action,
+    Value<String>? payloadJson,
+    Value<String>? idempotencyKey,
+    Value<String>? status,
+    Value<int>? attemptCount,
+    Value<DateTime?>? nextAttemptAt,
+    Value<String?>? lastError,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return SyncOperationsCompanion(
+      operationId: operationId ?? this.operationId,
+      ownerUserId: ownerUserId ?? this.ownerUserId,
+      entityType: entityType ?? this.entityType,
+      entityId: entityId ?? this.entityId,
+      action: action ?? this.action,
+      payloadJson: payloadJson ?? this.payloadJson,
+      idempotencyKey: idempotencyKey ?? this.idempotencyKey,
+      status: status ?? this.status,
+      attemptCount: attemptCount ?? this.attemptCount,
+      nextAttemptAt: nextAttemptAt ?? this.nextAttemptAt,
+      lastError: lastError ?? this.lastError,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (operationId.present) {
+      map['operation_id'] = Variable<String>(operationId.value);
+    }
+    if (ownerUserId.present) {
+      map['owner_user_id'] = Variable<String>(ownerUserId.value);
+    }
+    if (entityType.present) {
+      map['entity_type'] = Variable<String>(entityType.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (action.present) {
+      map['action'] = Variable<String>(action.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (idempotencyKey.present) {
+      map['idempotency_key'] = Variable<String>(idempotencyKey.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (attemptCount.present) {
+      map['attempt_count'] = Variable<int>(attemptCount.value);
+    }
+    if (nextAttemptAt.present) {
+      map['next_attempt_at'] = Variable<DateTime>(nextAttemptAt.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncOperationsCompanion(')
+          ..write('operationId: $operationId, ')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('action: $action, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('idempotencyKey: $idempotencyKey, ')
+          ..write('status: $status, ')
+          ..write('attemptCount: $attemptCount, ')
+          ..write('nextAttemptAt: $nextAttemptAt, ')
+          ..write('lastError: $lastError, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3578,6 +4478,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $LocalUserPreferencesTable localUserPreferences =
       $LocalUserPreferencesTable(this);
+  late final $SyncOperationsTable syncOperations = $SyncOperationsTable(this);
   late final Index profileOwnerIdx = Index(
     'profile_owner_idx',
     'CREATE UNIQUE INDEX profile_owner_idx ON local_profiles (owner_user_id)',
@@ -3602,10 +4503,15 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'media_lead_idx',
     'CREATE INDEX media_lead_idx ON local_lead_media (lead_local_id)',
   );
+  late final Index syncOwnerStatusIdx = Index(
+    'sync_owner_status_idx',
+    'CREATE INDEX sync_owner_status_idx ON sync_operations (owner_user_id, status)',
+  );
   late final ProfilePreferencesDao profilePreferencesDao =
       ProfilePreferencesDao(this as AppDatabase);
   late final EventDao eventDao = EventDao(this as AppDatabase);
   late final LeadDao leadDao = LeadDao(this as AppDatabase);
+  late final SyncDao syncDao = SyncDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3617,12 +4523,14 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localLeadMedia,
     localPreferences,
     localUserPreferences,
+    syncOperations,
     profileOwnerIdx,
     eventOwnerIdx,
     leadEventIdx,
     leadCapturedIdx,
     leadOwnerIdx,
     mediaLeadIdx,
+    syncOwnerStatusIdx,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -3651,6 +4559,7 @@ typedef $$LocalProfilesTableCreateCompanionBuilder =
       required String company,
       required DateTime createdAt,
       required DateTime updatedAt,
+      Value<String> syncState,
       Value<int> rowid,
     });
 typedef $$LocalProfilesTableUpdateCompanionBuilder =
@@ -3661,6 +4570,7 @@ typedef $$LocalProfilesTableUpdateCompanionBuilder =
       Value<String> company,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
+      Value<String> syncState,
       Value<int> rowid,
     });
 
@@ -3700,6 +4610,11 @@ class $$LocalProfilesTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncState => $composableBuilder(
+    column: $table.syncState,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3742,6 +4657,11 @@ class $$LocalProfilesTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$LocalProfilesTableAnnotationComposer
@@ -3772,6 +4692,9 @@ class $$LocalProfilesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncState =>
+      $composableBuilder(column: $table.syncState, builder: (column) => column);
 }
 
 class $$LocalProfilesTableTableManager
@@ -3811,6 +4734,7 @@ class $$LocalProfilesTableTableManager
                 Value<String> company = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
+                Value<String> syncState = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalProfilesCompanion(
                 localId: localId,
@@ -3819,6 +4743,7 @@ class $$LocalProfilesTableTableManager
                 company: company,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                syncState: syncState,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3829,6 +4754,7 @@ class $$LocalProfilesTableTableManager
                 required String company,
                 required DateTime createdAt,
                 required DateTime updatedAt,
+                Value<String> syncState = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalProfilesCompanion.insert(
                 localId: localId,
@@ -3837,10 +4763,20 @@ class $$LocalProfilesTableTableManager
                 company: company,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                syncState: syncState,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$LocalProfilesTable, StoredProfile>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $LocalProfilesTable,
+                    StoredProfile
+                  >(db, table, e),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -3877,6 +4813,7 @@ typedef $$LocalEventsTableCreateCompanionBuilder =
       Value<String> contentFileIdsJson,
       required DateTime createdAt,
       required DateTime updatedAt,
+      Value<String> syncState,
       Value<int> rowid,
     });
 typedef $$LocalEventsTableUpdateCompanionBuilder =
@@ -3892,6 +4829,7 @@ typedef $$LocalEventsTableUpdateCompanionBuilder =
       Value<String> contentFileIdsJson,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
+      Value<String> syncState,
       Value<int> rowid,
     });
 
@@ -3979,6 +4917,11 @@ class $$LocalEventsTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncState => $composableBuilder(
+    column: $table.syncState,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4071,6 +5014,11 @@ class $$LocalEventsTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$LocalEventsTableAnnotationComposer
@@ -4120,6 +5068,9 @@ class $$LocalEventsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncState =>
+      $composableBuilder(column: $table.syncState, builder: (column) => column);
 
   Expression<T> localLeadsRefs<T extends Object>(
     Expression<T> Function($$LocalLeadsTableAnnotationComposer a) f,
@@ -4186,6 +5137,7 @@ class $$LocalEventsTableTableManager
                 Value<String> contentFileIdsJson = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
+                Value<String> syncState = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalEventsCompanion(
                 localId: localId,
@@ -4199,6 +5151,7 @@ class $$LocalEventsTableTableManager
                 contentFileIdsJson: contentFileIdsJson,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                syncState: syncState,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4214,6 +5167,7 @@ class $$LocalEventsTableTableManager
                 Value<String> contentFileIdsJson = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
+                Value<String> syncState = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalEventsCompanion.insert(
                 localId: localId,
@@ -4227,12 +5181,13 @@ class $$LocalEventsTableTableManager
                 contentFileIdsJson: contentFileIdsJson,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                syncState: syncState,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$LocalEventsTable, StoredEvent>(table),
                   $$LocalEventsTableReferences(db, table, e),
                 ),
               )
@@ -4990,7 +5945,7 @@ class $$LocalLeadsTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$LocalLeadsTable, StoredLead>(table),
                   $$LocalLeadsTableReferences(db, table, e),
                 ),
               )
@@ -5379,7 +6334,7 @@ class $$LocalLeadMediaTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$LocalLeadMediaTable, StoredLeadMedia>(table),
                   $$LocalLeadMediaTableReferences(db, table, e),
                 ),
               )
@@ -5585,7 +6540,16 @@ class $$LocalPreferencesTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$LocalPreferencesTable, StoredPreference>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $LocalPreferencesTable,
+                    StoredPreference
+                  >(db, table, e),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -5780,7 +6744,18 @@ class $$LocalUserPreferencesTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$LocalUserPreferencesTable, StoredUserPreference>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $LocalUserPreferencesTable,
+                    StoredUserPreference
+                  >(db, table, e),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -5808,6 +6783,391 @@ typedef $$LocalUserPreferencesTableProcessedTableManager =
       StoredUserPreference,
       PrefetchHooks Function()
     >;
+typedef $$SyncOperationsTableCreateCompanionBuilder =
+    SyncOperationsCompanion Function({
+      required String operationId,
+      required String ownerUserId,
+      required String entityType,
+      required String entityId,
+      required String action,
+      required String payloadJson,
+      required String idempotencyKey,
+      Value<String> status,
+      Value<int> attemptCount,
+      Value<DateTime?> nextAttemptAt,
+      Value<String?> lastError,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$SyncOperationsTableUpdateCompanionBuilder =
+    SyncOperationsCompanion Function({
+      Value<String> operationId,
+      Value<String> ownerUserId,
+      Value<String> entityType,
+      Value<String> entityId,
+      Value<String> action,
+      Value<String> payloadJson,
+      Value<String> idempotencyKey,
+      Value<String> status,
+      Value<int> attemptCount,
+      Value<DateTime?> nextAttemptAt,
+      Value<String?> lastError,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$SyncOperationsTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncOperationsTable> {
+  $$SyncOperationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get action => $composableBuilder(
+    column: $table.action,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get idempotencyKey => $composableBuilder(
+    column: $table.idempotencyKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get nextAttemptAt => $composableBuilder(
+    column: $table.nextAttemptAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncOperationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncOperationsTable> {
+  $$SyncOperationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get action => $composableBuilder(
+    column: $table.action,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get idempotencyKey => $composableBuilder(
+    column: $table.idempotencyKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get nextAttemptAt => $composableBuilder(
+    column: $table.nextAttemptAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncOperationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncOperationsTable> {
+  $$SyncOperationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get action =>
+      $composableBuilder(column: $table.action, builder: (column) => column);
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get idempotencyKey => $composableBuilder(
+    column: $table.idempotencyKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get nextAttemptAt => $composableBuilder(
+    column: $table.nextAttemptAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$SyncOperationsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncOperationsTable,
+          StoredSyncOperation,
+          $$SyncOperationsTableFilterComposer,
+          $$SyncOperationsTableOrderingComposer,
+          $$SyncOperationsTableAnnotationComposer,
+          $$SyncOperationsTableCreateCompanionBuilder,
+          $$SyncOperationsTableUpdateCompanionBuilder,
+          (
+            StoredSyncOperation,
+            BaseReferences<
+              _$AppDatabase,
+              $SyncOperationsTable,
+              StoredSyncOperation
+            >,
+          ),
+          StoredSyncOperation,
+          PrefetchHooks Function()
+        > {
+  $$SyncOperationsTableTableManager(
+    _$AppDatabase db,
+    $SyncOperationsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncOperationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncOperationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncOperationsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> operationId = const Value.absent(),
+                Value<String> ownerUserId = const Value.absent(),
+                Value<String> entityType = const Value.absent(),
+                Value<String> entityId = const Value.absent(),
+                Value<String> action = const Value.absent(),
+                Value<String> payloadJson = const Value.absent(),
+                Value<String> idempotencyKey = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> attemptCount = const Value.absent(),
+                Value<DateTime?> nextAttemptAt = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncOperationsCompanion(
+                operationId: operationId,
+                ownerUserId: ownerUserId,
+                entityType: entityType,
+                entityId: entityId,
+                action: action,
+                payloadJson: payloadJson,
+                idempotencyKey: idempotencyKey,
+                status: status,
+                attemptCount: attemptCount,
+                nextAttemptAt: nextAttemptAt,
+                lastError: lastError,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String operationId,
+                required String ownerUserId,
+                required String entityType,
+                required String entityId,
+                required String action,
+                required String payloadJson,
+                required String idempotencyKey,
+                Value<String> status = const Value.absent(),
+                Value<int> attemptCount = const Value.absent(),
+                Value<DateTime?> nextAttemptAt = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => SyncOperationsCompanion.insert(
+                operationId: operationId,
+                ownerUserId: ownerUserId,
+                entityType: entityType,
+                entityId: entityId,
+                action: action,
+                payloadJson: payloadJson,
+                idempotencyKey: idempotencyKey,
+                status: status,
+                attemptCount: attemptCount,
+                nextAttemptAt: nextAttemptAt,
+                lastError: lastError,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$SyncOperationsTable, StoredSyncOperation>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $SyncOperationsTable,
+                    StoredSyncOperation
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncOperationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncOperationsTable,
+      StoredSyncOperation,
+      $$SyncOperationsTableFilterComposer,
+      $$SyncOperationsTableOrderingComposer,
+      $$SyncOperationsTableAnnotationComposer,
+      $$SyncOperationsTableCreateCompanionBuilder,
+      $$SyncOperationsTableUpdateCompanionBuilder,
+      (
+        StoredSyncOperation,
+        BaseReferences<
+          _$AppDatabase,
+          $SyncOperationsTable,
+          StoredSyncOperation
+        >,
+      ),
+      StoredSyncOperation,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5824,4 +7184,6 @@ class $AppDatabaseManager {
       $$LocalPreferencesTableTableManager(_db, _db.localPreferences);
   $$LocalUserPreferencesTableTableManager get localUserPreferences =>
       $$LocalUserPreferencesTableTableManager(_db, _db.localUserPreferences);
+  $$SyncOperationsTableTableManager get syncOperations =>
+      $$SyncOperationsTableTableManager(_db, _db.syncOperations);
 }

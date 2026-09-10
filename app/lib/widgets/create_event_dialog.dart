@@ -4,6 +4,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../models/app_event.dart';
 import '../models/content_file.dart';
@@ -60,7 +61,7 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
     final today = DateTime(now.year, now.month, now.day);
     _startsOn = today;
     _endsOn = today;
-    _eventId = 'demo-${now.microsecondsSinceEpoch}';
+    _eventId = const Uuid().v4();
   }
 
   List<ContentFile> get _availableFiles => [

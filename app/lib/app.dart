@@ -35,6 +35,8 @@ import 'services/connectivity_service.dart';
 import 'services/contact_image_picker_service.dart';
 import 'services/event_selection_policy.dart';
 import 'services/pdf_picker_service.dart';
+import 'sync/sync_engine.dart';
+import 'sync/sync_models.dart';
 import 'theme/foloo_theme.dart';
 
 enum _AuthenticatedStage { profile, origin, shell }
@@ -55,6 +57,8 @@ class FolooApp extends StatefulWidget {
     this.authRepository,
     this.contactImagePickerService,
     this.nowProvider,
+    this.syncApi,
+    this.syncSessionProvider,
     super.key,
   });
 
@@ -67,6 +71,8 @@ class FolooApp extends StatefulWidget {
   final AuthRepository? authRepository;
   final ContactImagePickerService? contactImagePickerService;
   final DateTime Function()? nowProvider;
+  final SyncApi? syncApi;
+  final SyncSessionProvider? syncSessionProvider;
 
   @override
   State<FolooApp> createState() => _FolooAppState();
@@ -99,6 +105,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   bool _appInitialized = false;
   Timer? _eventDayTimer;
   String? _eventSelectionMode;
+  SyncEngine? _syncEngine;
 
   DateTime get _now => widget.nowProvider?.call() ?? DateTime.now();
 
@@ -146,6 +153,14 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
         );
     _authRepository.addListener(_onAuthStateChanged);
     _connectivity = widget.connectivityService ?? DeviceConnectivityService();
+    if (widget.syncApi != null) {
+      _syncEngine = SyncEngine(
+        _persistence.syncStore,
+        widget.syncApi!,
+        widget.syncSessionProvider ?? const NoSyncSessionProvider(),
+        now: widget.nowProvider,
+      )..addListener(_onSyncChanged);
+    }
     _events = List.of(DemoAppData.events);
     _contentFiles = List.of(DemoContentData.files);
     final system = WidgetsBinding.instance.platformDispatcher.locale;
@@ -170,6 +185,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       if (mounted) setState(() {});
       unawaited(_refreshAutomaticEventSelection());
       _scheduleEventDayRefresh();
+      unawaited(_synchronize());
     }
   }
 
@@ -201,6 +217,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       if (mounted && connected != _isOnline) {
         setState(() => _isOnline = connected);
       }
+      if (connected) unawaited(_synchronize());
     }, onError: (_) {});
   }
 
@@ -211,6 +228,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       final user = _authRepository.state.user;
       if (user != null) await _loadUserState(user.id);
       if (mounted) setState(() => _appInitialized = true);
+      if (user != null) unawaited(_synchronize());
     } catch (_) {
       if (!mounted) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -223,6 +241,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     // A locale chosen on Login applies immediately to the session. A stored
     // user preference takes precedence when one already exists.
     final sessionLocale = _locale;
+    await _persistence.syncStore.prepareOwner(userId);
     final storedProfile = await _persistence.profiles.load(userId);
     var storedEvents = await _persistence.events.list(userId);
     if (storedEvents.isEmpty && widget.useDemoFixtures) {
@@ -304,6 +323,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       capturedBy: _profile,
     );
     if (mounted) setState(() => _sessionLeads.insert(0, record));
+    unawaited(_synchronize());
     return record;
   }
 
@@ -324,6 +344,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       return false;
     }
     await _loadUserState(user.id);
+    unawaited(_synchronize());
     return true;
   }
 
@@ -376,6 +397,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       _profileCompleted = true;
       _stage = _AuthenticatedStage.origin;
     });
+    unawaited(_synchronize());
   }
 
   void _selectOrigin(OriginSelection selection) {
@@ -470,6 +492,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
         event: _events.first,
       );
     });
+    unawaited(_synchronize());
   }
 
   Future<void> _activateEvent(AppEvent event, {required bool manual}) async {
@@ -577,12 +600,52 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     );
   }
 
+  void _onSyncChanged() {
+    final user = _authRepository.state.user;
+    if (user != null) unawaited(_reloadSyncProjection(user.id));
+  }
+
+  Future<void> _reloadSyncProjection(String userId) async {
+    final leads = await _persistence.leads.listAll(userId);
+    if (!mounted || _authRepository.state.user?.id != userId) return;
+    setState(() {
+      _sessionLeads
+        ..clear()
+        ..addAll(leads);
+    });
+  }
+
+  Future<void> _synchronize({bool manual = false}) async {
+    final engine = _syncEngine;
+    final user = _authRepository.state.user;
+    if (engine == null || user == null) return;
+    await engine.synchronize(user.id, manual: manual);
+    final leads = await _persistence.leads.listAll(user.id);
+    final events = await _persistence.events.list(user.id);
+    final profile = await _persistence.profiles.load(user.id);
+    if (!mounted || _authRepository.state.user?.id != user.id) return;
+    setState(() {
+      _sessionLeads
+        ..clear()
+        ..addAll(leads);
+      _events = events;
+      if (profile != null) {
+        _profile = profile;
+        _profileCompleted = true;
+        if (_stage == _AuthenticatedStage.profile) {
+          _stage = _AuthenticatedStage.origin;
+        }
+      }
+    });
+  }
+
   @override
   void dispose() {
     unawaited(_connectivitySubscription?.cancel());
     WidgetsBinding.instance.removeObserver(this);
     _eventDayTimer?.cancel();
     _authRepository.removeListener(_onAuthStateChanged);
+    _syncEngine?.removeListener(_onSyncChanged);
     if (_ownsAuthRepository) _authRepository.dispose();
     unawaited(_persistence.close());
     super.dispose();
@@ -730,6 +793,8 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           onLogout: _logout,
           contentFiles: List.unmodifiable(_contentFiles),
           events: List.unmodifiable(events),
+          onSync: () => _synchronize(manual: true),
+          syncing: _syncEngine?.running ?? false,
         ),
         EventScreen(
           key: const ValueKey('eventsScreen'),

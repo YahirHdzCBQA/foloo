@@ -17,8 +17,7 @@ de fecha. Cada FL termina solo con requisitos/escenarios trazados y evidencia.
 
 ## FL-014 — Backend Foundation & API
 
-**Estado:** **COMPLETADO en repositorio; despliegue AWS y smoke test remoto
-pendientes de ejecución autorizada.**
+**Estado:** **COMPLETADO, desplegado y validado en AWS DEV.**
 
 - Backend Node.js/TypeScript, API Gateway `/v1`, Lambda y contratos.
 - Cognito `sub` verificado → cuenta/workspace → recursos.
@@ -27,16 +26,20 @@ pendientes de ejecución autorizada.**
 - Trazas: `INF-01`, `INF-03`, `INF-05`–`INF-14`, `SYN-06`, `AUT-10`, E-13.
 - ADR-003 cierra D-12. No incluye S3, correo, monetización ni sync móvil.
 
-## Propuesta FL-015 — Sync offline
+## FL-015 — Sync offline
+
+**Estado:** **COMPLETADO en repositorio; validación manual contra AWS DEV
+pendiente.**
 
 **Objetivo:** conectar Drift con la API existente mediante operaciones
 idempotentes y reconciliación local-first.
 
-- Cola por tipo de operación, retry/backoff, cursor y conflictos.
+- Outbox Drift por owner, retry/backoff y reconciliación completa segura según
+  los contratos GET actuales; no se inventa cursor.
 - Mapping Drift ↔ contratos `/v1`; pruebas offline/reconexión sin duplicados.
 - No incluir binarios: S3 permanece FL-016.
 - Trazas: `SYN-04`–`SYN-10`, `RNF-07`.
-- Bloqueos: política de conflictos/retención que se identifique al diseñar FL-015.
+- ADR-004 define idempotencia, aislamiento y política conservadora de conflictos.
 
 ## Propuesta FL-016 — Sync offline y S3 de medios
 

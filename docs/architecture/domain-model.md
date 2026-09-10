@@ -52,5 +52,10 @@ mantienen como IDs remotos para evitar remapeos durante FL-015. La revisión se
 incrementa en cambios y permitirá precondiciones/conflictos futuros; FL-014 no
 implementa reconciliación.
 
+`sync_operation` es la outbox local durable de ADR-004. Pertenece a un Cognito
+`sub`, conserva una clave idempotente estable y un snapshot JSON pequeño, nunca
+tokens ni binarios. Una entidad con operación abierta no es sobrescrita por el
+pull completo de FL-015.
+
 S3 guardará binarios con acceso autenticado y política de retención. La base
 cloud guardará metadata/referencias, no secretos en Flutter.

@@ -8,13 +8,13 @@
 | `EVT-*` | E-02 | ADR-001 | EventScreen/repositorios/policy; f1-03–05 |
 | `CAP-*`, `OCR-*` | E-03–E-05 | ADR-001; D-11 | captura/ML Kit/Drift; f1-06–09, 11–14, 24 |
 | `VOZ-*` | E-04 | ADR-001; D-05/D-06 | voice service/media/tests; f1-10, 21–23 |
-| `SYN-*` | E-05/E-09/E-13 | ADR-001/003; D-13 | Drift/connectivity y foundation API idempotente; sync móvil pendiente FL-015 |
+| `SYN-*` | E-05/E-09/E-13 | ADR-001/003/004; D-13 | Drift, outbox owner-scoped, API client, retry y reconciliación FL-015 |
 | `REG-*` | E-06/E-10 | D-06/D-07 | Records y diálogo demo; f1-16–19, f2-06/07, f5-12 |
 | `CON-*` | E-07 | D-08/D-11 | content/picker/sheet; f2-01–03 |
 | `PLT-*`, `SAL-*` | E-08 | D-09 | editor demo; f2-04/05, f4-04/12 |
 | `NAV-*` | E-12 | ADR-001 | drawer/theme/l10n; f1-15/25/26 |
 | `MON-*` | E-11 | D-01–D-04/D-11 | sin implementación; f3-01–08 |
-| `INF-*`, `RC-*` | E-09/E-12/E-13 | ADR-001/002/003; D-09/D-10/D-13 | `backend/`, IaC/migraciones/tests FL-014; despliegue pendiente |
+| `INF-*`, `RC-*` | E-09/E-12/E-13 | ADR-001/002/003; D-09/D-10/D-13 | `backend/`, IaC/migraciones/tests y despliegue AWS DEV FL-014 |
 | `REL-*`, `RNF-*` | E-12 | decisiones aplicables | suite local parcial; f5-01–12 |
 
 Los IDs antiguos aún presentes en código/tests describen el origen histórico de
@@ -64,7 +64,7 @@ interna sea reutilizable.
 | f1-10 | I | VoiceNoteService/state/widget y reproducción | FL-006/010/012 |
 | f1-11 | I | nota escrita en LeadDraft/Drift/UI | FL-002/012 |
 | f1-12 | I | `_revealFirstInvalidField` y tests de captura | FL-013 |
-| f1-13 | P | Drift y ConnectivityService; UI local disponible | FL-012/012.1; no hay sync/email offline real |
+| f1-13 | I | Drift, ConnectivityService y outbox/API sync local-first | FL-012/012.1/015; correo sigue posterior |
 | f1-14 | P | LeadConfirmationScreen y retorno | FL-004/009; estados siguen demo |
 | f1-15 | P | AppDrawer expone todos los destinos V1 sin selector/gating | FL-003/009/013D; falta saldo real |
 | f1-16 | P | RecordsScreen con evento/búsqueda/tipo/estado | FL-004/012.1; contrato visible no completo |
@@ -127,7 +127,7 @@ interna sea reutilizable.
 |---|:---:|---|---|
 | f5-01 | P | suite Flutter amplia por flujos locales | falta E2E iOS/Android/backend |
 | f5-02 | P | `layout_test.dart` y reglas de tema | falta matriz real de dispositivos |
-| f5-03 | F | no hay sync, por tanto no prueba de reconexión E2E | después de sync |
+| f5-03 | P | motor/reconexión cubiertos localmente; falta E2E en dispositivo contra AWS | validación manual FL-015 |
 | f5-04 | P | unit tests parser/preprocessor/ML Kit boundary | falta evento/tarjetas reales |
 | f5-05 | F | no hay pagos | después de monetización |
 | f5-06 | F | sin beta de campo documentada | salida a producción |

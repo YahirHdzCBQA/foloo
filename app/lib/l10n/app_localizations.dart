@@ -1592,6 +1592,18 @@ abstract class AppLocalizations {
   /// **'Sincronizado'**
   String get synced;
 
+  /// No description provided for @syncingState.
+  ///
+  /// In es, this message translates to:
+  /// **'Sincronizando'**
+  String get syncingState;
+
+  /// No description provided for @syncFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'Falló sync · reintentar'**
+  String get syncFailed;
+
   /// No description provided for @createFirstEvent.
   ///
   /// In es, this message translates to:

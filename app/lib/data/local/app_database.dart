@@ -19,6 +19,7 @@ class LocalProfiles extends Table {
   TextColumn get company => text()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
+  TextColumn get syncState => text().withDefault(const Constant('local'))();
 
   @override
   Set<Column<Object>> get primaryKey => {localId};
@@ -39,6 +40,7 @@ class LocalEvents extends Table {
       text().withDefault(const Constant('[]'))();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
+  TextColumn get syncState => text().withDefault(const Constant('local'))();
 
   @override
   Set<Column<Object>> get primaryKey => {localId};
@@ -124,6 +126,27 @@ class LocalUserPreferences extends Table {
   Set<Column<Object>> get primaryKey => {ownerUserId, key};
 }
 
+@DataClassName('StoredSyncOperation')
+@TableIndex(name: 'sync_owner_status_idx', columns: {#ownerUserId, #status})
+class SyncOperations extends Table {
+  TextColumn get operationId => text()();
+  TextColumn get ownerUserId => text()();
+  TextColumn get entityType => text()();
+  TextColumn get entityId => text()();
+  TextColumn get action => text()();
+  TextColumn get payloadJson => text()();
+  TextColumn get idempotencyKey => text()();
+  TextColumn get status => text().withDefault(const Constant('pending'))();
+  IntColumn get attemptCount => integer().withDefault(const Constant(0))();
+  DateTimeColumn get nextAttemptAt => dateTime().nullable()();
+  TextColumn get lastError => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {operationId};
+}
+
 /// Lead plus its durable media metadata.
 class StoredLeadBundle {
   const StoredLeadBundle(this.lead, this.media);
@@ -143,6 +166,10 @@ class ProfilePreferencesDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> saveProfile(LocalProfilesCompanion profile) =>
       into(localProfiles).insertOnConflictUpdate(profile);
+
+  Future<void> markProfileSynced(String userId) =>
+      (update(localProfiles)..where((row) => row.ownerUserId.equals(userId)))
+          .write(const LocalProfilesCompanion(syncState: Value('synced')));
 
   Future<String?> globalPreference(String key) async => (await (select(
     localPreferences,
@@ -235,6 +262,12 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
               updatedAt: Value(now),
             ),
           );
+
+  Future<void> markSynced(String userId, String id) =>
+      (update(localEvents)..where(
+            (row) => row.ownerUserId.equals(userId) & row.localId.equals(id),
+          ))
+          .write(const LocalEventsCompanion(syncState: Value('synced')));
 }
 
 @DriftAccessor(tables: [LocalLeads, LocalLeadMedia])
@@ -254,6 +287,16 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
             ..where((row) => row.leadLocalId.equals(leadId))
             ..orderBy([(row) => OrderingTerm.asc(row.createdAt)]))
           .get();
+
+  Future<StoredLead?> byId(String userId, String id) =>
+      (select(localLeads)..where(
+            (row) => row.ownerUserId.equals(userId) & row.localId.equals(id),
+          ))
+          .getSingleOrNull();
+
+  Future<StoredLeadMedia?> mediaById(String id) => (select(
+    localLeadMedia,
+  )..where((row) => row.localId.equals(id))).getSingleOrNull();
 
   Future<List<StoredLeadBundle>> _bundles(List<StoredLead> leads) async =>
       Future.wait(
@@ -313,6 +356,140 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
 
   Future<void> deleteMediaMetadata(String id) =>
       (delete(localLeadMedia)..where((row) => row.localId.equals(id))).go();
+
+  Future<void> markLeadSyncState(String userId, String id, String state) =>
+      (update(localLeads)..where(
+            (row) => row.ownerUserId.equals(userId) & row.localId.equals(id),
+          ))
+          .write(LocalLeadsCompanion(syncState: Value(state)));
+
+  Future<void> markMediaSyncState(String id, String state) =>
+      (update(localLeadMedia)..where((row) => row.localId.equals(id))).write(
+        LocalLeadMediaCompanion(uploadState: Value(state)),
+      );
+}
+
+@DriftAccessor(tables: [SyncOperations])
+class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
+  SyncDao(super.db);
+
+  Future<void> enqueue(SyncOperationsCompanion operation) =>
+      into(syncOperations).insert(operation);
+
+  Future<List<StoredSyncOperation>> pendingForOwner(
+    String ownerUserId,
+    DateTime now,
+  ) =>
+      (select(syncOperations)
+            ..where(
+              (row) =>
+                  row.ownerUserId.equals(ownerUserId) &
+                  (row.status.equals('pending') |
+                      row.status.equals('retryable')) &
+                  (row.nextAttemptAt.isNull() |
+                      row.nextAttemptAt.isSmallerOrEqualValue(now)),
+            )
+            ..orderBy([(row) => OrderingTerm.asc(row.createdAt)]))
+          .get();
+
+  Future<List<StoredSyncOperation>> allForOwner(String ownerUserId) => (select(
+    syncOperations,
+  )..where((row) => row.ownerUserId.equals(ownerUserId))).get();
+
+  Future<bool> hasOpenOperation(
+    String ownerUserId,
+    String entityType,
+    String entityId,
+  ) async =>
+      await (selectOnly(syncOperations)
+            ..addColumns([syncOperations.operationId.count()])
+            ..where(
+              syncOperations.ownerUserId.equals(ownerUserId) &
+                  syncOperations.entityType.equals(entityType) &
+                  syncOperations.entityId.equals(entityId) &
+                  syncOperations.status.isNotValue('completed'),
+            ))
+          .map((row) => row.read(syncOperations.operationId.count()) ?? 0)
+          .getSingle() >
+      0;
+
+  Future<void> markRunning(String operationId, DateTime now) =>
+      (update(
+        syncOperations,
+      )..where((row) => row.operationId.equals(operationId))).write(
+        SyncOperationsCompanion(
+          status: const Value('syncing'),
+          updatedAt: Value(now),
+          lastError: const Value(null),
+        ),
+      );
+
+  Future<void> markRetryable(
+    String operationId,
+    int attemptCount,
+    DateTime nextAttemptAt,
+    String error,
+    DateTime now,
+  ) =>
+      (update(
+        syncOperations,
+      )..where((row) => row.operationId.equals(operationId))).write(
+        SyncOperationsCompanion(
+          status: const Value('retryable'),
+          attemptCount: Value(attemptCount),
+          nextAttemptAt: Value(nextAttemptAt),
+          lastError: Value(error),
+          updatedAt: Value(now),
+        ),
+      );
+
+  Future<void> markFailed(
+    String operationId,
+    int attemptCount,
+    String error,
+    DateTime now,
+  ) =>
+      (update(
+        syncOperations,
+      )..where((row) => row.operationId.equals(operationId))).write(
+        SyncOperationsCompanion(
+          status: const Value('failed'),
+          attemptCount: Value(attemptCount),
+          nextAttemptAt: const Value(null),
+          lastError: Value(error),
+          updatedAt: Value(now),
+        ),
+      );
+
+  Future<void> complete(String operationId) => (delete(
+    syncOperations,
+  )..where((row) => row.operationId.equals(operationId))).go();
+
+  Future<void> retryFailed(String ownerUserId, DateTime now) =>
+      (update(syncOperations)..where(
+            (row) =>
+                row.ownerUserId.equals(ownerUserId) &
+                row.status.equals('failed'),
+          ))
+          .write(
+            SyncOperationsCompanion(
+              status: const Value('pending'),
+              nextAttemptAt: const Value(null),
+              lastError: const Value(null),
+              updatedAt: Value(now),
+            ),
+          );
+
+  Future<void> markPending(String operationId, DateTime now) =>
+      (update(
+        syncOperations,
+      )..where((row) => row.operationId.equals(operationId))).write(
+        SyncOperationsCompanion(
+          status: const Value('pending'),
+          nextAttemptAt: const Value(null),
+          updatedAt: Value(now),
+        ),
+      );
 }
 
 @DriftDatabase(
@@ -323,8 +500,9 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
     LocalLeadMedia,
     LocalPreferences,
     LocalUserPreferences,
+    SyncOperations,
   ],
-  daos: [ProfilePreferencesDao, EventDao, LeadDao],
+  daos: [ProfilePreferencesDao, EventDao, LeadDao, SyncDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
@@ -339,7 +517,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -366,6 +544,11 @@ class AppDatabase extends _$AppDatabase {
           'CREATE INDEX lead_owner_idx '
           'ON local_leads (owner_user_id)',
         );
+      }
+      if (from < 3) {
+        await migrator.addColumn(localProfiles, localProfiles.syncState);
+        await migrator.addColumn(localEvents, localEvents.syncState);
+        await migrator.createTable(syncOperations);
       }
     },
     beforeOpen: (details) async {

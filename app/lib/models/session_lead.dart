@@ -4,7 +4,7 @@ library;
 import 'lead_draft.dart';
 
 /// Simplified upload state displayed in the Records prototype.
-enum SessionUploadState { local, pending, synced }
+enum SessionUploadState { local, pending, syncing, synced, failed }
 
 /// Captured lead loaded from local persistence or created by an isolated demo.
 class SessionLead {

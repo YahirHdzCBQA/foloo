@@ -14,6 +14,8 @@ import 'package:uuid/uuid.dart';
 import '../../models/app_event.dart';
 import '../../models/lead_draft.dart';
 import '../../models/session_lead.dart';
+import '../../sync/sync_models.dart';
+import '../../sync/sync_store.dart';
 import '../local/app_database.dart';
 import '../local/private_media_storage.dart';
 
@@ -23,11 +25,16 @@ String _defaultLocalId() => const Uuid().v4();
 
 /// Persists and restores the local seller identity (AUT-05).
 class ProfileRepository {
-  ProfileRepository(this._database, {LocalIdFactory? idFactory})
-    : _idFactory = idFactory ?? _defaultLocalId;
+  ProfileRepository(
+    this._database, {
+    LocalIdFactory? idFactory,
+    SyncStore? syncStore,
+  }) : _idFactory = idFactory ?? _defaultLocalId,
+       _syncStore = syncStore ?? SyncStore(_database);
 
   final AppDatabase _database;
   final LocalIdFactory _idFactory;
+  final SyncStore _syncStore;
 
   Future<DemoProfile?> load(String userId) async {
     final stored = await _database.profilePreferencesDao.profileForUser(userId);
@@ -41,16 +48,28 @@ class ProfileRepository {
       userId,
     );
     final now = DateTime.now().toUtc();
-    await _database.profilePreferencesDao.saveProfile(
-      LocalProfilesCompanion.insert(
-        localId: previous?.localId ?? _idFactory(),
-        ownerUserId: Value(userId),
-        name: profile.name,
-        company: profile.company,
-        createdAt: previous?.createdAt ?? now,
-        updatedAt: now,
-      ),
-    );
+    final localId = previous?.localId ?? _idFactory();
+    await _database.transaction(() async {
+      await _database.profilePreferencesDao.saveProfile(
+        LocalProfilesCompanion.insert(
+          localId: localId,
+          ownerUserId: Value(userId),
+          name: profile.name,
+          company: profile.company,
+          createdAt: previous?.createdAt ?? now,
+          updatedAt: now,
+          syncState: const Value('local'),
+        ),
+      );
+      await _syncStore.enqueue(
+        ownerSub: userId,
+        entityType: SyncEntityType.profile,
+        entityId: localId,
+        action: 'upsert',
+        payload: {'name': profile.name, 'company': profile.company},
+        now: now,
+      );
+    });
   }
 }
 
@@ -85,9 +104,11 @@ class GlobalPreferencesRepository {
 
 /// Maps event CRUD and logical deletion to the local event DAO (EVT-*).
 class EventRepository {
-  const EventRepository(this._database);
+  EventRepository(this._database, {SyncStore? syncStore})
+    : _syncStore = syncStore ?? SyncStore(_database);
 
   final AppDatabase _database;
+  final SyncStore _syncStore;
 
   AppEvent _fromStored(StoredEvent event) => AppEvent(
     id: event.localId,
@@ -131,8 +152,24 @@ class EventRepository {
           contentFileIdsJson: Value(jsonEncode(event.contentFileIds.toList())),
           createdAt: previous?.createdAt ?? now,
           updatedAt: now,
+          syncState: Value(previous?.syncState ?? 'local'),
         ),
       );
+      if (previous == null) {
+        await _syncStore.enqueue(
+          ownerSub: userId,
+          entityType: SyncEntityType.event,
+          entityId: event.id,
+          action: 'create',
+          payload: {
+            'id': event.id,
+            'name': event.name,
+            'startsAt': event.startsOn.toUtc().toIso8601String(),
+            'endsAt': event.endsOn.toUtc().toIso8601String(),
+          },
+          now: now,
+        );
+      }
     });
   }
 
@@ -166,11 +203,14 @@ class LeadRepository {
     this._database,
     this._mediaStorage, {
     LocalIdFactory? idFactory,
-  }) : _idFactory = idFactory ?? _defaultLocalId;
+    SyncStore? syncStore,
+  }) : _idFactory = idFactory ?? _defaultLocalId,
+       _syncStore = syncStore ?? SyncStore(_database);
 
   final AppDatabase _database;
   final PrivateMediaStorage _mediaStorage;
   final LocalIdFactory _idFactory;
+  final SyncStore _syncStore;
 
   Future<SessionLead> saveDraft(
     String userId,
@@ -254,7 +294,7 @@ class LeadRepository {
         );
         if (cardPath != null) {
           await _insertMedia(
-            id: '$localId-card',
+            id: _defaultLocalId(),
             leadId: localId,
             type: LocalMediaType.cardImage,
             path: cardPath,
@@ -263,7 +303,7 @@ class LeadRepository {
         }
         if (audioPath != null) {
           await _insertMedia(
-            id: '$localId-voice',
+            id: _defaultLocalId(),
             leadId: localId,
             type: LocalMediaType.voiceNote,
             path: audioPath,
@@ -273,11 +313,66 @@ class LeadRepository {
         }
         for (var index = 0; index < referencePaths.length; index++) {
           await _insertMedia(
-            id: '$localId-reference-$index',
+            id: _defaultLocalId(),
             leadId: localId,
             type: LocalMediaType.referenceImage,
             path: referencePaths[index],
             now: now.add(Duration(microseconds: index)),
+          );
+        }
+        await _syncStore.enqueue(
+          ownerSub: userId,
+          entityType: SyncEntityType.lead,
+          entityId: localId,
+          action: 'create',
+          payload: {
+            'id': localId,
+            'capturedAt': now.toIso8601String(),
+            'origin': draft.originKind.name,
+            'eventId': draft.originKind == LeadOriginKind.event
+                ? draft.eventLocalId
+                : null,
+            'place': draft.originKind == LeadOriginKind.direct
+                ? draft.place
+                : null,
+            'firstName': draft.name,
+            'lastName': draft.lastName.isEmpty ? null : draft.lastName,
+            'position': draft.role.isEmpty ? null : draft.role,
+            'company': draft.company,
+            'email': draft.email.isEmpty ? null : draft.email,
+            'phone': draft.phone.isEmpty ? null : draft.phone,
+            'leadType': draft.type.name,
+            'interest': draft.interest.name,
+            'writtenNote': draft.note.isEmpty ? null : draft.note,
+          },
+          now: now,
+        );
+        final media = await _database.leadDao.mediaFor(localId);
+        for (final item in media) {
+          final file = File(item.localPath);
+          await _syncStore.enqueue(
+            ownerSub: userId,
+            entityType: SyncEntityType.leadMedia,
+            entityId: item.localId,
+            action: 'create',
+            payload: {
+              'leadId': localId,
+              'id': item.localId,
+              'kind': switch (LocalMediaType.values.byName(item.mediaType)) {
+                LocalMediaType.cardImage => 'business_card',
+                LocalMediaType.referenceImage => 'reference_image',
+                LocalMediaType.voiceNote => 'voice_note',
+              },
+              'contentType': item.mediaType == LocalMediaType.voiceNote.name
+                  ? 'audio/m4a'
+                  : 'image/jpeg',
+              'byteSize': await file.length(),
+              'capturedAt': item.createdAt.toIso8601String(),
+              'durationMs': item.durationSeconds == null
+                  ? null
+                  : item.durationSeconds! * 1000,
+            },
+            now: item.createdAt,
           );
         }
       });
@@ -408,15 +503,26 @@ class LeadRepository {
       }
     }
     final stored = bundle.lead;
+    final mediaStates = bundle.media.map((item) => item.uploadState).toSet();
+    final visibleSyncState = mediaStates.contains('failed')
+        ? 'failed'
+        : mediaStates.contains('syncing')
+        ? 'syncing'
+        : mediaStates.any((state) => state != 'synced')
+        ? 'pending'
+        : stored.syncState;
     return SessionLead(
       localId: stored.localId,
       folio: stored.commercialFolio,
       capturedAt: stored.capturedAt.toLocal(),
-      uploadState: switch (stored.syncState) {
+      uploadState: switch (visibleSyncState) {
         // Historical values are preserved but interpreted as provider-neutral.
         'enHoja' => SessionUploadState.synced,
         'synced' => SessionUploadState.synced,
         'pendiente' => SessionUploadState.pending,
+        'pending' => SessionUploadState.pending,
+        'syncing' => SessionUploadState.syncing,
+        'failed' => SessionUploadState.failed,
         _ => SessionUploadState.local,
       },
       lead: LeadDraft(
@@ -461,7 +567,8 @@ class LocalPersistence {
        preferences = PreferencesRepository(database),
        globalPreferences = GlobalPreferencesRepository(database),
        events = EventRepository(database),
-       leads = LeadRepository(database, mediaStorage);
+       leads = LeadRepository(database, mediaStorage),
+       syncStore = SyncStore(database);
 
   final AppDatabase database;
   final PrivateMediaStorage mediaStorage;
@@ -471,6 +578,7 @@ class LocalPersistence {
   final GlobalPreferencesRepository globalPreferences;
   final EventRepository events;
   final LeadRepository leads;
+  final SyncStore syncStore;
 
   static Future<LocalPersistence> production() async =>
       LocalPersistence._(AppDatabase(), await PrivateMediaStorage.production());

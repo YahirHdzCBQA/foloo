@@ -109,6 +109,11 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Al recuperar señal, colas reanudables avanzan sin duplicados; un archivo
   grande no detiene Leads.
 - Fallo repetido conserva dato, motivo y reintento manual.
+- Cerrar/reabrir la app conserva la outbox; reintentar una respuesta perdida usa
+  la misma clave idempotente. Un 400 queda detenido y 408/429/5xx/transporte se
+  reprograman sin borrar el dato.
+- Sin sesión o con otro `sub` no se consume la cola. El pull no pisa entidades
+  con mutaciones locales abiertas y en FL-015 no transfiere binarios.
 
 ## E-10 · Exportación por evento
 

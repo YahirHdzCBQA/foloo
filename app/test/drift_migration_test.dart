@@ -8,7 +8,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 void main() {
   test(
-    'v1 to v2 preserves historical rows without assigning ownership',
+    'v1 to v3 preserves historical rows and adds the persistent outbox',
     () async {
       final directory = await Directory.systemTemp.createTemp('foloo_v1_v2_');
       addTearDown(() async {
@@ -132,7 +132,8 @@ void main() {
       final version = await database
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 2);
+      expect(version.read<int>('user_version'), 3);
+      expect(await database.select(database.syncOperations).get(), isEmpty);
 
       final profiles = await database.select(database.localProfiles).get();
       final events = await database.select(database.localEvents).get();

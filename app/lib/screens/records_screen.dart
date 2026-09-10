@@ -33,7 +33,9 @@ String _uploadStateLabel(BuildContext context, SessionUploadState state) =>
     switch (state) {
       SessionUploadState.local => context.l10n.pendingUpload,
       SessionUploadState.pending => context.l10n.pendingUpload,
+      SessionUploadState.syncing => context.l10n.syncingState,
       SessionUploadState.synced => context.l10n.synced,
+      SessionUploadState.failed => context.l10n.syncFailed,
     };
 
 /// Lists leads loaded from durable local persistence (REG-01–REG-08).
@@ -48,6 +50,8 @@ class RecordsScreen extends StatefulWidget {
     this.events = const [],
     this.profile = DemoAppData.profile,
     this.voiceNoteService,
+    this.onSync,
+    this.syncing = false,
     super.key,
   });
 
@@ -60,6 +64,8 @@ class RecordsScreen extends StatefulWidget {
   final VoiceNoteService? voiceNoteService;
   final List<ContentFile> contentFiles;
   final List<AppEvent> events;
+  final Future<void> Function()? onSync;
+  final bool syncing;
 
   @override
   State<RecordsScreen> createState() => _RecordsScreenState();
@@ -506,13 +512,9 @@ class _RecordsScreenState extends State<RecordsScreen>
                   Expanded(
                     child: FilledButton.icon(
                       key: const Key('syncButton'),
-                      // TODO(PRODUCTION): Implement SYN-* lead synchronization.
-                      onPressed: () => ScaffoldMessenger.of(context)
-                          .showSnackBar(
-                            SnackBar(
-                              content: Text(context.l10n.syncDemoMessage),
-                            ),
-                          ),
+                      onPressed: widget.syncing || widget.onSync == null
+                          ? null
+                          : widget.onSync,
                       icon: const Icon(Icons.sync, size: 18),
                       label: Text(context.l10n.sync),
                     ),
