@@ -848,7 +848,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncingState => 'Sincronizando';
 
   @override
-  String get syncFailed => 'Falló sync · reintentar';
+  String get syncFailed => 'Error de sincronización';
+
+  @override
+  String get mediaPending => 'Lead guardado · medios pendientes';
+
+  @override
+  String get mediaSyncError => 'Lead guardado · error en medios';
 
   @override
   String get createFirstEvent => 'Crea el primero para comenzar a capturar.';

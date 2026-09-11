@@ -45,10 +45,15 @@ class SyncStore {
     );
   }
 
-  Future<List<StoredSyncOperation>> due(String ownerSub, DateTime now) async {
+  Future<List<StoredSyncOperation>> due(
+    String ownerSub,
+    DateTime now, {
+    bool ignoreRetryBackoff = false,
+  }) async {
     final operations = await database.syncDao.pendingForOwner(
       ownerSub,
       now.toUtc(),
+      ignoreRetryBackoff: ignoreRetryBackoff,
     );
     const priority = {'profile': 0, 'event': 1, 'lead': 2, 'leadMedia': 3};
     operations.sort((a, b) {
@@ -225,9 +230,6 @@ class SyncStore {
     });
   }
 
-  Future<void> retryFailed(String ownerSub, DateTime now) =>
-      database.syncDao.retryFailed(ownerSub, now.toUtc());
-
   Future<void> _markEntity(StoredSyncOperation operation, String state) async {
     switch (SyncEntityType.values.byName(operation.entityType)) {
       case SyncEntityType.profile:
@@ -264,6 +266,12 @@ class SyncStore {
     String entityId,
   ) => database.syncDao.hasOpenOperation(ownerSub, type.name, entityId);
 
+  Future<void> reconcileRemoteCreate(
+    String ownerSub,
+    SyncEntityType type,
+    String entityId,
+  ) => database.syncDao.completeCreatesForEntity(ownerSub, type.name, entityId);
+
   Future<void> applyRemoteProfile(
     String ownerSub,
     Map<String, Object?> profile,
@@ -295,6 +303,16 @@ class SyncStore {
   ) async {
     for (final event in events) {
       final id = event['id'] as String;
+      final hadLocalCreate = await hasPending(
+        ownerSub,
+        SyncEntityType.event,
+        id,
+      );
+      await reconcileRemoteCreate(ownerSub, SyncEntityType.event, id);
+      if (hadLocalCreate) {
+        await database.eventDao.markSynced(ownerSub, id);
+        continue;
+      }
       if (await hasPending(ownerSub, SyncEntityType.event, id)) continue;
       final existing = await database.eventDao.byId(ownerSub, id);
       final now = DateTime.now().toUtc();
@@ -325,6 +343,16 @@ class SyncStore {
     );
     for (final lead in leads) {
       final id = lead['id'] as String;
+      final hadLocalCreate = await hasPending(
+        ownerSub,
+        SyncEntityType.lead,
+        id,
+      );
+      await reconcileRemoteCreate(ownerSub, SyncEntityType.lead, id);
+      if (hadLocalCreate) {
+        await database.leadDao.markLeadSyncState(ownerSub, id, 'synced');
+        continue;
+      }
       if (await hasPending(ownerSub, SyncEntityType.lead, id)) continue;
       final existing = await database.leadDao.byId(ownerSub, id);
       final now = DateTime.now().toUtc();
@@ -368,9 +396,9 @@ class SyncStore {
     if (lead == null) return;
     for (final item in media) {
       final id = item['id'] as String;
-      if (await hasPending(ownerSub, SyncEntityType.leadMedia, id)) continue;
       final local = await database.leadDao.mediaById(id);
       if (local != null) {
+        await reconcileRemoteCreate(ownerSub, SyncEntityType.leadMedia, id);
         await database.leadDao.markMediaSyncState(id, 'synced');
       }
     }

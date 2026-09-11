@@ -115,8 +115,18 @@ class FolooApiClient implements SyncApi {
       throw SyncHttpException(
         response.statusCode,
         retryAfter: response.retryAfter,
+        errorCode: _errorValue(response.data, 'code'),
+        requestId: _errorValue(response.data, 'requestId'),
       );
     }
     return response;
+  }
+
+  String? _errorValue(Object? data, String key) {
+    if (data is! Map) return null;
+    final error = data['error'];
+    if (error is! Map) return null;
+    final value = error[key];
+    return value is String && value.isNotEmpty ? value : null;
   }
 }

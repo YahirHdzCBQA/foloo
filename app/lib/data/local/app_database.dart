@@ -378,23 +378,43 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
 
   Future<List<StoredSyncOperation>> pendingForOwner(
     String ownerUserId,
-    DateTime now,
-  ) =>
-      (select(syncOperations)
-            ..where(
-              (row) =>
-                  row.ownerUserId.equals(ownerUserId) &
-                  (row.status.equals('pending') |
-                      row.status.equals('retryable')) &
-                  (row.nextAttemptAt.isNull() |
-                      row.nextAttemptAt.isSmallerOrEqualValue(now)),
-            )
-            ..orderBy([(row) => OrderingTerm.asc(row.createdAt)]))
-          .get();
+    DateTime now, {
+    bool ignoreRetryBackoff = false,
+  }) {
+    final query = select(syncOperations)
+      ..where(
+        (row) =>
+            row.ownerUserId.equals(ownerUserId) &
+            (row.status.equals('pending') | row.status.equals('retryable')),
+      );
+    if (!ignoreRetryBackoff) {
+      query.where(
+        (row) =>
+            row.nextAttemptAt.isNull() |
+            row.nextAttemptAt.isSmallerOrEqualValue(now),
+      );
+    }
+    query.orderBy([(row) => OrderingTerm.asc(row.createdAt)]);
+    return query.get();
+  }
 
   Future<List<StoredSyncOperation>> allForOwner(String ownerUserId) => (select(
     syncOperations,
   )..where((row) => row.ownerUserId.equals(ownerUserId))).get();
+
+  Future<void> completeCreatesForEntity(
+    String ownerUserId,
+    String entityType,
+    String entityId,
+  ) =>
+      (delete(syncOperations)..where(
+            (row) =>
+                row.ownerUserId.equals(ownerUserId) &
+                row.entityType.equals(entityType) &
+                row.entityId.equals(entityId) &
+                row.action.equals('create'),
+          ))
+          .go();
 
   Future<bool> hasOpenOperation(
     String ownerUserId,
@@ -464,21 +484,6 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
   Future<void> complete(String operationId) => (delete(
     syncOperations,
   )..where((row) => row.operationId.equals(operationId))).go();
-
-  Future<void> retryFailed(String ownerUserId, DateTime now) =>
-      (update(syncOperations)..where(
-            (row) =>
-                row.ownerUserId.equals(ownerUserId) &
-                row.status.equals('failed'),
-          ))
-          .write(
-            SyncOperationsCompanion(
-              status: const Value('pending'),
-              nextAttemptAt: const Value(null),
-              lastError: const Value(null),
-              updatedAt: Value(now),
-            ),
-          );
 
   Future<void> markPending(String operationId, DateTime now) =>
       (update(

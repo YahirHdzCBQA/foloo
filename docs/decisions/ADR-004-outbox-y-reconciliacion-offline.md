@@ -19,15 +19,26 @@ duplique datos o que un pull destruya trabajo local pendiente.
   acción, snapshot JSON sin binarios, clave de idempotencia, intentos y próximo
   intento.
 - Un retry reutiliza siempre la misma clave. El procesamiento es serial y ordena
-  perfil, eventos, leads y metadata de medios para respetar dependencias.
+  perfil, eventos, leads y metadata de medios. Además verifica dependencias:
+  un Lead de evento espera a que cierre la creación del evento y una metadata
+  de medio espera a que cierre la creación del Lead.
 - Timeout, transporte, 408, 429 y 5xx son reintentables con backoff exponencial
-  acotado a una hora; `Retry-After` puede ampliar el plazo. Errores 4xx restantes
-  quedan fallidos hasta reintento manual y nunca eliminan el dato local.
+  acotado a una hora; `Retry-After` puede ampliar el plazo. Un trigger automático
+  ordinario respeta ese plazo; recuperar conectividad o pedir sincronización
+  manual fuerza un intento inmediato de lo reintentable sin cambiar su clave de
+  idempotencia. Errores 4xx restantes son fallos permanentes de contrato, no se
+  reintentan ciegamente y nunca eliminan el dato local.
+- Si iOS anuncia conectividad antes de que la ruta sea realmente utilizable, el
+  fallo de transporte programa un único timer al siguiente backoff; no necesita
+  una segunda señal del sistema ni polling continuo.
 - La sesión se consulta al ejecutar. Sin token vigente o si el `sub` no coincide,
   no se consume la cola. Tokens y binarios nunca entran en SQLite.
 - El pull usa los listados completos disponibles. Solo aplica un objeto remoto
   cuando esa entidad no tiene una operación local abierta; no borra filas locales
   ausentes del listado remoto. Los UUID locales son también IDs cloud.
+- La presencia remota del mismo UUID confirma una creación cuya respuesta pudo
+  perderse: cierra esa operación sin sobrescribir los campos locales. El estado
+  visible conserva por separado la creación del Lead y el trabajo de medios.
 - Metadata remota de medios solo confirma filas locales existentes. Crear una
   fila de media sin archivo sería engañoso antes de FL-016.
 

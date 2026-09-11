@@ -504,27 +504,25 @@ class LeadRepository {
     }
     final stored = bundle.lead;
     final mediaStates = bundle.media.map((item) => item.uploadState).toSet();
-    final visibleSyncState = mediaStates.contains('failed')
-        ? 'failed'
-        : mediaStates.contains('syncing')
-        ? 'syncing'
+    final leadState = switch (stored.syncState) {
+      'enHoja' || 'synced' => SessionUploadState.synced,
+      'syncing' => SessionUploadState.syncing,
+      'failed' => SessionUploadState.failed,
+      'pendiente' || 'pending' => SessionUploadState.pending,
+      _ => SessionUploadState.local,
+    };
+    final visibleSyncState = leadState != SessionUploadState.synced
+        ? leadState
+        : mediaStates.contains('failed')
+        ? SessionUploadState.syncedWithMediaError
         : mediaStates.any((state) => state != 'synced')
-        ? 'pending'
-        : stored.syncState;
+        ? SessionUploadState.syncedWithMediaPending
+        : SessionUploadState.synced;
     return SessionLead(
       localId: stored.localId,
       folio: stored.commercialFolio,
       capturedAt: stored.capturedAt.toLocal(),
-      uploadState: switch (visibleSyncState) {
-        // Historical values are preserved but interpreted as provider-neutral.
-        'enHoja' => SessionUploadState.synced,
-        'synced' => SessionUploadState.synced,
-        'pendiente' => SessionUploadState.pending,
-        'pending' => SessionUploadState.pending,
-        'syncing' => SessionUploadState.syncing,
-        'failed' => SessionUploadState.failed,
-        _ => SessionUploadState.local,
-      },
+      uploadState: visibleSyncState,
       lead: LeadDraft(
         name: stored.name,
         lastName: stored.lastName,

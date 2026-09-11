@@ -1601,8 +1601,20 @@ abstract class AppLocalizations {
   /// No description provided for @syncFailed.
   ///
   /// In es, this message translates to:
-  /// **'Falló sync · reintentar'**
+  /// **'Error de sincronización'**
   String get syncFailed;
+
+  /// No description provided for @mediaPending.
+  ///
+  /// In es, this message translates to:
+  /// **'Lead guardado · medios pendientes'**
+  String get mediaPending;
+
+  /// No description provided for @mediaSyncError.
+  ///
+  /// In es, this message translates to:
+  /// **'Lead guardado · error en medios'**
+  String get mediaSyncError;
 
   /// No description provided for @createFirstEvent.
   ///

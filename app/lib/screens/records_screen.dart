@@ -35,8 +35,16 @@ String _uploadStateLabel(BuildContext context, SessionUploadState state) =>
       SessionUploadState.pending => context.l10n.pendingUpload,
       SessionUploadState.syncing => context.l10n.syncingState,
       SessionUploadState.synced => context.l10n.synced,
+      SessionUploadState.syncedWithMediaPending => context.l10n.mediaPending,
+      SessionUploadState.syncedWithMediaError => context.l10n.mediaSyncError,
       SessionUploadState.failed => context.l10n.syncFailed,
     };
+
+IconData _uploadStateIcon(SessionUploadState state) => switch (state) {
+  SessionUploadState.synced => Icons.check,
+  SessionUploadState.syncedWithMediaError => Icons.warning_amber_rounded,
+  _ => Icons.sync,
+};
 
 /// Lists leads loaded from durable local persistence (REG-01–REG-08).
 class RecordsScreen extends StatefulWidget {
@@ -839,7 +847,7 @@ class _RecordRow extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          pending ? Icons.sync : Icons.check,
+                          _uploadStateIcon(record.uploadState),
                           size: 15,
                           color: pending ? palette.ink : palette.success,
                         ),
@@ -949,9 +957,7 @@ class ConnectionDetailScreen extends StatelessWidget {
                   tint: record.uploadState != SessionUploadState.synced
                       ? pendingTint
                       : palette.successTint,
-                  icon: record.uploadState != SessionUploadState.synced
-                      ? Icons.sync
-                      : Icons.check,
+                  icon: _uploadStateIcon(record.uploadState),
                 ),
               ],
             ),

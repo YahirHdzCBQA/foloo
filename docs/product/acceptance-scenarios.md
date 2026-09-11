@@ -108,6 +108,10 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - ConnectivityState cambia sin alterar AuthState.
 - Al recuperar señal, colas reanudables avanzan sin duplicados; un archivo
   grande no detiene Leads.
+- Evento, Lead y metadata de medios respetan dependencia padre-hijo; un fallo
+  del padre no envía prematuramente al hijo.
+- Un Lead confirmado remotamente no aparece como fallido solo porque alguno de
+  sus medios siga pendiente o tenga error.
 - Fallo repetido conserva dato, motivo y reintento manual.
 - Cerrar/reabrir la app conserva la outbox; reintentar una respuesta perdida usa
   la misma clave idempotente. Un 400 queda detenido y 408/429/5xx/transporte se

@@ -179,7 +179,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `SYN-04` | Lead, tarjeta, voz, imágenes y PDF usan colas/reintentos independientes para evitar bloqueo en cascada. |
 | `SYN-05` | Reintento automático al recuperar conexión y manual desde Registros. |
 | `SYN-06` | Sincronización es idempotente y reanudable; el identificador remoto final queda sujeto al contrato API. |
-| `SYN-07` | Estado local, pendiente, sincronizado o fallido aparece con icono y palabra en lista y detalle. |
+| `SYN-07` | Estado local, pendiente, sincronizado o fallido aparece con icono y palabra en lista y detalle; el estado del Lead se distingue del estado pendiente/fallido de sus medios. |
 | `SYN-08` | Fallos repetidos conservan datos, motivo legible y acción de reintento. |
 | `SYN-09` | Nuevos datos se aíslan por Cognito `sub`; logout no borra colas. |
 | `SYN-10` | La implementación cloud sigue Flutter → Drift → sync → API Foloo; no llama proveedores directamente. |
