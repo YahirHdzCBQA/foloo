@@ -286,7 +286,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `RNF-03` | Controles táctiles ≥44 dp, CTA 56 dp, WCAG 2.2 AA y estado no solo por color. |
 | `RNF-04` | Soportar al menos 300 leads/evento, 12 eventos y 20 PDF sin degradación visible. |
 | `RNF-05` | Sin secretos de servicio; HTTPS; medios cifrados y enlaces autenticados. |
-| `RNF-06` | Toda la app y correos operan ES/EN; tipografías/assets críticos son locales. |
+| `RNF-06` | Toda la app y correos operan ES/EN; tipografías/assets críticos son locales y todo texto de negocio conserva Unicode mediante UTF-8 en persistencia, sincronización y API. |
 | `RNF-07` | Guardados y sincronización no crean duplicados ni pierden cambios locales. |
 | `RNF-08` | La política comercial nunca reduce disponibilidad de datos ya capturados. |
 

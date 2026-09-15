@@ -54,3 +54,34 @@ test("scopes lead-media reads by workspace and lead UUID", async () => {
   );
   assert.deepEqual(values, ["workspace-a", "lead-b"]);
 });
+
+test("RNF-06 passes Unicode through PostgreSQL parameters unchanged", async () => {
+  const unicodeName = "José Álvarez · MÉXICO · São Paulo";
+  const unicodeCompany = "Niñez y pingüino · ¿Información?";
+  let values: unknown[] | undefined;
+  const pool = {
+    query: async (_sql: string, parameters?: unknown[]) => {
+      values = parameters;
+      return {
+        rows: [{ name: unicodeName, company: unicodeCompany, revision: 1 }],
+      };
+    },
+  } as unknown as pg.Pool;
+  const profile = await new PostgresFolooRepository(pool).saveProfile(
+    {
+      subject: "subject-a",
+      userId: "user-a",
+      accountId: "account-a",
+      workspaceId: "workspace-a",
+    },
+    { name: unicodeName, company: unicodeCompany },
+  );
+
+  assert.equal(values?.[2], unicodeName);
+  assert.equal(values?.[3], unicodeCompany);
+  assert.deepEqual(profile, {
+    name: unicodeName,
+    company: unicodeCompany,
+    revision: 1,
+  });
+});

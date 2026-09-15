@@ -15,7 +15,7 @@
 | `NAV-*` | E-12 | ADR-001 | drawer/theme/l10n; f1-15/25/26 |
 | `MON-*` | E-11 | D-01–D-04/D-11 | sin implementación; f3-01–08 |
 | `INF-*`, `RC-*` | E-09/E-12/E-13 | ADR-001/002/003/005; D-09/D-10/D-13 | backend AWS FL-014 y S3 privado/presigned/confirmación FL-016; despliegue FL-016 pendiente |
-| `REL-*`, `RNF-*` | E-12 | decisiones aplicables | suite local parcial; f5-01–12 |
+| `REL-*`, `RNF-*` | E-12 | decisiones aplicables | suite local parcial y round-trip UTF-8 en app/backend; f5-01–12 |
 
 Los IDs antiguos aún presentes en código/tests describen el origen histórico de
 una implementación. El texto actual de `docs/product/product-spec.md` gobierna;

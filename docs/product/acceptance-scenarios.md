@@ -158,6 +158,8 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   textos, insignias o destinos Basic/Pro.
 - ES↔EN y claro↔oscuro actualizan todas las superficies con contraste y estado
   no dependiente solo de color.
+- Texto de negocio con caracteres Unicode sobrevive sin sustitución al ciclo
+  Drift → outbox → API/PostgreSQL → pull → Drift y vuelve a renderizarse igual.
 - El binario no expone secretos; medios requieren acceso autorizado.
 - El bucket de medios bloquea acceso público, cifra en reposo, exige TLS y no
   entrega credenciales AWS ni URLs firmadas persistentes al cliente.

@@ -49,7 +49,9 @@ class IoSyncHttpTransport implements SyncHttpTransport {
     try {
       final request = await _client.openUrl(method, uri).timeout(timeout);
       headers.forEach(request.headers.set);
-      if (body != null) request.write(body);
+      // HttpClientRequest.write defaults to Latin-1. JSON is UTF-8 on the wire,
+      // so add encoded bytes explicitly to preserve every Unicode code point.
+      if (body != null) request.add(utf8.encode(body));
       final response = await request.close().timeout(timeout);
       final responseBody = await utf8.decoder.bind(response).join();
       final retryAfter = _retryAfter(response.headers.value('retry-after'));
@@ -104,7 +106,7 @@ class FolooApiClient implements SyncApi {
         HttpHeaders.authorizationHeader: 'Bearer $accessToken',
         HttpHeaders.acceptHeader: 'application/json',
         if (request.body != null)
-          HttpHeaders.contentTypeHeader: 'application/json',
+          HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
         if (request.idempotencyKey != null)
           'Idempotency-Key': request.idempotencyKey!,
       },
