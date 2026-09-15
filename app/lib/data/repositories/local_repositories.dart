@@ -453,8 +453,14 @@ class LeadRepository {
 
   Future<void> reconcileMediaReferences() async {
     for (final media in await _database.leadDao.allMedia()) {
-      if (!await _mediaStorage.exists(media.localPath)) {
-        await _database.leadDao.deleteMediaMetadata(media.localId);
+      final resolvedPath = await _mediaStorage.resolveExistingPath(
+        media.localPath,
+      );
+      if (resolvedPath != null && resolvedPath != media.localPath) {
+        await _database.leadDao.updateMediaLocalPath(
+          media.localId,
+          resolvedPath,
+        );
       }
     }
   }

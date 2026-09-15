@@ -14,6 +14,18 @@ import '../data/local/app_database.dart';
 import '../data/local/private_media_storage.dart';
 import 'sync_models.dart';
 
+class LegacyMediaRepairResult {
+  const LegacyMediaRepairResult({
+    required this.operationId,
+    required this.mediaId,
+    required this.result,
+  });
+
+  final String operationId;
+  final String mediaId;
+  final String result;
+}
+
 class SyncStore {
   SyncStore(this.database, {this.mediaStorage, String Function()? idFactory})
     : _idFactory = idFactory ?? const Uuid().v4;
@@ -72,31 +84,144 @@ class SyncStore {
 
   /// Reactivates only operations failed by the shipped FL-016 naive timestamp.
   /// Other 4xx contract failures remain terminal until their cause is fixed.
-  Future<void> repairFailedMediaTimestamps(String ownerSub) async {
+  Future<List<LegacyMediaRepairResult>> repairFailedMediaTimestamps(
+    String ownerSub,
+  ) async {
+    final results = <LegacyMediaRepairResult>[];
     for (final operation in await all(ownerSub)) {
       if (operation.entityType != SyncEntityType.leadMedia.name ||
           operation.status != SyncOperationStatus.failed.name ||
           operation.lastError != 'http_400_validation_error') {
         continue;
       }
-      final media = await mediaById(operation.entityId);
-      if (media == null || !await File(media.localPath).exists()) continue;
-      final payload = _payloadMap(operation.payloadJson);
-      final capturedAt = payload['capturedAt'];
-      if (payload['leadId'] is! String ||
-          capturedAt is! String ||
-          DateTime.tryParse(capturedAt) == null ||
-          RegExp(r'(Z|[+-]\d{2}:\d{2})$').hasMatch(capturedAt)) {
+      Map<String, Object?> payload;
+      try {
+        payload = _payloadMap(operation.payloadJson);
+      } on FormatException {
+        results.add(_repairResult(operation, 'skipped_invalid_payload_json'));
         continue;
       }
-      payload['capturedAt'] = media.createdAt.toUtc().toIso8601String();
-      await database.syncDao.repairFailedMediaPayload(
-        operation.operationId,
-        jsonEncode(payload),
-        DateTime.now().toUtc(),
+      final capturedAt = payload['capturedAt'];
+      final leadId = payload['leadId'];
+      final byteSize = payload['byteSize'];
+      final durationMs = payload['durationMs'];
+      if (operation.action != 'create' ||
+          leadId is! String ||
+          !_isUuid(leadId) ||
+          await database.leadDao.byId(ownerSub, leadId) == null ||
+          payload['id'] != operation.entityId ||
+          !_isUuid(operation.entityId) ||
+          byteSize is! int ||
+          byteSize <= 0 ||
+          (durationMs != null && (durationMs is! int || durationMs < 0)) ||
+          capturedAt is! String ||
+          !_legacyNaiveTimestamp.hasMatch(capturedAt)) {
+        results.add(_repairResult(operation, 'skipped_contract_mismatch'));
+        continue;
+      }
+      LocalMediaType mediaType;
+      try {
+        mediaType = _localType(payload['kind'] as String);
+      } on Object {
+        results.add(_repairResult(operation, 'skipped_contract_mismatch'));
+        continue;
+      }
+      final expectedContentType = mediaType == LocalMediaType.voiceNote
+          ? 'audio/m4a'
+          : 'image/jpeg';
+      final maximumBytes = mediaType == LocalMediaType.voiceNote
+          ? 100 * 1024 * 1024
+          : 25 * 1024 * 1024;
+      if (payload['contentType'] != expectedContentType ||
+          byteSize > maximumBytes ||
+          (mediaType != LocalMediaType.voiceNote && durationMs != null) ||
+          (durationMs is int && durationMs % 1000 != 0)) {
+        results.add(_repairResult(operation, 'skipped_contract_mismatch'));
+        continue;
+      }
+      final parsedTimestamp = DateTime.tryParse(capturedAt);
+      if (parsedTimestamp == null) {
+        results.add(_repairResult(operation, 'skipped_contract_mismatch'));
+        continue;
+      }
+      final storage = mediaStorage;
+      if (storage == null) {
+        results.add(_repairResult(operation, 'skipped_storage_unavailable'));
+        continue;
+      }
+      final media = await mediaById(operation.entityId);
+      final reconstructed = media == null;
+      String? resolvedPath;
+      if (media == null) {
+        resolvedPath = await storage.findUniqueRecoveryFile(
+          leadId: leadId,
+          type: mediaType,
+          byteSize: byteSize,
+        );
+        if (resolvedPath == null ||
+            await database.leadDao.mediaByPath(resolvedPath) != null) {
+          results.add(
+            _repairResult(operation, 'skipped_media_file_not_unique'),
+          );
+          continue;
+        }
+      } else {
+        if (media.leadLocalId != leadId || media.mediaType != mediaType.name) {
+          results.add(_repairResult(operation, 'skipped_contract_mismatch'));
+          continue;
+        }
+        resolvedPath = await storage.resolveExistingPath(media.localPath);
+        if (resolvedPath == null) {
+          results.add(_repairResult(operation, 'skipped_local_file_missing'));
+          continue;
+        }
+      }
+      if (await File(resolvedPath).length() != byteSize) {
+        results.add(_repairResult(operation, 'skipped_contract_mismatch'));
+        continue;
+      }
+      payload['capturedAt'] = parsedTimestamp.toUtc().toIso8601String();
+      await database.transaction(() async {
+        if (media == null) {
+          await database.leadDao.insertMedia(
+            LocalLeadMediaCompanion.insert(
+              localId: operation.entityId,
+              leadLocalId: leadId,
+              mediaType: mediaType.name,
+              localPath: resolvedPath!,
+              durationSeconds: Value(
+                durationMs is int ? durationMs ~/ 1000 : null,
+              ),
+              uploadState: const Value('pending'),
+              createdAt: parsedTimestamp.toUtc(),
+            ),
+          );
+        } else if (resolvedPath != media.localPath) {
+          await database.leadDao.updateMediaLocalPath(
+            operation.entityId,
+            resolvedPath!,
+          );
+        }
+        await database.syncDao.repairFailedMediaPayload(
+          operation.operationId,
+          jsonEncode(payload),
+          DateTime.now().toUtc(),
+        );
+        await database.leadDao.markMediaSyncState(
+          operation.entityId,
+          'pending',
+        );
+      });
+      results.add(
+        _repairResult(
+          operation,
+          reconstructed
+              ? 'reconstructed_legacy_media_and_captured_at'
+              : 'repaired_legacy_captured_at',
+        ),
       );
-      await database.leadDao.markMediaSyncState(operation.entityId, 'pending');
     }
+    return results;
   }
 
   /// Backfills valid pre-FL-015 rows without changing their local identity.
@@ -507,6 +632,19 @@ class SyncStore {
 
   Map<String, Object?> _payloadMap(String value) =>
       (jsonDecode(value) as Map).cast<String, Object?>();
+
+  LegacyMediaRepairResult _repairResult(
+    StoredSyncOperation operation,
+    String result,
+  ) => LegacyMediaRepairResult(
+    operationId: operation.operationId,
+    mediaId: operation.entityId,
+    result: result,
+  );
+
+  static final RegExp _legacyNaiveTimestamp = RegExp(
+    r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}(?:\d{3})?$',
+  );
 
   String _leadTypeFromApi(String value) => switch (value) {
     'supplier' => 'supplier',

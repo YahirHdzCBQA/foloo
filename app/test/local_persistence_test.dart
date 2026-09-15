@@ -170,7 +170,7 @@ void main() {
   );
 
   test(
-    'card and voice files are copied privately and recovered after reopen',
+    'pending media metadata survives a temporarily unavailable local file',
     () async {
       final sourceCard = File('${temporary.path}/picker-card.jpg');
       final sourceAudio = File('${temporary.path}/recorder-note.m4a');
@@ -204,8 +204,9 @@ void main() {
       await File(recovered.lead.audioLocalPath!).delete();
       await leads.reconcileMediaReferences();
       final coherent = (await leads.listAll(userId)).single;
-      expect(coherent.lead.audioLocalPath, isNull);
+      expect(coherent.lead.audioLocalPath, isNotNull);
       expect(coherent.lead.cardImageLocalPath, isNotNull);
+      expect(await database.leadDao.mediaFor(saved.localId), hasLength(2));
       final managedOrphan = File('${mediaRoot.path}/voice_notes/orphan.m4a');
       await managedOrphan.parent.create(recursive: true);
       await managedOrphan.writeAsBytes([9]);

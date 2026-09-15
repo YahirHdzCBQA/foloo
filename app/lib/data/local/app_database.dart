@@ -298,6 +298,10 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
     localLeadMedia,
   )..where((row) => row.localId.equals(id))).getSingleOrNull();
 
+  Future<StoredLeadMedia?> mediaByPath(String path) => (select(
+    localLeadMedia,
+  )..where((row) => row.localPath.equals(path))).getSingleOrNull();
+
   Future<List<StoredLeadBundle>> _bundles(List<StoredLead> leads) async =>
       Future.wait(
         leads.map(
@@ -366,6 +370,11 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
   Future<void> markMediaSyncState(String id, String state) =>
       (update(localLeadMedia)..where((row) => row.localId.equals(id))).write(
         LocalLeadMediaCompanion(uploadState: Value(state)),
+      );
+
+  Future<void> updateMediaLocalPath(String id, String path) =>
+      (update(localLeadMedia)..where((row) => row.localId.equals(id))).write(
+        LocalLeadMediaCompanion(localPath: Value(path)),
       );
 }
 

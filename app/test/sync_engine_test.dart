@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/native.dart';
@@ -1221,7 +1222,7 @@ void main() {
   );
 
   test(
-    'SYN-08 manual retry repairs shipped naive media timestamp without new IDs',
+    'SYN-08 manual retry repairs relocated iOS legacy media without new IDs',
     () async {
       final root = await Directory.systemTemp.createTemp('foloo_media_repair_');
       addTearDown(() => root.delete(recursive: true));
@@ -1229,7 +1230,9 @@ void main() {
       final database = AppDatabase(NativeDatabase.memory());
       addTearDown(database.close);
       var sequence = 0;
-      final storage = PrivateMediaStorage(Directory('${root.path}/private'));
+      final storage = PrivateMediaStorage(
+        Directory('${root.path}/new-container/foloo_media'),
+      );
       final store = SyncStore(
         database,
         mediaStorage: storage,
@@ -1251,27 +1254,29 @@ void main() {
       await store.complete(
         initial.singleWhere((item) => item.entityType == 'lead'),
       );
-      await database.syncDao.complete(
-        initial
-            .singleWhere((item) => item.entityType == 'leadMedia')
-            .operationId,
+      final mediaOperation = initial.singleWhere(
+        (item) => item.entityType == 'leadMedia',
       );
-      await store.enqueue(
-        ownerSub: owner,
-        entityType: SyncEntityType.leadMedia,
-        entityId: media.localId,
-        action: 'create',
-        payload: {
-          'leadId': saved.localId,
-          'id': media.localId,
-          'kind': 'business_card',
-          'contentType': 'image/jpeg',
-          'byteSize': await File(media.localPath).length(),
-          'capturedAt': '2026-09-14T12:34:56.000',
-          'durationMs': null,
-        },
+      final legacyPayload =
+          (jsonDecode(mediaOperation.payloadJson) as Map)
+              .cast<String, Object?>()
+            ..['capturedAt'] = '2026-09-14T12:34:56.000';
+      await database.syncDao.repairFailedMediaPayload(
+        mediaOperation.operationId,
+        jsonEncode(legacyPayload),
+        DateTime.utc(2026, 9, 14, 18, 34),
       );
-      final failed = (await store.all(owner)).single;
+      final oldContainerPath = media.localPath.replaceFirst(
+        '/new-container/',
+        '/old-container/',
+      );
+      await database.leadDao.updateMediaLocalPath(
+        media.localId,
+        oldContainerPath,
+      );
+      final failed = (await store.all(
+        owner,
+      )).singleWhere((item) => item.operationId == mediaOperation.operationId);
       await store.markFailed(
         failed,
         'http_400_validation_error',
@@ -1279,12 +1284,14 @@ void main() {
       );
       final api = _MediaApi();
       final transfer = _MediaTransfer();
+      final logs = <Map<String, Object?>>[];
 
       await SyncEngine(
         store,
         api,
         _Session('token'),
         mediaTransfer: transfer,
+        logger: logs.add,
       ).synchronize(owner, trigger: SyncTrigger.manual);
 
       final authorization = api.calls.singleWhere(
@@ -1296,10 +1303,195 @@ void main() {
       expect(authorization.request.body?['id'], media.localId);
       expect(confirmation.request.body?['id'], media.localId);
       expect(authorization.request.body?['capturedAt'], endsWith('Z'));
+      expect(
+        confirmation.request.idempotencyKey,
+        mediaOperation.idempotencyKey,
+      );
       expect(api.authorizationCount, 1);
+      expect(
+        logs,
+        contains(containsPair('result', 'repaired_legacy_captured_at')),
+      );
+      expect(
+        logs,
+        contains(
+          allOf(
+            containsPair('operationId', mediaOperation.operationId),
+            containsPair('attempt', 2),
+            containsPair('result', 'attempt'),
+          ),
+        ),
+      );
       expect(await store.all(owner), isEmpty);
       expect(await database.leadDao.mediaFor(saved.localId), hasLength(1));
       expect(await File(media.localPath).exists(), isTrue);
+      expect(
+        (await database.leadDao.mediaById(media.localId))?.localPath,
+        media.localPath,
+      );
     },
   );
+
+  test(
+    'SYN-08 manual retry deterministically rebuilds orphaned legacy metadata',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'foloo_media_orphan_repair_',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      final source = File('${root.path}/card.jpg')
+        ..writeAsBytesSync([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]);
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      var sequence = 0;
+      final storage = PrivateMediaStorage(
+        Directory('${root.path}/foloo_media'),
+      );
+      final store = SyncStore(
+        database,
+        mediaStorage: storage,
+        idFactory: () => 'orphan-operation-${sequence++}',
+      );
+      final leads = LeadRepository(
+        database,
+        storage,
+        idFactory: () => 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        syncStore: store,
+      );
+      final saved = await leads.saveDraft(
+        owner,
+        _draft(cardPath: source.path),
+        capturedBy: profile,
+      );
+      final media = (await database.leadDao.mediaFor(saved.localId)).single;
+      final operations = await store.all(owner);
+      await store.complete(
+        operations.singleWhere((item) => item.entityType == 'lead'),
+      );
+      final mediaOperation = operations.singleWhere(
+        (item) => item.entityType == 'leadMedia',
+      );
+      final legacyPayload =
+          (jsonDecode(mediaOperation.payloadJson) as Map)
+              .cast<String, Object?>()
+            ..['capturedAt'] = '2026-09-14T12:34:56.000';
+      await database.syncDao.repairFailedMediaPayload(
+        mediaOperation.operationId,
+        jsonEncode(legacyPayload),
+        DateTime.utc(2026, 9, 14, 18, 34),
+      );
+      final pending = (await store.all(owner)).single;
+      await store.markFailed(
+        pending,
+        'http_400_validation_error',
+        DateTime.utc(2026, 9, 14, 18, 35),
+      );
+      await database.leadDao.deleteMediaMetadata(media.localId);
+      expect(await database.leadDao.mediaById(media.localId), isNull);
+      expect(await File(media.localPath).exists(), isTrue);
+      final api = _MediaApi();
+      final logs = <Map<String, Object?>>[];
+      final engine = SyncEngine(
+        store,
+        api,
+        _Session('token'),
+        mediaTransfer: _MediaTransfer(),
+        logger: logs.add,
+      );
+
+      await engine.synchronize(owner, trigger: SyncTrigger.manual);
+      await engine.synchronize(owner, trigger: SyncTrigger.manual);
+
+      expect(api.authorizationCount, 1);
+      expect(await store.all(owner), isEmpty);
+      final rebuilt = await database.leadDao.mediaById(media.localId);
+      expect(rebuilt?.localId, media.localId);
+      expect(rebuilt?.leadLocalId, saved.localId);
+      expect(rebuilt?.localPath, media.localPath);
+      expect(
+        logs,
+        contains(
+          allOf(
+            containsPair('operationId', mediaOperation.operationId),
+            containsPair('mediaId', media.localId),
+            containsPair(
+              'result',
+              'reconstructed_legacy_media_and_captured_at',
+            ),
+          ),
+        ),
+      );
+      expect(
+        logs,
+        contains(
+          allOf(
+            containsPair('operationId', mediaOperation.operationId),
+            containsPair('attempt', 2),
+            containsPair('result', 'attempt'),
+          ),
+        ),
+      );
+      final confirmation = api.calls.singleWhere(
+        (call) => call.request.path.endsWith('/media'),
+      );
+      expect(confirmation.request.body?['id'], media.localId);
+      expect(confirmation.request.body?['capturedAt'], endsWith('Z'));
+      expect(
+        confirmation.request.idempotencyKey,
+        mediaOperation.idempotencyKey,
+      );
+    },
+  );
+
+  test('SYN-08 manual retry leaves unrelated media HTTP 400 failed', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'foloo_media_no_repair_',
+    );
+    addTearDown(() => root.delete(recursive: true));
+    final source = File('${root.path}/card.jpg')..writeAsBytesSync([1, 2, 3]);
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final storage = PrivateMediaStorage(Directory('${root.path}/foloo_media'));
+    final store = SyncStore(database, mediaStorage: storage);
+    final leads = LeadRepository(
+      database,
+      storage,
+      idFactory: () => 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      syncStore: store,
+    );
+    await leads.saveDraft(
+      owner,
+      _draft(cardPath: source.path),
+      capturedBy: profile,
+    );
+    final operations = await store.all(owner);
+    await store.complete(
+      operations.singleWhere((item) => item.entityType == 'lead'),
+    );
+    final mediaOperation = operations.singleWhere(
+      (item) => item.entityType == 'leadMedia',
+    );
+    await store.markFailed(
+      mediaOperation,
+      'http_400_validation_error',
+      DateTime.utc(2026, 9, 14, 18, 35),
+    );
+    final api = _MediaApi();
+    final logs = <Map<String, Object?>>[];
+
+    await SyncEngine(
+      store,
+      api,
+      _Session('token'),
+      mediaTransfer: _MediaTransfer(),
+      logger: logs.add,
+    ).synchronize(owner, trigger: SyncTrigger.manual);
+
+    final remaining = (await store.all(owner)).single;
+    expect(remaining.operationId, mediaOperation.operationId);
+    expect(remaining.status, 'failed');
+    expect(remaining.attemptCount, 1);
+    expect(api.authorizationCount, 0);
+    expect(logs, contains(containsPair('result', 'skipped_contract_mismatch')));
+  });
 }
