@@ -5,13 +5,19 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 class MediaTransferException implements Exception {
-  const MediaTransferException({this.statusCode, this.code = 'transport'});
+  const MediaTransferException({
+    this.statusCode,
+    this.code = 'transport',
+    this.storageCode,
+  });
 
   final int? statusCode;
   final String code;
+  final String? storageCode;
 }
 
 abstract interface class MediaBinaryTransfer {
@@ -48,13 +54,10 @@ class IoMediaBinaryTransfer implements MediaBinaryTransfer {
       headers.forEach(request.headers.set);
       request.contentLength = await file.length();
       final response = await file.openRead().pipe(request).timeout(timeout);
-      await response.drain<void>().timeout(timeout);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw MediaTransferException(
-          statusCode: response.statusCode,
-          code: response.statusCode == 403 ? 'authorization_expired' : 'http',
-        );
+        await _throwStorageError(response).timeout(timeout);
       }
+      await response.drain<void>().timeout(timeout);
     } on MediaTransferException {
       rethrow;
     } on TimeoutException {
@@ -80,11 +83,7 @@ class IoMediaBinaryTransfer implements MediaBinaryTransfer {
       final request = await _client.getUrl(url).timeout(timeout);
       final response = await request.close().timeout(timeout);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        await response.drain<void>().timeout(timeout);
-        throw MediaTransferException(
-          statusCode: response.statusCode,
-          code: response.statusCode == 403 ? 'authorization_expired' : 'http',
-        );
+        await _throwStorageError(response).timeout(timeout);
       }
       await response.pipe(destination.openWrite()).timeout(timeout);
       return destination.path;
@@ -101,5 +100,36 @@ class IoMediaBinaryTransfer implements MediaBinaryTransfer {
       if (await destination.exists()) await destination.delete();
       throw const MediaTransferException();
     }
+  }
+
+  Future<Never> _throwStorageError(HttpClientResponse response) async {
+    final body = await utf8.decoder.bind(response).join();
+    final storageCode = RegExp(r'<Code>\s*([A-Za-z0-9]+)\s*</Code>')
+        .firstMatch(body)
+        ?.group(1);
+    final safeStorageCode =
+        const {
+          'ExpiredToken',
+          'RequestExpired',
+          'SignatureDoesNotMatch',
+          'AccessDenied',
+          'BadDigest',
+          'InvalidRequest',
+        }.contains(storageCode)
+        ? storageCode
+        : null;
+    final code = switch (safeStorageCode) {
+      'ExpiredToken' || 'RequestExpired' => 'authorization_expired',
+      'SignatureDoesNotMatch' => 'signature_mismatch',
+      'AccessDenied' => 'access_denied',
+      'BadDigest' => 'checksum_mismatch',
+      'InvalidRequest' => 'invalid_request',
+      _ => response.statusCode == 403 ? 's3_forbidden' : 'http',
+    };
+    throw MediaTransferException(
+      statusCode: response.statusCode,
+      code: code,
+      storageCode: safeStorageCode,
+    );
   }
 }

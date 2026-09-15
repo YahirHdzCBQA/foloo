@@ -105,6 +105,7 @@ class _MediaApi extends _Api {
               'url': 'https://s3.example.test/upload/$authorizationCount',
               'headers': {
                 'content-type': request.body?['contentType'] as String,
+                'x-amz-meta-foloo-media-id': request.body?['id'] as String,
               },
             },
           },
@@ -116,7 +117,7 @@ class _MediaApi extends _Api {
 }
 
 class _MediaTransfer implements MediaBinaryTransfer {
-  final uploads = <({Uri url, String path})>[];
+  final uploads = <({Uri url, String path, Map<String, String> headers})>[];
   final failures = <MediaTransferException>[];
 
   @override
@@ -125,7 +126,7 @@ class _MediaTransfer implements MediaBinaryTransfer {
     required Map<String, String> headers,
     required String localPath,
   }) async {
-    uploads.add((url: url, path: localPath));
+    uploads.add((url: url, path: localPath, headers: Map.of(headers)));
     if (failures.isNotEmpty) throw failures.removeAt(0);
   }
 
@@ -1111,6 +1112,13 @@ void main() {
       );
       final persistedMedia = await database.leadDao.mediaFor(saved.localId);
       final localPaths = persistedMedia.map((item) => item.localPath).toList();
+      final durableOperations = await store.all(owner);
+      expect(
+        durableOperations.every(
+          (operation) => !operation.payloadJson.contains('https://'),
+        ),
+        isTrue,
+      );
       final api = _MediaApi();
       final transfer = _MediaTransfer();
 
@@ -1123,6 +1131,12 @@ void main() {
 
       expect(api.authorizationCount, 3);
       expect(transfer.uploads, hasLength(3));
+      for (final upload in transfer.uploads) {
+        expect(upload.headers.keys.toSet(), {
+          'content-type',
+          'x-amz-meta-foloo-media-id',
+        });
+      }
       final authorizations = api.calls
           .where((call) => call.request.path.endsWith('/media/uploads'))
           .map((call) => call.request.body!)
@@ -1212,6 +1226,13 @@ void main() {
       await engine.synchronize(owner);
 
       expect(api.authorizationCount, 2);
+      expect(
+        api.calls
+            .where((call) => call.request.path.endsWith('/media/uploads'))
+            .map((call) => call.request.body?['id'])
+            .toSet(),
+        {mediaId},
+      );
       expect(transfer.uploads.map((item) => item.url.toString()), [
         'https://s3.example.test/upload/1',
         'https://s3.example.test/upload/2',

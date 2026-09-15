@@ -177,6 +177,7 @@ class SyncEngine extends ChangeNotifier {
           'retry',
           httpStatus: error.statusCode,
           error: error.code,
+          storageCode: error.storageCode,
         );
         await _retry(
           operation,
@@ -220,6 +221,7 @@ class SyncEngine extends ChangeNotifier {
       ),
     );
     final upload = _uploadTarget(authorization);
+    _logMediaAuthorization(operation, payload, upload.headers);
     await mediaTransfer!.upload(
       url: upload.url,
       headers: upload.headers,
@@ -305,6 +307,7 @@ class SyncEngine extends ChangeNotifier {
     String result, {
     int? httpStatus,
     String? error,
+    String? storageCode,
   }) {
     final event = <String, Object?>{
       'scope': 'media_upload',
@@ -314,7 +317,29 @@ class SyncEngine extends ChangeNotifier {
     };
     if (httpStatus != null) event['httpStatus'] = httpStatus;
     if (error != null) event['errorClass'] = error;
+    if (storageCode != null) event['storageErrorCode'] = storageCode;
     logger(event);
+  }
+
+  void _logMediaAuthorization(
+    StoredSyncOperation operation,
+    Map<String, Object?> payload,
+    Map<String, String> headers,
+  ) {
+    final normalized = headers.map(
+      (key, value) => MapEntry(key.toLowerCase(), value),
+    );
+    logger({
+      'scope': 'media_upload',
+      'mediaId': operation.entityId,
+      'operationId': operation.operationId,
+      'result': 'authorization_received',
+      'requiredHeaders': normalized.keys.toList()..sort(),
+      'contentTypeMatches':
+          normalized['content-type'] == payload['contentType'],
+      'mediaMetadataPresent':
+          normalized['x-amz-meta-foloo-media-id'] == operation.entityId,
+    });
   }
 
   static void _defaultLogger(Map<String, Object?> event) {

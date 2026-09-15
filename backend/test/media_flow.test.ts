@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { S3Client } from "@aws-sdk/client-s3";
+import { S3Client } from "@aws-sdk/client-s3";
 
 import { ApplicationError, notFound } from "../src/application/errors.js";
 import { FolooApplication } from "../src/application/foloo_application.js";
@@ -194,6 +194,43 @@ test("S3 key construction ignores filenames and client-provided storage keys", (
     storage.objectKey(principal, leadId, media.id),
     `media/workspaces/workspace-a/leads/${leadId}/${media.id}`,
   );
+});
+
+test("presigned PUT binds exactly the headers Flutter must send", async () => {
+  const client = new S3Client({
+    region: "us-east-1",
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    credentials: {
+      accessKeyId: "FAKE_ACCESS_KEY",
+      secretAccessKey: "FAKE_SECRET_KEY",
+    },
+  });
+  const authorization = await new S3MediaStorage(
+    "private-test-bucket",
+    client,
+  ).authorizeUpload(
+    {
+      subject: "subject-a",
+      userId: "user-a",
+      accountId: "account-a",
+      workspaceId: "workspace-a",
+    },
+    leadId,
+    media,
+  );
+  const url = new URL(authorization.upload.url);
+
+  assert.equal(
+    url.searchParams.get("X-Amz-SignedHeaders"),
+    "content-length;content-type;host;x-amz-meta-foloo-media-id",
+  );
+  assert.equal(url.searchParams.has("x-amz-meta-foloo-media-id"), false);
+  assert.equal(url.searchParams.has("x-amz-checksum-crc32"), false);
+  assert.equal(url.searchParams.has("x-amz-sdk-checksum-algorithm"), false);
+  assert.deepEqual(authorization.upload.headers, {
+    "content-type": media.contentType,
+    "x-amz-meta-foloo-media-id": media.id,
+  });
 });
 
 test("S3 confirmation verifies metadata and the actual JPEG signature", async () => {

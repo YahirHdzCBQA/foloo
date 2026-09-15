@@ -22,6 +22,7 @@ import type {
 
 const uploadLifetimeSeconds = 600;
 const downloadLifetimeSeconds = 300;
+const mediaIdHeader = "x-amz-meta-foloo-media-id";
 
 export interface MediaStorage {
   objectKey(principal: Principal, leadId: string, mediaId: string): string;
@@ -37,7 +38,11 @@ export interface MediaStorage {
 export class S3MediaStorage implements MediaStorage {
   constructor(
     private readonly bucketName: string,
-    private readonly client: S3Client = new S3Client({}),
+    private readonly client: S3Client = new S3Client({
+      // A presign operation does not have the binary body. Do not bind the URL
+      // to the SDK checksum of an empty body; S3 validates the actual media.
+      requestChecksumCalculation: "WHEN_REQUIRED",
+    }),
     private readonly now: () => Date = () => new Date(),
   ) {}
 
@@ -53,7 +58,7 @@ export class S3MediaStorage implements MediaStorage {
     const key = this.objectKey(principal, leadId, input.id);
     const headers = {
       "content-type": input.contentType,
-      "x-amz-meta-foloo-media-id": input.id,
+      [mediaIdHeader]: input.id,
     };
     const url = await getSignedUrl(
       this.client,
@@ -64,7 +69,11 @@ export class S3MediaStorage implements MediaStorage {
         ContentLength: input.byteSize,
         Metadata: { "foloo-media-id": input.id },
       }),
-      { expiresIn: uploadLifetimeSeconds },
+      {
+        expiresIn: uploadLifetimeSeconds,
+        signableHeaders: new Set(["content-type"]),
+        unhoistableHeaders: new Set([mediaIdHeader]),
+      },
     );
     return {
       mediaId: input.id,
