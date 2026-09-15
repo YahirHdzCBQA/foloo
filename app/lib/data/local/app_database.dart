@@ -495,6 +495,25 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
           updatedAt: Value(now),
         ),
       );
+
+  /// Repairs the known FL-016 timestamp serialization defect without changing
+  /// the logical operation, idempotency key, media ID or local file reference.
+  Future<void> repairFailedMediaPayload(
+    String operationId,
+    String payloadJson,
+    DateTime now,
+  ) =>
+      (update(
+        syncOperations,
+      )..where((row) => row.operationId.equals(operationId))).write(
+        SyncOperationsCompanion(
+          payloadJson: Value(payloadJson),
+          status: const Value('pending'),
+          nextAttemptAt: const Value(null),
+          lastError: const Value(null),
+          updatedAt: Value(now),
+        ),
+      );
 }
 
 @DriftDatabase(

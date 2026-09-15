@@ -39,7 +39,8 @@ edición, exportación o reintentos pendientes.
 - Perfil Foloo, eventos, origen evento/directo y lugar del directo.
 - Captura de tarjeta y OCR en dispositivo con Google ML Kit.
 - Datos del contacto, tipo, interés, voz, texto e imágenes de referencia.
-- Persistencia Drift/SQLite, operación offline total y sincronización futura.
+- Persistencia Drift/SQLite, operación offline total y sincronización cloud de
+  datos y medios.
 - Registros, detalle editable y visor de imágenes.
 - Biblioteca PDF, asignación a eventos, plantillas y correo con adjuntos.
 - Exportación XLSX y CSV por evento, incluida operación sobre datos locales.
@@ -176,13 +177,13 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `SYN-01` | Drift/SQLite es la fuente durable local para perfil, preferencias, eventos, leads y metadata de medios. |
 | `SYN-02` | Toda la app mantiene consulta y mutaciones locales útiles sin red: captura, registros, contenido, plantillas y cola de correo. |
 | `SYN-03` | ConnectivityState es visual y separado de AuthState y disponibilidad del backend. |
-| `SYN-04` | Lead, tarjeta, voz, imágenes y PDF usan colas/reintentos independientes para evitar bloqueo en cascada. |
+| `SYN-04` | Lead, tarjeta, voz, imágenes y PDF usan colas/reintentos independientes para evitar bloqueo en cascada; los medios respetan la dependencia del Lead remoto. |
 | `SYN-05` | Reintento automático al recuperar conexión y manual desde Registros. |
-| `SYN-06` | Sincronización es idempotente y reanudable; el identificador remoto final queda sujeto al contrato API. |
+| `SYN-06` | Sincronización es idempotente y reanudable; un medio conserva el mismo UUID/object key lógico aunque cambie su autorización temporal. |
 | `SYN-07` | Estado local, pendiente, sincronizado o fallido aparece con icono y palabra en lista y detalle; el estado del Lead se distingue del estado pendiente/fallido de sus medios. |
 | `SYN-08` | Fallos repetidos conservan datos, motivo legible y acción de reintento. |
 | `SYN-09` | Nuevos datos se aíslan por Cognito `sub`; logout no borra colas. |
-| `SYN-10` | La implementación cloud sigue Flutter → Drift → sync → API Foloo; no llama proveedores directamente. |
+| `SYN-10` | La implementación cloud sigue Flutter → Drift → sync → API Foloo. La única excepción aprobada es PUT/GET directo a S3 mediante URL temporal emitida por la API, sin credenciales AWS en Flutter. |
 
 ### 4.6 Registros, detalle y exportación
 
@@ -267,7 +268,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | ID | Requerimiento |
 |---|---|
 | `INF-01` | Dirección: Flutter → Drift/SQLite → Offline Sync → Foloo API → API Gateway → Lambda Node.js/TypeScript → persistencia cloud. |
-| `INF-02` | S3 almacenará tarjeta, imágenes de referencia, voz y PDF con acceso autenticado y retención; permanece para FL-016. |
+| `INF-02` | S3 privado almacena tarjeta, imágenes de referencia y voz mediante URLs temporales; PDF permanece para FL-018. La API deriva la key, verifica el objeto antes de marcarlo disponible y ofrece lectura temporal autenticada. |
 | `INF-03` | PostgreSQL en AWS RDS es la persistencia cloud relacional; RDS permanece privado y Lambda accede únicamente dentro de la VPC (ADR-003). |
 | `INF-04` | DEV/staging/PROD, secretos, CI/CD, observabilidad, respaldos y borrado requieren trabajo de infraestructura trazado. |
 | `INF-05` | La API Foloo usa rutas REST versionadas bajo `/v1` y valida inputs en runtime con un contrato de error estable. |
@@ -275,7 +276,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `INF-07` | Cada identidad tiene una cuenta y workspace personal inicial, modelados mediante membresía para permitir evolución organizacional sin implementar Teams. |
 | `INF-08` | Recursos cloud usan UUID estable suministrable por el cliente, revisión, timestamps y borrado lógico; el folio comercial nunca es identidad técnica. |
 | `INF-09` | Escrituras de creación aceptan una clave de idempotencia y detectan su reutilización con otro payload; FL-015 consumirá esta base sin implementar sync aquí. |
-| `INF-10` | Binarios no se guardan en PostgreSQL; FL-014 conserva únicamente metadata y FL-016 incorporará S3. |
+| `INF-10` | Binarios no se guardan en PostgreSQL ni atraviesan Lambda; PostgreSQL conserva metadata, object key y estado de confirmación. |
 | `INF-11` | RDS no es público; PostgreSQL acepta tráfico solo desde el Security Group de Lambda y DEV no incorpora NAT Gateway ni RDS Proxy. |
 | `INF-12` | Credenciales de base se generan/guardan en Secrets Manager y se leen por endpoint VPC privado; no existen credenciales AWS, DB o JWT en Flutter/repositorio. |
 | `INF-13` | La Lambda reutiliza un pool PostgreSQL pequeño entre invocaciones; DEV usa la concurrencia no reservada de la cuenta y reevalúa RDS Proxy/capacidad con métricas. |

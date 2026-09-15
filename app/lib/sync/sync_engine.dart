@@ -10,6 +10,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 
 import '../data/local/app_database.dart';
+import 'media_binary_transfer.dart';
 import 'sync_models.dart';
 import 'sync_store.dart';
 
@@ -21,12 +22,14 @@ class SyncEngine extends ChangeNotifier {
     DateTime Function()? now,
     this.logger = _defaultLogger,
     this.onRetryScheduled,
+    this.mediaTransfer,
   }) : _now = now ?? DateTime.now;
 
   final SyncStore _store;
   final SyncApi _api;
   final SyncSessionProvider _sessions;
   final DateTime Function() _now;
+  final MediaBinaryTransfer? mediaTransfer;
   final void Function(Map<String, Object?> event) logger;
   final void Function(String ownerSub, DateTime nextAttemptAt)?
   onRetryScheduled;
@@ -71,6 +74,9 @@ class SyncEngine extends ChangeNotifier {
   }
 
   Future<void> _synchronizeOnce(String ownerSub, SyncTrigger trigger) async {
+    if (trigger == SyncTrigger.manual) {
+      await _store.repairFailedMediaTimestamps(ownerSub);
+    }
     logger({'scope': 'sync_trigger', 'trigger': trigger.logName});
     await _logOutbox(ownerSub);
     String? token;
@@ -122,7 +128,7 @@ class SyncEngine extends ChangeNotifier {
       await _store.markSyncing(operation, _now());
       notifyListeners();
       try {
-        await _api.send(token, _request(operation));
+        await _sendOperation(token, operation);
         await _store.complete(operation);
         _log(operation, 'synced');
       } on SyncHttpException catch (error) {
@@ -156,12 +162,81 @@ class SyncEngine extends ChangeNotifier {
         }
       } on SyncTransportException {
         await _retry(operation, null, 'transport');
+      } on MediaTransferException catch (error) {
+        _logMedia(
+          operation,
+          'retry',
+          httpStatus: error.statusCode,
+          error: error.code,
+        );
+        await _retry(
+          operation,
+          null,
+          'media_upload_${error.statusCode ?? error.code}',
+          httpStatus: error.statusCode,
+        );
       } on Object catch (error) {
         // A request adapter must not leave a durable row stuck in `syncing`.
         await _retry(operation, null, 'unexpected_${error.runtimeType}');
       }
     }
     return hadBlockedChildren;
+  }
+
+  Future<void> _sendOperation(
+    String token,
+    StoredSyncOperation operation,
+  ) async {
+    if (operation.entityType != SyncEntityType.leadMedia.name ||
+        mediaTransfer == null) {
+      await _api.send(token, _request(operation));
+      return;
+    }
+    final payload = _payload(operation);
+    final leadId = payload.remove('leadId');
+    if (leadId is! String) {
+      throw const FormatException('Media operation has no leadId.');
+    }
+    final media = await _store.mediaById(operation.entityId);
+    if (media == null) {
+      throw const MediaTransferException(code: 'local_metadata_missing');
+    }
+    _logMedia(operation, 'upload_start');
+    final authorization = await _api.send(
+      token,
+      SyncRequest(
+        method: 'POST',
+        path: '/v1/leads/$leadId/media/uploads',
+        body: payload,
+      ),
+    );
+    final upload = _uploadTarget(authorization);
+    await mediaTransfer!.upload(
+      url: upload.url,
+      headers: upload.headers,
+      localPath: media.localPath,
+    );
+    _logMedia(operation, 'upload_success');
+    await _api.send(token, _request(operation));
+    _logMedia(operation, 'confirm_success');
+  }
+
+  ({Uri url, Map<String, String> headers}) _uploadTarget(
+    SyncResponse response,
+  ) {
+    final data = _data(response);
+    if (data is! Map) throw const FormatException('Missing upload data.');
+    final upload = data['upload'];
+    if (upload is! Map || upload['url'] is! String) {
+      throw const FormatException('Missing upload target.');
+    }
+    final rawHeaders = upload['headers'];
+    final headers = rawHeaders is Map
+        ? rawHeaders.map(
+            (key, value) => MapEntry(key.toString(), value.toString()),
+          )
+        : <String, String>{};
+    return (url: Uri.parse(upload['url'] as String), headers: headers);
   }
 
   void _queue(String ownerSub, SyncTrigger trigger) {
@@ -213,6 +288,23 @@ class SyncEngine extends ChangeNotifier {
     if (httpStatus != null) event['httpStatus'] = httpStatus;
     if (error != null) event['errorClass'] = error;
     if (requestId != null) event['requestId'] = requestId;
+    logger(event);
+  }
+
+  void _logMedia(
+    StoredSyncOperation operation,
+    String result, {
+    int? httpStatus,
+    String? error,
+  }) {
+    final event = <String, Object?>{
+      'scope': 'media_upload',
+      'mediaId': operation.entityId,
+      'operationId': operation.operationId,
+      'result': result,
+    };
+    if (httpStatus != null) event['httpStatus'] = httpStatus;
+    if (error != null) event['errorClass'] = error;
     logger(event);
   }
 
@@ -346,7 +438,23 @@ class SyncEngine extends ChangeNotifier {
             ),
           ),
         );
-        await _store.applyRemoteMedia(ownerSub, id, media);
+        await _store.applyRemoteMedia(
+          ownerSub,
+          id,
+          media,
+          download: mediaTransfer == null
+              ? null
+              : (url, contentType) async {
+                  try {
+                    return await mediaTransfer!.download(
+                      url: url,
+                      contentType: contentType,
+                    );
+                  } on MediaTransferException {
+                    rethrow;
+                  }
+                },
+        );
       }
     } on SyncHttpException {
       // Pull is opportunistic; queued local writes remain the source of truth.
@@ -354,6 +462,8 @@ class SyncEngine extends ChangeNotifier {
       // A later trigger retries the complete reconciliation safely.
     } on FormatException {
       // Invalid remote snapshots never overwrite valid local state.
+    } on MediaTransferException {
+      // Remote recovery is opportunistic; a later pull obtains a fresh URL.
     }
   }
 

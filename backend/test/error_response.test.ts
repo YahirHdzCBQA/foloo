@@ -41,3 +41,27 @@ test("preserves safe application status codes", () => {
   );
   assert.equal(response.statusCode, 409);
 });
+
+test("classifies media validation fields without exposing values", () => {
+  let failure: unknown;
+  try {
+    z.object({ capturedAt: z.iso.datetime({ offset: true }) }).parse({
+      capturedAt: "2026-09-14T12:34:56.000",
+    });
+  } catch (error) {
+    failure = error;
+  }
+  const response = errorResponse(
+    failure,
+    "request-media",
+    "/v1/leads/lead-id/media/uploads",
+  );
+  assert.deepEqual(JSON.parse(response.body ?? "{}"), {
+    error: {
+      code: "invalid_captured_at",
+      message: "Request validation failed.",
+      requestId: "request-media",
+    },
+  });
+  assert.doesNotMatch(response.body ?? "", /12:34:56/);
+});

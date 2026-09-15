@@ -5,6 +5,7 @@ import type {
   IdempotentResult,
   LeadInput,
   LeadMediaInput,
+  LeadMediaRecord,
   Principal,
   SellerProfileInput,
 } from "../domain/models.js";
@@ -31,12 +32,22 @@ export interface FolooRepository {
     idempotencyKey: string,
     requestHash: string,
   ): Promise<IdempotentResult<unknown>>;
-  listLeadMedia(principal: Principal, leadId: string): Promise<unknown[]>;
+  listLeadMedia(
+    principal: Principal,
+    leadId: string,
+  ): Promise<LeadMediaRecord[]>;
+  prepareLeadMedia(
+    principal: Principal,
+    leadId: string,
+    input: LeadMediaInput,
+    objectKey: string,
+  ): Promise<void>;
   createLeadMedia(
     principal: Principal,
     leadId: string,
     input: LeadMediaInput,
     idempotencyKey: string,
     requestHash: string,
+    objectKey: string,
   ): Promise<IdempotentResult<unknown>>;
 }

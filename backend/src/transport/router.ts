@@ -150,6 +150,21 @@ export function createRouter(application: FolooApplication) {
       }
     }
 
+    const mediaUploadMatch = /^\/v1\/leads\/([^/]+)\/media\/uploads$/.exec(
+      path,
+    );
+    if (mediaUploadMatch?.[1] && method === "POST") {
+      const leadId = uuidSchema.parse(mediaUploadMatch[1]);
+      const payload = mediaSchema.parse(body(event));
+      return json(201, {
+        data: await application.prepareLeadMediaUpload(
+          subject,
+          leadId,
+          payload,
+        ),
+      });
+    }
+
     throw new ApplicationError("route_not_found", 404, "Route was not found.");
   };
 }

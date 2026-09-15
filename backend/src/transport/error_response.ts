@@ -10,6 +10,7 @@ type PgLikeError = { code?: unknown };
 export function errorResponse(
   error: unknown,
   requestId: string,
+  path?: string,
 ): APIGatewayProxyStructuredResultV2 {
   let statusCode = 500;
   let code = "internal_error";
@@ -17,7 +18,7 @@ export function errorResponse(
 
   if (error instanceof z.ZodError) {
     statusCode = 400;
-    code = "validation_error";
+    code = validationCode(error, path);
     message = "Request validation failed.";
   } else if (error instanceof ApplicationError) {
     statusCode = error.statusCode;
@@ -45,4 +46,21 @@ export function errorResponse(
     headers: { "content-type": "application/json; charset=utf-8" },
     body: JSON.stringify({ error: { code, message, requestId } }),
   };
+}
+
+function validationCode(error: z.ZodError, path?: string): string {
+  if (!path?.includes("/media")) return "validation_error";
+  const field = error.issues[0]?.path[0];
+  return (
+    (
+      {
+        id: "invalid_media_id",
+        kind: "invalid_media_type",
+        contentType: "invalid_content_type",
+        byteSize: "invalid_size",
+        capturedAt: "invalid_captured_at",
+      } as Record<PropertyKey, string>
+    )[field ?? ""] ??
+    (field === undefined ? "invalid_lead_id" : "invalid_payload")
+  );
 }

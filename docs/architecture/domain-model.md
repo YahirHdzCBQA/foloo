@@ -42,7 +42,9 @@ ownership por su Lead o archivo. Email nunca sustituye el identificador estable.
 - `event`, `lead`: UUID suministrable por el cliente, `revision`, timestamps y
   `deleted_at`; toda consulta se limita por workspace.
 - `lead_media`: metadata de tarjeta, referencia o Voice Note. Nunca contiene el
-  binario.
+  binario. `upload_status` transita `pending → available`; `storage_object_key`
+  es una referencia privada derivada por backend y `uploaded_at` solo existe
+  después de verificación S3.
 - `content_file`: metadata preparada para PDF, sin simular subida.
 - `idempotency_record`: conserva el resultado de creaciones reintentables por
   workspace/operación/clave.
@@ -57,5 +59,8 @@ implementa reconciliación.
 tokens ni binarios. Una entidad con operación abierta no es sobrescrita por el
 pull completo de FL-015.
 
-S3 guardará binarios con acceso autenticado y política de retención. La base
-cloud guardará metadata/referencias, no secretos en Flutter.
+S3 guarda binarios bajo workspace/Lead/media UUID. La URL firmada es una
+capacidad efímera, no identidad ni dato persistente. Drift conserva la copia
+privada local y la outbox conserva solo metadata e identidad lógica. La base
+cloud guarda metadata/referencias; no hay secretos AWS en Flutter. La política
+de retención y eliminación definitiva sigue pendiente en D-13.

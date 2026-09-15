@@ -8,13 +8,13 @@
 | `EVT-*` | E-02 | ADR-001 | EventScreen/repositorios/policy; f1-03–05 |
 | `CAP-*`, `OCR-*` | E-03–E-05 | ADR-001; D-11 | captura/ML Kit/Drift; f1-06–09, 11–14, 24 |
 | `VOZ-*` | E-04 | ADR-001; D-05/D-06 | voice service/media/tests; f1-10, 21–23 |
-| `SYN-*` | E-05/E-09/E-13 | ADR-001/003/004; D-13 | Drift, outbox owner-scoped, API client, retry y reconciliación FL-015 |
+| `SYN-*` | E-05/E-09/E-13 | ADR-001/003/004/005; D-13 | Drift, outbox owner-scoped, retry/reconciliación FL-015 y transferencia media FL-016 |
 | `REG-*` | E-06/E-10 | D-06/D-07 | Records y diálogo demo; f1-16–19, f2-06/07, f5-12 |
 | `CON-*` | E-07 | D-08/D-11 | content/picker/sheet; f2-01–03 |
 | `PLT-*`, `SAL-*` | E-08 | D-09 | editor demo; f2-04/05, f4-04/12 |
 | `NAV-*` | E-12 | ADR-001 | drawer/theme/l10n; f1-15/25/26 |
 | `MON-*` | E-11 | D-01–D-04/D-11 | sin implementación; f3-01–08 |
-| `INF-*`, `RC-*` | E-09/E-12/E-13 | ADR-001/002/003; D-09/D-10/D-13 | `backend/`, IaC/migraciones/tests y despliegue AWS DEV FL-014 |
+| `INF-*`, `RC-*` | E-09/E-12/E-13 | ADR-001/002/003/005; D-09/D-10/D-13 | backend AWS FL-014 y S3 privado/presigned/confirmación FL-016; despliegue FL-016 pendiente |
 | `REL-*`, `RNF-*` | E-12 | decisiones aplicables | suite local parcial; f5-01–12 |
 
 Los IDs antiguos aún presentes en código/tests describen el origen histórico de
@@ -72,7 +72,7 @@ interna sea reutilizable.
 | f1-18 | F | detalle actual es consulta, no edición persistente | FL-014 propuesta |
 | f1-19 | I | visor modal de tarjeta desde detalle | FL-010/013 |
 | f1-20 | P | varios estados usan icono/palabra | FL-010; falta auditoría global |
-| f1-21 | P | PrivateMediaStorage persiste tarjeta/voz | FL-012; no existe subida BD/S3 |
+| f1-21 | P | PrivateMediaStorage persiste tarjeta/voz; FL-016 añade subida S3 | falta validación AWS DEV/retención D-13 |
 | f1-22 | I | reproducción, pausa, borrado y regrabación antes/después cubiertos por widget tests | FL-006/010/013; política remota futura sigue en D-06 |
 | f1-23 | F | no existe tope productivo | bloqueado D-05 |
 | f1-24 | I | multi-photo, Drift media y visor disponibles para toda cuenta | FL-013A refinement/013D |
@@ -110,7 +110,7 @@ interna sea reutilizable.
 |---|:---:|---|---|
 | f4-01 | P | modelo/repositorios locales Drift | FL-012/013A; faltan API/cloud |
 | f4-02 | P | Cognito real y `sub` ownership | FL-013B; workspace remoto no existe |
-| f4-03 | P | storage privado local para medios | FL-012; falta S3/retención |
+| f4-03 | P | storage privado local + implementación S3 directa/segura | FL-012/016; falta deploy DEV y retención D-13 |
 | f4-04 | F | sin servicio de correo/dominio/rebotes | bloqueado D-09 |
 | f4-05 | F | confirmación informa solo el guardado local real | Google Sheets sigue fuera de V1; salida remota pendiente |
 | f4-06 | F | no hay modelo org/teams aprobado | bloqueado D-10 |
@@ -158,7 +158,8 @@ interna sea reutilizable.
 - `backend/infra/` define API Gateway JWT, Lambda/VPC, RDS privado, SGs y
   Secrets Manager sin recrear Cognito.
 - `backend/openapi/foloo-v1.yaml` es el contrato desplegable de los endpoints
-  implementados. FL-014 no conecta Flutter ni ejecuta sync/S3.
+  implementados. FL-015 conecta sync y FL-016 agrega autorización/confirmación
+  de medios privados; su despliegue DEV todavía no se presume.
 
 ## FL históricas con evidencia reutilizable
 
@@ -176,6 +177,6 @@ interna sea reutilizable.
 
 ## Conclusión
 
-El repositorio ya tiene una base móvil local considerable, pero no una V1
-productiva. Los bloques mayores faltantes son: detalle editable,
-sync/API/S3/cloud, correo, export real, monetización y salida de tiendas.
+El repositorio ya tiene base móvil local, API/sync y almacenamiento S3 de medios
+implementados, pero no una V1 productiva. Faltan validación AWS de FL-016,
+detalle editable, PDF/contenido, correo, export real, monetización y tiendas.

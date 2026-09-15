@@ -8,12 +8,20 @@ import { PostgresFolooRepository } from "../persistence/postgres_repository.js";
 import { errorResponse } from "./error_response.js";
 import { logEvent } from "./logging.js";
 import { createRouter } from "./router.js";
+import { S3MediaStorage } from "../storage/media_storage.js";
 
 let routerPromise: ReturnType<typeof initialize> | undefined;
 
 async function initialize() {
   const pool = await databasePool();
-  return createRouter(new FolooApplication(new PostgresFolooRepository(pool)));
+  const bucketName = process.env.MEDIA_BUCKET_NAME;
+  if (!bucketName) throw new Error("MEDIA_BUCKET_NAME is required");
+  return createRouter(
+    new FolooApplication(
+      new PostgresFolooRepository(pool),
+      new S3MediaStorage(bucketName),
+    ),
+  );
 }
 
 export const handler: APIGatewayProxyHandlerV2WithJWTAuthorizer = async (
@@ -34,7 +42,7 @@ export const handler: APIGatewayProxyHandlerV2WithJWTAuthorizer = async (
     });
     return response;
   } catch (error) {
-    const response = errorResponse(error, requestId);
+    const response = errorResponse(error, requestId, event.rawPath);
     logEvent("error", {
       requestId,
       routeKey: event.routeKey,

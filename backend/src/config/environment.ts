@@ -9,6 +9,7 @@ const environmentSchema = z.object({
   DB_PORT: z.coerce.number().int().positive().default(5432),
   DB_NAME: z.string().min(1),
   DB_POOL_MAX: z.coerce.number().int().min(1).max(5).default(2),
+  MEDIA_BUCKET_NAME: z.string().min(3),
 });
 
 export type BackendEnvironment = z.infer<typeof environmentSchema>;

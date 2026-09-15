@@ -50,4 +50,26 @@ export type LeadMediaInput = {
   sha256?: string | null;
 };
 
+export type LeadMediaRecord = LeadMediaInput & {
+  storageObjectKey: string | null;
+  uploadStatus: "pending" | "available";
+  uploadedAt: string | null;
+  revision: number;
+};
+
+export type MediaUploadAuthorization = {
+  mediaId: string;
+  upload: {
+    method: "PUT";
+    url: string;
+    expiresAt: string;
+    headers: Record<string, string>;
+  };
+};
+
+export type MediaDownloadAuthorization = {
+  url: string;
+  expiresAt: string;
+};
+
 export type IdempotentResult<T> = { value: T; replayed: boolean };

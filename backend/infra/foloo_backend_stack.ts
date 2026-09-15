@@ -11,6 +11,8 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaNode from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as rds from "aws-cdk-lib/aws-rds";
+import * as s3 from "aws-cdk-lib/aws-s3";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import type { Construct } from "constructs";
 
@@ -71,6 +73,24 @@ export class FolooBackendStack extends cdk.Stack {
       securityGroups: [endpointSg],
       privateDnsEnabled: true,
       open: false,
+    });
+    vpc.addGatewayEndpoint("S3Endpoint", {
+      service: ec2.GatewayVpcEndpointAwsService.S3,
+      subnets: [{ subnetType: ec2.SubnetType.PRIVATE_ISOLATED }],
+    });
+    lambdaSg.addEgressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(443),
+      "HTTPS through private VPC endpoints; isolated subnets have no NAT",
+    );
+
+    const mediaBucket = new s3.Bucket(this, "MediaBucket", {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      versioned: false,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      autoDeleteObjects: false,
     });
 
     const database = new rds.DatabaseInstance(this, "Database", {
@@ -133,10 +153,20 @@ export class FolooBackendStack extends cdk.Stack {
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
       securityGroups: [lambdaSg],
-      environment: { ...commonEnvironment, DB_POOL_MAX: "2" },
+      environment: {
+        ...commonEnvironment,
+        DB_POOL_MAX: "2",
+        MEDIA_BUCKET_NAME: mediaBucket.bucketName,
+      },
       bundling: { minify: true, sourceMap: true },
     });
     appSecret.grantRead(apiFunction);
+    apiFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:GetObject", "s3:PutObject"],
+        resources: [`${mediaBucket.bucketArn}/*`],
+      }),
+    );
 
     const migrationLogGroup = new logs.LogGroup(this, "MigrationLogGroup", {
       retention: logs.RetentionDays.ONE_WEEK,
@@ -205,6 +235,9 @@ export class FolooBackendStack extends cdk.Stack {
     new cdk.CfnOutput(this, "ApiUrl", { value: api.apiEndpoint });
     new cdk.CfnOutput(this, "MigrationFunctionName", {
       value: migrationFunction.functionName,
+    });
+    new cdk.CfnOutput(this, "MediaBucketName", {
+      value: mediaBucket.bucketName,
     });
   }
 }

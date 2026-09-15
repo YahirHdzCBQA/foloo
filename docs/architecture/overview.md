@@ -42,10 +42,12 @@ AWS Lambda (Node.js + TypeScript)
 VPC privada → AWS RDS PostgreSQL
 ```
 
-ADR-003 gobierna esta fundación. El código e IaC son reproducibles en
-`backend/`; el despliegue AWS no se presume realizado. S3 sigue siendo la
-dirección para tarjeta, imágenes de referencia, Voice Note y PDF en FL-016.
-Sincronización y correo requieren sus propias fases/decisiones.
+ADR-003 gobierna la fundación y ADR-005 el boundary de medios. FL-016 añade un
+bucket S3 privado para tarjeta, imágenes de referencia y Voice Note. Flutter
+obtiene una autorización corta de la API, transfiere directamente al objeto y
+confirma por la API; Lambda verifica S3 antes de actualizar PostgreSQL. PDF
+permanece en FL-018 y correo en su fase correspondiente. La implementación de
+FL-016 en repositorio no presume despliegue AWS ni migración DEV ejecutada.
 
 ### Boundary de identidad y tenancy
 
@@ -61,6 +63,7 @@ membresía admite una evolución posterior, pero FL-014 no implementa Teams.
 ### Red, secretos y conexiones DEV
 
 - VPC con subredes aisladas en dos AZ y sin NAT Gateway.
+- Endpoint Gateway S3 para verificación privada desde Lambda, sin NAT.
 - RDS PostgreSQL privado, Single-AZ, sin exposición pública.
 - SG RDS: inbound 5432 únicamente desde SG Lambda.
 - Credencial RDS generada en Secrets Manager; Lambda la lee mediante endpoint
@@ -69,6 +72,16 @@ membresía admite una evolución posterior, pero FL-014 no implementa Teams.
   entorno caliente. DEV usa la concurrencia no reservada disponible de la
   cuenta; RDS Proxy se reevalúa si las métricas muestran presión de conexiones.
 - Logs JSON con requestId y sin payload/token/PII. Retención DEV: una semana.
+
+### Boundary de medios privados
+
+La key se deriva en backend como
+`media/workspaces/{workspaceId}/leads/{leadId}/{mediaId}`. El JWT resuelve el
+workspace; Flutter no suministra owner ni key. Las autorizaciones PUT duran 10
+minutos y las GET 5 minutos, no se persisten y cada retry conserva `mediaId`.
+S3 verifica longitud, MIME y metadata firmada; la confirmación además lee una
+muestra para validar JPEG/M4A antes de declarar `available`. El archivo local se
+conserva. La retención/borrado definitivo continúa abierta en D-13.
 
 ## Responsabilidades móviles
 

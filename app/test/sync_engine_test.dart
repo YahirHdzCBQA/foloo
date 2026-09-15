@@ -11,6 +11,7 @@ import 'package:foloo/models/lead_draft.dart';
 import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/sync/sync_engine.dart';
 import 'package:foloo/sync/foloo_api_client.dart';
+import 'package:foloo/sync/media_binary_transfer.dart';
 import 'package:foloo/sync/sync_models.dart';
 import 'package:foloo/sync/sync_store.dart';
 
@@ -87,6 +88,52 @@ class _PathFailApi extends _Api {
   }
 }
 
+class _MediaApi extends _Api {
+  int authorizationCount = 0;
+
+  @override
+  Future<SyncResponse> send(String accessToken, SyncRequest request) async {
+    if (request.method == 'POST' && request.path.endsWith('/media/uploads')) {
+      calls.add(_Call(accessToken, request));
+      authorizationCount += 1;
+      return SyncResponse(
+        statusCode: 201,
+        data: {
+          'data': {
+            'upload': {
+              'url': 'https://s3.example.test/upload/$authorizationCount',
+              'headers': {
+                'content-type': request.body?['contentType'] as String,
+              },
+            },
+          },
+        },
+      );
+    }
+    return super.send(accessToken, request);
+  }
+}
+
+class _MediaTransfer implements MediaBinaryTransfer {
+  final uploads = <({Uri url, String path})>[];
+  final failures = <MediaTransferException>[];
+
+  @override
+  Future<void> upload({
+    required Uri url,
+    required Map<String, String> headers,
+    required String localPath,
+  }) async {
+    uploads.add((url: url, path: localPath));
+    if (failures.isNotEmpty) throw failures.removeAt(0);
+  }
+
+  @override
+  Future<String> download({required Uri url, required String contentType}) {
+    throw UnimplementedError();
+  }
+}
+
 class _BlockingApi implements SyncApi {
   final calls = <_Call>[];
   final postStarted = Completer<void>();
@@ -130,7 +177,12 @@ class _Transport implements SyncHttpTransport {
   }
 }
 
-LeadDraft _draft({String name = 'Local', String? cardPath}) => LeadDraft(
+LeadDraft _draft({
+  String name = 'Local',
+  String? cardPath,
+  String? audioPath,
+  List<String> referencePaths = const [],
+}) => LeadDraft(
   name: name,
   lastName: 'Lead',
   role: 'Buyer',
@@ -142,7 +194,9 @@ LeadDraft _draft({String name = 'Local', String? cardPath}) => LeadDraft(
   note: '',
   originKind: LeadOriginKind.direct,
   cardImageLocalPath: cardPath,
-  audioSeconds: 0,
+  audioLocalPath: audioPath,
+  audioSeconds: audioPath == null ? 0 : 12,
+  referenceImageLocalPaths: referencePaths,
   place: 'Monterrey',
 );
 
@@ -1018,6 +1072,234 @@ void main() {
       expect(media.request.body, isNot(contains('localPath')));
       expect(media.request.body, isNot(contains('base64')));
       expect(media.request.body?['byteSize'], 3);
+    },
+  );
+
+  test(
+    'SYN-04 FL-016 uploads card, voice and reference media then confirms',
+    () async {
+      final root = await Directory.systemTemp.createTemp('foloo_media_s3_');
+      addTearDown(() => root.delete(recursive: true));
+      final card = File('${root.path}/card.jpg')..writeAsBytesSync([1, 2, 3]);
+      final voice = File('${root.path}/voice.m4a')..writeAsBytesSync([4, 5, 6]);
+      final reference = File('${root.path}/reference.jpg')
+        ..writeAsBytesSync([7, 8, 9]);
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      var sequence = 0;
+      final storage = PrivateMediaStorage(Directory('${root.path}/private'));
+      final store = SyncStore(
+        database,
+        mediaStorage: storage,
+        idFactory: () => 'operation-${sequence++}',
+      );
+      final leads = LeadRepository(
+        database,
+        storage,
+        idFactory: () => '99999999-9999-4999-8999-999999999999',
+        syncStore: store,
+      );
+      final saved = await leads.saveDraft(
+        owner,
+        _draft(
+          cardPath: card.path,
+          audioPath: voice.path,
+          referencePaths: [reference.path],
+        ),
+        capturedBy: profile,
+      );
+      final persistedMedia = await database.leadDao.mediaFor(saved.localId);
+      final localPaths = persistedMedia.map((item) => item.localPath).toList();
+      final api = _MediaApi();
+      final transfer = _MediaTransfer();
+
+      await SyncEngine(
+        store,
+        api,
+        _Session('token'),
+        mediaTransfer: transfer,
+      ).synchronize(owner);
+
+      expect(api.authorizationCount, 3);
+      expect(transfer.uploads, hasLength(3));
+      final authorizations = api.calls
+          .where((call) => call.request.path.endsWith('/media/uploads'))
+          .map((call) => call.request.body!)
+          .toList();
+      expect(authorizations.map((body) => body['kind']).toSet(), {
+        'business_card',
+        'reference_image',
+        'voice_note',
+      });
+      for (final body in authorizations) {
+        expect(body['id'], isA<String>());
+        expect(body['byteSize'], isA<int>());
+        expect((body['byteSize'] as int) > 0, isTrue);
+        expect(body['capturedAt'], endsWith('Z'));
+        expect(
+          body['contentType'],
+          body['kind'] == 'voice_note' ? 'audio/m4a' : 'image/jpeg',
+        );
+      }
+      expect(
+        api.calls.where(
+          (call) =>
+              call.request.method == 'POST' &&
+              call.request.path.endsWith('/media'),
+        ),
+        hasLength(3),
+      );
+      expect(await store.all(owner), isEmpty);
+      for (final path in localPaths) {
+        expect(await File(path).exists(), isTrue);
+      }
+    },
+  );
+
+  test(
+    'SYN-06 expired media authorization retries same media with a fresh URL',
+    () async {
+      final root = await Directory.systemTemp.createTemp('foloo_media_retry_');
+      addTearDown(() => root.delete(recursive: true));
+      final source = File('${root.path}/card.jpg')..writeAsBytesSync([1, 2, 3]);
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      var operationSequence = 0;
+      var now = DateTime.utc(2026, 9, 11, 12);
+      final storage = PrivateMediaStorage(Directory('${root.path}/private'));
+      final store = SyncStore(
+        database,
+        mediaStorage: storage,
+        idFactory: () => 'operation-${operationSequence++}',
+      );
+      final leads = LeadRepository(
+        database,
+        storage,
+        idFactory: () => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        syncStore: store,
+      );
+      final saved = await leads.saveDraft(
+        owner,
+        _draft(cardPath: source.path),
+        capturedBy: profile,
+      );
+      final persistedMedia = (await database.leadDao.mediaFor(saved.localId))
+          .single;
+      final mediaId = persistedMedia.localId;
+      final api = _MediaApi();
+      final transfer = _MediaTransfer()
+        ..failures.add(
+          const MediaTransferException(
+            statusCode: 403,
+            code: 'authorization_expired',
+          ),
+        );
+      final engine = SyncEngine(
+        store,
+        api,
+        _Session('token'),
+        mediaTransfer: transfer,
+        now: () => now,
+      );
+
+      await engine.synchronize(owner);
+      expect((await store.all(owner)).single.entityId, mediaId);
+      expect((await store.all(owner)).single.status, 'retryable');
+      expect(await File(persistedMedia.localPath).exists(), isTrue);
+
+      now = now.add(const Duration(minutes: 1));
+      await engine.synchronize(owner);
+
+      expect(api.authorizationCount, 2);
+      expect(transfer.uploads.map((item) => item.url.toString()), [
+        'https://s3.example.test/upload/1',
+        'https://s3.example.test/upload/2',
+      ]);
+      expect(await store.all(owner), isEmpty);
+      expect(await File(persistedMedia.localPath).exists(), isTrue);
+    },
+  );
+
+  test(
+    'SYN-08 manual retry repairs shipped naive media timestamp without new IDs',
+    () async {
+      final root = await Directory.systemTemp.createTemp('foloo_media_repair_');
+      addTearDown(() => root.delete(recursive: true));
+      final source = File('${root.path}/card.jpg')..writeAsBytesSync([1, 2, 3]);
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      var sequence = 0;
+      final storage = PrivateMediaStorage(Directory('${root.path}/private'));
+      final store = SyncStore(
+        database,
+        mediaStorage: storage,
+        idFactory: () => 'repair-operation-${sequence++}',
+      );
+      final leads = LeadRepository(
+        database,
+        storage,
+        idFactory: () => 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        syncStore: store,
+      );
+      final saved = await leads.saveDraft(
+        owner,
+        _draft(cardPath: source.path),
+        capturedBy: profile,
+      );
+      final media = (await database.leadDao.mediaFor(saved.localId)).single;
+      final initial = await store.all(owner);
+      await store.complete(
+        initial.singleWhere((item) => item.entityType == 'lead'),
+      );
+      await database.syncDao.complete(
+        initial
+            .singleWhere((item) => item.entityType == 'leadMedia')
+            .operationId,
+      );
+      await store.enqueue(
+        ownerSub: owner,
+        entityType: SyncEntityType.leadMedia,
+        entityId: media.localId,
+        action: 'create',
+        payload: {
+          'leadId': saved.localId,
+          'id': media.localId,
+          'kind': 'business_card',
+          'contentType': 'image/jpeg',
+          'byteSize': await File(media.localPath).length(),
+          'capturedAt': '2026-09-14T12:34:56.000',
+          'durationMs': null,
+        },
+      );
+      final failed = (await store.all(owner)).single;
+      await store.markFailed(
+        failed,
+        'http_400_validation_error',
+        DateTime.utc(2026, 9, 14, 18, 35),
+      );
+      final api = _MediaApi();
+      final transfer = _MediaTransfer();
+
+      await SyncEngine(
+        store,
+        api,
+        _Session('token'),
+        mediaTransfer: transfer,
+      ).synchronize(owner, trigger: SyncTrigger.manual);
+
+      final authorization = api.calls.singleWhere(
+        (call) => call.request.path.endsWith('/media/uploads'),
+      );
+      final confirmation = api.calls.singleWhere(
+        (call) => call.request.path.endsWith('/media'),
+      );
+      expect(authorization.request.body?['id'], media.localId);
+      expect(confirmation.request.body?['id'], media.localId);
+      expect(authorization.request.body?['capturedAt'], endsWith('Z'));
+      expect(api.authorizationCount, 1);
+      expect(await store.all(owner), isEmpty);
+      expect(await database.leadDao.mediaFor(saved.localId), hasLength(1));
+      expect(await File(media.localPath).exists(), isTrue);
     },
   );
 }

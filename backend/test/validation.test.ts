@@ -71,3 +71,57 @@ test("media accepts metadata but exposes no binary or client storage key", () =>
     assert.equal("storageObjectKey" in result.data, false);
   }
 });
+
+test("media rejects unknown kinds, incompatible MIME types and technical oversize", () => {
+  const base = {
+    id: "63b21d9f-8532-4ca0-b45e-cf8336bb807c",
+    kind: "business_card",
+    contentType: "image/jpeg",
+    byteSize: 42,
+    capturedAt: "2026-09-09T10:00:00Z",
+  };
+  assert.equal(
+    mediaSchema.safeParse({ ...base, kind: "avatar" }).success,
+    false,
+  );
+  assert.equal(
+    mediaSchema.safeParse({ ...base, contentType: "image/png" }).success,
+    false,
+  );
+  assert.equal(
+    mediaSchema.safeParse({ ...base, byteSize: 25 * 1024 * 1024 + 1 }).success,
+    false,
+  );
+  assert.equal(
+    mediaSchema.safeParse({
+      ...base,
+      kind: "voice_note",
+      contentType: "audio/m4a",
+      byteSize: 100 * 1024 * 1024 + 1,
+    }).success,
+    false,
+  );
+  assert.equal(
+    mediaSchema.safeParse({ ...base, id: "not-a-uuid" }).success,
+    false,
+  );
+});
+
+test("accepts the exact UTC Flutter media payload and rejects the shipped naive timestamp", () => {
+  const flutterPayload = {
+    id: "3c395e18-8734-4532-b918-841e1b0659ce",
+    kind: "business_card",
+    contentType: "image/jpeg",
+    byteSize: 12345,
+    capturedAt: "2026-09-14T18:34:56.000Z",
+    durationMs: null,
+  };
+  assert.equal(mediaSchema.safeParse(flutterPayload).success, true);
+  assert.equal(
+    mediaSchema.safeParse({
+      ...flutterPayload,
+      capturedAt: "2026-09-14T12:34:56.000",
+    }).success,
+    false,
+  );
+});

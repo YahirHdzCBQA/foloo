@@ -117,7 +117,15 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   la misma clave idempotente. Un 400 queda detenido y 408/429/5xx/transporte se
   reprograman sin borrar el dato.
 - Sin sesión o con otro `sub` no se consume la cola. El pull no pisa entidades
-  con mutaciones locales abiertas y en FL-015 no transfiere binarios.
+  con mutaciones locales abiertas.
+- Tarjeta, imagen de referencia y Voice Note permanecen en storage privado
+  local y outbox tras reinicio. Cuando el Lead padre existe remotamente, la app
+  solicita una autorización temporal, hace PUT directo al objeto privado y la
+  API verifica existencia, tamaño, MIME, metadata y firma básica del archivo
+  antes de marcarlo disponible.
+- Fallar el PUT o expirar la URL no elimina el archivo ni cambia el UUID lógico:
+  el retry solicita otra autorización para la misma key. Un segundo dispositivo
+  obtiene únicamente lectura temporal autenticada, nunca una URL pública.
 
 ## E-10 · Exportación por evento
 
@@ -151,6 +159,8 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - ES↔EN y claro↔oscuro actualizan todas las superficies con contraste y estado
   no dependiente solo de color.
 - El binario no expone secretos; medios requieren acceso autorizado.
+- El bucket de medios bloquea acceso público, cifra en reposo, exige TLS y no
+  entrega credenciales AWS ni URLs firmadas persistentes al cliente.
 - Matriz iOS/Android, pruebas reales offline/OCR/pago, legales, tiendas y beta
   satisfacen cada REL antes de declarar V1 lista.
 

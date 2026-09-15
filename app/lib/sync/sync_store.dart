@@ -11,13 +11,15 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/local/app_database.dart';
+import '../data/local/private_media_storage.dart';
 import 'sync_models.dart';
 
 class SyncStore {
-  SyncStore(this.database, {String Function()? idFactory})
+  SyncStore(this.database, {this.mediaStorage, String Function()? idFactory})
     : _idFactory = idFactory ?? const Uuid().v4;
 
   final AppDatabase database;
+  final PrivateMediaStorage? mediaStorage;
   final String Function() _idFactory;
 
   Future<void> enqueue({
@@ -68,6 +70,35 @@ class SyncStore {
   Future<List<StoredSyncOperation>> all(String ownerSub) =>
       database.syncDao.allForOwner(ownerSub);
 
+  /// Reactivates only operations failed by the shipped FL-016 naive timestamp.
+  /// Other 4xx contract failures remain terminal until their cause is fixed.
+  Future<void> repairFailedMediaTimestamps(String ownerSub) async {
+    for (final operation in await all(ownerSub)) {
+      if (operation.entityType != SyncEntityType.leadMedia.name ||
+          operation.status != SyncOperationStatus.failed.name ||
+          operation.lastError != 'http_400_validation_error') {
+        continue;
+      }
+      final media = await mediaById(operation.entityId);
+      if (media == null || !await File(media.localPath).exists()) continue;
+      final payload = _payloadMap(operation.payloadJson);
+      final capturedAt = payload['capturedAt'];
+      if (payload['leadId'] is! String ||
+          capturedAt is! String ||
+          DateTime.tryParse(capturedAt) == null ||
+          RegExp(r'(Z|[+-]\d{2}:\d{2})$').hasMatch(capturedAt)) {
+        continue;
+      }
+      payload['capturedAt'] = media.createdAt.toUtc().toIso8601String();
+      await database.syncDao.repairFailedMediaPayload(
+        operation.operationId,
+        jsonEncode(payload),
+        DateTime.now().toUtc(),
+      );
+      await database.leadDao.markMediaSyncState(operation.entityId, 'pending');
+    }
+  }
+
   /// Backfills valid pre-FL-015 rows without changing their local identity.
   Future<void> prepareOwner(String ownerSub) async {
     final profile = await database.profilePreferencesDao.profileForUser(
@@ -99,8 +130,8 @@ class SyncStore {
         payload: {
           'id': event.localId,
           'name': event.name,
-          'startsAt': event.startsOn.toIso8601String(),
-          'endsAt': event.endsOn.toIso8601String(),
+          'startsAt': event.startsOn.toUtc().toIso8601String(),
+          'endsAt': event.endsOn.toUtc().toIso8601String(),
         },
         now: event.updatedAt,
       );
@@ -120,7 +151,7 @@ class SyncStore {
           action: 'create',
           payload: {
             'id': lead.localId,
-            'capturedAt': lead.capturedAt.toIso8601String(),
+            'capturedAt': lead.capturedAt.toUtc().toIso8601String(),
             'origin': lead.originKind,
             'eventId': lead.eventLocalId,
             'place': lead.place,
@@ -139,42 +170,9 @@ class SyncStore {
         );
       }
       for (final media in bundle.media) {
-        if (media.uploadState == 'synced' ||
-            !_isUuid(media.localId) ||
-            !await File(media.localPath).exists() ||
-            await hasPending(
-              ownerSub,
-              SyncEntityType.leadMedia,
-              media.localId,
-            )) {
-          continue;
+        if (media.uploadState != 'synced') {
+          await enqueueMediaIfNeeded(ownerSub, lead.localId, media);
         }
-        final file = File(media.localPath);
-        await enqueue(
-          ownerSub: ownerSub,
-          entityType: SyncEntityType.leadMedia,
-          entityId: media.localId,
-          action: 'create',
-          payload: {
-            'leadId': lead.localId,
-            'id': media.localId,
-            'kind': switch (media.mediaType) {
-              'cardImage' => 'business_card',
-              'referenceImage' => 'reference_image',
-              'voiceNote' => 'voice_note',
-              _ => throw const FormatException('Unsupported local media type'),
-            },
-            'contentType': media.mediaType == 'voiceNote'
-                ? 'audio/m4a'
-                : 'image/jpeg',
-            'byteSize': await file.length(),
-            'capturedAt': media.createdAt.toIso8601String(),
-            'durationMs': media.durationSeconds == null
-                ? null
-                : media.durationSeconds! * 1000,
-          },
-          now: media.createdAt,
-        );
       }
     }
   }
@@ -265,6 +263,42 @@ class SyncStore {
     SyncEntityType type,
     String entityId,
   ) => database.syncDao.hasOpenOperation(ownerSub, type.name, entityId);
+
+  Future<StoredLeadMedia?> mediaById(String mediaId) =>
+      database.leadDao.mediaById(mediaId);
+
+  Future<void> enqueueMediaIfNeeded(
+    String ownerSub,
+    String leadId,
+    StoredLeadMedia media,
+  ) async {
+    if (!_isUuid(media.localId) ||
+        !await File(media.localPath).exists() ||
+        await hasPending(ownerSub, SyncEntityType.leadMedia, media.localId)) {
+      return;
+    }
+    final file = File(media.localPath);
+    await enqueue(
+      ownerSub: ownerSub,
+      entityType: SyncEntityType.leadMedia,
+      entityId: media.localId,
+      action: 'create',
+      payload: {
+        'leadId': leadId,
+        'id': media.localId,
+        'kind': _apiKind(media.mediaType),
+        'contentType': media.mediaType == LocalMediaType.voiceNote.name
+            ? 'audio/m4a'
+            : 'image/jpeg',
+        'byteSize': await file.length(),
+        'capturedAt': media.createdAt.toUtc().toIso8601String(),
+        'durationMs': media.durationSeconds == null
+            ? null
+            : media.durationSeconds! * 1000,
+      },
+      now: media.createdAt,
+    );
+  }
 
   Future<void> reconcileRemoteCreate(
     String ownerSub,
@@ -390,22 +424,89 @@ class SyncStore {
   Future<void> applyRemoteMedia(
     String ownerSub,
     String leadId,
-    List<Map<String, Object?>> media,
-  ) async {
+    List<Map<String, Object?>> media, {
+    Future<String> Function(Uri url, String contentType)? download,
+  }) async {
     final lead = await database.leadDao.byId(ownerSub, leadId);
     if (lead == null) return;
     for (final item in media) {
       final id = item['id'] as String;
       final local = await database.leadDao.mediaById(id);
-      if (local != null) {
+      final available = item['uploadStatus'] == 'available';
+      if (local != null && available) {
         await reconcileRemoteCreate(ownerSub, SyncEntityType.leadMedia, id);
         await database.leadDao.markMediaSyncState(id, 'synced');
+        continue;
+      }
+      if (local != null) {
+        await database.leadDao.markMediaSyncState(id, 'pending');
+        await enqueueMediaIfNeeded(ownerSub, leadId, local);
+        continue;
+      }
+      final storage = mediaStorage;
+      final downloadData = item['download'];
+      if (!available ||
+          storage == null ||
+          download == null ||
+          downloadData is! Map ||
+          downloadData['url'] is! String ||
+          item['contentType'] is! String) {
+        continue;
+      }
+      final temporaryPath = await download(
+        Uri.parse(downloadData['url'] as String),
+        item['contentType'] as String,
+      );
+      try {
+        final type = _localType(item['kind'] as String);
+        final localPath = await storage.persist(
+          sourcePath: temporaryPath,
+          leadLocalId: leadId,
+          type: type,
+          slot: type == LocalMediaType.referenceImage ? id : null,
+        );
+        if (localPath == null) continue;
+        await database.leadDao.insertMedia(
+          LocalLeadMediaCompanion.insert(
+            localId: id,
+            leadLocalId: leadId,
+            mediaType: type.name,
+            localPath: localPath,
+            durationSeconds: Value(
+              item['durationMs'] is int
+                  ? (item['durationMs'] as int) ~/ 1000
+                  : null,
+            ),
+            uploadState: const Value('synced'),
+            createdAt: DateTime.parse(item['capturedAt'] as String).toUtc(),
+          ),
+        );
+      } finally {
+        final temporary = File(temporaryPath);
+        if (await temporary.exists()) await temporary.delete();
       }
     }
   }
 
+  String _apiKind(String localType) => switch (localType) {
+    'cardImage' => 'business_card',
+    'referenceImage' => 'reference_image',
+    'voiceNote' => 'voice_note',
+    _ => throw const FormatException('Unsupported local media type'),
+  };
+
+  LocalMediaType _localType(String apiKind) => switch (apiKind) {
+    'business_card' => LocalMediaType.cardImage,
+    'reference_image' => LocalMediaType.referenceImage,
+    'voice_note' => LocalMediaType.voiceNote,
+    _ => throw const FormatException('Unsupported remote media type'),
+  };
+
   DateTime? _date(Object? value) =>
       value is String ? DateTime.tryParse(value)?.toUtc() : null;
+
+  Map<String, Object?> _payloadMap(String value) =>
+      (jsonDecode(value) as Map).cast<String, Object?>();
 
   String _leadTypeFromApi(String value) => switch (value) {
     'supplier' => 'supplier',

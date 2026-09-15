@@ -1,4 +1,4 @@
-# Foloo backend — FL-014
+# Foloo backend — FL-014 to FL-016
 
 Node.js 22 + TypeScript foundation for the protected Foloo `/v1` API. It is a
 modular serverless monolith: API Gateway HTTP API validates Cognito JWTs, one
@@ -8,9 +8,10 @@ on RDS. Flutter is not connected yet; Drift remains the write-first authority.
 ## Boundaries
 
 Implemented: account/workspace bootstrap, seller profile, events, leads, lead
-media metadata, validation, idempotent creates, safe errors, migrations and
-structured logging. Not implemented: mobile sync, S3/binaries, content upload,
-email, payments/trial, Teams, transcription or later-phase integrations.
+media metadata, validation, idempotent creates, safe errors, migrations,
+structured logging and FL-016 private S3 media transfer. Mobile sync uses the
+existing Flutter outbox. Not implemented: PDF/content upload, email,
+payments/trial, Teams, transcription or later-phase integrations.
 
 The OpenAPI contract is in `openapi/foloo-v1.yaml`. `ownerId`, `workspaceId`,
 `sub` and email from request payloads are never authorization inputs.
@@ -41,17 +42,23 @@ values in `.env` files committed to Git.
   autoscaling ceiling 50 GiB, one-day backup, snapshot on stack removal);
 - Security Groups allowing PostgreSQL 5432 only from Foloo Lambdas;
 - one Secrets Manager interface VPC endpoint;
+- one S3 Gateway VPC endpoint, without NAT;
+- one private S3 media bucket with Block Public Access, S3-managed encryption,
+  enforced TLS and retention on stack removal;
 - generated admin and limited application database secrets;
 - one protected API Lambda and one non-routed migration Lambda;
+- API Lambda object permissions limited to `s3:GetObject`/`s3:PutObject` on the
+  media bucket;
 - one API Gateway HTTP API with Cognito JWT authorizer using the existing DEV
   User Pool/App Client; Cognito is referenced by issuer values, never created;
 - CloudWatch logs retained seven days; Lambdas use the account's available
   unreserved concurrency.
 
 RDS, allocated storage, two Secrets Manager secrets and the interface endpoint
-have recurring cost even while idle. API Gateway, Lambda and logs are mostly
-usage-based. DEV intentionally omits NAT, Multi-AZ and RDS Proxy. Before PROD,
-review Multi-AZ, deletion protection, longer backups, alarms, rotation,
+have recurring cost even while idle. S3, API Gateway, Lambda and logs are
+usage-based; the S3 Gateway endpoint has no hourly charge. DEV intentionally
+omits NAT, Multi-AZ and RDS Proxy. Before PROD, review media retention,
+Multi-AZ, deletion protection, longer backups, alarms, rotation,
 capacity/concurrency and RDS Proxy based on measured connections.
 
 ## Safe deployment workflow (not executed by Codex)

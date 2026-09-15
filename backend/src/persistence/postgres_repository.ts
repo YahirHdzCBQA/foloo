@@ -11,6 +11,7 @@ import type {
   IdempotentResult,
   LeadInput,
   LeadMediaInput,
+  LeadMediaRecord,
   Principal,
   SellerProfileInput,
 } from "../domain/models.js";
@@ -193,11 +194,12 @@ export class PostgresFolooRepository implements FolooRepository {
   async listLeadMedia(
     principal: Principal,
     leadId: string,
-  ): Promise<unknown[]> {
-    const result = await this.pool.query(
+  ): Promise<LeadMediaRecord[]> {
+    const result = await this.pool.query<LeadMediaRecord>(
       `SELECT m.id, m.kind, m.content_type AS "contentType", m.byte_size AS "byteSize",
               m.captured_at AS "capturedAt", m.duration_ms AS "durationMs", m.sha256,
-              m.revision
+              m.storage_object_key AS "storageObjectKey",
+              m.upload_status AS "uploadStatus", m.uploaded_at AS "uploadedAt", m.revision
        FROM lead_media m JOIN leads l ON l.id = m.lead_id AND l.workspace_id = m.workspace_id
        WHERE m.workspace_id = $1 AND m.lead_id = $2 AND m.deleted_at IS NULL
          AND l.deleted_at IS NULL ORDER BY m.created_at`,
@@ -206,12 +208,55 @@ export class PostgresFolooRepository implements FolooRepository {
     return result.rows;
   }
 
+  async prepareLeadMedia(
+    principal: Principal,
+    leadId: string,
+    input: LeadMediaInput,
+    objectKey: string,
+  ): Promise<void> {
+    const lead = await this.pool.query(
+      "SELECT id FROM leads WHERE workspace_id = $1 AND id = $2 AND deleted_at IS NULL",
+      [principal.workspaceId, leadId],
+    );
+    if (!lead.rows[0]) throw notFound("Lead");
+    const result = await this.pool.query(
+      `INSERT INTO lead_media
+        (id, workspace_id, lead_id, kind, content_type, byte_size, captured_at,
+         duration_ms, sha256, storage_object_key, upload_status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending')
+       ON CONFLICT (workspace_id, id) DO UPDATE SET
+         kind = EXCLUDED.kind, content_type = EXCLUDED.content_type,
+         byte_size = EXCLUDED.byte_size, captured_at = EXCLUDED.captured_at,
+         duration_ms = EXCLUDED.duration_ms, sha256 = EXCLUDED.sha256,
+         storage_object_key = EXCLUDED.storage_object_key,
+         upload_status = CASE WHEN lead_media.upload_status = 'available'
+           THEN 'available' ELSE 'pending' END,
+         deleted_at = NULL
+       WHERE lead_media.lead_id = $3
+       RETURNING id`,
+      [
+        input.id,
+        principal.workspaceId,
+        leadId,
+        input.kind,
+        input.contentType,
+        input.byteSize,
+        input.capturedAt,
+        input.durationMs ?? null,
+        input.sha256 ?? null,
+        objectKey,
+      ],
+    );
+    if (!result.rows[0]) throw notFound("Media");
+  }
+
   async createLeadMedia(
     principal: Principal,
     leadId: string,
     input: LeadMediaInput,
     key: string,
     hash: string,
+    objectKey: string,
   ): Promise<IdempotentResult<unknown>> {
     return this.idempotent(
       principal.workspaceId,
@@ -225,15 +270,21 @@ export class PostgresFolooRepository implements FolooRepository {
         );
         if (!lead.rows[0]) throw notFound("Lead");
         const result = await db.query(
-          `INSERT INTO lead_media
-          (id, workspace_id, lead_id, kind, content_type, byte_size, captured_at, duration_ms, sha256)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+          `UPDATE lead_media SET upload_status = 'available', uploaded_at = now(),
+             storage_object_key = $4
+           WHERE workspace_id = $1 AND lead_id = $2 AND id = $3
+             AND kind = $5 AND content_type = $6 AND byte_size = $7
+             AND captured_at = $8 AND duration_ms IS NOT DISTINCT FROM $9
+             AND sha256 IS NOT DISTINCT FROM $10 AND deleted_at IS NULL
          RETURNING id, kind, content_type AS "contentType", byte_size AS "byteSize",
-                   captured_at AS "capturedAt", duration_ms AS "durationMs", sha256, revision`,
+                   captured_at AS "capturedAt", duration_ms AS "durationMs", sha256,
+                   storage_object_key AS "storageObjectKey",
+                   upload_status AS "uploadStatus", uploaded_at AS "uploadedAt", revision`,
           [
-            input.id,
             principal.workspaceId,
             leadId,
+            input.id,
+            objectKey,
             input.kind,
             input.contentType,
             input.byteSize,
@@ -242,7 +293,9 @@ export class PostgresFolooRepository implements FolooRepository {
             input.sha256 ?? null,
           ],
         );
-        return result.rows[0];
+        const row = result.rows[0];
+        if (!row) throw notFound("Prepared media");
+        return row;
       },
     );
   }

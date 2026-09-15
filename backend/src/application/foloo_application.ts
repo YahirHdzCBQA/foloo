@@ -7,9 +7,13 @@ import type {
   LeadMediaInput,
   SellerProfileInput,
 } from "../domain/models.js";
+import type { MediaStorage } from "../storage/media_storage.js";
 
 export class FolooApplication {
-  constructor(private readonly repository: FolooRepository) {}
+  constructor(
+    private readonly repository: FolooRepository,
+    private readonly mediaStorage?: MediaStorage,
+  ) {}
 
   async workspace(subject: string) {
     const principal = await this.repository.resolvePrincipal(subject);
@@ -58,7 +62,33 @@ export class FolooApplication {
 
   async leadMedia(subject: string, leadId: string) {
     const principal = await this.repository.resolvePrincipal(subject);
-    return this.repository.listLeadMedia(principal, leadId);
+    const media = await this.repository.listLeadMedia(principal, leadId);
+    return Promise.all(
+      media.map(async (item) => {
+        const { storageObjectKey, ...publicItem } = item;
+        return {
+          ...publicItem,
+          download:
+            item.uploadStatus === "available" &&
+            storageObjectKey &&
+            this.mediaStorage
+              ? await this.mediaStorage.authorizeDownload(storageObjectKey)
+              : null,
+        };
+      }),
+    );
+  }
+
+  async prepareLeadMediaUpload(
+    subject: string,
+    leadId: string,
+    input: LeadMediaInput,
+  ) {
+    const storage = this.requiredMediaStorage();
+    const principal = await this.repository.resolvePrincipal(subject);
+    const objectKey = storage.objectKey(principal, leadId, input.id);
+    await this.repository.prepareLeadMedia(principal, leadId, input, objectKey);
+    return storage.authorizeUpload(principal, leadId, input);
   }
 
   async createLeadMedia(
@@ -68,7 +98,24 @@ export class FolooApplication {
     key: string,
     hash: string,
   ) {
+    const storage = this.requiredMediaStorage();
     const principal = await this.repository.resolvePrincipal(subject);
-    return this.repository.createLeadMedia(principal, leadId, input, key, hash);
+    const objectKey = storage.objectKey(principal, leadId, input.id);
+    await storage.verifyUpload(objectKey, input);
+    return this.repository.createLeadMedia(
+      principal,
+      leadId,
+      input,
+      key,
+      hash,
+      objectKey,
+    );
+  }
+
+  private requiredMediaStorage(): MediaStorage {
+    if (!this.mediaStorage) {
+      throw new Error("Media storage is not configured.");
+    }
+    return this.mediaStorage;
   }
 }

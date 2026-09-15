@@ -41,14 +41,18 @@ idempotentes y reconciliación local-first.
 - Trazas: `SYN-04`–`SYN-10`, `RNF-07`.
 - ADR-004 define idempotencia, aislamiento y política conservadora de conflictos.
 
-## Propuesta FL-016 — Sync offline y S3 de medios
+## FL-016 — Media & Content Storage / S3 (implementada en repositorio)
 
 **Objetivo:** subir/reanudar Leads y binarios sin pérdidas/duplicados.
 
-- API Gateway/Lambda, colas separadas, retry y reconciliación.
-- S3 protegido para tarjeta, referencias, voz y PDF.
+- Extiende la outbox FL-015 con autorización, PUT S3 directo, confirmación y
+  lectura temporal para tarjeta, referencias y voz.
+- Bucket privado cifrado, sin NAT; Lambda verifica por endpoint Gateway S3.
+- PostgreSQL conserva metadata/estado mediante migration 002; no binarios.
 - Trazas: `SYN-04`–`SYN-10`, `INF-02`, `RC-02`, `RC-03`.
-- Bloqueos: D-05, D-08, D-13.
+- Validación AWS DEV y política final de retención siguen pendientes. D-05 no
+  impide el techo técnico antiabuso; D-08/PDF permanece en FL-018 y D-13 no se
+  considera resuelta.
 
 ## Propuesta FL-017 — Contenido y plantillas productivas
 

@@ -367,7 +367,7 @@ class LeadRepository {
                   ? 'audio/m4a'
                   : 'image/jpeg',
               'byteSize': await file.length(),
-              'capturedAt': item.createdAt.toIso8601String(),
+              'capturedAt': item.createdAt.toUtc().toIso8601String(),
               'durationMs': item.durationSeconds == null
                   ? null
                   : item.durationSeconds! * 1000,
@@ -566,7 +566,7 @@ class LocalPersistence {
        globalPreferences = GlobalPreferencesRepository(database),
        events = EventRepository(database),
        leads = LeadRepository(database, mediaStorage),
-       syncStore = SyncStore(database);
+       syncStore = SyncStore(database, mediaStorage: mediaStorage);
 
   final AppDatabase database;
   final PrivateMediaStorage mediaStorage;

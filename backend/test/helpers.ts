@@ -8,6 +8,7 @@ import type {
   IdempotentResult,
   LeadInput,
   LeadMediaInput,
+  LeadMediaRecord,
   Principal,
   SellerProfileInput,
 } from "../src/domain/models.js";
@@ -109,14 +110,36 @@ export class MemoryRepository implements FolooRepository {
   ): Promise<IdempotentResult<unknown>> {
     return { value: input, replayed: false };
   }
-  async listLeadMedia() {
+  async listLeadMedia(
+    principal: Principal,
+    leadId: string,
+  ): Promise<LeadMediaRecord[]> {
+    void principal;
+    void leadId;
     return [];
+  }
+  async prepareLeadMedia(
+    principal: Principal,
+    leadId: string,
+    input: LeadMediaInput,
+    objectKey: string,
+  ) {
+    void principal;
+    void leadId;
+    void input;
+    void objectKey;
   }
   async createLeadMedia(
     _principal: Principal,
     _leadId: string,
     input: LeadMediaInput,
+    key: string,
+    hash: string,
+    objectKey: string,
   ): Promise<IdempotentResult<unknown>> {
+    void key;
+    void hash;
+    void objectKey;
     return { value: input, replayed: false };
   }
 }

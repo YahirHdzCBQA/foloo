@@ -14,6 +14,7 @@ import 'auth/cognito_runtime.dart';
 import 'auth/cognito_sync_session_provider.dart';
 import 'data/repositories/local_repositories.dart';
 import 'sync/foloo_api_client.dart';
+import 'sync/media_binary_transfer.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,6 +32,7 @@ Future<void> main() async {
       ),
       syncApi: FolooApiClient(configuration: FolooApiConfiguration.dev),
       syncSessionProvider: const CognitoSyncSessionProvider(),
+      mediaBinaryTransfer: IoMediaBinaryTransfer(),
     ),
   );
 }

@@ -76,7 +76,10 @@ class SyncHttpException implements Exception {
   final String? requestId;
 
   bool get retryable =>
-      statusCode == 408 || statusCode == 429 || statusCode >= 500;
+      statusCode == 408 ||
+      statusCode == 429 ||
+      statusCode >= 500 ||
+      errorCode == 'upload_incomplete';
 }
 
 abstract interface class SyncApi {

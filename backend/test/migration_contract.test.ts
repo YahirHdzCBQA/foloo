@@ -5,6 +5,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const migrationUrl = new URL("../migrations/001_initial.sql", import.meta.url);
+const mediaMigrationUrl = new URL(
+  "../migrations/002_media_upload_state.sql",
+  import.meta.url,
+);
 
 test("migration scopes resource foreign keys by workspace and excludes blobs", async () => {
   const sql = await readFile(migrationUrl, "utf8");
@@ -27,4 +31,12 @@ test("migration defines idempotency and subject provisioning constraints", async
   assert.match(sql, /one_personal_account_per_user/);
   assert.match(sql, /PRIMARY KEY \(workspace_id, operation, idempotency_key\)/);
   assert.match(sql, /pg_advisory_xact_lock\(hashtext\(p_subject\)\)/);
+});
+
+test("FL-016 migration adds explicit pending/available media state without blobs", async () => {
+  const sql = await readFile(mediaMigrationUrl, "utf8");
+  assert.match(sql, /upload_status text NOT NULL DEFAULT 'pending'/);
+  assert.match(sql, /uploaded_at timestamptz/);
+  assert.match(sql, /storage_object_key IS NOT NULL/);
+  assert.doesNotMatch(sql, /bytea|large object/i);
 });

@@ -67,11 +67,15 @@ export const leadSchema = z
     }
   });
 
-export const mediaSchema = z.object({
+const mediaBaseSchema = z.object({
   id: z.uuid(),
   kind: z.enum(["business_card", "reference_image", "voice_note"]),
-  contentType: z.string().trim().min(1).max(120),
-  byteSize: z.number().int().min(0),
+  contentType: z.enum(["image/jpeg", "audio/m4a"]),
+  byteSize: z
+    .number()
+    .int()
+    .positive()
+    .max(100 * 1024 * 1024),
   capturedAt: z.iso.datetime({ offset: true }),
   durationMs: z.number().int().min(0).nullable().optional(),
   sha256: z
@@ -79,4 +83,27 @@ export const mediaSchema = z.object({
     .regex(/^[a-f0-9]{64}$/i)
     .nullable()
     .optional(),
+});
+
+export const mediaSchema = mediaBaseSchema.superRefine((value, context) => {
+  const expected = value.kind === "voice_note" ? "audio/m4a" : "image/jpeg";
+  if (value.contentType !== expected) {
+    context.addIssue({
+      code: "custom",
+      path: ["contentType"],
+      message: `contentType must be ${expected} for ${value.kind}`,
+    });
+  }
+  // Infrastructure abuse guard, not the unresolved product/UX duration limit.
+  const maxBytes = value.kind === "voice_note" ? 100 : 25;
+  if (value.byteSize > maxBytes * 1024 * 1024) {
+    context.addIssue({
+      code: "too_big",
+      origin: "number",
+      maximum: maxBytes * 1024 * 1024,
+      inclusive: true,
+      path: ["byteSize"],
+      message: `${value.kind} exceeds the technical upload ceiling`,
+    });
+  }
 });

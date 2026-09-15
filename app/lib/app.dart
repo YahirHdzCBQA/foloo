@@ -36,6 +36,7 @@ import 'services/contact_image_picker_service.dart';
 import 'services/event_selection_policy.dart';
 import 'services/pdf_picker_service.dart';
 import 'sync/sync_engine.dart';
+import 'sync/media_binary_transfer.dart';
 import 'sync/sync_models.dart';
 import 'theme/foloo_theme.dart';
 
@@ -59,6 +60,7 @@ class FolooApp extends StatefulWidget {
     this.nowProvider,
     this.syncApi,
     this.syncSessionProvider,
+    this.mediaBinaryTransfer,
     super.key,
   });
 
@@ -73,6 +75,7 @@ class FolooApp extends StatefulWidget {
   final DateTime Function()? nowProvider;
   final SyncApi? syncApi;
   final SyncSessionProvider? syncSessionProvider;
+  final MediaBinaryTransfer? mediaBinaryTransfer;
 
   @override
   State<FolooApp> createState() => _FolooAppState();
@@ -162,6 +165,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
         widget.syncSessionProvider ?? const NoSyncSessionProvider(),
         now: widget.nowProvider,
         onRetryScheduled: _scheduleSyncRetry,
+        mediaTransfer: widget.mediaBinaryTransfer,
       )..addListener(_onSyncChanged);
     }
     _events = List.of(DemoAppData.events);

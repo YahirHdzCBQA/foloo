@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Foloo API
-  version: 1.0.0-foundation
-  description: FL-014 authenticated foundation. Sync and binary upload are not implemented.
+  version: 1.0.0-media
+  description: Authenticated Foloo V1 API with offline-sync metadata and private direct media transfer.
 servers:
   - url: https://{apiId}.execute-api.us-east-1.amazonaws.com/v1
     variables:
@@ -79,7 +79,7 @@ paths:
         "200": { $ref: "#/components/responses/DataResponse" }
     post:
       operationId: createLeadMediaMetadata
-      description: Persists metadata only. This operation does not upload a binary.
+      description: Confirms an uploaded S3 object after backend verification.
       parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
       requestBody:
         required: true
@@ -91,6 +91,24 @@ paths:
         "400": { $ref: "#/components/responses/ErrorResponse" }
         "404": { $ref: "#/components/responses/ErrorResponse" }
         "409": { $ref: "#/components/responses/ErrorResponse" }
+  /leads/{leadId}/media/uploads:
+    parameters:
+      - name: leadId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: prepareLeadMediaUpload
+      description: Creates a short-lived authorization for one deterministic private S3 object.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeadMediaInput" }
+      responses:
+        "201": { $ref: "#/components/responses/DataResponse" }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
+        "404": { $ref: "#/components/responses/ErrorResponse" }
 components:
   securitySchemes:
     cognitoJwt:
@@ -177,11 +195,48 @@ components:
         id: { type: string, format: uuid }
         kind:
           { type: string, enum: [business_card, reference_image, voice_note] }
-        contentType: { type: string, maxLength: 120 }
-        byteSize: { type: integer, minimum: 0 }
+        contentType: { type: string, enum: [image/jpeg, audio/m4a] }
+        byteSize:
+          type: integer
+          minimum: 1
+          maximum: 104857600
         capturedAt: { type: string, format: date-time }
         durationMs: { type: integer, minimum: 0, nullable: true }
         sha256: { type: string, pattern: "^[a-fA-F0-9]{64}$", nullable: true }
+    LeadMedia:
+      allOf:
+        - { $ref: "#/components/schemas/LeadMediaInput" }
+        - type: object
+          required: [uploadStatus, uploadedAt, revision, download]
+          properties:
+            uploadStatus: { type: string, enum: [pending, available] }
+            uploadedAt: { type: string, format: date-time, nullable: true }
+            revision: { type: integer, minimum: 1 }
+            download:
+              nullable: true
+              allOf:
+                [{ $ref: "#/components/schemas/MediaDownloadAuthorization" }]
+    MediaUploadAuthorization:
+      type: object
+      required: [mediaId, upload]
+      properties:
+        mediaId: { type: string, format: uuid }
+        upload:
+          type: object
+          required: [method, url, expiresAt, headers]
+          properties:
+            method: { type: string, enum: [PUT] }
+            url: { type: string, format: uri }
+            expiresAt: { type: string, format: date-time }
+            headers:
+              type: object
+              additionalProperties: { type: string }
+    MediaDownloadAuthorization:
+      type: object
+      required: [url, expiresAt]
+      properties:
+        url: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time }
     ContentFileMetadata:
       description: Future PDF metadata contract; no FL-014 upload endpoint exists.
       type: object
