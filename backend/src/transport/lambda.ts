@@ -3,6 +3,7 @@
 import type { APIGatewayProxyHandlerV2WithJWTAuthorizer } from "aws-lambda";
 
 import { FolooApplication } from "../application/foloo_application.js";
+import { ApplicationError } from "../application/errors.js";
 import { databasePool } from "../persistence/database.js";
 import { PostgresFolooRepository } from "../persistence/postgres_repository.js";
 import { errorResponse } from "./error_response.js";
@@ -48,6 +49,8 @@ export const handler: APIGatewayProxyHandlerV2WithJWTAuthorizer = async (
       routeKey: event.routeKey,
       statusCode: response.statusCode,
       errorType: error instanceof Error ? error.name : "UnknownError",
+      diagnosticCode:
+        error instanceof ApplicationError ? error.diagnosticCode : undefined,
       durationMs: Date.now() - startedAt,
     });
     return response;

@@ -1598,6 +1598,36 @@ abstract class AppLocalizations {
   /// **'Sincronizando'**
   String get syncingState;
 
+  /// No description provided for @retryScheduledState.
+  ///
+  /// In es, this message translates to:
+  /// **'Reintento programado'**
+  String get retryScheduledState;
+
+  /// No description provided for @syncNeedsAttention.
+  ///
+  /// In es, this message translates to:
+  /// **'{count, plural, =1{1 registro requiere atención} other{{count} registros requieren atención}}'**
+  String syncNeedsAttention(num count);
+
+  /// No description provided for @syncingRecords.
+  ///
+  /// In es, this message translates to:
+  /// **'{count, plural, =1{Sincronizando 1 registro} other{Sincronizando {count} registros}}'**
+  String syncingRecords(num count);
+
+  /// No description provided for @retryScheduledRecords.
+  ///
+  /// In es, this message translates to:
+  /// **'{count, plural, =1{1 registro se reintentará} other{{count} registros se reintentarán}}'**
+  String retryScheduledRecords(num count);
+
+  /// No description provided for @pendingSyncRecords.
+  ///
+  /// In es, this message translates to:
+  /// **'{count, plural, =0{Todo sincronizado} =1{1 registro pendiente de sincronizar} other{{count} registros pendientes de sincronizar}}'**
+  String pendingSyncRecords(num count);
+
   /// No description provided for @syncFailed.
   ///
   /// In es, this message translates to:

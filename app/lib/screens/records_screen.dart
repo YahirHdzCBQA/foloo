@@ -33,6 +33,7 @@ String _uploadStateLabel(BuildContext context, SessionUploadState state) =>
     switch (state) {
       SessionUploadState.local => context.l10n.pendingUpload,
       SessionUploadState.pending => context.l10n.pendingUpload,
+      SessionUploadState.retryable => context.l10n.retryScheduledState,
       SessionUploadState.syncing => context.l10n.syncingState,
       SessionUploadState.synced => context.l10n.synced,
       SessionUploadState.syncedWithMediaPending => context.l10n.mediaPending,
@@ -42,9 +43,15 @@ String _uploadStateLabel(BuildContext context, SessionUploadState state) =>
 
 IconData _uploadStateIcon(SessionUploadState state) => switch (state) {
   SessionUploadState.synced => Icons.check,
+  SessionUploadState.failed ||
   SessionUploadState.syncedWithMediaError => Icons.warning_amber_rounded,
+  SessionUploadState.retryable => Icons.schedule,
   _ => Icons.sync,
 };
+
+bool _isFailed(SessionUploadState state) =>
+    state == SessionUploadState.failed ||
+    state == SessionUploadState.syncedWithMediaError;
 
 /// Lists leads loaded from durable local persistence (REG-01–REG-08).
 class RecordsScreen extends StatefulWidget {
@@ -370,6 +377,16 @@ class _RecordsScreenState extends State<RecordsScreen>
     final pending = records
         .where((record) => record.uploadState != SessionUploadState.synced)
         .length;
+    final failed = records
+        .where((record) => _isFailed(record.uploadState))
+        .length;
+    final syncing = records
+        .where((record) => record.uploadState == SessionUploadState.syncing)
+        .length;
+    final retryable = records
+        .where((record) => record.uploadState == SessionUploadState.retryable)
+        .length;
+    final merelyPending = pending - failed - syncing - retryable;
     return Scaffold(
       key: _scaffoldKey,
       endDrawer: AppDrawer(
@@ -495,7 +512,13 @@ class _RecordsScreenState extends State<RecordsScreen>
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
-                      context.l10n.waitingForSignal(pending),
+                      failed > 0
+                          ? context.l10n.syncNeedsAttention(failed)
+                          : syncing > 0
+                          ? context.l10n.syncingRecords(syncing)
+                          : retryable > 0
+                          ? context.l10n.retryScheduledRecords(retryable)
+                          : context.l10n.pendingSyncRecords(merelyPending),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 11,
@@ -771,6 +794,7 @@ class _RecordRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = FolooPalette.of(context);
     final pending = record.uploadState != SessionUploadState.synced;
+    final failed = _isFailed(record.uploadState);
     return Material(
       color: palette.card,
       borderRadius: BorderRadius.circular(FolooRadii.md),
@@ -841,7 +865,9 @@ class _RecordRow extends StatelessWidget {
                         width: 28,
                         height: 28,
                         decoration: BoxDecoration(
-                          color: pending
+                          color: failed
+                              ? palette.errorTint
+                              : pending
                               ? FolooColors.uploadPendingTint
                               : palette.successTint,
                           shape: BoxShape.circle,
@@ -849,7 +875,11 @@ class _RecordRow extends StatelessWidget {
                         child: Icon(
                           _uploadStateIcon(record.uploadState),
                           size: 15,
-                          color: pending ? palette.ink : palette.success,
+                          color: failed
+                              ? palette.error
+                              : pending
+                              ? palette.ink
+                              : palette.success,
                         ),
                       ),
                     ],
@@ -951,10 +981,14 @@ class ConnectionDetailScreen extends StatelessWidget {
                 _DetailPill(
                   key: const Key('detailUploadStatePill'),
                   label: _uploadStateLabel(context, record.uploadState),
-                  color: record.uploadState != SessionUploadState.synced
+                  color: _isFailed(record.uploadState)
+                      ? palette.error
+                      : record.uploadState != SessionUploadState.synced
                       ? palette.ink
                       : palette.success,
-                  tint: record.uploadState != SessionUploadState.synced
+                  tint: _isFailed(record.uploadState)
+                      ? palette.errorTint
+                      : record.uploadState != SessionUploadState.synced
                       ? pendingTint
                       : palette.successTint,
                   icon: _uploadStateIcon(record.uploadState),

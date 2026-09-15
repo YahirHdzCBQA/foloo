@@ -15,6 +15,17 @@ import 'package:foloo/sync/foloo_api_client.dart';
 import 'package:foloo/sync/media_binary_transfer.dart';
 import 'package:foloo/sync/sync_models.dart';
 import 'package:foloo/sync/sync_store.dart';
+import 'package:image/image.dart' as image_codec;
+
+File _writeTestJpeg(String path) => File(path)
+  ..writeAsBytesSync(
+    image_codec.encodeJpg(image_codec.Image(width: 2, height: 2)),
+  );
+
+File _writeTestPng(String path) => File(path)
+  ..writeAsBytesSync(
+    image_codec.encodePng(image_codec.Image(width: 2, height: 2)),
+  );
 
 class _Session implements SyncSessionProvider {
   _Session(this.token);
@@ -774,7 +785,7 @@ void main() {
     () async {
       final root = await Directory.systemTemp.createTemp('foloo_media_state_');
       addTearDown(() => root.delete(recursive: true));
-      final source = File('${root.path}/card.jpg')..writeAsBytesSync([1, 2, 3]);
+      final source = _writeTestJpeg('${root.path}/card.jpg');
       final database = AppDatabase(NativeDatabase.memory());
       addTearDown(database.close);
       final store = SyncStore(database);
@@ -1043,7 +1054,7 @@ void main() {
     () async {
       final root = await Directory.systemTemp.createTemp('foloo_sync_media_');
       addTearDown(() => root.delete(recursive: true));
-      final source = File('${root.path}/card.jpg')..writeAsBytesSync([1, 2, 3]);
+      final source = _writeTestJpeg('${root.path}/card.jpg');
       final database = AppDatabase(NativeDatabase.memory());
       addTearDown(database.close);
       var sequence = 0;
@@ -1057,11 +1068,13 @@ void main() {
         idFactory: () => '77777777-7777-4777-8777-777777777777',
         syncStore: store,
       );
-      await leads.saveDraft(
+      final saved = await leads.saveDraft(
         owner,
         _draft(cardPath: source.path),
         capturedBy: profile,
       );
+      final persistedMedia = (await database.leadDao.mediaFor(saved.localId))
+          .single;
       final api = _Api();
 
       await SyncEngine(store, api, _Session('token')).synchronize(owner);
@@ -1073,7 +1086,10 @@ void main() {
       );
       expect(media.request.body, isNot(contains('localPath')));
       expect(media.request.body, isNot(contains('base64')));
-      expect(media.request.body?['byteSize'], 3);
+      expect(
+        media.request.body?['byteSize'],
+        await File(persistedMedia.localPath).length(),
+      );
     },
   );
 
@@ -1082,10 +1098,9 @@ void main() {
     () async {
       final root = await Directory.systemTemp.createTemp('foloo_media_s3_');
       addTearDown(() => root.delete(recursive: true));
-      final card = File('${root.path}/card.jpg')..writeAsBytesSync([1, 2, 3]);
+      final card = _writeTestJpeg('${root.path}/card.jpg');
       final voice = File('${root.path}/voice.m4a')..writeAsBytesSync([4, 5, 6]);
-      final reference = File('${root.path}/reference.jpg')
-        ..writeAsBytesSync([7, 8, 9]);
+      final reference = _writeTestJpeg('${root.path}/reference.jpg');
       final database = AppDatabase(NativeDatabase.memory());
       addTearDown(database.close);
       var sequence = 0;
@@ -1176,7 +1191,7 @@ void main() {
     () async {
       final root = await Directory.systemTemp.createTemp('foloo_media_retry_');
       addTearDown(() => root.delete(recursive: true));
-      final source = File('${root.path}/card.jpg')..writeAsBytesSync([1, 2, 3]);
+      final source = _writeTestJpeg('${root.path}/card.jpg');
       final database = AppDatabase(NativeDatabase.memory());
       addTearDown(database.close);
       var operationSequence = 0;
@@ -1220,6 +1235,10 @@ void main() {
       await engine.synchronize(owner);
       expect((await store.all(owner)).single.entityId, mediaId);
       expect((await store.all(owner)).single.status, 'retryable');
+      expect(
+        (await leads.listAll(owner)).single.uploadState,
+        SessionUploadState.retryable,
+      );
       expect(await File(persistedMedia.localPath).exists(), isTrue);
 
       now = now.add(const Duration(minutes: 1));
@@ -1247,7 +1266,7 @@ void main() {
     () async {
       final root = await Directory.systemTemp.createTemp('foloo_media_repair_');
       addTearDown(() => root.delete(recursive: true));
-      final source = File('${root.path}/card.jpg')..writeAsBytesSync([1, 2, 3]);
+      final source = _writeTestJpeg('${root.path}/card.jpg');
       final database = AppDatabase(NativeDatabase.memory());
       addTearDown(database.close);
       var sequence = 0;
@@ -1360,8 +1379,7 @@ void main() {
         'foloo_media_orphan_repair_',
       );
       addTearDown(() => root.delete(recursive: true));
-      final source = File('${root.path}/card.jpg')
-        ..writeAsBytesSync([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]);
+      final source = _writeTestJpeg('${root.path}/card.jpg');
       final database = AppDatabase(NativeDatabase.memory());
       addTearDown(database.close);
       var sequence = 0;
@@ -1464,12 +1482,112 @@ void main() {
     },
   );
 
+  test(
+    'SYN-08 manual retry normalizes failed PNG under the same media operation',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'foloo_media_png_repair_',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      final source = _writeTestJpeg('${root.path}/reference.jpg');
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      var operationSequence = 0;
+      const leadId = '6470b0c1-1ed2-43bf-9b57-9db9f2da7597';
+      final storage = PrivateMediaStorage(
+        Directory('${root.path}/foloo_media'),
+      );
+      final store = SyncStore(
+        database,
+        mediaStorage: storage,
+        idFactory: () => 'stable-operation-${operationSequence++}',
+      );
+      final leads = LeadRepository(
+        database,
+        storage,
+        idFactory: () => leadId,
+        syncStore: store,
+      );
+      final saved = await leads.saveDraft(
+        owner,
+        _draft(referencePaths: [source.path]),
+        capturedBy: profile,
+      );
+      final initialOperations = await store.all(owner);
+      await store.complete(
+        initialOperations.singleWhere((item) => item.entityType == 'lead'),
+      );
+      final operation = initialOperations.singleWhere(
+        (item) => item.entityType == 'leadMedia',
+      );
+      final media = (await database.leadDao.mediaFor(saved.localId)).single;
+      final mediaId = media.localId;
+      final legacyPngPath = media.localPath.replaceFirst(
+        RegExp(r'\.jpg$'),
+        '.png',
+      );
+      final legacyPng = _writeTestPng(legacyPngPath);
+      await database.leadDao.updateMediaLocalPath(mediaId, legacyPng.path);
+      final payload =
+          (jsonDecode(operation.payloadJson) as Map).cast<String, Object?>()
+            ..['byteSize'] = await legacyPng.length();
+      await database.syncDao.repairFailedMediaPayload(
+        operation.operationId,
+        jsonEncode(payload),
+        DateTime.utc(2026, 9, 15, 12),
+      );
+      await store.markFailed(
+        (await store.all(owner)).single,
+        'http_400_invalid_media_content',
+        DateTime.utc(2026, 9, 15, 12, 1),
+      );
+      final api = _MediaApi();
+      final transfer = _MediaTransfer();
+      final logs = <Map<String, Object?>>[];
+
+      await SyncEngine(
+        store,
+        api,
+        _Session('token'),
+        mediaTransfer: transfer,
+        logger: logs.add,
+      ).synchronize(owner, trigger: SyncTrigger.manual);
+
+      expect(await store.all(owner), isEmpty);
+      expect(api.authorizationCount, 1);
+      expect(transfer.uploads, hasLength(1));
+      expect(transfer.uploads.single.path, endsWith('.jpg'));
+      expect(await legacyPng.exists(), isTrue);
+      final normalized = File(transfer.uploads.single.path);
+      expect((await normalized.readAsBytes()).take(3), [0xff, 0xd8, 0xff]);
+      final storedMedia = await database.leadDao.mediaById(mediaId);
+      expect(storedMedia?.localId, mediaId);
+      expect(storedMedia?.leadLocalId, leadId);
+      expect(storedMedia?.localPath, normalized.path);
+      expect(
+        logs,
+        contains(
+          allOf(
+            containsPair('operationId', operation.operationId),
+            containsPair('mediaId', mediaId),
+            containsPair('result', 'normalized_failed_png_to_jpeg'),
+          ),
+        ),
+      );
+      final confirmation = api.calls.singleWhere(
+        (call) => call.request.path.endsWith('/media'),
+      );
+      expect(confirmation.request.body?['id'], mediaId);
+      expect(confirmation.request.idempotencyKey, operation.idempotencyKey);
+    },
+  );
+
   test('SYN-08 manual retry leaves unrelated media HTTP 400 failed', () async {
     final root = await Directory.systemTemp.createTemp(
       'foloo_media_no_repair_',
     );
     addTearDown(() => root.delete(recursive: true));
-    final source = File('${root.path}/card.jpg')..writeAsBytesSync([1, 2, 3]);
+    final source = _writeTestJpeg('${root.path}/card.jpg');
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);
     final storage = PrivateMediaStorage(Directory('${root.path}/foloo_media'));

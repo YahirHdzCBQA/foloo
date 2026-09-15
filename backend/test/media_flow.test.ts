@@ -235,6 +235,7 @@ test("presigned PUT binds exactly the headers Flutter must send", async () => {
 
 test("S3 confirmation verifies metadata and the actual JPEG signature", async () => {
   const commands: string[] = [];
+  let getCount = 0;
   const client = {
     send: async (command: object) => {
       commands.push(command.constructor.name);
@@ -245,10 +246,13 @@ test("S3 confirmation verifies metadata and the actual JPEG signature", async ()
           Metadata: { "foloo-media-id": media.id },
         };
       }
+      getCount += 1;
       return {
         Body: {
           transformToByteArray: async () =>
-            Uint8Array.from([0xff, 0xd8, 0xff, 0xe0]),
+            getCount === 1
+              ? Uint8Array.from([0xff, 0xd8, 0xff, 0xe0])
+              : Uint8Array.from([0xff, 0xd9]),
         },
       };
     },
@@ -257,7 +261,19 @@ test("S3 confirmation verifies metadata and the actual JPEG signature", async ()
 
   await storage.verifyUpload("derived/key", media);
 
-  assert.deepEqual(commands, ["HeadObjectCommand", "GetObjectCommand"]);
+  assert.deepEqual(commands, [
+    "HeadObjectCommand",
+    "GetObjectCommand",
+    "GetObjectCommand",
+  ]);
+});
+
+test("S3 confirmation accepts a valid reference-image JPEG", async () => {
+  const reference: MediaInput = { ...media, kind: "reference_image" };
+  await new S3MediaStorage(
+    "private-bucket",
+    verificationClient({ input: reference }),
+  ).verifyUpload("derived/key", reference);
 });
 
 test("S3 confirmation rejects missing or disguised objects", async () => {
@@ -296,9 +312,114 @@ test("S3 confirmation rejects missing or disguised objects", async () => {
     ),
     (error: unknown) =>
       error instanceof ApplicationError &&
-      error.code === "invalid_media_content",
+      error.code === "invalid_media_content" &&
+      error.diagnosticCode === "invalid_jpeg_signature",
   );
 });
+
+test("S3 confirmation identifies PNG mislabeled as JPEG", async () => {
+  const client = verificationClient({
+    beginning: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+  });
+  await assert.rejects(
+    new S3MediaStorage("private-bucket", client).verifyUpload(
+      "derived/key",
+      media,
+    ),
+    (error: unknown) =>
+      error instanceof ApplicationError &&
+      error.code === "invalid_media_content" &&
+      error.diagnosticCode === "unsupported_image_format",
+  );
+});
+
+test("S3 confirmation rejects a JPEG with no end marker", async () => {
+  const client = verificationClient({
+    beginning: [0xff, 0xd8, 0xff, 0xe0],
+    ending: [0x00, 0x00],
+  });
+  await assert.rejects(
+    new S3MediaStorage("private-bucket", client).verifyUpload(
+      "derived/key",
+      media,
+    ),
+    (error: unknown) =>
+      error instanceof ApplicationError &&
+      error.diagnosticCode === "invalid_jpeg_signature",
+  );
+});
+
+test("S3 confirmation accepts the supported M4A container", async () => {
+  const voice: MediaInput = {
+    ...media,
+    kind: "voice_note",
+    contentType: "audio/m4a",
+    byteSize: 64,
+    durationMs: 1000,
+  };
+  const client = verificationClient({
+    input: voice,
+    beginning: [0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x4d, 0x34, 0x41, 0x20],
+  });
+
+  await new S3MediaStorage("private-bucket", client).verifyUpload(
+    "derived/key",
+    voice,
+  );
+});
+
+test("S3 confirmation reports exact safe metadata and MIME mismatches", async () => {
+  for (const [head, expected] of [
+    [{ ContentType: "image/png" }, "content_type_mismatch"],
+    [{ Metadata: { "foloo-media-id": "wrong" } }, "metadata_mismatch"],
+    [{ ContentLength: media.byteSize + 1 }, "size_mismatch"],
+  ] as const) {
+    const client = verificationClient({ head });
+    await assert.rejects(
+      new S3MediaStorage("private-bucket", client).verifyUpload(
+        "derived/key",
+        media,
+      ),
+      (error: unknown) =>
+        error instanceof ApplicationError &&
+        error.code === "upload_mismatch" &&
+        error.diagnosticCode === expected,
+    );
+  }
+});
+
+function verificationClient({
+  input = media,
+  beginning = [0xff, 0xd8, 0xff, 0xe0],
+  ending = [0xff, 0xd9],
+  head = {},
+}: {
+  input?: MediaInput;
+  beginning?: number[];
+  ending?: number[];
+  head?: Record<string, unknown>;
+}): S3Client {
+  let getCount = 0;
+  return {
+    send: async (command: object) => {
+      if (command.constructor.name === "HeadObjectCommand") {
+        return {
+          ContentLength: input.byteSize,
+          ContentType: input.contentType,
+          Metadata: { "foloo-media-id": input.id },
+          ...head,
+        };
+      }
+      getCount += 1;
+      return {
+        Body: {
+          transformToByteArray: async () =>
+            Uint8Array.from(getCount === 1 ? beginning : ending),
+        },
+      };
+    },
+  } as unknown as S3Client;
+}
 
 test("router rejects a non-UUID lead path before any media operation", async () => {
   const router = createRouter(

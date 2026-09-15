@@ -1,15 +1,30 @@
-/// Private filesystem storage for card images and voice notes.
+/// Private filesystem storage and JPEG normalization for Lead media.
 ///
-/// VOZ-02/CAP-15: picker/recorder files are copied out of temporary locations
-/// before a lead is considered locally saved.
+/// CAP-08/CAP-09/VOZ-04: picker and recorder files leave temporary locations
+/// before local save; image bytes are normalized to the FL-016 JPEG contract.
 library;
 
 import 'dart:io';
 
+import 'package:image/image.dart' as image_codec;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 enum LocalMediaType { cardImage, voiceNote, referenceImage }
+
+enum LocalImageFormat { jpeg, png, unsupported }
+
+class NormalizedLocalImage {
+  const NormalizedLocalImage({
+    required this.path,
+    required this.byteSize,
+    required this.sourceFormat,
+  });
+
+  final String path;
+  final int byteSize;
+  final LocalImageFormat sourceFormat;
+}
 
 class MediaPersistenceException implements Exception {
   const MediaPersistenceException(this.message);
@@ -111,10 +126,22 @@ class PrivateMediaStorage {
     }
     final directory = _directory(type);
     await directory.create(recursive: true);
-    final extension = p.extension(source.path).isEmpty
-        ? (type == LocalMediaType.voiceNote ? '.m4a' : '.jpg')
-        : p.extension(source.path);
     final suffix = slot == null ? '' : '-$slot';
+    if (type != LocalMediaType.voiceNote) {
+      final destination = File(
+        p.join(directory.path, '$leadLocalId$suffix.jpg'),
+      );
+      final normalized = await _normalizeImage(source, destination);
+      if (normalized == null) {
+        throw const MediaPersistenceException(
+          'Selected image is not a supported decodable image.',
+        );
+      }
+      return normalized.path;
+    }
+    final extension = p.extension(source.path).isEmpty
+        ? '.m4a'
+        : p.extension(source.path);
     final destination = File(
       p.join(directory.path, '$leadLocalId$suffix$extension'),
     );
@@ -123,6 +150,84 @@ class PrivateMediaStorage {
     }
     await source.copy(destination.path);
     return destination.path;
+  }
+
+  /// Converts a recoverable failed image to the JPEG bytes promised by FL-016.
+  ///
+  /// A non-JPEG source is retained; the returned `.jpg` becomes the durable
+  /// logical file only after the caller updates Drift in the same repair flow.
+  Future<NormalizedLocalImage?> normalizeExistingImage(
+    String storedPath,
+  ) async {
+    final source = File(storedPath);
+    if (!await source.exists()) return null;
+    final bytes = await source.readAsBytes();
+    final format = _imageFormat(bytes);
+    final decoded = image_codec.decodeImage(bytes);
+    if (decoded == null) return null;
+    if (format == LocalImageFormat.jpeg) {
+      return NormalizedLocalImage(
+        path: source.path,
+        byteSize: bytes.length,
+        sourceFormat: format,
+      );
+    }
+    final destination = File(p.setExtension(source.path, '.jpg'));
+    return _normalizeImage(
+      source,
+      destination,
+      decoded: decoded,
+      sourceFormat: format,
+    );
+  }
+
+  Future<NormalizedLocalImage?> _normalizeImage(
+    File source,
+    File destination, {
+    image_codec.Image? decoded,
+    LocalImageFormat? sourceFormat,
+  }) async {
+    final sourceBytes = await source.readAsBytes();
+    final image = decoded ?? image_codec.decodeImage(sourceBytes);
+    if (image == null) return null;
+    final jpeg = image_codec.encodeJpg(
+      image_codec.bakeOrientation(image),
+      quality: 85,
+    );
+    final temporary = File('${destination.path}.normalizing');
+    await temporary.writeAsBytes(jpeg, flush: true);
+    try {
+      await temporary.rename(destination.path);
+    } on FileSystemException {
+      await temporary.copy(destination.path);
+      await temporary.delete();
+    }
+    return NormalizedLocalImage(
+      path: destination.path,
+      byteSize: jpeg.length,
+      sourceFormat: sourceFormat ?? _imageFormat(sourceBytes),
+    );
+  }
+
+  LocalImageFormat _imageFormat(List<int> bytes) {
+    if (bytes.length >= 3 &&
+        bytes[0] == 0xff &&
+        bytes[1] == 0xd8 &&
+        bytes[2] == 0xff) {
+      return LocalImageFormat.jpeg;
+    }
+    if (bytes.length >= 8 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4e &&
+        bytes[3] == 0x47 &&
+        bytes[4] == 0x0d &&
+        bytes[5] == 0x0a &&
+        bytes[6] == 0x1a &&
+        bytes[7] == 0x0a) {
+      return LocalImageFormat.png;
+    }
+    return LocalImageFormat.unsupported;
   }
 
   Future<bool> exists(String path) => File(path).exists();

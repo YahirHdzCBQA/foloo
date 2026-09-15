@@ -224,6 +224,82 @@ class SyncStore {
     return results;
   }
 
+  /// Repairs only FL-016 image failures whose local bytes can be decoded and
+  /// normalized to JPEG without changing any logical identity.
+  Future<List<LegacyMediaRepairResult>> repairFailedImageContent(
+    String ownerSub,
+  ) async {
+    final results = <LegacyMediaRepairResult>[];
+    for (final operation in await all(ownerSub)) {
+      if (operation.entityType != SyncEntityType.leadMedia.name ||
+          operation.status != SyncOperationStatus.failed.name ||
+          operation.lastError != 'http_400_invalid_media_content') {
+        continue;
+      }
+      Map<String, Object?> payload;
+      try {
+        payload = _payloadMap(operation.payloadJson);
+      } on FormatException {
+        results.add(_repairResult(operation, 'skipped_invalid_payload_json'));
+        continue;
+      }
+      final leadId = payload['leadId'];
+      final kind = payload['kind'];
+      final storage = mediaStorage;
+      final media = await mediaById(operation.entityId);
+      if (operation.action != 'create' ||
+          storage == null ||
+          media == null ||
+          leadId is! String ||
+          !_isUuid(leadId) ||
+          payload['id'] != operation.entityId ||
+          payload['contentType'] != 'image/jpeg' ||
+          (kind != 'business_card' && kind != 'reference_image') ||
+          media.leadLocalId != leadId ||
+          _apiKind(media.mediaType) != kind) {
+        results.add(_repairResult(operation, 'skipped_contract_mismatch'));
+        continue;
+      }
+      final resolvedPath = await storage.resolveExistingPath(media.localPath);
+      if (resolvedPath == null) {
+        results.add(_repairResult(operation, 'skipped_local_file_missing'));
+        continue;
+      }
+      final normalized = await storage.normalizeExistingImage(resolvedPath);
+      if (normalized == null) {
+        results.add(_repairResult(operation, 'skipped_undecodable_image'));
+        continue;
+      }
+      payload['byteSize'] = normalized.byteSize;
+      await database.transaction(() async {
+        if (normalized.path != media.localPath) {
+          await database.leadDao.updateMediaLocalPath(
+            operation.entityId,
+            normalized.path,
+          );
+        }
+        await database.syncDao.repairFailedMediaPayload(
+          operation.operationId,
+          jsonEncode(payload),
+          DateTime.now().toUtc(),
+        );
+        await database.leadDao.markMediaSyncState(
+          operation.entityId,
+          'pending',
+        );
+      });
+      results.add(
+        _repairResult(
+          operation,
+          normalized.sourceFormat == LocalImageFormat.jpeg
+              ? 'revalidated_failed_jpeg'
+              : 'normalized_failed_${normalized.sourceFormat.name}_to_jpeg',
+        ),
+      );
+    }
+    return results;
+  }
+
   /// Backfills valid pre-FL-015 rows without changing their local identity.
   Future<void> prepareOwner(String ownerSub) async {
     final profile = await database.profilePreferencesDao.profileForUser(
@@ -333,7 +409,7 @@ class SyncStore {
         error,
         now.toUtc(),
       );
-      await _markEntity(operation, 'pending');
+      await _markEntity(operation, 'retryable');
     });
   }
 

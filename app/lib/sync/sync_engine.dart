@@ -75,7 +75,10 @@ class SyncEngine extends ChangeNotifier {
 
   Future<void> _synchronizeOnce(String ownerSub, SyncTrigger trigger) async {
     if (trigger == SyncTrigger.manual) {
-      final repairs = await _store.repairFailedMediaTimestamps(ownerSub);
+      final repairs = [
+        ...await _store.repairFailedMediaTimestamps(ownerSub),
+        ...await _store.repairFailedImageContent(ownerSub),
+      ];
       for (final repair in repairs) {
         logger({
           'scope': 'sync_repair',

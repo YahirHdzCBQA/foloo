@@ -512,6 +512,7 @@ class LeadRepository {
     final mediaStates = bundle.media.map((item) => item.uploadState).toSet();
     final leadState = switch (stored.syncState) {
       'enHoja' || 'synced' => SessionUploadState.synced,
+      'retryable' => SessionUploadState.retryable,
       'syncing' => SessionUploadState.syncing,
       'failed' => SessionUploadState.failed,
       'pendiente' || 'pending' => SessionUploadState.pending,
@@ -521,6 +522,10 @@ class LeadRepository {
         ? leadState
         : mediaStates.contains('failed')
         ? SessionUploadState.syncedWithMediaError
+        : mediaStates.contains('syncing')
+        ? SessionUploadState.syncing
+        : mediaStates.contains('retryable')
+        ? SessionUploadState.retryable
         : mediaStates.any((state) => state != 'synced')
         ? SessionUploadState.syncedWithMediaPending
         : SessionUploadState.synced;

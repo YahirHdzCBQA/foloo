@@ -45,6 +45,8 @@ Widget recordsApp(
   ValueChanged<AppDestination>? onDestinationSelected,
   bool darkMode = false,
   List<AppEvent> events = const [],
+  Future<void> Function()? onSync,
+  bool syncing = false,
 }) => MaterialApp(
   theme: FolooTheme.light,
   darkTheme: FolooTheme.dark,
@@ -57,6 +59,8 @@ Widget recordsApp(
     onDestinationSelected: onDestinationSelected ?? (_) {},
     onAppearanceChanged: (_) {},
     onLogout: () {},
+    onSync: onSync,
+    syncing: syncing,
   ),
 );
 
@@ -131,6 +135,67 @@ void main() {
     for (final chip in tester.widgetList<ChoiceChip>(find.byType(ChoiceChip))) {
       expect(chip.showCheckmark, isFalse);
     }
+  });
+
+  testWidgets('SYN-07 failed media is never described as waiting for signal', (
+    tester,
+  ) async {
+    var syncCalls = 0;
+    final failed = SessionLead(
+      localId: 'failed-media',
+      folio: null,
+      capturedAt: DateTime(2026, 9, 15),
+      lead: lead(),
+      uploadState: SessionUploadState.syncedWithMediaError,
+    );
+    await tester.pumpWidget(
+      recordsApp(
+        FakeVoiceNoteService(),
+        records: [failed],
+        onSync: () async => syncCalls += 1,
+      ),
+    );
+
+    expect(find.text('1 registro requiere atención'), findsOneWidget);
+    expect(find.textContaining('espera señal'), findsNothing);
+    await tester.tap(find.byKey(const Key('syncButton')));
+    await tester.pump();
+    expect(syncCalls, 1);
+    expect(find.text('1 registro requiere atención'), findsOneWidget);
+
+    await tester.tap(find.text('Mariana Sandoval Ruiz'));
+    await tester.pumpAndSettle();
+    expect(find.text('Lead guardado · error en medios'), findsOneWidget);
+  });
+
+  testWidgets('SYN-07 pending retryable syncing and synced summaries differ', (
+    tester,
+  ) async {
+    Future<void> verify(SessionUploadState state, String expected) async {
+      await tester.pumpWidget(
+        recordsApp(
+          FakeVoiceNoteService(),
+          records: [
+            SessionLead(
+              localId: state.name,
+              folio: null,
+              capturedAt: DateTime(2026, 9, 15),
+              lead: lead(),
+              uploadState: state,
+            ),
+          ],
+        ),
+      );
+      expect(find.text(expected), findsOneWidget);
+    }
+
+    await verify(
+      SessionUploadState.pending,
+      '1 registro pendiente de sincronizar',
+    );
+    await verify(SessionUploadState.retryable, '1 registro se reintentará');
+    await verify(SessionUploadState.syncing, 'Sincronizando 1 registro');
+    await verify(SessionUploadState.synced, 'Todo sincronizado');
   });
 
   testWidgets('REG-02 event dropdown filters records and updates results', (

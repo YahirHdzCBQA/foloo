@@ -844,6 +844,54 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncingState => 'Syncing';
 
   @override
+  String get retryScheduledState => 'Retry scheduled';
+
+  @override
+  String syncNeedsAttention(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count records require attention',
+      one: '1 record requires attention',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String syncingRecords(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Syncing $count records',
+      one: 'Syncing 1 record',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String retryScheduledRecords(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count records will retry',
+      one: '1 record will retry',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pendingSyncRecords(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count records pending sync',
+      one: '1 record pending sync',
+      zero: 'Everything synced',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get syncFailed => 'Sync error';
 
   @override

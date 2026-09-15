@@ -5,6 +5,7 @@ export class ApplicationError extends Error {
     readonly code: string,
     readonly statusCode: number,
     message: string,
+    readonly diagnosticCode?: string,
   ) {
     super(message);
     this.name = "ApplicationError";

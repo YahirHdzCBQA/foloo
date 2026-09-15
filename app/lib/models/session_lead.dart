@@ -7,6 +7,7 @@ import 'lead_draft.dart';
 enum SessionUploadState {
   local,
   pending,
+  retryable,
   syncing,
   synced,
   syncedWithMediaPending,

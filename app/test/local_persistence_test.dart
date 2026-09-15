@@ -10,6 +10,13 @@ import 'package:foloo/data/local/private_media_storage.dart';
 import 'package:foloo/data/repositories/local_repositories.dart';
 import 'package:foloo/models/app_event.dart';
 import 'package:foloo/models/lead_draft.dart';
+import 'package:image/image.dart' as image_codec;
+
+List<int> testJpeg() =>
+    image_codec.encodeJpg(image_codec.Image(width: 2, height: 2));
+
+List<int> testPng() =>
+    image_codec.encodePng(image_codec.Image(width: 2, height: 2));
 
 LeadDraft draft({
   String name = 'Mariana',
@@ -174,7 +181,7 @@ void main() {
     () async {
       final sourceCard = File('${temporary.path}/picker-card.jpg');
       final sourceAudio = File('${temporary.path}/recorder-note.m4a');
-      await sourceCard.writeAsBytes([1, 2, 3, 4]);
+      await sourceCard.writeAsBytes(testJpeg());
       await sourceAudio.writeAsBytes([5, 6, 7, 8]);
       var database = openDatabase();
       await EventRepository(database).save(userId, event(), makeActive: true);
@@ -224,8 +231,8 @@ void main() {
     () async {
       final sourceA = File('${temporary.path}/reference-a.jpg');
       final sourceB = File('${temporary.path}/reference-b.png');
-      await sourceA.writeAsBytes([1, 2, 3]);
-      await sourceB.writeAsBytes([4, 5, 6]);
+      await sourceA.writeAsBytes(testJpeg());
+      await sourceB.writeAsBytes(testPng());
       var database = openDatabase();
       await EventRepository(database).save(userId, event(), makeActive: true);
       var leads = LeadRepository(
@@ -252,6 +259,17 @@ void main() {
         ),
         isTrue,
       );
+      expect(
+        saved.lead.referenceImageLocalPaths.every(
+          (path) => path.endsWith('.jpg'),
+        ),
+        isTrue,
+      );
+      for (final path in saved.lead.referenceImageLocalPaths) {
+        final bytes = await File(path).readAsBytes();
+        expect(bytes.take(3), [0xff, 0xd8, 0xff]);
+      }
+      expect(await sourceB.exists(), isTrue);
       await database.close();
 
       database = openDatabase();

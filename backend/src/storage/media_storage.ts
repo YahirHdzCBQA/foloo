@@ -93,16 +93,14 @@ export class S3MediaStorage implements MediaStorage {
       const head = await this.client.send(
         new HeadObjectCommand({ Bucket: this.bucketName, Key: objectKey }),
       );
-      if (
-        head.ContentLength !== input.byteSize ||
-        head.ContentType !== input.contentType ||
-        head.Metadata?.["foloo-media-id"] !== input.id
-      ) {
-        throw new ApplicationError(
-          "upload_mismatch",
-          409,
-          "Uploaded media does not match its authorization.",
-        );
+      if (head.ContentLength !== input.byteSize) {
+        throw uploadMismatch("size_mismatch");
+      }
+      if (head.ContentType !== input.contentType) {
+        throw uploadMismatch("content_type_mismatch");
+      }
+      if (head.Metadata?.["foloo-media-id"] !== input.id) {
+        throw uploadMismatch("metadata_mismatch");
       }
       const sample = await this.client.send(
         new GetObjectCommand({
@@ -112,12 +110,23 @@ export class S3MediaStorage implements MediaStorage {
         }),
       );
       const bytes = await sample.Body?.transformToByteArray();
-      if (!bytes || !matchesContent(input.contentType, bytes)) {
-        throw new ApplicationError(
-          "invalid_media_content",
-          400,
-          "Uploaded media content is not an allowed format.",
+      if (!bytes) throw invalidMedia("empty_content_sample");
+      if (input.contentType === "image/jpeg") {
+        if (isPng(bytes)) throw invalidMedia("unsupported_image_format");
+        if (!isJpegStart(bytes)) throw invalidMedia("invalid_jpeg_signature");
+        const ending = await this.client.send(
+          new GetObjectCommand({
+            Bucket: this.bucketName,
+            Key: objectKey,
+            Range: `bytes=${input.byteSize - 2}-${input.byteSize - 1}`,
+          }),
         );
+        const endingBytes = await ending.Body?.transformToByteArray();
+        if (!endingBytes || !isJpegEnd(endingBytes)) {
+          throw invalidMedia("invalid_jpeg_signature");
+        }
+      } else if (!isM4a(bytes)) {
+        throw invalidMedia("invalid_m4a_container");
       }
     } catch (error) {
       if (error instanceof ApplicationError) throw error;
@@ -150,19 +159,63 @@ export class S3MediaStorage implements MediaStorage {
   }
 }
 
-function matchesContent(contentType: string, bytes: Uint8Array): boolean {
-  if (contentType === "image/jpeg") {
-    return (
-      bytes.length >= 3 &&
-      bytes[0] === 0xff &&
-      bytes[1] === 0xd8 &&
-      bytes[2] === 0xff
-    );
+function uploadMismatch(diagnosticCode: string): ApplicationError {
+  return new ApplicationError(
+    "upload_mismatch",
+    409,
+    "Uploaded media does not match its authorization.",
+    diagnosticCode,
+  );
+}
+
+function invalidMedia(diagnosticCode: string): ApplicationError {
+  return new ApplicationError(
+    "invalid_media_content",
+    400,
+    "Uploaded media content is not an allowed format.",
+    diagnosticCode,
+  );
+}
+
+function isJpegStart(bytes: Uint8Array): boolean {
+  return (
+    bytes.length >= 4 &&
+    bytes[0] === 0xff &&
+    bytes[1] === 0xd8 &&
+    bytes[2] === 0xff &&
+    bytes[3] !== 0x00 &&
+    bytes[3] !== 0xff
+  );
+}
+
+function isJpegEnd(bytes: Uint8Array): boolean {
+  return (
+    bytes.length >= 2 &&
+    bytes[bytes.length - 2] === 0xff &&
+    bytes[bytes.length - 1] === 0xd9
+  );
+}
+
+function isPng(bytes: Uint8Array): boolean {
+  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  return signature.every((value, index) => bytes[index] === value);
+}
+
+function isM4a(bytes: Uint8Array): boolean {
+  if (
+    bytes.length < 12 ||
+    String.fromCharCode(...bytes.slice(4, 8)) !== "ftyp"
+  ) {
+    return false;
   }
-  if (contentType === "audio/m4a") {
-    return (
-      bytes.length >= 12 && String.fromCharCode(...bytes.slice(4, 8)) === "ftyp"
-    );
-  }
-  return false;
+  const boxSize = new DataView(
+    bytes.buffer,
+    bytes.byteOffset,
+    bytes.byteLength,
+  ).getUint32(0);
+  const majorBrand = String.fromCharCode(...bytes.slice(8, 12));
+  return (
+    boxSize >= 12 &&
+    ["M4A ", "M4B ", "mp41", "mp42", "isom"].includes(majorBrand)
+  );
 }
