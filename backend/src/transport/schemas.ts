@@ -5,6 +5,15 @@ import { z } from "zod";
 const nullableText = (max: number) =>
   z.string().trim().max(max).nullable().optional();
 
+// CAP-03: keep the API's syntactic email rule aligned with the mobile form.
+// Delivery/reputation policy remains a later server-side concern (SAL-07).
+const leadEmailSchema = z
+  .string()
+  .trim()
+  .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)
+  .nullable()
+  .optional();
+
 export const profileSchema = z.object({
   name: z.string().trim().min(1).max(160),
   company: z.string().trim().min(1).max(160),
@@ -36,7 +45,7 @@ export const leadSchema = z
     lastName: nullableText(160),
     position: nullableText(160),
     company: z.string().trim().min(1).max(160),
-    email: z.email().nullable().optional(),
+    email: leadEmailSchema,
     phone: nullableText(40),
     leadType: z.enum(["customer", "partner", "supplier"]),
     interest: z.enum(["low", "medium", "high"]),

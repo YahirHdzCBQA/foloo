@@ -75,6 +75,16 @@ class SyncEngine extends ChangeNotifier {
 
   Future<void> _synchronizeOnce(String ownerSub, SyncTrigger trigger) async {
     if (trigger == SyncTrigger.manual) {
+      final leadRepairs = await _store.repairFailedLeadContracts(ownerSub);
+      for (final repair in leadRepairs) {
+        logger({
+          'scope': 'sync_repair',
+          'entityType': SyncEntityType.lead.name,
+          'operationId': repair.operationId,
+          'entityId': repair.leadId,
+          'result': repair.result,
+        });
+      }
       final repairs = [
         ...await _store.repairFailedMediaTimestamps(ownerSub),
         ...await _store.repairFailedImageContent(ownerSub),
@@ -175,6 +185,20 @@ class SyncEngine extends ChangeNotifier {
       } on SyncTransportException {
         await _retry(operation, null, 'transport');
       } on MediaTransferException catch (error) {
+        if (error.code == 'local_metadata_missing') {
+          await _store.markFailed(
+            operation,
+            'media_upload_${error.code}',
+            _now(),
+          );
+          _logMedia(
+            operation,
+            'failed',
+            error: error.code,
+            storageCode: error.storageCode,
+          );
+          continue;
+        }
         _logMedia(
           operation,
           'retry',

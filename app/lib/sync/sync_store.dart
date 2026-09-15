@@ -26,13 +26,31 @@ class LegacyMediaRepairResult {
   final String result;
 }
 
+class LegacyLeadRepairResult {
+  const LegacyLeadRepairResult({
+    required this.operationId,
+    required this.leadId,
+    required this.result,
+  });
+
+  final String operationId;
+  final String leadId;
+  final String result;
+}
+
 class SyncStore {
-  SyncStore(this.database, {this.mediaStorage, String Function()? idFactory})
-    : _idFactory = idFactory ?? const Uuid().v4;
+  SyncStore(
+    this.database, {
+    this.mediaStorage,
+    String Function()? idFactory,
+    String Function()? legacyEventIdFactory,
+  }) : _idFactory = idFactory ?? const Uuid().v4,
+       _legacyEventIdFactory = legacyEventIdFactory ?? const Uuid().v4;
 
   final AppDatabase database;
   final PrivateMediaStorage? mediaStorage;
   final String Function() _idFactory;
+  final String Function() _legacyEventIdFactory;
 
   Future<void> enqueue({
     required String ownerSub,
@@ -81,6 +99,215 @@ class SyncStore {
 
   Future<List<StoredSyncOperation>> all(String ownerSub) =>
       database.syncDao.allForOwner(ownerSub);
+
+  /// Repairs only a failed Lead whose locally owned legacy event identifier is
+  /// the proven reason its otherwise-valid snapshot cannot satisfy FL-014.
+  ///
+  /// The event receives a cloud-compatible technical UUID without changing its
+  /// business fields. Lead/outbox/media identities and idempotency keys remain
+  /// untouched (SYN-06/SYN-09).
+  Future<List<LegacyLeadRepairResult>> repairFailedLeadContracts(
+    String ownerSub,
+  ) async {
+    final results = <LegacyLeadRepairResult>[];
+    final remappedEventIds = <String, String>{};
+    for (final operation in await all(ownerSub)) {
+      if (operation.entityType != SyncEntityType.lead.name ||
+          operation.status != SyncOperationStatus.failed.name ||
+          operation.action != 'create' ||
+          !_knownLeadValidationFailure(operation.lastError)) {
+        continue;
+      }
+      Map<String, Object?> payload;
+      try {
+        payload = _payloadMap(operation.payloadJson);
+      } on Object {
+        results.add(_leadRepairResult(operation, 'skipped_invalid_payload'));
+        continue;
+      }
+      final lead = await database.leadDao.byId(ownerSub, operation.entityId);
+      if (lead == null || payload['id'] != operation.entityId) {
+        results.add(_leadRepairResult(operation, 'skipped_owner_mismatch'));
+        continue;
+      }
+      var repairedKnownDefect = false;
+      if (payload['origin'] == 'event') {
+        final oldEventId = payload['eventId'];
+        if (oldEventId is String && !_isUuid(oldEventId)) {
+          final mapped = remappedEventIds[oldEventId];
+          if (mapped != null) {
+            payload['eventId'] = mapped;
+            repairedKnownDefect = true;
+          } else {
+            final event = await database.eventDao.byId(ownerSub, oldEventId);
+            if (event == null || lead.eventLocalId != oldEventId) {
+              results.add(
+                _leadRepairResult(operation, 'skipped_event_owner_mismatch'),
+              );
+              continue;
+            }
+            if (await _legacyEventHasForeignOwner(oldEventId, ownerSub)) {
+              results.add(
+                _leadRepairResult(operation, 'skipped_shared_legacy_event'),
+              );
+              continue;
+            }
+            final newEventId = _legacyEventIdFactory();
+            if (!_isUuid(newEventId) ||
+                await database.eventDao.byId(ownerSub, newEventId) != null) {
+              results.add(
+                _leadRepairResult(operation, 'skipped_event_id_collision'),
+              );
+              continue;
+            }
+            await _remapLegacyEvent(
+              ownerSub: ownerSub,
+              oldEventId: oldEventId,
+              newEventId: newEventId,
+              event: event,
+            );
+            remappedEventIds[oldEventId] = newEventId;
+            payload['eventId'] = newEventId;
+            repairedKnownDefect = true;
+          }
+        }
+      }
+      if (!repairedKnownDefect || !_isValidLeadPayload(payload)) {
+        results.add(
+          _leadRepairResult(operation, 'skipped_unresolved_validation'),
+        );
+        continue;
+      }
+      await database.transaction(() async {
+        await database.syncDao.repairFailedPayload(
+          operation.operationId,
+          jsonEncode(payload),
+          DateTime.now().toUtc(),
+        );
+        await database.leadDao.markLeadSyncState(
+          ownerSub,
+          operation.entityId,
+          'pending',
+        );
+      });
+      results.add(_leadRepairResult(operation, 'remapped_legacy_event_id'));
+    }
+    return results;
+  }
+
+  Future<void> _remapLegacyEvent({
+    required String ownerSub,
+    required String oldEventId,
+    required String newEventId,
+    required StoredEvent event,
+  }) async {
+    final now = DateTime.now().toUtc();
+    await database.transaction(() async {
+      // Defer the FK while parent and children move atomically to the new UUID.
+      await database.customStatement('PRAGMA defer_foreign_keys = ON');
+      await database.customUpdate(
+        'UPDATE local_events SET local_id = ?, updated_at = ?, '
+        "sync_state = 'local' WHERE owner_user_id = ? AND local_id = ?",
+        variables: [
+          Variable<String>(newEventId),
+          Variable<DateTime>(now),
+          Variable<String>(ownerSub),
+          Variable<String>(oldEventId),
+        ],
+        updates: {database.localEvents},
+      );
+      await database.customUpdate(
+        'UPDATE local_leads SET event_local_id = ?, updated_at = ? '
+        'WHERE owner_user_id = ? AND event_local_id = ?',
+        variables: [
+          Variable<String>(newEventId),
+          Variable<DateTime>(now),
+          Variable<String>(ownerSub),
+          Variable<String>(oldEventId),
+        ],
+        updates: {database.localLeads},
+      );
+      await database.customUpdate(
+        "UPDATE sync_operations SET entity_id = ?, payload_json = "
+        "json_set(payload_json, '\$.id', ?), "
+        "status = CASE WHEN status = 'failed' THEN 'pending' ELSE status END, "
+        "last_error = CASE WHEN status = 'failed' THEN NULL ELSE last_error END, "
+        'next_attempt_at = NULL, updated_at = ? '
+        "WHERE owner_user_id = ? AND entity_type = 'event' AND entity_id = ?",
+        variables: [
+          Variable<String>(newEventId),
+          Variable<String>(newEventId),
+          Variable<DateTime>(now),
+          Variable<String>(ownerSub),
+          Variable<String>(oldEventId),
+        ],
+        updates: {database.syncOperations},
+      );
+      await database.customUpdate(
+        "UPDATE sync_operations SET payload_json = json_set(payload_json, "
+        "'\$.eventId', ?), updated_at = ? WHERE owner_user_id = ? "
+        "AND entity_type = 'lead' "
+        "AND json_extract(payload_json, '\$.eventId') = ?",
+        variables: [
+          Variable<String>(newEventId),
+          Variable<DateTime>(now),
+          Variable<String>(ownerSub),
+          Variable<String>(oldEventId),
+        ],
+        updates: {database.syncOperations},
+      );
+      if (!await database.syncDao.hasOpenOperation(
+        ownerSub,
+        SyncEntityType.event.name,
+        newEventId,
+      )) {
+        final operationId = _idFactory();
+        await database.syncDao.enqueue(
+          SyncOperationsCompanion.insert(
+            operationId: operationId,
+            ownerUserId: ownerSub,
+            entityType: SyncEntityType.event.name,
+            entityId: newEventId,
+            action: 'create',
+            payloadJson: jsonEncode({
+              'id': newEventId,
+              'name': event.name,
+              'startsAt': event.startsOn.toUtc().toIso8601String(),
+              'endsAt': event.endsOn.toUtc().toIso8601String(),
+            }),
+            idempotencyKey: operationId,
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+      }
+    });
+  }
+
+  Future<bool> _legacyEventHasForeignOwner(
+    String eventId,
+    String ownerSub,
+  ) async {
+    final row = await database
+        .customSelect(
+          'SELECT '
+          '(SELECT COUNT(*) FROM local_leads WHERE event_local_id = ? '
+          'AND (owner_user_id IS NULL OR owner_user_id <> ?)) + '
+          '(SELECT COUNT(*) FROM sync_operations WHERE owner_user_id <> ? '
+          "AND ((entity_type = 'event' AND entity_id = ?) OR "
+          "(entity_type = 'lead' AND json_extract(payload_json, '\$.eventId') = ?))) "
+          'AS foreign_count',
+          variables: [
+            Variable<String>(eventId),
+            Variable<String>(ownerSub),
+            Variable<String>(ownerSub),
+            Variable<String>(eventId),
+            Variable<String>(eventId),
+          ],
+        )
+        .getSingle();
+    return row.read<int>('foreign_count') > 0;
+  }
 
   /// Reactivates only operations failed by the shipped FL-016 naive timestamp.
   /// Other 4xx contract failures remain terminal until their cause is fixed.
@@ -718,9 +945,69 @@ class SyncStore {
     result: result,
   );
 
+  LegacyLeadRepairResult _leadRepairResult(
+    StoredSyncOperation operation,
+    String result,
+  ) => LegacyLeadRepairResult(
+    operationId: operation.operationId,
+    leadId: operation.entityId,
+    result: result,
+  );
+
+  bool _knownLeadValidationFailure(String? error) =>
+      error == 'http_400_validation_error' ||
+      error == 'http_400_invalid_event_id';
+
+  bool _isValidLeadPayload(Map<String, Object?> payload) {
+    final id = payload['id'];
+    final capturedAt = payload['capturedAt'];
+    final origin = payload['origin'];
+    final eventId = payload['eventId'];
+    final place = payload['place'];
+    final email = payload['email'];
+    final phone = payload['phone'];
+    if (id is! String ||
+        !_isUuid(id) ||
+        capturedAt is! String ||
+        DateTime.tryParse(capturedAt) == null ||
+        !_timestampHasOffset.hasMatch(capturedAt) ||
+        (origin != 'event' && origin != 'direct') ||
+        (origin == 'event' && (eventId is! String || !_isUuid(eventId))) ||
+        (origin == 'direct' &&
+            (place is! String || place.trim().isEmpty || place.length > 240)) ||
+        !_requiredText(payload['firstName'], 160) ||
+        !_requiredText(payload['company'], 160) ||
+        !_nullableText(payload['lastName'], 160) ||
+        !_nullableText(payload['position'], 160) ||
+        !_nullableText(place, 240) ||
+        !_nullableText(phone, 40) ||
+        !_nullableText(payload['writtenNote'], 10000) ||
+        !_nullableText(payload['commercialFolio'], 80) ||
+        (email != null &&
+            (email is! String || !_leadEmailPattern.hasMatch(email.trim()))) ||
+        (email == null && (phone is! String || phone.trim().isEmpty)) ||
+        !const {
+          'customer',
+          'partner',
+          'supplier',
+        }.contains(payload['leadType']) ||
+        !const {'low', 'medium', 'high'}.contains(payload['interest'])) {
+      return false;
+    }
+    return true;
+  }
+
+  bool _requiredText(Object? value, int maximum) =>
+      value is String && value.trim().isNotEmpty && value.length <= maximum;
+
+  bool _nullableText(Object? value, int maximum) =>
+      value == null || value is String && value.length <= maximum;
+
   static final RegExp _legacyNaiveTimestamp = RegExp(
     r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}(?:\d{3})?$',
   );
+  static final RegExp _timestampHasOffset = RegExp(r'(?:Z|[+-]\d\d:\d\d)$');
+  static final RegExp _leadEmailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
 
   String _leadTypeFromApi(String value) => switch (value) {
     'supplier' => 'supplier',

@@ -49,8 +49,31 @@ export function errorResponse(
 }
 
 function validationCode(error: z.ZodError, path?: string): string {
-  if (!path?.includes("/media")) return "validation_error";
   const field = error.issues[0]?.path[0];
+  if (path === "/v1/leads") {
+    return (
+      (
+        {
+          id: "invalid_lead_id",
+          capturedAt: "invalid_captured_at",
+          origin: "invalid_origin",
+          eventId: "invalid_event_id",
+          place: "invalid_place",
+          firstName: "invalid_first_name",
+          lastName: "invalid_last_name",
+          position: "invalid_position",
+          company: "invalid_company",
+          email: "invalid_email",
+          phone: "invalid_phone",
+          leadType: "invalid_lead_type",
+          interest: "invalid_interest",
+          writtenNote: "invalid_written_note",
+          commercialFolio: "invalid_commercial_folio",
+        } as Record<PropertyKey, string>
+      )[field ?? ""] ?? "invalid_lead_payload"
+    );
+  }
+  if (!path?.includes("/media")) return "validation_error";
   return (
     (
       {
@@ -63,4 +86,18 @@ function validationCode(error: z.ZodError, path?: string): string {
     )[field ?? ""] ??
     (field === undefined ? "invalid_lead_id" : "invalid_payload")
   );
+}
+
+/** Returns field/category only, never rejected values or request payloads. */
+export function safeValidationDiagnostics(
+  error: unknown,
+): Array<{ field: string; category: string }> | undefined {
+  if (!(error instanceof z.ZodError)) return undefined;
+  return error.issues.slice(0, 8).map((issue) => ({
+    field: issue.path.length === 0 ? "payload" : issue.path.join("."),
+    category:
+      issue.code === "invalid_format" && "format" in issue
+        ? `invalid_${String(issue.format)}`
+        : issue.code,
+  }));
 }

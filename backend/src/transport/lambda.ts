@@ -6,7 +6,7 @@ import { FolooApplication } from "../application/foloo_application.js";
 import { ApplicationError } from "../application/errors.js";
 import { databasePool } from "../persistence/database.js";
 import { PostgresFolooRepository } from "../persistence/postgres_repository.js";
-import { errorResponse } from "./error_response.js";
+import { errorResponse, safeValidationDiagnostics } from "./error_response.js";
 import { logEvent } from "./logging.js";
 import { createRouter } from "./router.js";
 import { S3MediaStorage } from "../storage/media_storage.js";
@@ -51,6 +51,7 @@ export const handler: APIGatewayProxyHandlerV2WithJWTAuthorizer = async (
       errorType: error instanceof Error ? error.name : "UnknownError",
       diagnosticCode:
         error instanceof ApplicationError ? error.diagnosticCode : undefined,
+      validationIssues: safeValidationDiagnostics(error),
       durationMs: Date.now() - startedAt,
     });
     return response;

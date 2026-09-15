@@ -5,7 +5,10 @@ import test from "node:test";
 import { z } from "zod";
 
 import { ApplicationError } from "../src/application/errors.js";
-import { errorResponse } from "../src/transport/error_response.js";
+import {
+  errorResponse,
+  safeValidationDiagnostics,
+} from "../src/transport/error_response.js";
 
 test("maps validation errors to the stable envelope", () => {
   let failure: unknown;
@@ -64,4 +67,25 @@ test("classifies media validation fields without exposing values", () => {
     },
   });
   assert.doesNotMatch(response.body ?? "", /12:34:56/);
+});
+
+test("classifies a Lead event UUID failure without exposing the payload", () => {
+  let failure: unknown;
+  try {
+    z.object({ eventId: z.uuid() }).parse({ eventId: "legacy-event-owner-b" });
+  } catch (error) {
+    failure = error;
+  }
+  const response = errorResponse(failure, "request-lead", "/v1/leads");
+  assert.deepEqual(JSON.parse(response.body ?? "{}"), {
+    error: {
+      code: "invalid_event_id",
+      message: "Request validation failed.",
+      requestId: "request-lead",
+    },
+  });
+  assert.deepEqual(safeValidationDiagnostics(failure), [
+    { field: "eventId", category: "invalid_uuid" },
+  ]);
+  assert.doesNotMatch(response.body ?? "", /legacy-event-owner-b/);
 });

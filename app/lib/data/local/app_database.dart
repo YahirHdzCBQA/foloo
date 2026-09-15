@@ -511,6 +511,13 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
     String operationId,
     String payloadJson,
     DateTime now,
+  ) => repairFailedPayload(operationId, payloadJson, now);
+
+  /// Replaces a proven-invalid snapshot while retaining operation identity.
+  Future<void> repairFailedPayload(
+    String operationId,
+    String payloadJson,
+    DateTime now,
   ) =>
       (update(
         syncOperations,

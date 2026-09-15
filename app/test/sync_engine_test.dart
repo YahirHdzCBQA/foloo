@@ -192,20 +192,26 @@ class _Transport implements SyncHttpTransport {
 
 LeadDraft _draft({
   String name = 'Local',
+  String email = 'lead@example.com',
   String? cardPath,
   String? audioPath,
   List<String> referencePaths = const [],
+  LeadOriginKind origin = LeadOriginKind.direct,
+  String? eventId,
+  String? eventName,
 }) => LeadDraft(
   name: name,
   lastName: 'Lead',
   role: 'Buyer',
   company: 'Company',
-  email: 'lead@example.com',
+  email: email,
   phone: '',
   type: LeadType.customer,
   interest: InterestLevel.medium,
   note: '',
-  originKind: LeadOriginKind.direct,
+  originKind: origin,
+  eventLocalId: eventId,
+  eventName: eventName,
   cardImageLocalPath: cardPath,
   audioLocalPath: audioPath,
   audioSeconds: audioPath == null ? 0 : 12,
@@ -1632,5 +1638,155 @@ void main() {
     expect(remaining.attemptCount, 1);
     expect(api.authorizationCount, 0);
     expect(logs, contains(containsPair('result', 'skipped_contract_mismatch')));
+  });
+
+  test('SYN-08 missing local media metadata becomes terminal once', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final store = SyncStore(database);
+    const mediaId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    await store.enqueue(
+      ownerSub: owner,
+      entityType: SyncEntityType.leadMedia,
+      entityId: mediaId,
+      action: 'create',
+      payload: const {
+        'leadId': 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        'id': mediaId,
+        'kind': 'reference_image',
+        'contentType': 'image/jpeg',
+        'byteSize': 42,
+        'capturedAt': '2026-09-15T12:00:00.000Z',
+        'durationMs': null,
+      },
+    );
+    final engine = SyncEngine(
+      store,
+      _MediaApi(),
+      _Session('token'),
+      mediaTransfer: _MediaTransfer(),
+    );
+
+    await engine.synchronize(owner, trigger: SyncTrigger.manual);
+    final failed = (await store.all(owner)).single;
+    expect(failed.status, 'failed');
+    expect(failed.attemptCount, 1);
+    expect(failed.lastError, 'media_upload_local_metadata_missing');
+
+    await engine.synchronize(owner, trigger: SyncTrigger.manual);
+    expect((await store.all(owner)).single.attemptCount, 1);
+  });
+
+  test('SYN-06/SYN-09 remaps an owned legacy event and recovers the same lead media operations', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'foloo_legacy_event_repair_',
+    );
+    addTearDown(() => root.delete(recursive: true));
+    final sourceA = _writeTestJpeg('${root.path}/reference-a.jpg');
+    final sourceB = _writeTestJpeg('${root.path}/reference-b.jpg');
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    var operationSequence = 0;
+    const ownerB = 'cognito-sub-b';
+    const ownerA = 'cognito-sub-a';
+    const legacyEventId = 'legacy-event-owner-b';
+    const cloudEventId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const leadId = 'd3da86ba-3eab-4496-b4ef-15a1caa236e1';
+    final storage = PrivateMediaStorage(Directory('${root.path}/foloo_media'));
+    final store = SyncStore(
+      database,
+      mediaStorage: storage,
+      idFactory: () => 'stable-operation-${operationSequence++}',
+      legacyEventIdFactory: () => cloudEventId,
+    );
+    final events = EventRepository(database, syncStore: store);
+    final leads = LeadRepository(
+      database,
+      storage,
+      idFactory: () => leadId,
+      syncStore: store,
+    );
+    final legacyEvent = AppEvent(
+      id: legacyEventId,
+      name: 'Historical event',
+      startsOn: DateTime.utc(2026, 9, 14),
+      endsOn: DateTime.utc(2026, 9, 16),
+      active: true,
+    );
+    await events.save(ownerB, legacyEvent, makeActive: true);
+    await store.complete((await store.all(ownerB)).single);
+    await store.enqueue(
+      ownerSub: ownerA,
+      entityType: SyncEntityType.lead,
+      entityId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      action: 'create',
+      payload: const {'ownerSentinel': true},
+    );
+
+    await leads.saveDraft(
+      ownerB,
+      _draft(
+        email: 'QA@b.c',
+        origin: LeadOriginKind.event,
+        eventId: legacyEventId,
+        eventName: legacyEvent.name,
+        referencePaths: [sourceA.path, sourceB.path],
+      ),
+      capturedBy: profile,
+    );
+    final initial = await store.all(ownerB);
+    final leadOperation = initial.singleWhere(
+      (operation) => operation.entityType == 'lead',
+    );
+    final mediaOperations = initial
+        .where((operation) => operation.entityType == 'leadMedia')
+        .toList();
+    await store.markFailed(
+      leadOperation,
+      'http_400_validation_error',
+      DateTime.utc(2026, 9, 15, 12),
+    );
+    final api = _MediaApi();
+    final transfer = _MediaTransfer();
+
+    await SyncEngine(
+      store,
+      api,
+      _Session('token-b'),
+      mediaTransfer: transfer,
+    ).synchronize(ownerB, trigger: SyncTrigger.manual);
+
+    expect(await store.all(ownerB), isEmpty);
+    expect(await store.all(ownerA), hasLength(1));
+    expect(await database.eventDao.byId(ownerB, legacyEventId), isNull);
+    expect(await database.eventDao.byId(ownerB, cloudEventId), isNotNull);
+    final storedLead = await database.leadDao.byId(ownerB, leadId);
+    expect(storedLead?.eventLocalId, cloudEventId);
+    expect((await leads.listAll(ownerB)).single.localId, leadId);
+    expect(await database.leadDao.mediaFor(leadId), hasLength(2));
+    expect(transfer.uploads, hasLength(2));
+
+    final leadCall = api.calls.singleWhere(
+      (call) =>
+          call.request.method == 'POST' && call.request.path == '/v1/leads',
+    );
+    expect(leadCall.request.body?['id'], leadId);
+    expect(leadCall.request.body?['eventId'], cloudEventId);
+    expect(leadCall.request.idempotencyKey, leadOperation.idempotencyKey);
+    final confirmations = api.calls
+        .where(
+          (call) =>
+              call.request.method == 'POST' &&
+              call.request.path == '/v1/leads/$leadId/media',
+        )
+        .toList();
+    expect(
+      confirmations.map((call) => call.request.body?['id']).toSet(),
+      mediaOperations.map((operation) => operation.entityId).toSet(),
+    );
+    expect(
+      confirmations.map((call) => call.request.idempotencyKey).toSet(),
+      mediaOperations.map((operation) => operation.idempotencyKey).toSet(),
+    );
   });
 }

@@ -55,6 +55,28 @@ test("enforces lead origin and contact invariants", () => {
   );
 });
 
+test("accepts the mobile email syntax used by the physical FL-016 case", () => {
+  const base = {
+    id: "d3da86ba-3eab-4496-b4ef-15a1caa236e1",
+    capturedAt: "2026-09-15T10:00:00Z",
+    origin: "event",
+    eventId: "41af18b2-6357-4fa4-8104-d27768d9d563",
+    firstName: "Test",
+    company: "Foloo",
+    phone: null,
+    leadType: "partner",
+    interest: "medium",
+  };
+  assert.equal(
+    leadSchema.safeParse({ ...base, email: "QA@b.c" }).success,
+    true,
+  );
+  assert.equal(
+    leadSchema.safeParse({ ...base, email: "invalid" }).success,
+    false,
+  );
+});
+
 test("media accepts metadata but exposes no binary or client storage key", () => {
   const result = mediaSchema.safeParse({
     id: "63b21d9f-8532-4ca0-b45e-cf8336bb807c",
