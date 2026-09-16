@@ -13,6 +13,8 @@ import {
 import type { FolooRepository } from "../application/ports.js";
 import type {
   EventInput,
+  EventUpdateInput,
+  EventDeleteInput,
   IdempotentResult,
   LeadInput,
   LeadUpdateInput,
@@ -102,8 +104,8 @@ export class PostgresFolooRepository implements FolooRepository {
   async listEvents(principal: Principal): Promise<unknown[]> {
     const result = await this.pool.query(
       `SELECT id, name, starts_at AS "startsAt", ends_at AS "endsAt", revision,
-              created_at AS "createdAt", updated_at AS "updatedAt"
-       FROM events WHERE workspace_id = $1 AND deleted_at IS NULL ORDER BY starts_at`,
+              deleted_at AS "deletedAt", created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM events WHERE workspace_id = $1 ORDER BY starts_at`,
       [principal.workspaceId],
     );
     return result.rows;
@@ -135,6 +137,77 @@ export class PostgresFolooRepository implements FolooRepository {
         );
         return result.rows[0];
       },
+    );
+  }
+
+  async updateEvent(
+    principal: Principal,
+    eventId: string,
+    input: EventUpdateInput,
+    key: string,
+    hash: string,
+  ): Promise<IdempotentResult<unknown>> {
+    return this.idempotent(
+      principal.workspaceId,
+      "update-event",
+      key,
+      hash,
+      async (db) => {
+        const result = await db.query(
+          `UPDATE events SET name = $4, starts_at = $5, ends_at = $6
+           WHERE workspace_id = $1 AND id = $2 AND revision = $3 AND deleted_at IS NULL
+           RETURNING id, name, starts_at AS "startsAt", ends_at AS "endsAt", revision`,
+          [
+            principal.workspaceId,
+            eventId,
+            input.revision,
+            input.name,
+            input.startsAt,
+            input.endsAt,
+          ],
+        );
+        if (result.rows[0]) return result.rows[0];
+        const found = await db.query(
+          `SELECT id FROM events WHERE workspace_id = $1 AND id = $2 AND deleted_at IS NULL`,
+          [principal.workspaceId, eventId],
+        );
+        if (!found.rows[0]) throw notFound("Event");
+        throw revisionConflict();
+      },
+      200,
+    );
+  }
+
+  async deleteEvent(
+    principal: Principal,
+    eventId: string,
+    input: EventDeleteInput,
+    key: string,
+    hash: string,
+  ): Promise<IdempotentResult<unknown>> {
+    return this.idempotent(
+      principal.workspaceId,
+      "delete-event",
+      key,
+      hash,
+      async (db) => {
+        // A tombstone preserves the foreign key and all associated Leads/media.
+        const result = await db.query(
+          `UPDATE events SET deleted_at = now()
+           WHERE workspace_id = $1 AND id = $2 AND revision = $3 AND deleted_at IS NULL
+           RETURNING id, revision, deleted_at AS "deletedAt"`,
+          [principal.workspaceId, eventId, input.revision],
+        );
+        if (result.rows[0]) return result.rows[0];
+        const found = await db.query(
+          `SELECT id, deleted_at FROM events WHERE workspace_id = $1 AND id = $2`,
+          [principal.workspaceId, eventId],
+        );
+        if (!found.rows[0]) throw notFound("Event");
+        if (found.rows[0].deleted_at) throw notFound("Event");
+        throw revisionConflict();
+      },
+      200,
     );
   }
 
@@ -264,6 +337,7 @@ export class PostgresFolooRepository implements FolooRepository {
         if (!row) throw revisionConflict();
         return row;
       },
+      200,
     );
   }
 
@@ -382,6 +456,7 @@ export class PostgresFolooRepository implements FolooRepository {
     key: string,
     hash: string,
     execute: (db: Queryable) => Promise<T>,
+    responseStatus = 201,
   ): Promise<IdempotentResult<T>> {
     const client = await this.pool.connect();
     try {
@@ -412,8 +487,15 @@ export class PostgresFolooRepository implements FolooRepository {
       await client.query(
         `INSERT INTO idempotency_records
           (workspace_id, operation, idempotency_key, request_hash, response_status, response_body)
-         VALUES ($1,$2,$3,$4,201,$5::jsonb)`,
-        [workspaceId, operation, key, hash, JSON.stringify(value)],
+         VALUES ($1,$2,$3,$4,$5,$6::jsonb)`,
+        [
+          workspaceId,
+          operation,
+          key,
+          hash,
+          responseStatus,
+          JSON.stringify(value),
+        ],
       );
       await client.query("COMMIT");
       return { value, replayed: false };

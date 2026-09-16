@@ -403,6 +403,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deleteEvent => 'Delete event';
 
   @override
+  String deleteEventQuestion(String name) {
+    return 'Delete $name? The event will no longer appear, but its leads will remain saved.';
+  }
+
+  @override
   String get saveChanges => 'Save changes';
 
   @override

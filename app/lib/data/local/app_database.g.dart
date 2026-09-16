@@ -691,6 +691,17 @@ class $LocalEventsTable extends LocalEvents
     requiredDuringInsert: false,
     defaultValue: const Constant('local'),
   );
+  static const VerificationMeta _remoteRevisionMeta = const VerificationMeta(
+    'remoteRevision',
+  );
+  @override
+  late final GeneratedColumn<int> remoteRevision = GeneratedColumn<int>(
+    'remote_revision',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     localId,
@@ -705,6 +716,7 @@ class $LocalEventsTable extends LocalEvents
     createdAt,
     updatedAt,
     syncState,
+    remoteRevision,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -811,6 +823,15 @@ class $LocalEventsTable extends LocalEvents
         syncState.isAcceptableOrUnknown(data['sync_state']!, _syncStateMeta),
       );
     }
+    if (data.containsKey('remote_revision')) {
+      context.handle(
+        _remoteRevisionMeta,
+        remoteRevision.isAcceptableOrUnknown(
+          data['remote_revision']!,
+          _remoteRevisionMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -868,6 +889,10 @@ class $LocalEventsTable extends LocalEvents
         DriftSqlType.string,
         data['${effectivePrefix}sync_state'],
       )!,
+      remoteRevision: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}remote_revision'],
+      ),
     );
   }
 
@@ -890,6 +915,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
   final DateTime createdAt;
   final DateTime updatedAt;
   final String syncState;
+  final int? remoteRevision;
   const StoredEvent({
     required this.localId,
     this.ownerUserId,
@@ -903,6 +929,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
     required this.createdAt,
     required this.updatedAt,
     required this.syncState,
+    this.remoteRevision,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -923,6 +950,9 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['sync_state'] = Variable<String>(syncState);
+    if (!nullToAbsent || remoteRevision != null) {
+      map['remote_revision'] = Variable<int>(remoteRevision);
+    }
     return map;
   }
 
@@ -944,6 +974,9 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       syncState: Value(syncState),
+      remoteRevision: remoteRevision == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteRevision),
     );
   }
 
@@ -967,6 +1000,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       syncState: serializer.fromJson<String>(json['syncState']),
+      remoteRevision: serializer.fromJson<int?>(json['remoteRevision']),
     );
   }
   @override
@@ -985,6 +1019,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'syncState': serializer.toJson<String>(syncState),
+      'remoteRevision': serializer.toJson<int?>(remoteRevision),
     };
   }
 
@@ -1001,6 +1036,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? syncState,
+    Value<int?> remoteRevision = const Value.absent(),
   }) => StoredEvent(
     localId: localId ?? this.localId,
     ownerUserId: ownerUserId.present ? ownerUserId.value : this.ownerUserId,
@@ -1016,6 +1052,9 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     syncState: syncState ?? this.syncState,
+    remoteRevision: remoteRevision.present
+        ? remoteRevision.value
+        : this.remoteRevision,
   );
   StoredEvent copyWithCompanion(LocalEventsCompanion data) {
     return StoredEvent(
@@ -1037,6 +1076,9 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       syncState: data.syncState.present ? data.syncState.value : this.syncState,
+      remoteRevision: data.remoteRevision.present
+          ? data.remoteRevision.value
+          : this.remoteRevision,
     );
   }
 
@@ -1054,7 +1096,8 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
           ..write('contentFileIdsJson: $contentFileIdsJson, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('syncState: $syncState')
+          ..write('syncState: $syncState, ')
+          ..write('remoteRevision: $remoteRevision')
           ..write(')'))
         .toString();
   }
@@ -1073,6 +1116,7 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
     createdAt,
     updatedAt,
     syncState,
+    remoteRevision,
   );
   @override
   bool operator ==(Object other) =>
@@ -1089,7 +1133,8 @@ class StoredEvent extends DataClass implements Insertable<StoredEvent> {
           other.contentFileIdsJson == this.contentFileIdsJson &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
-          other.syncState == this.syncState);
+          other.syncState == this.syncState &&
+          other.remoteRevision == this.remoteRevision);
 }
 
 class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
@@ -1105,6 +1150,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<String> syncState;
+  final Value<int?> remoteRevision;
   final Value<int> rowid;
   const LocalEventsCompanion({
     this.localId = const Value.absent(),
@@ -1119,6 +1165,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.syncState = const Value.absent(),
+    this.remoteRevision = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LocalEventsCompanion.insert({
@@ -1134,6 +1181,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
     required DateTime createdAt,
     required DateTime updatedAt,
     this.syncState = const Value.absent(),
+    this.remoteRevision = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : localId = Value(localId),
        name = Value(name),
@@ -1154,6 +1202,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<String>? syncState,
+    Expression<int>? remoteRevision,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1170,6 +1219,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (syncState != null) 'sync_state': syncState,
+      if (remoteRevision != null) 'remote_revision': remoteRevision,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1187,6 +1237,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<String>? syncState,
+    Value<int?>? remoteRevision,
     Value<int>? rowid,
   }) {
     return LocalEventsCompanion(
@@ -1202,6 +1253,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       syncState: syncState ?? this.syncState,
+      remoteRevision: remoteRevision ?? this.remoteRevision,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1245,6 +1297,9 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
     if (syncState.present) {
       map['sync_state'] = Variable<String>(syncState.value);
     }
+    if (remoteRevision.present) {
+      map['remote_revision'] = Variable<int>(remoteRevision.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1266,6 +1321,7 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('syncState: $syncState, ')
+          ..write('remoteRevision: $remoteRevision, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4870,6 +4926,7 @@ typedef $$LocalEventsTableCreateCompanionBuilder =
       required DateTime createdAt,
       required DateTime updatedAt,
       Value<String> syncState,
+      Value<int?> remoteRevision,
       Value<int> rowid,
     });
 typedef $$LocalEventsTableUpdateCompanionBuilder =
@@ -4886,6 +4943,7 @@ typedef $$LocalEventsTableUpdateCompanionBuilder =
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<String> syncState,
+      Value<int?> remoteRevision,
       Value<int> rowid,
     });
 
@@ -4978,6 +5036,11 @@ class $$LocalEventsTableFilterComposer
 
   ColumnFilters<String> get syncState => $composableBuilder(
     column: $table.syncState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get remoteRevision => $composableBuilder(
+    column: $table.remoteRevision,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5075,6 +5138,11 @@ class $$LocalEventsTableOrderingComposer
     column: $table.syncState,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get remoteRevision => $composableBuilder(
+    column: $table.remoteRevision,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$LocalEventsTableAnnotationComposer
@@ -5127,6 +5195,11 @@ class $$LocalEventsTableAnnotationComposer
 
   GeneratedColumn<String> get syncState =>
       $composableBuilder(column: $table.syncState, builder: (column) => column);
+
+  GeneratedColumn<int> get remoteRevision => $composableBuilder(
+    column: $table.remoteRevision,
+    builder: (column) => column,
+  );
 
   Expression<T> localLeadsRefs<T extends Object>(
     Expression<T> Function($$LocalLeadsTableAnnotationComposer a) f,
@@ -5194,6 +5267,7 @@ class $$LocalEventsTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<String> syncState = const Value.absent(),
+                Value<int?> remoteRevision = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalEventsCompanion(
                 localId: localId,
@@ -5208,6 +5282,7 @@ class $$LocalEventsTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 syncState: syncState,
+                remoteRevision: remoteRevision,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5224,6 +5299,7 @@ class $$LocalEventsTableTableManager
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<String> syncState = const Value.absent(),
+                Value<int?> remoteRevision = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalEventsCompanion.insert(
                 localId: localId,
@@ -5238,6 +5314,7 @@ class $$LocalEventsTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 syncState: syncState,
+                remoteRevision: remoteRevision,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

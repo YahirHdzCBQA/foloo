@@ -138,6 +138,9 @@ class EventRepository {
         await _database.eventDao.deactivateAll(userId);
       }
       final previous = await _database.eventDao.byId(userId, event.id);
+      if (previous != null && previous.deleted) {
+        throw StateError('Cannot edit a deleted event.');
+      }
       final now = DateTime.now().toUtc();
       await _database.eventDao.upsert(
         LocalEventsCompanion.insert(
@@ -153,6 +156,7 @@ class EventRepository {
           createdAt: previous?.createdAt ?? now,
           updatedAt: now,
           syncState: Value(previous?.syncState ?? 'local'),
+          remoteRevision: Value(previous?.remoteRevision),
         ),
       );
       if (previous == null) {
@@ -169,16 +173,91 @@ class EventRepository {
           },
           now: now,
         );
+      } else if (previous.name != event.name ||
+          previous.startsOn != event.startsOn.toUtc() ||
+          previous.endsOn != event.endsOn.toUtc()) {
+        final payload = <String, Object?>{
+          'revision': previous.remoteRevision ?? 1,
+          'name': event.name,
+          'startsAt': event.startsOn.toUtc().toIso8601String(),
+          'endsAt': event.endsOn.toUtc().toIso8601String(),
+        };
+        final operations = await _database.syncDao.forEntity(
+          userId,
+          SyncEntityType.event.name,
+          event.id,
+        );
+        final creates = operations.where((item) => item.action == 'create');
+        if (creates.isNotEmpty) {
+          final create = creates.first;
+          final original = (jsonDecode(create.payloadJson) as Map)
+              .cast<String, Object?>();
+          original.addAll(payload);
+          original.remove('revision');
+          await _database.syncDao.repairFailedPayload(
+            create.operationId,
+            jsonEncode(original),
+            now,
+          );
+        } else {
+          final updates = operations.where(
+            (item) => item.action == 'update' && item.status != 'syncing',
+          );
+          if (updates.isNotEmpty) {
+            await _database.syncDao.repairFailedPayload(
+              updates.first.operationId,
+              jsonEncode(payload),
+              now,
+            );
+          } else {
+            await _syncStore.enqueue(
+              ownerSub: userId,
+              entityType: SyncEntityType.event,
+              entityId: event.id,
+              action: 'update',
+              payload: payload,
+              now: now,
+            );
+          }
+        }
+        await _database.eventDao.upsert(
+          LocalEventsCompanion.insert(
+            localId: event.id,
+            ownerUserId: Value(userId),
+            commercialCode: Value(previous.commercialCode),
+            name: event.name,
+            startsOn: event.startsOn.toUtc(),
+            endsOn: event.endsOn.toUtc(),
+            active: Value(makeActive || event.active),
+            deleted: const Value(false),
+            contentFileIdsJson: Value(
+              jsonEncode(event.contentFileIds.toList()),
+            ),
+            createdAt: previous.createdAt,
+            updatedAt: now,
+            syncState: const Value('pending'),
+            remoteRevision: Value(previous.remoteRevision),
+          ),
+        );
       }
     });
   }
 
   Future<void> delete(String userId, AppEvent event) async {
-    await _database.eventDao.softDelete(
-      userId,
-      event.id,
-      DateTime.now().toUtc(),
-    );
+    await _database.transaction(() async {
+      final stored = await _database.eventDao.byId(userId, event.id);
+      if (stored == null || stored.deleted) return;
+      final now = DateTime.now().toUtc();
+      await _database.eventDao.softDelete(userId, event.id, now);
+      await _syncStore.enqueue(
+        ownerSub: userId,
+        entityType: SyncEntityType.event,
+        entityId: event.id,
+        action: 'delete',
+        payload: {'revision': stored.remoteRevision ?? 1},
+        now: now,
+      );
+    });
   }
 
   Future<void> activate(String userId, String eventId) async {
@@ -579,34 +658,12 @@ class LeadRepository {
   Future<List<StoredLeadBundle>> _visibleBundles(
     String userId,
     List<StoredLeadBundle> bundles,
-  ) async {
-    final visibleEventIds = (await _database.eventDao.listActive(userId))
-        .map((event) => event.localId)
-        .toSet();
-    return bundles
-        .where(
-          (bundle) =>
-              bundle.lead.eventLocalId == null ||
-              visibleEventIds.contains(bundle.lead.eventLocalId),
-        )
-        .toList();
-  }
+  ) async => bundles;
 
   Future<List<StoredLead>> _visibleRows(
     String userId,
     List<StoredLead> rows,
-  ) async {
-    final visibleEventIds = (await _database.eventDao.listActive(userId))
-        .map((event) => event.localId)
-        .toSet();
-    return rows
-        .where(
-          (lead) =>
-              lead.eventLocalId == null ||
-              visibleEventIds.contains(lead.eventLocalId),
-        )
-        .toList();
-  }
+  ) async => rows;
 
   SessionLead _fromStored(StoredLeadBundle bundle) {
     StoredLeadMedia? card;

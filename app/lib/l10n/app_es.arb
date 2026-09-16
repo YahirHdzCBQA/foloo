@@ -127,6 +127,8 @@
   "createEvent": "Crear evento",
   "createAction": "Crear",
   "deleteEvent": "Eliminar evento",
+  "deleteEventQuestion": "¿Eliminar {name}? El evento dejará de aparecer, pero sus leads permanecerán guardados.",
+  "@deleteEventQuestion": {"placeholders": {"name": {"type": "String"}}},
   "saveChanges": "Guardar cambios",
   "back": "Regresar",
   "starts": "Inicia",

@@ -37,6 +37,8 @@ SQLite. La retención/cifrado/eliminación sigue abierta en D-13.
 - FL-015 agregó outbox/estado durable en versión 3. FL-017 usa versión 4 para
   añadir `remoteRevision` nullable al Lead; no reescribe datos históricos y
   permite la revisión optimista de `REG-07` después de reconciliar con cloud.
+- La estabilización FL-017 usa versión 5 para añadir `remoteRevision` nullable
+  al Evento, preservando filas/tombstones existentes.
 - No se precargan fixtures de producto en la base de producción. Los fixtures
   continúan aislados para previews y pruebas de interfaz.
 - Cerrar sesión no borra la base ni los medios (AUT-11).

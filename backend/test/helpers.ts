@@ -5,6 +5,8 @@ import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 import type { FolooRepository } from "../src/application/ports.js";
 import type {
   EventInput,
+  EventUpdateInput,
+  EventDeleteInput,
   IdempotentResult,
   LeadInput,
   LeadUpdateInput,
@@ -101,6 +103,40 @@ export class MemoryRepository implements FolooRepository {
     events.push(input);
     this.eventsByWorkspace.set(principal.workspaceId, events);
     return { value: input, replayed: false };
+  }
+  async updateEvent(
+    principal: Principal,
+    eventId: string,
+    input: EventUpdateInput,
+  ): Promise<IdempotentResult<unknown>> {
+    const events = this.eventsByWorkspace.get(principal.workspaceId) ?? [];
+    const index = events.findIndex(
+      (item) => (item as { id?: string }).id === eventId,
+    );
+    if (index < 0) throw new Error("Event missing");
+    const updated = {
+      ...(events[index] as object),
+      ...input,
+      id: eventId,
+      revision: input.revision + 1,
+    };
+    events[index] = updated;
+    return { value: updated, replayed: false };
+  }
+  async deleteEvent(
+    principal: Principal,
+    eventId: string,
+    input: EventDeleteInput,
+  ): Promise<IdempotentResult<unknown>> {
+    const events = this.eventsByWorkspace.get(principal.workspaceId) ?? [];
+    this.eventsByWorkspace.set(
+      principal.workspaceId,
+      events.filter((item) => (item as { id?: string }).id !== eventId),
+    );
+    return {
+      value: { id: eventId, revision: input.revision + 1 },
+      replayed: false,
+    };
   }
   async listLeads() {
     return [];

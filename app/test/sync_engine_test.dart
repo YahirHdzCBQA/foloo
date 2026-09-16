@@ -84,6 +84,86 @@ class _Api implements SyncApi {
   }
 }
 
+class _LeadRevisionApi extends _Api {
+  _LeadRevisionApi(this.leadId);
+  final String leadId;
+  int revision = 1;
+  bool conflictNext = false;
+  String remotePlace = 'Monterrey';
+
+  @override
+  Future<SyncResponse> send(String accessToken, SyncRequest request) async {
+    if (request.method == 'PUT' && request.path == '/v1/leads/$leadId') {
+      calls.add(_Call(accessToken, request));
+      if (conflictNext) {
+        conflictNext = false;
+        revision += 1;
+        throw const SyncHttpException(409, errorCode: 'revision_conflict');
+      }
+      expect(request.body?['revision'], revision);
+      remotePlace = request.body?['place'] as String;
+      revision += 1;
+      return SyncResponse(
+        statusCode: 200,
+        data: {
+          'data': {'id': leadId, 'revision': '$revision'},
+        },
+      );
+    }
+    if (request.method == 'GET' && request.path == '/v1/leads') {
+      calls.add(_Call(accessToken, request));
+      return SyncResponse(
+        statusCode: 200,
+        data: {
+          'data': [
+            {
+              ..._remoteLead(leadId),
+              'place': remotePlace,
+              'revision': '$revision',
+            },
+          ],
+        },
+      );
+    }
+    return super.send(accessToken, request);
+  }
+}
+
+class _EventMutationApi extends _Api {
+  _EventMutationApi(this.eventId);
+  final String eventId;
+  int revision = 1;
+
+  @override
+  Future<SyncResponse> send(String accessToken, SyncRequest request) async {
+    if (request.path == '/v1/events/$eventId' && request.method != 'GET') {
+      calls.add(_Call(accessToken, request));
+      expect(request.body?['revision'], revision);
+      revision += 1;
+      if (request.method == 'DELETE') {
+        remoteEvents = [];
+        return SyncResponse(
+          statusCode: 200,
+          data: {
+            'data': {'id': eventId, 'revision': '$revision'},
+          },
+        );
+      }
+      remoteEvents = [
+        {
+          'id': eventId,
+          'name': request.body?['name'],
+          'startsAt': request.body?['startsAt'],
+          'endsAt': request.body?['endsAt'],
+          'revision': '$revision',
+        },
+      ];
+      return SyncResponse(statusCode: 200, data: {'data': remoteEvents.single});
+    }
+    return super.send(accessToken, request);
+  }
+}
+
 class _PathFailApi extends _Api {
   _PathFailApi({this.failurePath, this.failure = const SyncHttpException(400)});
 
@@ -823,7 +903,9 @@ void main() {
         ..failures.add(
           const SyncHttpException(409, errorCode: 'revision_conflict'),
         )
-        ..remoteLeads = [_remoteLead(leadId, revision: 4)];
+        ..remoteLeads = [
+          {..._remoteLead(leadId, revision: 4), 'revision': '4'},
+        ];
       final engine = SyncEngine(store, api, _Session('token'));
 
       await engine.synchronize(owner);
@@ -835,6 +917,7 @@ void main() {
       api.remoteLeads = [
         {
           ..._remoteLead(leadId, revision: 4),
+          'revision': '4',
           'writtenNote': 'Local edit survives',
         },
       ];
@@ -850,6 +933,207 @@ void main() {
       expect(puts.first.request.body?['revision'], 1);
       expect(puts.last.request.body?['revision'], 4);
       expect(saved.localId, leadId);
+    },
+  );
+
+  test(
+    'REG-07 repeated edits and restarted conflict use bigint JSON revision',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'foloo_revision_restart_',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      final path = '${root.path}/foloo.sqlite';
+      var database = AppDatabase(NativeDatabase(File(path)));
+      var store = SyncStore(database);
+      const id = '91919191-9191-4919-8919-919191919191';
+      var leads = LeadRepository(
+        database,
+        PrivateMediaStorage(root),
+        idFactory: () => id,
+        syncStore: store,
+      );
+      await leads.saveDraft(owner, _draft(), capturedBy: profile);
+      await database.syncDao.completeCreatesForEntity(
+        owner,
+        SyncEntityType.lead.name,
+        id,
+      );
+      await database.leadDao.markLeadSynced(owner, id, 1);
+      final api = _LeadRevisionApi(id);
+      var engine = SyncEngine(store, api, _Session('token'));
+      var lead = (await leads.listAll(owner)).single;
+      await leads.updateDraft(owner, lead, lead.lead.copyWith(place: 'León'));
+      await engine.synchronize(owner);
+      expect((await database.leadDao.byId(owner, id))?.remoteRevision, 2);
+      lead = (await leads.listAll(owner)).single;
+      await leads.updateDraft(owner, lead, lead.lead.copyWith(place: 'México'));
+      api.conflictNext = true;
+      await engine.synchronize(owner);
+      expect((await leads.listAll(owner)).single.lead.place, 'México');
+      expect((await store.all(owner)).single.status, 'failed');
+      await database.close();
+
+      database = AppDatabase(NativeDatabase(File(path)));
+      store = SyncStore(database);
+      leads = LeadRepository(
+        database,
+        PrivateMediaStorage(root),
+        syncStore: store,
+      );
+      engine = SyncEngine(store, api, _Session('token'));
+      await engine.synchronize(owner, trigger: SyncTrigger.manual);
+      expect((await leads.listAll(owner)).single.lead.place, 'México');
+      expect((await database.leadDao.byId(owner, id))?.remoteRevision, 4);
+      expect(await store.all(owner), isEmpty);
+      expect(
+        api.calls
+            .where((call) => call.request.method == 'PUT')
+            .map((call) => call.request.body?['revision']),
+        [1, 2, 3],
+      );
+      await database.close();
+    },
+  );
+
+  test(
+    'REG-07 two independent failed conflicts rearm without duplicate Leads',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'foloo_two_conflicts_',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final store = SyncStore(database);
+      var next = 0;
+      final ids = [
+        '93939393-9393-4939-8939-939393939393',
+        '94949494-9494-4949-8949-949494949494',
+      ];
+      final leads = LeadRepository(
+        database,
+        PrivateMediaStorage(root),
+        idFactory: () => ids[next++],
+        syncStore: store,
+      );
+      for (final id in ids) {
+        final saved = await leads.saveDraft(
+          owner,
+          _draft(),
+          capturedBy: profile,
+        );
+        expect(saved.localId, id);
+        await database.syncDao.completeCreatesForEntity(
+          owner,
+          SyncEntityType.lead.name,
+          id,
+        );
+        await database.leadDao.markLeadSynced(owner, id, 1);
+        await leads.updateDraft(
+          owner,
+          (await leads.listAll(owner)).firstWhere((lead) => lead.localId == id),
+          saved.lead.copyWith(note: 'Local $id'),
+        );
+        final operation = (await database.syncDao.forEntity(
+          owner,
+          SyncEntityType.lead.name,
+          id,
+        )).single;
+        await store.markRevisionConflict(
+          operation,
+          'http_409_revision_conflict',
+          DateTime.now(),
+        );
+      }
+      expect(
+        await store.rebaseRevisionConflicts(owner, [
+          {..._remoteLead(ids[0]), 'revision': '4'},
+          {..._remoteLead(ids[1]), 'revision': '7'},
+        ]),
+        2,
+      );
+      expect(
+        (await store.all(owner)).map((item) => item.status),
+        everyElement('pending'),
+      );
+      expect(
+        (await leads.listAll(owner)).map((item) => item.lead.note),
+        containsAll(ids.map((id) => 'Local $id')),
+      );
+      expect(await database.leadDao.listAll(owner), hasLength(2));
+    },
+  );
+
+  test(
+    'EVT-02 offline edit/delete sync and pull preserve Unicode and tombstone',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'foloo_event_restart_',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      final path = '${root.path}/foloo.sqlite';
+      var database = AppDatabase(NativeDatabase(File(path)));
+      var store = SyncStore(database);
+      var events = EventRepository(database, syncStore: store);
+      const id = '92929292-9292-4929-8929-929292929292';
+      final original = AppEvent(
+        id: id,
+        name: 'M�xico',
+        startsOn: DateTime(2026, 9, 16),
+        endsOn: DateTime(2026, 9, 17),
+      );
+      await events.save(owner, original);
+      await database.syncDao.completeCreatesForEntity(
+        owner,
+        SyncEntityType.event.name,
+        id,
+      );
+      await database.eventDao.markRemoteRevision(owner, id, 1);
+      final api = _EventMutationApi(id)
+        ..remoteEvents = [
+          {
+            'id': id,
+            'name': 'M�xico',
+            'startsAt': '2026-09-16T00:00:00.000Z',
+            'endsAt': '2026-09-17T00:00:00.000Z',
+            'revision': '1',
+          },
+        ];
+      final corrected = original.copyWith(
+        name: 'México · León · Exposición · Niñez · São Paulo',
+      );
+      await events.save(owner, corrected);
+      await database.close();
+
+      database = AppDatabase(NativeDatabase(File(path)));
+      store = SyncStore(database);
+      events = EventRepository(database, syncStore: store);
+      expect((await events.list(owner)).single.name, corrected.name);
+      await SyncEngine(store, api, _Session('token')).synchronize(owner);
+      expect((await events.list(owner)).single.name, corrected.name);
+      expect((await database.eventDao.byId(owner, id))?.remoteRevision, 2);
+      await events.delete(owner, corrected);
+      expect(await events.list(owner), isEmpty);
+      await database.close();
+
+      database = AppDatabase(NativeDatabase(File(path)));
+      store = SyncStore(database);
+      events = EventRepository(database, syncStore: store);
+      expect(await events.list(owner), isEmpty);
+      await SyncEngine(store, api, _Session('token')).synchronize(owner);
+      expect(await events.list(owner), isEmpty);
+      expect((await database.eventDao.byId(owner, id))?.deleted, true);
+      expect(await store.all(owner), isEmpty);
+      expect(
+        api.calls.where((call) => call.request.method == 'PUT'),
+        hasLength(1),
+      );
+      expect(
+        api.calls.where((call) => call.request.method == 'DELETE'),
+        hasLength(1),
+      );
+      await database.close();
     },
   );
 
@@ -1108,6 +1392,7 @@ void main() {
             'name': 'Remote Event',
             'startsAt': '2026-10-01T00:00:00.000Z',
             'endsAt': '2026-10-02T00:00:00.000Z',
+            'revision': '1',
             'updatedAt': '2026-09-09T12:00:00.000Z',
           },
         ];
@@ -1119,6 +1404,54 @@ void main() {
         'Remote Seller',
       );
       expect((await EventRepository(database).list(owner)).single.id, eventId);
+    },
+  );
+
+  test(
+    'EVT-02 tombstone pull retains its historical Lead on a fresh device',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      const eventId = '81818181-8181-4818-8818-818181818181';
+      const leadId = '82828282-8282-4828-8828-828282828282';
+      final api = _Api()
+        ..remoteEvents = [
+          {
+            'id': eventId,
+            'name': 'México · Exposición',
+            'startsAt': '2026-09-09T00:00:00.000Z',
+            'endsAt': '2026-09-10T00:00:00.000Z',
+            'revision': '2',
+            'deletedAt': '2026-09-16T12:00:00.000Z',
+          },
+        ]
+        ..remoteLeads = [
+          {
+            ..._remoteLead(leadId),
+            'origin': 'event',
+            'eventId': eventId,
+            'place': null,
+          },
+        ];
+
+      await SyncEngine(
+        SyncStore(database),
+        api,
+        _Session('token'),
+      ).synchronize(owner);
+
+      expect(await EventRepository(database).list(owner), isEmpty);
+      final mediaRoot = await Directory.systemTemp.createTemp(
+        'foloo_tombstone_',
+      );
+      addTearDown(() => mediaRoot.delete(recursive: true));
+      final leads = await LeadRepository(
+        database,
+        PrivateMediaStorage(mediaRoot),
+      ).listAll(owner);
+      expect(leads, hasLength(1));
+      expect(leads.single.lead.eventLocalId, eventId);
+      expect(leads.single.lead.eventName, 'México · Exposición');
     },
   );
 

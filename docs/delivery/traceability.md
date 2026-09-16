@@ -5,7 +5,7 @@
 | IDs | Escenario | Decisión/ADR | Evidencia / pendientes |
 |---|---|---|---|
 | `AUT-*` | E-01 | ADR-002 | `app/lib/auth/`; f1-01, f1-02, f4-02 |
-| `EVT-*` | E-02 | ADR-001 | EventScreen/repositorios/policy; f1-03–05 |
+| `EVT-*` | E-02 | ADR-001/004 | FL-017 estabiliza create/update/delete remoto, tombstones y confirmación; tests event sync/UI/backend; f1-03–05 |
 | `CAP-*`, `OCR-*` | E-03–E-05 | ADR-001; D-11 | captura/ML Kit/Drift; f1-06–09, 11–14, 24 |
 | `VOZ-*` | E-04 | ADR-001; D-05/D-06 | voice service/media/tests; f1-10, 21–23 |
 | `SYN-*` | E-05/E-09/E-13 | ADR-001/003/004/005; D-13 | Drift, outbox owner-scoped, retry/reconciliación FL-015 y transferencia media FL-016 |
@@ -55,7 +55,7 @@ interna sea reutilizable.
 | f1-01 | I | `auth/`, Login/SignUp/Confirm, Cognito runtime y auth tests | FL-013A/B; validación manual pendiente |
 | f1-02 | P | `ProfileSetupScreen`, ProfileRepository | FL-013A; faltan puesto/teléfono y edición completa |
 | f1-03 | I | origin screen, `LeadOriginKind`, lugar y persistence | FL-013 + tests de navegación |
-| f1-04 | I | EventScreen, create/edit/delete, EventRepository | FL-013; CRUD Drift |
+| f1-04 | I | EventScreen, confirmación, EventRepository, outbox y POST/PUT/DELETE remoto con tombstone | FL-017 estabilización; tests Drift/sync/backend/UI |
 | f1-05 | I | `EventSelectionPolicy`, preferencia manual y refresh diario | FL-013A refinement |
 | f1-06 | I | LeadCaptureScreen: scroll, progreso y dock | FL-002/008/010 |
 | f1-07 | P | ML Kit, parser/preprocessor, reprocesar y tests | FL-005/011; falta campaña de precisión real |

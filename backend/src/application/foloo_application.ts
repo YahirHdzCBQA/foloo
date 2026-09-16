@@ -3,6 +3,8 @@
 import type { FolooRepository } from "./ports.js";
 import type {
   EventInput,
+  EventUpdateInput,
+  EventDeleteInput,
   LeadInput,
   LeadUpdateInput,
   LeadMediaInput,
@@ -44,6 +46,28 @@ export class FolooApplication {
   ) {
     const principal = await this.repository.resolvePrincipal(subject);
     return this.repository.createEvent(principal, input, key, hash);
+  }
+
+  async updateEvent(
+    subject: string,
+    eventId: string,
+    input: EventUpdateInput,
+    key: string,
+    hash: string,
+  ) {
+    const principal = await this.repository.resolvePrincipal(subject);
+    return this.repository.updateEvent(principal, eventId, input, key, hash);
+  }
+
+  async deleteEvent(
+    subject: string,
+    eventId: string,
+    input: EventDeleteInput,
+    key: string,
+    hash: string,
+  ) {
+    const principal = await this.repository.resolvePrincipal(subject);
+    return this.repository.deleteEvent(principal, eventId, input, key, hash);
   }
 
   async leads(subject: string) {

@@ -8,10 +8,13 @@ import { z } from "zod";
 
 import { ApplicationError } from "../application/errors.js";
 import { FolooApplication } from "../application/foloo_application.js";
+import type { EventUpdateInput, EventDeleteInput } from "../domain/models.js";
 import { authenticatedSubject } from "../auth/authenticated_identity.js";
 import { requestHash } from "../persistence/postgres_repository.js";
 import {
   eventSchema,
+  eventUpdateSchema,
+  eventDeleteSchema,
   leadSchema,
   leadUpdateSchema,
   mediaSchema,
@@ -29,7 +32,19 @@ function json(
   return {
     statusCode,
     headers: { "content-type": "application/json; charset=utf-8", ...headers },
-    body: JSON.stringify(body),
+    body: JSON.stringify(body, (key, value: unknown) => {
+      if (key !== "revision" || typeof value !== "string") return value;
+      if (!/^[1-9]\d*$/.test(value)) return value;
+      const revision = Number(value);
+      if (!Number.isSafeInteger(revision)) {
+        throw new ApplicationError(
+          "invalid_revision",
+          500,
+          "Invalid revision.",
+        );
+      }
+      return revision;
+    }),
   };
 }
 
@@ -106,6 +121,37 @@ export function createRouter(application: FolooApplication) {
       );
       return json(
         201,
+        { data: result.value },
+        result.replayed ? { "idempotency-replayed": "true" } : {},
+      );
+    }
+    const eventMatch = /^\/v1\/events\/([^/]+)$/.exec(path);
+    if (eventMatch?.[1] && (method === "PUT" || method === "DELETE")) {
+      const eventId = uuidSchema.parse(eventMatch[1]);
+      const payload =
+        method === "PUT"
+          ? eventUpdateSchema.parse(body(event))
+          : eventDeleteSchema.parse(body(event));
+      const key = idempotencyKey(event);
+      const hash = requestHash({ eventId, ...payload });
+      const result =
+        method === "PUT"
+          ? await application.updateEvent(
+              subject,
+              eventId,
+              payload as EventUpdateInput,
+              key,
+              hash,
+            )
+          : await application.deleteEvent(
+              subject,
+              eventId,
+              payload as EventDeleteInput,
+              key,
+              hash,
+            );
+      return json(
+        200,
         { data: result.value },
         result.replayed ? { "idempotency-replayed": "true" } : {},
       );

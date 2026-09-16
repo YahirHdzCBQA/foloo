@@ -96,7 +96,8 @@ conserva. La retención/borrado definitivo continúa abierta en D-13.
 
 ## Responsabilidades del backend desde FL-014
 
-- API versionada, validación, error envelope e idempotencia de creación.
+- API versionada, validación, error envelope e idempotencia de mutaciones
+  soportadas, incluidas las correcciones de Lead y Evento y tombstone de Evento.
 - Ownership/tenancy y persistencia de cuenta/workspace, perfil, eventos, Leads
   y metadata sin binarios.
 - Autoridad futura del trial y suscripción, webhooks y reconciliación.

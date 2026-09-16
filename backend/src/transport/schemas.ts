@@ -22,17 +22,34 @@ export const profileSchema = z.object({
   photoUrl: z.url().nullable().optional(),
 });
 
+const eventFields = {
+  id: z.uuid(),
+  name: z.string().trim().min(1).max(160),
+  startsAt: z.iso.datetime({ offset: true }),
+  endsAt: z.iso.datetime({ offset: true }),
+};
+
 export const eventSchema = z
+  .object(eventFields)
+  .refine((value) => Date.parse(value.endsAt) >= Date.parse(value.startsAt), {
+    message: "endsAt must be on or after startsAt",
+    path: ["endsAt"],
+  });
+
+export const eventUpdateSchema = z
   .object({
-    id: z.uuid(),
-    name: z.string().trim().min(1).max(160),
-    startsAt: z.iso.datetime({ offset: true }),
-    endsAt: z.iso.datetime({ offset: true }),
+    name: eventFields.name,
+    startsAt: eventFields.startsAt,
+    endsAt: eventFields.endsAt,
+    revision: z.number().int().positive(),
   })
   .refine((value) => Date.parse(value.endsAt) >= Date.parse(value.startsAt), {
     message: "endsAt must be on or after startsAt",
     path: ["endsAt"],
   });
+export const eventDeleteSchema = z.object({
+  revision: z.number().int().positive(),
+});
 
 export const leadSchema = z
   .object({

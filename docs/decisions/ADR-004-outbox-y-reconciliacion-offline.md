@@ -46,10 +46,21 @@ duplique datos o que un pull destruya trabajo local pendiente.
   reemplaza ni duplica el Lead, queda visible como conflicto y conserva el
   snapshot local. Solo una sincronización manual explícita consulta la revisión
   remota, rearma esa misma operación/clave y vuelve a intentar el cambio local.
+- La estabilización de FL-017 integra también `PUT`/`DELETE /v1/events/{id}`
+  con revisión optimista, misma outbox e idempotencia. DELETE coloca un
+  tombstone remoto (`deleted_at`) y conserva FK, Leads y medios. Un tombstone
+  local no se revierte por un pull; una operación local abierta prevalece sobre
+  la instantánea remota. `GET /v1/events` incluye tombstones para que otro
+  dispositivo pueda crear primero el padre local y luego aplicar Leads
+  históricos sin violar la FK; la UI los excluye de Mis eventos. El borrado de
+  un evento espera a las creaciones de Leads asociadas que todavía estén en cola.
+- El contrato JSON expone `revision` como entero seguro. El cliente acepta
+  temporalmente también la cadena decimal de `bigint` producida por el backend
+  desplegado anteriormente, para recuperar operaciones en conflicto existentes.
 
 ## Límites conocidos
 
-No hay PUT/DELETE para eventos ni DELETE para leads. Tampoco hay cursor/delta
+No hay DELETE para leads. Tampoco hay cursor/delta
 sync. El PUT de Lead se limita a los campos estructurados de `REG-07`; los
 medios y campos de identidad permanecen inmutables.
 

@@ -860,6 +860,12 @@ abstract class AppLocalizations {
   /// **'Eliminar evento'**
   String get deleteEvent;
 
+  /// No description provided for @deleteEventQuestion.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar {name}? El evento dejará de aparecer, pero sus leads permanecerán guardados.'**
+  String deleteEventQuestion(String name);
+
   /// No description provided for @saveChanges.
   ///
   /// In es, this message translates to:

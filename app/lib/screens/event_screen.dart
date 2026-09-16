@@ -1,7 +1,7 @@
 /// Shared event list, creation and editing experience.
 ///
-/// Manages frontend event state and V1 content assignments; deletion does not
-/// imply remote data deletion.
+/// Manages frontend event state and V1 content assignments; deletion preserves
+/// associated Leads and is confirmed before changing local state.
 library;
 
 import 'package:flutter/material.dart';
@@ -118,6 +118,31 @@ class _EventScreenState extends State<EventScreen> {
     );
     if (created == null) return;
     widget.onCreate(created);
+  }
+
+  Future<void> _confirmDelete(AppEvent event) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(dialogContext.l10n.deleteEvent),
+        content: Text(dialogContext.l10n.deleteEventQuestion(event.name)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(dialogContext.l10n.cancel),
+          ),
+          FilledButton.icon(
+            key: const Key('confirmDeleteEventButton'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.delete_outline),
+            label: Text(dialogContext.l10n.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    widget.onDelete(event);
+    setState(() => _editing = null);
   }
 
   @override
@@ -358,7 +383,7 @@ class _EventScreenState extends State<EventScreen> {
           ),
           IconButton(
             tooltip: context.l10n.deleteEvent,
-            onPressed: () => widget.onDelete(event),
+            onPressed: () => _confirmDelete(event),
             icon: const Icon(Icons.delete_outline, size: 19),
           ),
         ],
@@ -490,10 +515,7 @@ class _EventScreenState extends State<EventScreen> {
                   const SizedBox(height: 24),
                   FilledButton.icon(
                     key: const Key('deleteEventButton'),
-                    onPressed: () {
-                      widget.onDelete(event);
-                      setState(() => _editing = null);
-                    },
+                    onPressed: () => _confirmDelete(event),
                     style: FilledButton.styleFrom(
                       backgroundColor: palette.ink,
                       foregroundColor: palette.card,

@@ -621,13 +621,23 @@ class SyncStore {
   }) async {
     await database.transaction(() async {
       final revision = remoteData?['revision'];
-      if (operation.entityType == SyncEntityType.lead.name && revision is int) {
+      final leadRevision = _remoteRevision(revision);
+      if (operation.entityType == SyncEntityType.lead.name &&
+          leadRevision != null) {
         await database.leadDao.markLeadSynced(
           operation.ownerUserId,
           operation.entityId,
-          revision,
+          leadRevision,
         );
-        await _advanceQueuedLeadUpdates(operation, revision);
+        await _advanceQueuedLeadUpdates(operation, leadRevision);
+      } else if (operation.entityType == SyncEntityType.event.name &&
+          leadRevision != null) {
+        await database.eventDao.markRemoteRevision(
+          operation.ownerUserId,
+          operation.entityId,
+          leadRevision,
+        );
+        await _advanceQueuedEventMutations(operation, leadRevision);
       } else {
         await _markEntity(operation, 'synced');
       }
@@ -647,6 +657,30 @@ class SyncStore {
       if (operation.operationId == completed.operationId ||
           operation.action != 'update' ||
           operation.status == 'syncing') {
+        continue;
+      }
+      final payload = _payloadMap(operation.payloadJson);
+      payload['revision'] = revision;
+      await database.syncDao.repairFailedPayload(
+        operation.operationId,
+        jsonEncode(payload),
+        DateTime.now().toUtc(),
+      );
+    }
+  }
+
+  Future<void> _advanceQueuedEventMutations(
+    StoredSyncOperation completed,
+    int revision,
+  ) async {
+    for (final operation in await database.syncDao.forEntity(
+      completed.ownerUserId,
+      SyncEntityType.event.name,
+      completed.entityId,
+    )) {
+      if (operation.operationId == completed.operationId ||
+          operation.status == 'syncing' ||
+          (operation.action != 'update' && operation.action != 'delete')) {
         continue;
       }
       final payload = _payloadMap(operation.payloadJson);
@@ -712,22 +746,32 @@ class SyncStore {
   /// Rearms conflicted edits only after the user explicitly requests sync.
   Future<int> rebaseRevisionConflicts(
     String ownerSub,
-    List<Map<String, Object?>> remoteLeads,
-  ) async {
+    List<Map<String, Object?>> remoteLeads, {
+    List<Map<String, Object?>> remoteEvents = const [],
+  }) async {
     final revisions = <String, int>{
       for (final lead in remoteLeads)
-        if (lead['id'] is String && lead['revision'] is int)
-          lead['id'] as String: lead['revision'] as int,
+        if (lead['id'] is String && _remoteRevision(lead['revision']) != null)
+          '${SyncEntityType.lead.name}:${lead['id']}': _remoteRevision(
+            lead['revision'],
+          )!,
+      for (final event in remoteEvents)
+        if (event['id'] is String && _remoteRevision(event['revision']) != null)
+          '${SyncEntityType.event.name}:${event['id']}': _remoteRevision(
+            event['revision'],
+          )!,
     };
     var repaired = 0;
     for (final operation in await all(ownerSub)) {
-      if (operation.entityType != SyncEntityType.lead.name ||
-          operation.action != 'update' ||
+      if ((operation.entityType != SyncEntityType.lead.name &&
+              operation.entityType != SyncEntityType.event.name) ||
+          (operation.action != 'update' && operation.action != 'delete') ||
           operation.status != 'failed' ||
           operation.lastError != 'http_409_revision_conflict') {
         continue;
       }
-      final revision = revisions[operation.entityId];
+      final revision =
+          revisions['${operation.entityType}:${operation.entityId}'];
       if (revision == null) continue;
       final payload = _payloadMap(operation.payloadJson);
       payload['revision'] = revision;
@@ -738,11 +782,13 @@ class SyncStore {
           jsonEncode(payload),
           now,
         );
-        await database.leadDao.markLeadSyncState(
-          ownerSub,
-          operation.entityId,
-          'pending',
-        );
+        if (operation.entityType == SyncEntityType.lead.name) {
+          await database.leadDao.markLeadSyncState(
+            ownerSub,
+            operation.entityId,
+            'pending',
+          );
+        }
       });
       repaired++;
     }
@@ -858,18 +904,21 @@ class SyncStore {
   ) async {
     for (final event in events) {
       final id = event['id'] as String;
-      final hadLocalCreate = await hasPending(
+      final hadLocalCreate = (await database.syncDao.forEntity(
         ownerSub,
-        SyncEntityType.event,
+        SyncEntityType.event.name,
         id,
-      );
+      )).any((operation) => operation.action == 'create');
       await reconcileRemoteCreate(ownerSub, SyncEntityType.event, id);
       if (hadLocalCreate) {
-        await database.eventDao.markSynced(ownerSub, id);
+        final revision = _requiredRemoteRevision(event['revision']);
+        await database.eventDao.markRemoteRevision(ownerSub, id, revision);
         continue;
       }
       if (await hasPending(ownerSub, SyncEntityType.event, id)) continue;
       final existing = await database.eventDao.byId(ownerSub, id);
+      // A local tombstone is authoritative even after a lost delete response.
+      if (existing?.deleted == true) continue;
       final now = DateTime.now().toUtc();
       await database.eventDao.upsert(
         LocalEventsCompanion.insert(
@@ -878,12 +927,15 @@ class SyncStore {
           name: event['name'] as String,
           startsOn: DateTime.parse(event['startsAt'] as String).toUtc(),
           endsOn: DateTime.parse(event['endsAt'] as String).toUtc(),
-          active: Value(existing?.active ?? false),
-          deleted: const Value(false),
+          active: Value(
+            event['deletedAt'] == null && (existing?.active ?? false),
+          ),
+          deleted: Value(event['deletedAt'] != null),
           contentFileIdsJson: Value(existing?.contentFileIdsJson ?? '[]'),
           createdAt: _date(event['createdAt']) ?? existing?.createdAt ?? now,
           updatedAt: _date(event['updatedAt']) ?? now,
           syncState: const Value('synced'),
+          remoteRevision: Value(_requiredRemoteRevision(event['revision'])),
         ),
       );
     }
@@ -908,12 +960,16 @@ class SyncStore {
         await database.leadDao.markLeadSynced(
           ownerSub,
           id,
-          lead['revision'] as int,
+          _requiredRemoteRevision(lead['revision']),
         );
         continue;
       }
       if (await hasPending(ownerSub, SyncEntityType.lead, id)) continue;
       final existing = await database.leadDao.byId(ownerSub, id);
+      final eventId = lead['eventId'] as String?;
+      final event = eventId == null
+          ? null
+          : await database.eventDao.byId(ownerSub, eventId);
       final now = DateTime.now().toUtc();
       await database.localLeads.insertOnConflictUpdate(
         LocalLeadsCompanion.insert(
@@ -922,8 +978,8 @@ class SyncStore {
           capturedAt: DateTime.parse(lead['capturedAt'] as String).toUtc(),
           capturedBy: existing?.capturedBy ?? profile?.name ?? 'Foloo',
           originKind: lead['origin'] as String,
-          eventLocalId: Value(lead['eventId'] as String?),
-          eventNameSnapshot: Value(existing?.eventNameSnapshot),
+          eventLocalId: Value(eventId),
+          eventNameSnapshot: Value(existing?.eventNameSnapshot ?? event?.name),
           name: lead['firstName'] as String,
           lastName: (lead['lastName'] as String?) ?? '',
           role: (lead['position'] as String?) ?? '',
@@ -939,7 +995,7 @@ class SyncStore {
           contentNamesJson: Value(existing?.contentNamesJson ?? '[]'),
           transcription: Value(existing?.transcription),
           syncState: const Value('synced'),
-          remoteRevision: Value(lead['revision'] as int),
+          remoteRevision: Value(_requiredRemoteRevision(lead['revision'])),
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
         ),
@@ -1030,6 +1086,24 @@ class SyncStore {
 
   DateTime? _date(Object? value) =>
       value is String ? DateTime.tryParse(value)?.toUtc() : null;
+
+  // PostgreSQL bigint is serialized as a decimal string by node-postgres.
+  // Accept both that deployed DTO and the corrected numeric API DTO without
+  // silently accepting fractions or values outside JavaScript's safe range.
+  int? _remoteRevision(Object? value) {
+    final parsed = switch (value) {
+      int number => number,
+      String text when RegExp(r'^[0-9]+$').hasMatch(text) => int.tryParse(text),
+      _ => null,
+    };
+    return parsed != null && parsed > 0 && parsed <= 9007199254740991
+        ? parsed
+        : null;
+  }
+
+  int _requiredRemoteRevision(Object? value) =>
+      _remoteRevision(value) ??
+      (throw const FormatException('Invalid remote revision'));
 
   Map<String, Object?> _payloadMap(String value) =>
       (jsonDecode(value) as Map).cast<String, Object?>();

@@ -404,7 +404,7 @@ void main() {
   );
 
   test(
-    'logical event deletion hides its local leads without deleting rows',
+    'EVT-02 logical event deletion retains visible Leads without deleting rows',
     () async {
       final database = openDatabase();
       final events = EventRepository(database);
@@ -422,25 +422,78 @@ void main() {
       );
 
       await events.delete(userId, localEvent);
-      expect(await leads.listAll(userId), isEmpty);
+      expect(await leads.listAll(userId), hasLength(1));
       expect(await leads.byEvent(userId, localEvent.id), isEmpty);
       expect(await database.leadDao.listAll(userId), hasLength(1));
       await database.close();
     },
   );
 
+  test(
+    'EVT-02 event update/delete survive restart with owner-scoped outbox',
+    () async {
+      var database = openDatabase();
+      var events = EventRepository(database);
+      final original = event();
+      await events.save(userId, original);
+      await database.syncDao.completeCreatesForEntity(
+        userId,
+        SyncEntityType.event.name,
+        original.id,
+      );
+      await database.eventDao.markRemoteRevision(userId, original.id, 2);
+      final corrected = original.copyWith(
+        name: 'México · León · Exposición · Niñez · São Paulo',
+      );
+      await events.save(userId, corrected);
+      var operation = (await database.syncDao.forEntity(
+        userId,
+        SyncEntityType.event.name,
+        original.id,
+      )).single;
+      expect(operation.action, 'update');
+      expect(jsonDecode(operation.payloadJson)['revision'], 2);
+      await database.close();
+
+      database = openDatabase();
+      events = EventRepository(database);
+      expect((await events.list(userId)).single.name, corrected.name);
+      await events.delete(userId, corrected);
+      expect(await events.list(userId), isEmpty);
+      expect(
+        (await database.syncDao.forEntity(
+          userId,
+          SyncEntityType.event.name,
+          original.id,
+        )).map((item) => item.action),
+        containsAll(['update', 'delete']),
+      );
+      await database.close();
+
+      database = openDatabase();
+      events = EventRepository(database);
+      expect(await events.list(userId), isEmpty);
+      expect(
+        (await database.eventDao.byId(userId, original.id))?.name,
+        corrected.name,
+      );
+      expect(await events.list('another-owner'), isEmpty);
+      await database.close();
+    },
+  );
+
   test('schema version is explicit and stable across reopen', () async {
     var database = openDatabase();
-    expect(database.schemaVersion, 4);
+    expect(database.schemaVersion, 5);
     var version = await database
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 4);
+    expect(version.read<int>('user_version'), 5);
     await database.close();
 
     database = openDatabase();
     version = await database.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 4);
+    expect(version.read<int>('user_version'), 5);
     await database.close();
   });
 

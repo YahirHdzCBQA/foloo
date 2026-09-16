@@ -47,7 +47,7 @@ class IdempotencyClient {
     if (sql.includes("INSERT INTO idempotency_records")) {
       this.stored = {
         request_hash: String(values[3]),
-        response_body: JSON.parse(String(values[4])) as unknown,
+        response_body: JSON.parse(String(values[5])) as unknown,
       };
     }
     return { rows: [], rowCount: 0 };
@@ -134,6 +134,123 @@ class LeadUpdateClient extends IdempotencyClient {
     return super.query<Row>(sql, values);
   }
 }
+
+class EventMutationClient extends IdempotencyClient {
+  updateCount = 0;
+  deleteCount = 0;
+  stale = false;
+  override async query<
+    Row extends Record<string, unknown> = Record<string, unknown>,
+  >(sql: string, values: unknown[] = []) {
+    if (sql.includes("UPDATE events SET name")) {
+      this.updateCount += 1;
+      return {
+        rows: this.stale
+          ? []
+          : [
+              {
+                id: values[1],
+                name: values[3],
+                revision: "2",
+              } as unknown as Row,
+            ],
+        rowCount: this.stale ? 0 : 1,
+      };
+    }
+    if (sql.includes("UPDATE events SET deleted_at")) {
+      this.deleteCount += 1;
+      assert.doesNotMatch(sql, /DELETE FROM|leads|lead_media/i);
+      return {
+        rows: [
+          {
+            id: values[1],
+            revision: "3",
+            deletedAt: "2026-09-16T12:00:00Z",
+          } as unknown as Row,
+        ],
+        rowCount: 1,
+      };
+    }
+    if (sql.includes("SELECT id FROM events"))
+      return { rows: [{ id: values[1] } as unknown as Row], rowCount: 1 };
+    return super.query<Row>(sql, values);
+  }
+}
+
+test("EVT-02 update is idempotent, revision guarded and preserves Unicode", async () => {
+  const client = new EventMutationClient();
+  const adapter = repository(client);
+  const update = {
+    revision: 1,
+    name: "México · León · Exposición · Niñez · São Paulo",
+    startsAt: input.startsAt,
+    endsAt: input.endsAt,
+  };
+  const hash = requestHash({ eventId: input.id, ...update });
+  await adapter.updateEvent(
+    principal,
+    input.id,
+    update,
+    "event-update-key",
+    hash,
+  );
+  await adapter.updateEvent(
+    principal,
+    input.id,
+    update,
+    "event-update-key",
+    hash,
+  );
+  assert.equal(client.updateCount, 1);
+  client.stored = undefined;
+  client.stale = true;
+  await assert.rejects(
+    adapter.updateEvent(principal, input.id, update, "stale-event-key", hash),
+    (error) =>
+      error instanceof ApplicationError && error.code === "revision_conflict",
+  );
+});
+
+test("EVT-02 delete creates an idempotent tombstone without touching Leads", async () => {
+  const client = new EventMutationClient();
+  const adapter = repository(client);
+  const payload = { revision: 2 };
+  const hash = requestHash({ eventId: input.id, ...payload });
+  await adapter.deleteEvent(
+    principal,
+    input.id,
+    payload,
+    "event-delete-key",
+    hash,
+  );
+  await adapter.deleteEvent(
+    principal,
+    input.id,
+    payload,
+    "event-delete-key",
+    hash,
+  );
+  assert.equal(client.deleteCount, 1);
+});
+
+test("EVT-02 event pull includes scoped tombstones so Lead references remain valid", async () => {
+  const calls: Array<{ sql: string; values: unknown[] }> = [];
+  const pool = {
+    query: async (sql: string, values: unknown[]) => {
+      calls.push({ sql, values });
+      return {
+        rows: [
+          { id: input.id, deletedAt: "2026-09-16T12:00:00Z", revision: "2" },
+        ],
+      };
+    },
+  } as unknown as pg.Pool;
+  const events = await new PostgresFolooRepository(pool).listEvents(principal);
+  assert.equal(events.length, 1);
+  assert.equal(calls[0]?.values[0], principal.workspaceId);
+  assert.match(calls[0]?.sql ?? "", /WHERE workspace_id = \$1/);
+  assert.doesNotMatch(calls[0]?.sql ?? "", /deleted_at IS NULL/);
+});
 
 const leadUpdate = {
   revision: 3,

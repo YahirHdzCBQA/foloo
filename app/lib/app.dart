@@ -593,6 +593,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
         _origin = OriginSelection(kind: LeadOriginKind.event, event: event);
       }
     });
+    unawaited(_synchronize(trigger: SyncTrigger.postSave));
   }
 
   Future<void> _deleteEvent(AppEvent event) async {
@@ -619,6 +620,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       );
       await _refreshAutomaticEventSelection();
     }
+    unawaited(_synchronize(trigger: SyncTrigger.postSave));
   }
 
   void _showPersistenceError() {

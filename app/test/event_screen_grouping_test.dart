@@ -71,4 +71,58 @@ void main() {
       expect(find.text('active'), findsOneWidget);
     },
   );
+
+  testWidgets('EVT-02 deletion requires explicit confirmation in ES', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var deleted = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: FolooTheme.light,
+        locale: const Locale('es'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: EventScreen(
+          events: [
+            event(
+              'evento-1',
+              DateTime(2026, 9, 16),
+              DateTime(2026, 9, 17),
+              active: true,
+            ),
+          ],
+          recordsCount: 0,
+          darkMode: false,
+          onDestinationSelected: (_) {},
+          onAppearanceChanged: (_) {},
+          onLogout: () {},
+          onCreate: (_) {},
+          onUpdate: (_) {},
+          onDelete: (_) => deleted++,
+          onBack: () {},
+          nowProvider: () => DateTime(2026, 9, 16),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('Eliminar evento'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('leads permanecerán guardados'), findsOneWidget);
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(deleted, 0);
+    await tester.tap(find.byTooltip('Eliminar evento'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirmDeleteEventButton')));
+    await tester.pumpAndSettle();
+    expect(deleted, 1);
+  });
 }

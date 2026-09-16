@@ -385,29 +385,59 @@ class _RecordsScreenState extends State<RecordsScreen>
 
   Future<AppEvent?> _chooseExportEvent() => showDialog<AppEvent>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: Text(context.l10n.chooseExportEvent),
-      content: SizedBox(
-        width: 320,
-        height: 320,
-        child: ListView.builder(
-          itemCount: widget.events.length,
-          itemBuilder: (_, index) {
-            final event = widget.events[index];
-            return ListTile(
-              key: Key('exportEvent-${event.id}'),
-              title: Text(event.name),
-              onTap: () => Navigator.pop(context, event),
-            );
-          },
+    builder: (context) => Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                context.l10n.chooseExportEvent,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: widget.events.length > 4
+                    ? 300
+                    : widget.events.length * 64.0,
+                child: ListView.separated(
+                  itemCount: widget.events.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (_, index) {
+                    final event = widget.events[index];
+                    return _ExportFormatOption(
+                      key: Key('exportEvent-${event.id}'),
+                      icon: Icons.event_outlined,
+                      title: event.name,
+                      subtitle: MaterialLocalizations.of(context)
+                          .formatMediumDate(event.startsOn),
+                      selected: false,
+                      onTap: () => Navigator.pop(context, event),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 18),
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                style: FilledButton.styleFrom(
+                  backgroundColor: FolooPalette.of(context).paper,
+                  foregroundColor: FolooPalette.of(context).ink,
+                ),
+                child: Text(context.l10n.cancel),
+              ),
+            ],
+          ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(context.l10n.cancel),
-        ),
-      ],
     ),
   );
 

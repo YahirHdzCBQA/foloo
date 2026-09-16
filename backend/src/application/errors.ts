@@ -25,5 +25,5 @@ export const revisionConflict = () =>
   new ApplicationError(
     "revision_conflict",
     409,
-    "The lead changed remotely. The local edit was preserved and can be retried.",
+    "The record changed remotely. The local edit was preserved and can be retried.",
   );

@@ -406,6 +406,11 @@ class AppLocalizationsEs extends AppLocalizations {
   String get deleteEvent => 'Eliminar evento';
 
   @override
+  String deleteEventQuestion(String name) {
+    return '¿Eliminar $name? El evento dejará de aparecer, pero sus leads permanecerán guardados.';
+  }
+
+  @override
   String get saveChanges => 'Guardar cambios';
 
   @override

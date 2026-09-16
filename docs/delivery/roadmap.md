@@ -56,7 +56,8 @@ idempotentes y reconciliación local-first.
 
 ## FL-017 — Records + XLSX/CSV Export
 
-**Estado:** completado en repositorio; pendiente validación física iPhone/AWS DEV.
+**Estado:** estabilización en repositorio; pendiente deploy DEV y nueva validación
+física sobre la misma instalación de iPhone. No cerrar todavía.
 
 - Records local-first, detalle y edición estructurada con revisión optimista.
 - Exportación local por evento a XLSX/CSV y hoja de compartir.

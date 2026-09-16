@@ -35,6 +35,7 @@ paths:
   /events:
     get:
       operationId: listEvents
+      description: Full owner-scoped sync snapshot, including soft-deleted event tombstones (deletedAt). Clients hide tombstones from event pickers but retain them for associated Lead references.
       responses:
         "200": { $ref: "#/components/responses/DataResponse" }
     post:
@@ -48,6 +49,38 @@ paths:
       responses:
         "201": { $ref: "#/components/responses/DataResponse" }
         "400": { $ref: "#/components/responses/ErrorResponse" }
+        "409": { $ref: "#/components/responses/ErrorResponse" }
+  /events/{eventId}:
+    parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      operationId: updateEvent
+      description: Optimistic, idempotent update of event name and dates.
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EventUpdateInput" }
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+        "404": { $ref: "#/components/responses/ErrorResponse" }
+        "409": { $ref: "#/components/responses/ErrorResponse" }
+    delete:
+      operationId: deleteEvent
+      description: Soft-deletes the event without deleting associated Leads or media.
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EventDeleteInput" }
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+        "404": { $ref: "#/components/responses/ErrorResponse" }
         "409": { $ref: "#/components/responses/ErrorResponse" }
   /leads:
     get:
@@ -182,6 +215,21 @@ components:
         name: { type: string, minLength: 1, maxLength: 160 }
         startsAt: { type: string, format: date-time }
         endsAt: { type: string, format: date-time }
+    EventUpdateInput:
+      type: object
+      additionalProperties: false
+      required: [revision, name, startsAt, endsAt]
+      properties:
+        revision: { type: integer, minimum: 1 }
+        name: { type: string, minLength: 1, maxLength: 160 }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+    EventDeleteInput:
+      type: object
+      additionalProperties: false
+      required: [revision]
+      properties:
+        revision: { type: integer, minimum: 1 }
     LeadInput:
       type: object
       additionalProperties: false

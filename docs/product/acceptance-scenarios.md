@@ -25,7 +25,13 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   fin descendente usando la fecha local real.
 - Sin selección manual válida, el evento futuro más próximo queda activo y se
   reevalúa al cambiar de día; una selección manual válida no se sobrescribe.
-- Editar fechas/nombre persiste. Conteos reflejan los Leads locales.
+- Editar nombre/fechas persiste primero en Drift, sobrevive restart/logout y
+  sincroniza por outbox; un pull no revierte una mutación pendiente. Unicode
+  escrito por el usuario se conserva sin normalización destructiva.
+- Eliminar exige confirmación ES/EN. Cancelar no cambia nada; confirmar marca
+  tombstone local y remoto sin borrar, reasignar ni ocultar los Leads asociados.
+  La eliminación sobrevive restart/logout y un pull no resucita el evento.
+- Conteos reflejan los Leads locales.
 - Evento y Lead directo alternan; directo exige Lugar y ambos contextos
   persisten entre capturas.
 

@@ -22,6 +22,9 @@ export type EventInput = {
   endsAt: string;
 };
 
+export type EventUpdateInput = Omit<EventInput, "id"> & { revision: number };
+export type EventDeleteInput = { revision: number };
+
 export type LeadInput = {
   id: string;
   capturedAt: string;

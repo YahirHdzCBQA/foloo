@@ -116,7 +116,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | ID | Requerimiento |
 |---|---|
 | `EVT-01` | Crear evento con nombre, fecha inicial y fecha final editables mediante el calendario Foloo. |
-| `EVT-02` | Editar nombre/fechas y eliminar lógicamente un evento sin borrar sus leads. |
+| `EVT-02` | Editar nombre/fechas y eliminar lógicamente un evento sin borrar, reasignar ni ocultar sus leads en Registros; la mutación persiste localmente y se sincroniza mediante outbox. |
 | `EVT-03` | Mostrar conteo total y por subir calculado desde los leads persistidos del evento. |
 | `EVT-04` | Permitir seleccionar manualmente un evento activo y conservarlo al reingresar. |
 | `EVT-05` | Un evento recién creado queda activo. |

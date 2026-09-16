@@ -477,6 +477,8 @@ void main() {
     await tester.tap(find.byKey(const Key('exportButton')));
     await tester.pumpAndSettle();
     expect(find.text('Elige el evento que deseas exportar'), findsOneWidget);
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
     await tester.tap(find.text('Evento B').last);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirmExportButton')));

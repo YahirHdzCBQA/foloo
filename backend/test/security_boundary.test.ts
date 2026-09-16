@@ -64,6 +64,56 @@ test("keeps user A and user B event lists isolated", async () => {
   assert.match(b.body ?? "", /event-b/);
 });
 
+test("EVT-02 update/delete remain scoped to JWT owner and expose numeric revisions", async () => {
+  const repository = new MemoryRepository();
+  const id = "f225b79b-2504-4a5f-94f8-f8db264aa9e5";
+  repository.eventsByWorkspace.set("workspace-subject-a", [
+    { id, name: "M�xico", revision: "1" },
+  ]);
+  const router = createRouter(new FolooApplication(repository));
+  const listed = await router(
+    apiEvent({ path: "/v1/events", subject: "subject-a" }),
+  );
+  assert.equal(
+    (JSON.parse(listed.body ?? "{}") as { data: Array<{ revision: number }> })
+      .data[0]?.revision,
+    1,
+  );
+  const update = await router(
+    apiEvent({
+      method: "PUT",
+      path: `/v1/events/${id}`,
+      subject: "subject-a",
+      idempotencyKey: "event-update-key",
+      body: {
+        revision: 1,
+        name: "México",
+        startsAt: "2026-09-16T10:00:00Z",
+        endsAt: "2026-09-17T10:00:00Z",
+        ownerId: "subject-b",
+      },
+    }),
+  );
+  assert.equal(update.statusCode, 200);
+  assert.match(update.body ?? "", /México/);
+  assert.doesNotMatch(update.body ?? "", /subject-b/);
+  const deleted = await router(
+    apiEvent({
+      method: "DELETE",
+      path: `/v1/events/${id}`,
+      subject: "subject-a",
+      idempotencyKey: "event-delete-key",
+      body: { revision: 2 },
+    }),
+  );
+  assert.equal(deleted.statusCode, 200);
+  assert.equal(
+    repository.eventsByWorkspace.get("workspace-subject-a")?.length,
+    0,
+  );
+  assert.equal(repository.eventsByWorkspace.has("workspace-subject-b"), false);
+});
+
 test("REG-07 update derives ownership from JWT and keeps immutable fields out", async () => {
   const repository = new MemoryRepository();
   const router = createRouter(new FolooApplication(repository));

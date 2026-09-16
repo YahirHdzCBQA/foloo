@@ -281,6 +281,14 @@ class SyncEngine extends ChangeNotifier {
 
   Future<void> _rebaseRevisionConflicts(String ownerSub, String token) async {
     try {
+      final events = _list(
+        _data(
+          await _api.send(
+            token,
+            const SyncRequest(method: 'GET', path: '/v1/events'),
+          ),
+        ),
+      );
       final leads = _list(
         _data(
           await _api.send(
@@ -289,7 +297,11 @@ class SyncEngine extends ChangeNotifier {
           ),
         ),
       );
-      final repaired = await _store.rebaseRevisionConflicts(ownerSub, leads);
+      final repaired = await _store.rebaseRevisionConflicts(
+        ownerSub,
+        leads,
+        remoteEvents: events,
+      );
       if (repaired > 0) {
         logger({
           'scope': 'sync_conflict',
@@ -442,11 +454,14 @@ class SyncEngine extends ChangeNotifier {
     final payload = _payload(operation);
     return switch (SyncEntityType.values.byName(operation.entityType)) {
       SyncEntityType.lead => switch (payload['eventId']) {
-        final String eventId => _store.hasPending(
-          operation.ownerUserId,
-          SyncEntityType.event,
-          eventId,
-        ),
+        final String eventId =>
+          _store.database.syncDao
+              .forEntity(
+                operation.ownerUserId,
+                SyncEntityType.event.name,
+                eventId,
+              )
+              .then((items) => items.any((item) => item.action == 'create')),
         _ => false,
       },
       SyncEntityType.leadMedia => switch (payload['leadId']) {
@@ -457,8 +472,33 @@ class SyncEngine extends ChangeNotifier {
         ),
         _ => false,
       },
-      SyncEntityType.profile || SyncEntityType.event => false,
+      SyncEntityType.event =>
+        operation.action == 'delete' && await _hasPendingLeadCreate(operation),
+      SyncEntityType.profile => false,
     };
+  }
+
+  Future<bool> _hasPendingLeadCreate(StoredSyncOperation event) async {
+    for (final lead in await _store.database.leadDao.byEvent(
+      event.ownerUserId,
+      event.entityId,
+    )) {
+      final operations = await _store.database.syncDao.forEntity(
+        event.ownerUserId,
+        SyncEntityType.lead.name,
+        lead.localId,
+      );
+      if (operations.any(
+        (item) =>
+            item.action == 'create' &&
+            (item.status == 'pending' ||
+                item.status == 'retryable' ||
+                item.status == 'syncing'),
+      )) {
+        return true;
+      }
+    }
+    return false;
   }
 
   String _httpError(SyncHttpException error) => error.errorCode == null
@@ -471,7 +511,10 @@ class SyncEngine extends ChangeNotifier {
   String _endpoint(StoredSyncOperation operation) =>
       switch (SyncEntityType.values.byName(operation.entityType)) {
         SyncEntityType.profile => '/v1/profile',
-        SyncEntityType.event => '/v1/events',
+        SyncEntityType.event =>
+          operation.action == 'create'
+              ? '/v1/events'
+              : '/v1/events/${operation.entityId}',
         SyncEntityType.lead =>
           operation.action == 'update'
               ? '/v1/leads/${operation.entityId}'
@@ -489,8 +532,14 @@ class SyncEngine extends ChangeNotifier {
         body: payload,
       ),
       SyncEntityType.event => SyncRequest(
-        method: 'POST',
-        path: '/v1/events',
+        method: operation.action == 'create'
+            ? 'POST'
+            : operation.action == 'delete'
+            ? 'DELETE'
+            : 'PUT',
+        path: operation.action == 'create'
+            ? '/v1/events'
+            : '/v1/events/${operation.entityId}',
         body: payload,
         idempotencyKey: operation.idempotencyKey,
       ),

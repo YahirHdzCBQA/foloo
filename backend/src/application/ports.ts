@@ -2,6 +2,8 @@
 
 import type {
   EventInput,
+  EventUpdateInput,
+  EventDeleteInput,
   IdempotentResult,
   LeadInput,
   LeadUpdateInput,
@@ -23,6 +25,20 @@ export interface FolooRepository {
   createEvent(
     principal: Principal,
     input: EventInput,
+    idempotencyKey: string,
+    requestHash: string,
+  ): Promise<IdempotentResult<unknown>>;
+  updateEvent(
+    principal: Principal,
+    eventId: string,
+    input: EventUpdateInput,
+    idempotencyKey: string,
+    requestHash: string,
+  ): Promise<IdempotentResult<unknown>>;
+  deleteEvent(
+    principal: Principal,
+    eventId: string,
+    input: EventDeleteInput,
     idempotencyKey: string,
     requestHash: string,
   ): Promise<IdempotentResult<unknown>>;

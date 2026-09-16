@@ -127,6 +127,8 @@
   "createEvent": "Create event",
   "createAction": "Create",
   "deleteEvent": "Delete event",
+  "deleteEventQuestion": "Delete {name}? The event will no longer appear, but its leads will remain saved.",
+  "@deleteEventQuestion": {"placeholders": {"name": {"type": "String"}}},
   "saveChanges": "Save changes",
   "back": "Back",
   "starts": "Starts",

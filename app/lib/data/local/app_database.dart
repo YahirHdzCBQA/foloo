@@ -41,6 +41,7 @@ class LocalEvents extends Table {
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
   TextColumn get syncState => text().withDefault(const Constant('local'))();
+  IntColumn get remoteRevision => integer().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {localId};
@@ -269,6 +270,17 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
             (row) => row.ownerUserId.equals(userId) & row.localId.equals(id),
           ))
           .write(const LocalEventsCompanion(syncState: Value('synced')));
+
+  Future<void> markRemoteRevision(String userId, String id, int revision) =>
+      (update(localEvents)..where(
+            (row) => row.ownerUserId.equals(userId) & row.localId.equals(id),
+          ))
+          .write(
+            LocalEventsCompanion(
+              syncState: const Value('synced'),
+              remoteRevision: Value(revision),
+            ),
+          );
 }
 
 @DriftAccessor(tables: [LocalLeads, LocalLeadMedia])
@@ -597,7 +609,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -632,6 +644,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 4) {
         await migrator.addColumn(localLeads, localLeads.remoteRevision);
+      }
+      if (from < 5) {
+        await migrator.addColumn(localEvents, localEvents.remoteRevision);
       }
     },
     beforeOpen: (details) async {

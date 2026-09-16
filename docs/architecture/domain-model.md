@@ -41,6 +41,8 @@ ownership por su Lead o archivo. Email nunca sustituye el identificador estable.
 - `seller_profile`: perfil Foloo separado de Cognito.
 - `event`, `lead`: UUID suministrable por el cliente, `revision`, timestamps y
   `deleted_at`; toda consulta se limita por workspace.
+- El tombstone de Evento conserva su fila y las FK de Leads asociados; Registros
+  mantiene visibles esos Leads aunque el evento deje de aparecer en Mis eventos.
 - `lead_media`: metadata de tarjeta, referencia o Voice Note. Nunca contiene el
   binario. `upload_status` transita `pending → available`; `storage_object_key`
   es una referencia privada derivada por backend y `uploaded_at` solo existe
