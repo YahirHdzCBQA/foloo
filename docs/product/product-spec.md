@@ -192,16 +192,16 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `REG-01` | Registros lista leads persistidos, con fecha/hora, nombre, empresa, tipo, interés, voz y estado de subida. |
 | `REG-02` | Selector incluye “Todos los eventos” y eventos persistidos; filtra sin cambiar el activo. |
 | `REG-03` | Buscar por nombre/empresa y filtrar Cliente/Partner/Proveedor funciona localmente. |
-| `REG-04` | Orden por fecha y estado vacío invitan a capturar; conteos reflejan el filtro actual. |
+| `REG-04` | Orden descendente por fecha de captura, con UUID como desempate estable, y estado vacío invitan a capturar; conteos reflejan el filtro actual. |
 | `REG-05` | El detalle muestra contacto, fecha/hora, origen, capturó, medios, notas, adjuntos y estados. |
 | `REG-06` | La tarjeta e imágenes de referencia se abren completas en un visor modal. |
-| `REG-07` | El detalle permite corregir los campos aprobados y persiste el cambio sin perder ownership o medios. |
+| `REG-07` | El detalle permite corregir nombre, apellido, puesto, empresa, correo, teléfono, tipo, interés, nota escrita y, solo en lead directo, lugar. UUID, owner, fecha original, origen, evento, capturó y medios son inmutables. La edición persiste primero en Drift y usa `PUT /v1/leads/{leadId}` con revisión optimista; un conflicto conserva el cambio local y queda recuperable sin duplicar. |
 | `REG-08` | Voice Note se reproduce desde lista/detalle; controles post-guardado siguen la política de `D-06`. |
-| `REG-09` | Exportar ofrece XLSX y CSV por evento; XLSX es la opción inicial. Decisión posterior 2026-09-08. |
-| `REG-10` | Exporta datos locales del evento, incluidos pendientes; “Todos los eventos” no crea una exportación multievento implícita. |
-| `REG-11` | CSV usa UTF-8 con BOM; XLSX/CSV preservan acentos ES/EN. |
-| `REG-12` | El resultado se comparte con la hoja de compartir del sistema. |
-| `REG-13` | Columnas exactas y tratamiento de medios quedan bloqueados por `D-07`. |
+| `REG-09` | Exportar ofrece XLSX real y CSV por evento; XLSX es la opción inicial. |
+| `REG-10` | Exporta datos locales, incluidos pendientes, exclusivamente del owner y evento elegidos. Desde “Todos los eventos” exige seleccionar un evento antes de generar. |
+| `REG-11` | Columnas, en orden: Fecha/hora, Nombre, Apellido, Puesto, Empresa, Correo, Teléfono, Tipo, Interés, Origen, Evento, Lugar y Nota escrita. Vacíos producen celda vacía; fecha/hora usa representación local con offset explícito; encabezados siguen ES/EN activo. CSV usa UTF-8 con BOM y escaping RFC 4180; XLSX/CSV conservan Unicode. |
+| `REG-12` | El archivo temporal privado se nombra `foloo_<evento>_<YYYY-MM-DD>.xlsx|csv`, sanitizando solo el filename, y se comparte mediante la hoja del sistema. |
+| `REG-13` | Exportación no incluye estado técnico, Voice Note, conteo de imágenes, rutas, URLs firmadas, object keys, IDs técnicos ni binarios. |
 
 ### 4.7 Contenido, plantillas y correo
 

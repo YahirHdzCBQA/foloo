@@ -615,11 +615,48 @@ class SyncStore {
     await _markEntity(operation, 'pending');
   }
 
-  Future<void> complete(StoredSyncOperation operation) async {
+  Future<void> complete(
+    StoredSyncOperation operation, {
+    Map<String, Object?>? remoteData,
+  }) async {
     await database.transaction(() async {
-      await _markEntity(operation, 'synced');
+      final revision = remoteData?['revision'];
+      if (operation.entityType == SyncEntityType.lead.name && revision is int) {
+        await database.leadDao.markLeadSynced(
+          operation.ownerUserId,
+          operation.entityId,
+          revision,
+        );
+        await _advanceQueuedLeadUpdates(operation, revision);
+      } else {
+        await _markEntity(operation, 'synced');
+      }
       await database.syncDao.complete(operation.operationId);
     });
+  }
+
+  Future<void> _advanceQueuedLeadUpdates(
+    StoredSyncOperation completed,
+    int revision,
+  ) async {
+    for (final operation in await database.syncDao.forEntity(
+      completed.ownerUserId,
+      SyncEntityType.lead.name,
+      completed.entityId,
+    )) {
+      if (operation.operationId == completed.operationId ||
+          operation.action != 'update' ||
+          operation.status == 'syncing') {
+        continue;
+      }
+      final payload = _payloadMap(operation.payloadJson);
+      payload['revision'] = revision;
+      await database.syncDao.repairFailedPayload(
+        operation.operationId,
+        jsonEncode(payload),
+        DateTime.now().toUtc(),
+      );
+    }
   }
 
   Future<void> markRetryable(
@@ -654,6 +691,62 @@ class SyncStore {
       );
       await _markEntity(operation, 'failed');
     });
+  }
+
+  Future<void> markRevisionConflict(
+    StoredSyncOperation operation,
+    String error,
+    DateTime now,
+  ) async {
+    await database.transaction(() async {
+      await database.syncDao.markFailed(
+        operation.operationId,
+        operation.attemptCount + 1,
+        error,
+        now.toUtc(),
+      );
+      await _markEntity(operation, 'conflict');
+    });
+  }
+
+  /// Rearms conflicted edits only after the user explicitly requests sync.
+  Future<int> rebaseRevisionConflicts(
+    String ownerSub,
+    List<Map<String, Object?>> remoteLeads,
+  ) async {
+    final revisions = <String, int>{
+      for (final lead in remoteLeads)
+        if (lead['id'] is String && lead['revision'] is int)
+          lead['id'] as String: lead['revision'] as int,
+    };
+    var repaired = 0;
+    for (final operation in await all(ownerSub)) {
+      if (operation.entityType != SyncEntityType.lead.name ||
+          operation.action != 'update' ||
+          operation.status != 'failed' ||
+          operation.lastError != 'http_409_revision_conflict') {
+        continue;
+      }
+      final revision = revisions[operation.entityId];
+      if (revision == null) continue;
+      final payload = _payloadMap(operation.payloadJson);
+      payload['revision'] = revision;
+      final now = DateTime.now().toUtc();
+      await database.transaction(() async {
+        await database.syncDao.repairFailedPayload(
+          operation.operationId,
+          jsonEncode(payload),
+          now,
+        );
+        await database.leadDao.markLeadSyncState(
+          ownerSub,
+          operation.entityId,
+          'pending',
+        );
+      });
+      repaired++;
+    }
+    return repaired;
   }
 
   Future<void> _markEntity(StoredSyncOperation operation, String state) async {
@@ -805,14 +898,18 @@ class SyncStore {
     );
     for (final lead in leads) {
       final id = lead['id'] as String;
-      final hadLocalCreate = await hasPending(
+      final hadLocalCreate = (await database.syncDao.forEntity(
         ownerSub,
-        SyncEntityType.lead,
+        SyncEntityType.lead.name,
         id,
-      );
+      )).any((operation) => operation.action == 'create');
       await reconcileRemoteCreate(ownerSub, SyncEntityType.lead, id);
       if (hadLocalCreate) {
-        await database.leadDao.markLeadSyncState(ownerSub, id, 'synced');
+        await database.leadDao.markLeadSynced(
+          ownerSub,
+          id,
+          lead['revision'] as int,
+        );
         continue;
       }
       if (await hasPending(ownerSub, SyncEntityType.lead, id)) continue;
@@ -842,6 +939,7 @@ class SyncStore {
           contentNamesJson: Value(existing?.contentNamesJson ?? '[]'),
           transcription: Value(existing?.transcription),
           syncState: const Value('synced'),
+          remoteRevision: Value(lead['revision'] as int),
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
         ),

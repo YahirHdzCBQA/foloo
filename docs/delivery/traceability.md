@@ -9,7 +9,7 @@
 | `CAP-*`, `OCR-*` | E-03–E-05 | ADR-001; D-11 | captura/ML Kit/Drift; f1-06–09, 11–14, 24 |
 | `VOZ-*` | E-04 | ADR-001; D-05/D-06 | voice service/media/tests; f1-10, 21–23 |
 | `SYN-*` | E-05/E-09/E-13 | ADR-001/003/004/005; D-13 | Drift, outbox owner-scoped, retry/reconciliación FL-015 y transferencia media FL-016 |
-| `REG-*` | E-06/E-10 | D-06/D-07 | Records y diálogo demo; f1-16–19, f2-06/07, f5-12 |
+| `REG-*` | E-06/E-10 | ADR-001/004; D-06 | FL-017: filtro/detalle/edición optimista y export XLSX/CSV local; f1-16–19, f2-06/07, f5-12 |
 | `CON-*` | E-07 | D-08/D-11 | content/picker/sheet; f2-01–03 |
 | `PLT-*`, `SAL-*` | E-08 | D-09 | editor demo; f2-04/05, f4-04/12 |
 | `NAV-*` | E-12 | ADR-001 | drawer/theme/l10n; f1-15/25/26 |
@@ -67,9 +67,9 @@ interna sea reutilizable.
 | f1-13 | I | Drift, ConnectivityService y outbox/API sync local-first | FL-012/012.1/015; correo sigue posterior |
 | f1-14 | P | LeadConfirmationScreen y retorno | FL-004/009; estados siguen demo |
 | f1-15 | P | AppDrawer expone todos los destinos V1 sin selector/gating | FL-003/009/013D; falta saldo real |
-| f1-16 | P | RecordsScreen con evento/búsqueda/tipo/estado | FL-004/012.1; contrato visible no completo |
+| f1-16 | I | RecordsScreen con evento/búsqueda/tipo/estado y orden estable | FL-017; `records_voice_note_test.dart` |
 | f1-17 | I | orden local y `_EmptyRecords` | FL-004/012 |
-| f1-18 | F | detalle actual es consulta, no edición persistente | FL-014 propuesta |
+| f1-18 | I | detalle edita solo campos REG-07, Drift-first + PUT optimista | FL-017; tests de repositorio/sync/backend |
 | f1-19 | I | visor modal de tarjeta desde detalle | FL-010/013 |
 | f1-20 | P | varios estados usan icono/palabra | FL-010; falta auditoría global |
 | f1-21 | P | PrivateMediaStorage persiste tarjeta/voz; FL-016 añade subida S3 | falta validación AWS DEV/retención D-13 |
@@ -88,8 +88,8 @@ interna sea reutilizable.
 | f2-03 | P | UI edita eventos/elimina en memoria | FL-009; falta persistencia/S3 |
 | f2-04 | P | EmailScreen con dos plantillas/variables demo | FL-009; falta persistencia/validación/backend |
 | f2-05 | F | TODOs y estados demo; no cola/envío | FL posterior tras D-09 |
-| f2-06 | F | diálogo ofrece XLS/XLSX, no genera archivo | FL posterior tras D-07 |
-| f2-07 | F | diálogo ofrece CSV, no genera/compartir | FL posterior tras D-07 |
+| f2-06 | I | XLSX real por evento, columnas/filename ES/EN y share sheet | FL-017; `records_export_service_test.dart` |
+| f2-07 | I | CSV BOM UTF-8, RFC 4180, Unicode y share sheet | FL-017; `records_export_service_test.dart` |
 
 ## F3 · Monetización (8)
 

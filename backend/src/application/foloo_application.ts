@@ -4,6 +4,7 @@ import type { FolooRepository } from "./ports.js";
 import type {
   EventInput,
   LeadInput,
+  LeadUpdateInput,
   LeadMediaInput,
   SellerProfileInput,
 } from "../domain/models.js";
@@ -58,6 +59,17 @@ export class FolooApplication {
   ) {
     const principal = await this.repository.resolvePrincipal(subject);
     return this.repository.createLead(principal, input, key, hash);
+  }
+
+  async updateLead(
+    subject: string,
+    leadId: string,
+    input: LeadUpdateInput,
+    key: string,
+    hash: string,
+  ) {
+    const principal = await this.repository.resolvePrincipal(subject);
+    return this.repository.updateLead(principal, leadId, input, key, hash);
   }
 
   async leadMedia(subject: string, leadId: string) {

@@ -13,6 +13,7 @@ import { requestHash } from "../persistence/postgres_repository.js";
 import {
   eventSchema,
   leadSchema,
+  leadUpdateSchema,
   mediaSchema,
   profileSchema,
 } from "./schemas.js";
@@ -121,6 +122,24 @@ export function createRouter(application: FolooApplication) {
       );
       return json(
         201,
+        { data: result.value },
+        result.replayed ? { "idempotency-replayed": "true" } : {},
+      );
+    }
+
+    const leadMatch = /^\/v1\/leads\/([^/]+)$/.exec(path);
+    if (leadMatch?.[1] && method === "PUT") {
+      const leadId = uuidSchema.parse(leadMatch[1]);
+      const payload = leadUpdateSchema.parse(body(event));
+      const result = await application.updateLead(
+        subject,
+        leadId,
+        payload,
+        idempotencyKey(event),
+        requestHash({ leadId, ...payload }),
+      );
+      return json(
+        200,
         { data: result.value },
         result.replayed ? { "idempotency-replayed": "true" } : {},
       );

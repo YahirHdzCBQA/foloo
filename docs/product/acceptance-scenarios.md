@@ -72,7 +72,10 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - El renglón comunica interés, voz y sync con icono/palabra.
 - El detalle reproduce voz, abre tarjeta/referencias completas y muestra
   fecha/hora, origen y capturó.
-- Corregir un campo aprobado persiste sin cambiar owner, evento o medios.
+- Corregir los campos estructurados de `REG-07` persiste primero en Drift,
+  actualiza por outbox y no cambia owner, UUID, captura, origen, evento o medios.
+- Una revisión remota distinta conserva la edición local, muestra conflicto
+  recuperable y nunca crea otro Lead.
 
 ## E-07 · Contenido PDF y asignación
 
@@ -132,10 +135,13 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 **Trazas:** `REG-09`–`REG-13`, `REL-08`.
 
 - Exportar abre XLSX/CSV con XLSX inicial.
-- Elegir evento produce datos locales de ese evento, incluidos pendientes.
-- CSV abre con acentos por BOM UTF-8; ambos formatos preservan ES/EN.
-- El archivo se comparte por la hoja del sistema.
-- Columnas no se implementan hasta resolver `D-07`.
+- Elegir evento produce exclusivamente datos locales de ese owner/evento,
+  incluidos pendientes; “Todos los eventos” exige elegir uno.
+- Las trece columnas aparecen en el orden de `REG-11`, con vacíos como celda
+  vacía, encabezados ES/EN y fecha local con offset.
+- CSV usa BOM UTF-8 y escaping RFC 4180; XLSX es un archivo real. Ambos
+  preservan Unicode, omiten medios/IDs/estado técnico y se comparten mediante
+  la hoja del sistema con el filename de `REG-12`.
 
 ## E-11 · Trial y suscripción
 

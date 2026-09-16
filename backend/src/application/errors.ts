@@ -20,3 +20,10 @@ export const notFound = (resource: string) =>
 
 export const conflict = (message: string) =>
   new ApplicationError("conflict", 409, message);
+
+export const revisionConflict = () =>
+  new ApplicationError(
+    "revision_conflict",
+    409,
+    "The lead changed remotely. The local edit was preserved and can be retried.",
+  );

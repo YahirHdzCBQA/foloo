@@ -4,12 +4,18 @@ import { createHash } from "node:crypto";
 
 import type pg from "pg";
 
-import { conflict, notFound } from "../application/errors.js";
+import {
+  ApplicationError,
+  conflict,
+  notFound,
+  revisionConflict,
+} from "../application/errors.js";
 import type { FolooRepository } from "../application/ports.js";
 import type {
   EventInput,
   IdempotentResult,
   LeadInput,
+  LeadUpdateInput,
   LeadMediaInput,
   LeadMediaRecord,
   Principal,
@@ -187,6 +193,76 @@ export class PostgresFolooRepository implements FolooRepository {
           ],
         );
         return result.rows[0];
+      },
+    );
+  }
+
+  async updateLead(
+    principal: Principal,
+    leadId: string,
+    input: LeadUpdateInput,
+    key: string,
+    hash: string,
+  ): Promise<IdempotentResult<unknown>> {
+    return this.idempotent(
+      principal.workspaceId,
+      "update-lead",
+      key,
+      hash,
+      async (db) => {
+        const current = await db.query<{ origin: "event" | "direct" }>(
+          `SELECT origin FROM leads
+           WHERE workspace_id = $1 AND id = $2 AND deleted_at IS NULL
+           FOR UPDATE`,
+          [principal.workspaceId, leadId],
+        );
+        const existing = current.rows[0];
+        if (!existing) throw notFound("Lead");
+        if (existing.origin === "event" && input.place != null) {
+          throw new ApplicationError(
+            "invalid_lead_update",
+            400,
+            "Place can only be edited for direct leads.",
+          );
+        }
+        if (existing.origin === "direct" && !input.place) {
+          throw new ApplicationError(
+            "invalid_lead_update",
+            400,
+            "Place is required for direct leads.",
+          );
+        }
+        const result = await db.query(
+          `UPDATE leads SET
+             first_name = $4, last_name = $5, position = $6, company = $7,
+             email = $8, phone = $9, lead_type = $10, interest = $11,
+             written_note = $12, place = $13
+           WHERE workspace_id = $1 AND id = $2 AND revision = $3
+             AND deleted_at IS NULL
+           RETURNING id, event_id AS "eventId", captured_at AS "capturedAt", origin,
+                     place, first_name AS "firstName", last_name AS "lastName",
+                     position, company, email, phone, lead_type AS "leadType", interest,
+                     written_note AS "writtenNote", commercial_folio AS "commercialFolio",
+                     revision`,
+          [
+            principal.workspaceId,
+            leadId,
+            input.revision,
+            input.firstName,
+            input.lastName ?? null,
+            input.position ?? null,
+            input.company,
+            input.email ?? null,
+            input.phone ?? null,
+            input.leadType,
+            input.interest,
+            input.writtenNote ?? null,
+            existing.origin === "direct" ? input.place : null,
+          ],
+        );
+        const row = result.rows[0];
+        if (!row) throw revisionConflict();
+        return row;
       },
     );
   }

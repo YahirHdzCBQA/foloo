@@ -61,6 +61,11 @@ dependencies:
   connectivity_plus: ^7.3.1
   # CON-02/CON-13: open the native document picker restricted to PDF files.
   file_picker: ^12.1.1
+  # REG-09–REG-13: real local XLSX generation. The platform SDK has no XLSX
+  # writer; this maintained community fork keeps generation on-device.
+  excel_community: ^2.4.0
+  # REG-12: native iOS/Android share sheet for private temporary exports.
+  share_plus: ^13.3.0
   # AUT-01/AUT-02/AUT-10–AUT-13: maintained Cognito client and secure session
   # storage. Flutter's platform SDK does not implement Cognito SRP/confirmation.
   amplify_flutter: ^2.15.0

@@ -8,7 +8,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 void main() {
   test(
-    'v1 to v3 preserves historical rows and adds the persistent outbox',
+    'v1 to v4 preserves rows and adds outbox plus nullable revision',
     () async {
       final directory = await Directory.systemTemp.createTemp('foloo_v1_v2_');
       addTearDown(() async {
@@ -132,7 +132,7 @@ void main() {
       final version = await database
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 3);
+      expect(version.read<int>('user_version'), 4);
       expect(await database.select(database.syncOperations).get(), isEmpty);
 
       final profiles = await database.select(database.localProfiles).get();
@@ -142,6 +142,7 @@ void main() {
       expect(profiles.single.ownerUserId, isNull);
       expect(events.single.ownerUserId, isNull);
       expect(leads.single.ownerUserId, isNull);
+      expect(leads.single.remoteRevision, isNull);
       expect(media.single.leadLocalId, 'lead-v1');
 
       const userId = 'fake-user-a';

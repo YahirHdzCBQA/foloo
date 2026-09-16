@@ -123,6 +123,6 @@ No forman parte de V1 Google Sheets, Transcribe/IA, QR, Teams o HQ dashboard.
 ## Decisiones pendientes
 
 Ver `../product/open-decisions.md`: pago/tiendas,
-precio/vencimiento/reembolso, Voice Note, edición post-guardado, export,
+precio/vencimiento/reembolso, Voice Note, edición post-guardado,
 límites PDF, correo, Teams, mockups y retención. La base cloud quedó resuelta
 por ADR-003.

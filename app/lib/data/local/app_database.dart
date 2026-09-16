@@ -80,6 +80,7 @@ class LocalLeads extends Table {
   // It is no longer mapped into the V1 domain model (VOZ-08).
   TextColumn get transcription => text().nullable()();
   TextColumn get syncState => text().withDefault(const Constant('local'))();
+  IntColumn get remoteRevision => integer().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
@@ -312,14 +313,20 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
   Stream<List<StoredLeadBundle>> watchAll(String userId) =>
       (select(localLeads)
             ..where((row) => row.ownerUserId.equals(userId))
-            ..orderBy([(row) => OrderingTerm.desc(row.capturedAt)]))
+            ..orderBy([
+              (row) => OrderingTerm.desc(row.capturedAt),
+              (row) => OrderingTerm.asc(row.localId),
+            ]))
           .watch()
           .asyncMap(_bundles);
 
   Future<List<StoredLeadBundle>> listAll(String userId) async => _bundles(
     await (select(localLeads)
           ..where((row) => row.ownerUserId.equals(userId))
-          ..orderBy([(row) => OrderingTerm.desc(row.capturedAt)]))
+          ..orderBy([
+            (row) => OrderingTerm.desc(row.capturedAt),
+            (row) => OrderingTerm.asc(row.localId),
+          ]))
         .get(),
   );
 
@@ -330,7 +337,10 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
                   row.ownerUserId.equals(userId) &
                   row.eventLocalId.equals(eventId),
             )
-            ..orderBy([(row) => OrderingTerm.desc(row.capturedAt)]))
+            ..orderBy([
+              (row) => OrderingTerm.desc(row.capturedAt),
+              (row) => OrderingTerm.asc(row.localId),
+            ]))
           .get();
 
   Future<List<StoredLead>> byType(String userId, String type) =>
@@ -339,7 +349,10 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
               (row) =>
                   row.ownerUserId.equals(userId) & row.leadType.equals(type),
             )
-            ..orderBy([(row) => OrderingTerm.desc(row.capturedAt)]))
+            ..orderBy([
+              (row) => OrderingTerm.desc(row.capturedAt),
+              (row) => OrderingTerm.asc(row.localId),
+            ]))
           .get();
 
   Future<List<StoredLead>> search(String userId, String query) {
@@ -352,7 +365,10 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
                     row.lastName.like(pattern) |
                     row.company.like(pattern)),
           )
-          ..orderBy([(row) => OrderingTerm.desc(row.capturedAt)]))
+          ..orderBy([
+            (row) => OrderingTerm.desc(row.capturedAt),
+            (row) => OrderingTerm.asc(row.localId),
+          ]))
         .get();
   }
 
@@ -371,6 +387,17 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
       (update(localLeadMedia)..where((row) => row.localId.equals(id))).write(
         LocalLeadMediaCompanion(uploadState: Value(state)),
       );
+
+  Future<void> markLeadSynced(String userId, String id, int revision) =>
+      (update(localLeads)..where(
+            (row) => row.ownerUserId.equals(userId) & row.localId.equals(id),
+          ))
+          .write(
+            LocalLeadsCompanion(
+              syncState: const Value('synced'),
+              remoteRevision: Value(revision),
+            ),
+          );
 
   Future<void> updateMediaLocalPath(String id, String path) =>
       (update(localLeadMedia)..where((row) => row.localId.equals(id))).write(
@@ -410,6 +437,19 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
   Future<List<StoredSyncOperation>> allForOwner(String ownerUserId) => (select(
     syncOperations,
   )..where((row) => row.ownerUserId.equals(ownerUserId))).get();
+
+  Future<List<StoredSyncOperation>> forEntity(
+    String ownerUserId,
+    String entityType,
+    String entityId,
+  ) =>
+      (select(syncOperations)..where(
+            (row) =>
+                row.ownerUserId.equals(ownerUserId) &
+                row.entityType.equals(entityType) &
+                row.entityId.equals(entityId),
+          ))
+          .get();
 
   Future<void> completeCreatesForEntity(
     String ownerUserId,
@@ -557,7 +597,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -589,6 +629,9 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(localProfiles, localProfiles.syncState);
         await migrator.addColumn(localEvents, localEvents.syncState);
         await migrator.createTable(syncOperations);
+      }
+      if (from < 4) {
+        await migrator.addColumn(localLeads, localLeads.remoteRevision);
       }
     },
     beforeOpen: (details) async {

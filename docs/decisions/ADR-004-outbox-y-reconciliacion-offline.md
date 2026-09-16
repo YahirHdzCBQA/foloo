@@ -2,8 +2,8 @@
 
 - Estado: **Aceptado**
 - Fecha: 2026-09-09
-- Alcance: FL-015, motor de sincronización móvil Foloo V1
-- Trazas: `SYN-04`–`SYN-10`, `RNF-07` y E-09
+- Alcance: FL-015/FL-017, motor de sincronización móvil Foloo V1
+- Trazas: `SYN-04`–`SYN-10`, `REG-07`, `RNF-07`, E-06 y E-09
 
 ## Contexto
 
@@ -41,14 +41,17 @@ duplique datos o que un pull destruya trabajo local pendiente.
   visible conserva por separado la creación del Lead y el trabajo de medios.
 - Metadata remota de medios solo confirma filas locales existentes. Crear una
   fila de media sin archivo sería engañoso antes de FL-016.
+- FL-017 agrega `PUT /v1/leads/{leadId}` con el número `revision` esperado.
+  Una edición se guarda primero junto con su outbox; un `revision_conflict` no
+  reemplaza ni duplica el Lead, queda visible como conflicto y conserva el
+  snapshot local. Solo una sincronización manual explícita consulta la revisión
+  remota, rearma esa misma operación/clave y vuelve a intentar el cambio local.
 
 ## Límites conocidos
 
-FL-014 no ofrece PUT/DELETE para eventos ni leads. FL-015 sincroniza las
-creaciones que el contrato actual soporta y registra como pendiente contractual
-la sincronización cloud de ediciones/borrados, sin inventar endpoints. Tampoco
-hay cursor/delta sync ni precondición de revisión; por eso el pull conserva toda
-entidad dirty en lugar de resolverla por last-write-wins.
+No hay PUT/DELETE para eventos ni DELETE para leads. Tampoco hay cursor/delta
+sync. El PUT de Lead se limita a los campos estructurados de `REG-07`; los
+medios y campos de identidad permanecen inmutables.
 
 Filas históricas creadas por prototipos con identificadores que no cumplen UUID
 se preservan localmente y no se adjudican una identidad cloud nueva de manera

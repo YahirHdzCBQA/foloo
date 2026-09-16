@@ -67,6 +67,26 @@ paths:
         "400": { $ref: "#/components/responses/ErrorResponse" }
         "404": { $ref: "#/components/responses/ErrorResponse" }
         "409": { $ref: "#/components/responses/ErrorResponse" }
+  /leads/{leadId}:
+    parameters:
+      - name: leadId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      operationId: updateLead
+      description: Updates only approved structured fields using optimistic revision control.
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeadUpdateInput" }
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
+        "404": { $ref: "#/components/responses/ErrorResponse" }
+        "409": { $ref: "#/components/responses/ErrorResponse" }
   /leads/{leadId}/media:
     parameters:
       - name: leadId
@@ -187,6 +207,26 @@ components:
         interest: { type: string, enum: [low, medium, high] }
         writtenNote: { type: string, nullable: true, maxLength: 10000 }
         commercialFolio: { type: string, nullable: true, maxLength: 80 }
+    LeadUpdateInput:
+      type: object
+      additionalProperties: false
+      required: [revision, firstName, company, leadType, interest]
+      properties:
+        revision: { type: integer, minimum: 1 }
+        firstName: { type: string, minLength: 1, maxLength: 160 }
+        lastName: { type: string, nullable: true, maxLength: 160 }
+        position: { type: string, nullable: true, maxLength: 160 }
+        company: { type: string, minLength: 1, maxLength: 160 }
+        email: { type: string, format: email, nullable: true }
+        phone: { type: string, nullable: true, maxLength: 40 }
+        leadType: { type: string, enum: [customer, partner, supplier] }
+        interest: { type: string, enum: [low, medium, high] }
+        writtenNote: { type: string, nullable: true, maxLength: 10000 }
+        place:
+          type: string
+          nullable: true
+          maxLength: 240
+          description: Mutable only when the persisted Lead origin is direct.
     LeadMediaInput:
       type: object
       additionalProperties: false

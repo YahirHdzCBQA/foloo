@@ -219,7 +219,11 @@ LeadDraft _draft({
   place: 'Monterrey',
 );
 
-Map<String, Object?> _remoteLead(String id, {String name = 'Remote'}) => {
+Map<String, Object?> _remoteLead(
+  String id, {
+  String name = 'Remote',
+  int revision = 1,
+}) => {
   'id': id,
   'capturedAt': '2026-09-09T12:00:00.000Z',
   'origin': 'direct',
@@ -235,6 +239,7 @@ Map<String, Object?> _remoteLead(String id, {String name = 'Remote'}) => {
   'interest': 'medium',
   'writtenNote': null,
   'commercialFolio': null,
+  'revision': revision,
 };
 
 void main() {
@@ -783,6 +788,68 @@ void main() {
         api.calls.where((call) => call.request.method == 'POST'),
         hasLength(1),
       );
+    },
+  );
+
+  test(
+    'REG-07 revision conflict preserves local edit and manual retry rebases',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final store = SyncStore(database);
+      const leadId = '70707070-7070-4070-8070-707070707070';
+      final root = await Directory.systemTemp.createTemp('foloo_conflict_');
+      addTearDown(() => root.delete(recursive: true));
+      final leads = LeadRepository(
+        database,
+        PrivateMediaStorage(root),
+        idFactory: () => leadId,
+        syncStore: store,
+      );
+      final saved = await leads.saveDraft(owner, _draft(), capturedBy: profile);
+      await database.syncDao.completeCreatesForEntity(
+        owner,
+        SyncEntityType.lead.name,
+        leadId,
+      );
+      await database.leadDao.markLeadSynced(owner, leadId, 1);
+      final synced = (await leads.listAll(owner)).single;
+      await leads.updateDraft(
+        owner,
+        synced,
+        synced.lead.copyWith(note: 'Local edit survives'),
+      );
+      final api = _Api()
+        ..failures.add(
+          const SyncHttpException(409, errorCode: 'revision_conflict'),
+        )
+        ..remoteLeads = [_remoteLead(leadId, revision: 4)];
+      final engine = SyncEngine(store, api, _Session('token'));
+
+      await engine.synchronize(owner);
+      var local = (await leads.listAll(owner)).single;
+      expect(local.lead.note, 'Local edit survives');
+      expect(local.uploadState, SessionUploadState.conflict);
+      expect((await store.all(owner)).single.status, 'failed');
+
+      api.remoteLeads = [
+        {
+          ..._remoteLead(leadId, revision: 4),
+          'writtenNote': 'Local edit survives',
+        },
+      ];
+      await engine.synchronize(owner, trigger: SyncTrigger.manual);
+      local = (await leads.listAll(owner)).single;
+      expect(local.lead.note, 'Local edit survives');
+      expect(local.uploadState, SessionUploadState.synced);
+      expect(await store.all(owner), isEmpty);
+      final puts = api.calls
+          .where((call) => call.request.method == 'PUT')
+          .toList();
+      expect(puts, hasLength(2));
+      expect(puts.first.request.body?['revision'], 1);
+      expect(puts.last.request.body?['revision'], 4);
+      expect(saved.localId, leadId);
     },
   );
 

@@ -1515,6 +1515,17 @@ class $LocalLeadsTable extends LocalLeads
     requiredDuringInsert: false,
     defaultValue: const Constant('local'),
   );
+  static const VerificationMeta _remoteRevisionMeta = const VerificationMeta(
+    'remoteRevision',
+  );
+  @override
+  late final GeneratedColumn<int> remoteRevision = GeneratedColumn<int>(
+    'remote_revision',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -1561,6 +1572,7 @@ class $LocalLeadsTable extends LocalLeads
     contentNamesJson,
     transcription,
     syncState,
+    remoteRevision,
     createdAt,
     updatedAt,
   ];
@@ -1758,6 +1770,15 @@ class $LocalLeadsTable extends LocalLeads
         syncState.isAcceptableOrUnknown(data['sync_state']!, _syncStateMeta),
       );
     }
+    if (data.containsKey('remote_revision')) {
+      context.handle(
+        _remoteRevisionMeta,
+        remoteRevision.isAcceptableOrUnknown(
+          data['remote_revision']!,
+          _remoteRevisionMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -1871,6 +1892,10 @@ class $LocalLeadsTable extends LocalLeads
         DriftSqlType.string,
         data['${effectivePrefix}sync_state'],
       )!,
+      remoteRevision: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}remote_revision'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -1911,6 +1936,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
   final String contentNamesJson;
   final String? transcription;
   final String syncState;
+  final int? remoteRevision;
   final DateTime createdAt;
   final DateTime updatedAt;
   const StoredLead({
@@ -1936,6 +1962,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
     required this.contentNamesJson,
     this.transcription,
     required this.syncState,
+    this.remoteRevision,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -1976,6 +2003,9 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
       map['transcription'] = Variable<String>(transcription);
     }
     map['sync_state'] = Variable<String>(syncState);
+    if (!nullToAbsent || remoteRevision != null) {
+      map['remote_revision'] = Variable<int>(remoteRevision);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -2017,6 +2047,9 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
           ? const Value.absent()
           : Value(transcription),
       syncState: Value(syncState),
+      remoteRevision: remoteRevision == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteRevision),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -2054,6 +2087,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
       contentNamesJson: serializer.fromJson<String>(json['contentNamesJson']),
       transcription: serializer.fromJson<String?>(json['transcription']),
       syncState: serializer.fromJson<String>(json['syncState']),
+      remoteRevision: serializer.fromJson<int?>(json['remoteRevision']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -2084,6 +2118,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
       'contentNamesJson': serializer.toJson<String>(contentNamesJson),
       'transcription': serializer.toJson<String?>(transcription),
       'syncState': serializer.toJson<String>(syncState),
+      'remoteRevision': serializer.toJson<int?>(remoteRevision),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -2112,6 +2147,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
     String? contentNamesJson,
     Value<String?> transcription = const Value.absent(),
     String? syncState,
+    Value<int?> remoteRevision = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => StoredLead(
@@ -2143,6 +2179,9 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
         ? transcription.value
         : this.transcription,
     syncState: syncState ?? this.syncState,
+    remoteRevision: remoteRevision.present
+        ? remoteRevision.value
+        : this.remoteRevision,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -2192,6 +2231,9 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
           ? data.transcription.value
           : this.transcription,
       syncState: data.syncState.present ? data.syncState.value : this.syncState,
+      remoteRevision: data.remoteRevision.present
+          ? data.remoteRevision.value
+          : this.remoteRevision,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -2222,6 +2264,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
           ..write('contentNamesJson: $contentNamesJson, ')
           ..write('transcription: $transcription, ')
           ..write('syncState: $syncState, ')
+          ..write('remoteRevision: $remoteRevision, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -2252,6 +2295,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
     contentNamesJson,
     transcription,
     syncState,
+    remoteRevision,
     createdAt,
     updatedAt,
   ]);
@@ -2281,6 +2325,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
           other.contentNamesJson == this.contentNamesJson &&
           other.transcription == this.transcription &&
           other.syncState == this.syncState &&
+          other.remoteRevision == this.remoteRevision &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -2308,6 +2353,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
   final Value<String> contentNamesJson;
   final Value<String?> transcription;
   final Value<String> syncState;
+  final Value<int?> remoteRevision;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -2334,6 +2380,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
     this.contentNamesJson = const Value.absent(),
     this.transcription = const Value.absent(),
     this.syncState = const Value.absent(),
+    this.remoteRevision = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2361,6 +2408,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
     this.contentNamesJson = const Value.absent(),
     this.transcription = const Value.absent(),
     this.syncState = const Value.absent(),
+    this.remoteRevision = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
@@ -2402,6 +2450,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
     Expression<String>? contentNamesJson,
     Expression<String>? transcription,
     Expression<String>? syncState,
+    Expression<int>? remoteRevision,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -2430,6 +2479,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
       if (contentNamesJson != null) 'content_names_json': contentNamesJson,
       if (transcription != null) 'transcription': transcription,
       if (syncState != null) 'sync_state': syncState,
+      if (remoteRevision != null) 'remote_revision': remoteRevision,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -2459,6 +2509,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
     Value<String>? contentNamesJson,
     Value<String?>? transcription,
     Value<String>? syncState,
+    Value<int?>? remoteRevision,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -2486,6 +2537,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
       contentNamesJson: contentNamesJson ?? this.contentNamesJson,
       transcription: transcription ?? this.transcription,
       syncState: syncState ?? this.syncState,
+      remoteRevision: remoteRevision ?? this.remoteRevision,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -2561,6 +2613,9 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
     if (syncState.present) {
       map['sync_state'] = Variable<String>(syncState.value);
     }
+    if (remoteRevision.present) {
+      map['remote_revision'] = Variable<int>(remoteRevision.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -2598,6 +2653,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
           ..write('contentNamesJson: $contentNamesJson, ')
           ..write('transcription: $transcription, ')
           ..write('syncState: $syncState, ')
+          ..write('remoteRevision: $remoteRevision, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -5265,6 +5321,7 @@ typedef $$LocalLeadsTableCreateCompanionBuilder = LocalLeadsCompanion Function({
   Value<String> contentNamesJson,
   Value<String?> transcription,
   Value<String> syncState,
+  Value<int?> remoteRevision,
   required DateTime createdAt,
   required DateTime updatedAt,
   Value<int> rowid,
@@ -5292,6 +5349,7 @@ typedef $$LocalLeadsTableUpdateCompanionBuilder = LocalLeadsCompanion Function({
   Value<String> contentNamesJson,
   Value<String?> transcription,
   Value<String> syncState,
+  Value<int?> remoteRevision,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<int> rowid,
@@ -5451,6 +5509,11 @@ class $$LocalLeadsTableFilterComposer
 
   ColumnFilters<String> get syncState => $composableBuilder(
     column: $table.syncState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get remoteRevision => $composableBuilder(
+    column: $table.remoteRevision,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5627,6 +5690,11 @@ class $$LocalLeadsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get remoteRevision => $composableBuilder(
+    column: $table.remoteRevision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -5753,6 +5821,11 @@ class $$LocalLeadsTableAnnotationComposer
   GeneratedColumn<String> get syncState =>
       $composableBuilder(column: $table.syncState, builder: (column) => column);
 
+  GeneratedColumn<int> get remoteRevision => $composableBuilder(
+    column: $table.remoteRevision,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -5858,6 +5931,7 @@ class $$LocalLeadsTableTableManager
                 Value<String> contentNamesJson = const Value.absent(),
                 Value<String?> transcription = const Value.absent(),
                 Value<String> syncState = const Value.absent(),
+                Value<int?> remoteRevision = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -5884,6 +5958,7 @@ class $$LocalLeadsTableTableManager
                 contentNamesJson: contentNamesJson,
                 transcription: transcription,
                 syncState: syncState,
+                remoteRevision: remoteRevision,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -5912,6 +5987,7 @@ class $$LocalLeadsTableTableManager
                 Value<String> contentNamesJson = const Value.absent(),
                 Value<String?> transcription = const Value.absent(),
                 Value<String> syncState = const Value.absent(),
+                Value<int?> remoteRevision = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
@@ -5938,6 +6014,7 @@ class $$LocalLeadsTableTableManager
                 contentNamesJson: contentNamesJson,
                 transcription: transcription,
                 syncState: syncState,
+                remoteRevision: remoteRevision,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,

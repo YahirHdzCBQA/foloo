@@ -451,6 +451,117 @@ class LeadRepository {
     );
   }
 
+  /// Persists REG-07 fields first and queues an owner-scoped optimistic update.
+  Future<void> updateDraft(
+    String userId,
+    SessionLead session,
+    LeadDraft draft,
+  ) async {
+    final name = draft.name.trim();
+    final company = draft.company.trim();
+    final email = draft.email.trim();
+    final phone = draft.phone.trim();
+    if (name.isEmpty || company.isEmpty || (email.isEmpty && phone.isEmpty)) {
+      throw ArgumentError('Lead name, company and contact are required.');
+    }
+    if (email.isNotEmpty &&
+        !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+      throw ArgumentError('Lead email is invalid.');
+    }
+    if (draft.originKind == LeadOriginKind.direct &&
+        (draft.place?.trim().isEmpty ?? true)) {
+      throw ArgumentError('Place is required for a direct lead.');
+    }
+    final stored = await _database.leadDao.byId(userId, session.localId);
+    if (stored == null || stored.ownerUserId != userId) {
+      throw StateError('Cannot update an unavailable lead.');
+    }
+    if (draft.originKind != LeadOriginKind.values.byName(stored.originKind) ||
+        draft.eventLocalId != stored.eventLocalId) {
+      throw StateError('Immutable lead identity fields cannot be changed.');
+    }
+    final now = DateTime.now().toUtc();
+    final payload = <String, Object?>{
+      'revision': stored.remoteRevision ?? 1,
+      'firstName': draft.name,
+      'lastName': draft.lastName.isEmpty ? null : draft.lastName,
+      'position': draft.role.isEmpty ? null : draft.role,
+      'company': draft.company,
+      'email': draft.email.isEmpty ? null : draft.email,
+      'phone': draft.phone.isEmpty ? null : draft.phone,
+      'leadType': draft.type.name,
+      'interest': draft.interest.name,
+      'writtenNote': draft.note.isEmpty ? null : draft.note,
+      'place': stored.originKind == LeadOriginKind.direct.name
+          ? draft.place
+          : null,
+    };
+    await _database.transaction(() async {
+      await _database.leadDao.updateLead(
+        stored.copyWith(
+          name: draft.name,
+          lastName: draft.lastName,
+          role: draft.role,
+          company: draft.company,
+          email: draft.email,
+          phone: draft.phone,
+          leadType: draft.type.name,
+          interestLevel: draft.interest.name,
+          note: draft.note,
+          place: Value(
+            stored.originKind == LeadOriginKind.direct.name
+                ? draft.place
+                : stored.place,
+          ),
+          syncState: 'pending',
+          updatedAt: now,
+        ),
+      );
+      final operations = await _database.syncDao.forEntity(
+        userId,
+        SyncEntityType.lead.name,
+        stored.localId,
+      );
+      final creates = operations.where(
+        (operation) => operation.action == 'create',
+      );
+      if (creates.isNotEmpty) {
+        final create = creates.first;
+        final createPayload = (jsonDecode(create.payloadJson) as Map)
+            .cast<String, Object?>();
+        createPayload
+          ..addAll(payload)
+          ..remove('revision');
+        await _database.syncDao.repairFailedPayload(
+          create.operationId,
+          jsonEncode(createPayload),
+          now,
+        );
+        return;
+      }
+      final replaceable = operations.where(
+        (operation) =>
+            operation.action == 'update' && operation.status != 'syncing',
+      );
+      if (replaceable.isNotEmpty) {
+        await _database.syncDao.repairFailedPayload(
+          replaceable.first.operationId,
+          jsonEncode(payload),
+          now,
+        );
+        return;
+      }
+      await _syncStore.enqueue(
+        ownerSub: userId,
+        entityType: SyncEntityType.lead,
+        entityId: stored.localId,
+        action: 'update',
+        payload: payload,
+        now: now,
+      );
+    });
+  }
+
   Future<void> reconcileMediaReferences() async {
     for (final media in await _database.leadDao.allMedia()) {
       final resolvedPath = await _mediaStorage.resolveExistingPath(
@@ -515,6 +626,7 @@ class LeadRepository {
       'retryable' => SessionUploadState.retryable,
       'syncing' => SessionUploadState.syncing,
       'failed' => SessionUploadState.failed,
+      'conflict' => SessionUploadState.conflict,
       'pendiente' || 'pending' => SessionUploadState.pending,
       _ => SessionUploadState.local,
     };
@@ -534,6 +646,8 @@ class LeadRepository {
       folio: stored.commercialFolio,
       capturedAt: stored.capturedAt.toLocal(),
       uploadState: visibleSyncState,
+      remoteRevision: stored.remoteRevision,
+      capturedBy: stored.capturedBy,
       lead: LeadDraft(
         name: stored.name,
         lastName: stored.lastName,

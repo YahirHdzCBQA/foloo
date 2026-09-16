@@ -6,6 +6,7 @@ import test from "node:test";
 import {
   eventSchema,
   leadSchema,
+  leadUpdateSchema,
   mediaSchema,
 } from "../src/transport/schemas.js";
 
@@ -19,6 +20,28 @@ test("accepts stable offline UUID and valid event dates", () => {
       endsAt: "2026-09-10T10:00:00-06:00",
     }).id,
     id,
+  );
+});
+
+test("REG-07 accepts only the approved structured edit contract", () => {
+  const update = {
+    revision: 2,
+    firstName: "José",
+    company: "Niñez",
+    email: "jose@example.com",
+    leadType: "partner",
+    interest: "medium",
+    writtenNote: "Seguimiento",
+    ownerId: "must-be-ignored",
+    eventId: "must-be-ignored",
+  };
+  const parsed = leadUpdateSchema.parse(update);
+  assert.equal(parsed.revision, 2);
+  assert.equal("ownerId" in parsed, false);
+  assert.equal("eventId" in parsed, false);
+  assert.equal(
+    leadUpdateSchema.safeParse({ ...update, revision: 0 }).success,
+    false,
   );
 });
 

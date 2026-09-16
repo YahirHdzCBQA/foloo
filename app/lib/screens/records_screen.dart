@@ -1,4 +1,4 @@
-/// Searchable session records and read-only connection detail.
+/// Searchable session records, structured editing and per-event export.
 ///
 /// Provides local filtering, export choices, sync affordances and voice
 /// playback for the unified V1 product.
@@ -16,6 +16,7 @@ import '../models/content_file.dart';
 import '../models/lead_draft.dart';
 import '../models/session_lead.dart';
 import '../services/voice_note_service.dart';
+import '../services/records_export_service.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 import '../widgets/app_drawer.dart';
@@ -39,11 +40,13 @@ String _uploadStateLabel(BuildContext context, SessionUploadState state) =>
       SessionUploadState.syncedWithMediaPending => context.l10n.mediaPending,
       SessionUploadState.syncedWithMediaError => context.l10n.mediaSyncError,
       SessionUploadState.failed => context.l10n.syncFailed,
+      SessionUploadState.conflict => context.l10n.revisionConflict,
     };
 
 IconData _uploadStateIcon(SessionUploadState state) => switch (state) {
   SessionUploadState.synced => Icons.check,
   SessionUploadState.failed ||
+  SessionUploadState.conflict ||
   SessionUploadState.syncedWithMediaError => Icons.warning_amber_rounded,
   SessionUploadState.retryable => Icons.schedule,
   _ => Icons.sync,
@@ -51,6 +54,7 @@ IconData _uploadStateIcon(SessionUploadState state) => switch (state) {
 
 bool _isFailed(SessionUploadState state) =>
     state == SessionUploadState.failed ||
+    state == SessionUploadState.conflict ||
     state == SessionUploadState.syncedWithMediaError;
 
 /// Lists leads loaded from durable local persistence (REG-01–REG-08).
@@ -67,6 +71,9 @@ class RecordsScreen extends StatefulWidget {
     this.voiceNoteService,
     this.onSync,
     this.syncing = false,
+    this.onLeadUpdated,
+    this.exportService = const RecordsExportService(),
+    this.fileSharer = const DeviceRecordsFileSharer(),
     super.key,
   });
 
@@ -81,6 +88,10 @@ class RecordsScreen extends StatefulWidget {
   final List<AppEvent> events;
   final Future<void> Function()? onSync;
   final bool syncing;
+  final Future<void> Function(SessionLead record, LeadDraft updated)?
+  onLeadUpdated;
+  final RecordsExportService exportService;
+  final RecordsFileSharer fileSharer;
 
   @override
   State<RecordsScreen> createState() => _RecordsScreenState();
@@ -143,12 +154,7 @@ class _RecordsScreenState extends State<RecordsScreen>
     final event = _selectedEvent;
     if (event == null) return widget.records;
     return widget.records
-        .where(
-          (record) =>
-              record.lead.eventLocalId == event.id ||
-              (record.lead.eventLocalId == null &&
-                  record.lead.eventName == event.name),
-        )
+        .where((record) => record.lead.eventLocalId == event.id)
         .toList();
   }
 
@@ -263,17 +269,22 @@ class _RecordsScreenState extends State<RecordsScreen>
           audioPlaying:
               _activeAudioPath == record.lead.audioLocalPath && _audioPlaying,
           onToggleAudio: () => _toggleAudio(record),
+          onEdit: widget.onLeadUpdated == null
+              ? null
+              : (updated) => widget.onLeadUpdated!(record, updated),
         ),
       ),
     );
     if (mounted) setState(() {});
   }
 
-  /// Presents the specified XLS/CSV choice without performing real file export.
-  ///
-  /// DEMO: REG-09–REG-12 still require a production exporter and share sheet.
   Future<void> _showExportDialog() async {
-    String format = 'XLS';
+    var event = _selectedEvent;
+    if (event == null) {
+      event = await _chooseExportEvent();
+      if (event == null || !mounted) return;
+    }
+    var format = RecordsExportFormat.xlsx;
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -297,8 +308,14 @@ class _RecordsScreenState extends State<RecordsScreen>
                   const SizedBox(height: 5),
                   Text(
                     context.l10n.exportLeadSummary(
-                      context.l10n.leadCount(_eventRecords.length),
-                      _selectedEvent?.name ?? DemoEventData.eventName,
+                      context.l10n.leadCount(
+                        widget.records
+                            .where(
+                              (record) => record.lead.eventLocalId == event!.id,
+                            )
+                            .length,
+                      ),
+                      event!.name,
                     ),
                     style: TextStyle(
                       color: FolooPalette.of(context).inkSecondary,
@@ -310,10 +327,11 @@ class _RecordsScreenState extends State<RecordsScreen>
                   _ExportFormatOption(
                     key: const Key('exportXlsOption'),
                     icon: Icons.grid_on_outlined,
-                    title: 'XLS',
+                    title: 'XLSX',
                     subtitle: context.l10n.xlsHelp,
-                    selected: format == 'XLS',
-                    onTap: () => setDialogState(() => format = 'XLS'),
+                    selected: format == RecordsExportFormat.xlsx,
+                    onTap: () =>
+                        setDialogState(() => format = RecordsExportFormat.xlsx),
                   ),
                   const SizedBox(height: 8),
                   _ExportFormatOption(
@@ -321,8 +339,9 @@ class _RecordsScreenState extends State<RecordsScreen>
                     icon: Icons.description_outlined,
                     title: 'CSV',
                     subtitle: context.l10n.csvHelp,
-                    selected: format == 'CSV',
-                    onTap: () => setDialogState(() => format = 'CSV'),
+                    selected: format == RecordsExportFormat.csv,
+                    onTap: () =>
+                        setDialogState(() => format = RecordsExportFormat.csv),
                   ),
                   const SizedBox(height: 18),
                   Row(
@@ -341,15 +360,9 @@ class _RecordsScreenState extends State<RecordsScreen>
                       Expanded(
                         child: FilledButton.icon(
                           key: const Key('confirmExportButton'),
-                          onPressed: () {
+                          onPressed: () async {
                             Navigator.pop(dialogContext);
-                            ScaffoldMessenger.of(this.context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  context.l10n.exportDemoMessage(format),
-                                ),
-                              ),
-                            );
+                            await _export(event!, format);
                           },
                           style: FilledButton.styleFrom(
                             backgroundColor: FolooPalette.of(context).ink,
@@ -368,6 +381,79 @@ class _RecordsScreenState extends State<RecordsScreen>
         ),
       ),
     );
+  }
+
+  Future<AppEvent?> _chooseExportEvent() => showDialog<AppEvent>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(context.l10n.chooseExportEvent),
+      content: SizedBox(
+        width: 320,
+        height: 320,
+        child: ListView.builder(
+          itemCount: widget.events.length,
+          itemBuilder: (_, index) {
+            final event = widget.events[index];
+            return ListTile(
+              key: Key('exportEvent-${event.id}'),
+              title: Text(event.name),
+              onTap: () => Navigator.pop(context, event),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(context.l10n.cancel),
+        ),
+      ],
+    ),
+  );
+
+  Future<void> _export(AppEvent event, RecordsExportFormat format) async {
+    final l10n = context.l10n;
+    final box = context.findRenderObject() as RenderBox?;
+    final origin = box == null
+        ? null
+        : box.localToGlobal(Offset.zero) & box.size;
+    try {
+      final file = widget.exportService.build(
+        event: event,
+        records: widget.records,
+        format: format,
+        labels: RecordsExportLabels(
+          headers: [
+            l10n.dateAndTime,
+            l10n.exportFirstName,
+            l10n.exportLastName,
+            l10n.exportPosition,
+            l10n.company,
+            l10n.contactEmail,
+            l10n.contactPhone,
+            l10n.exportType,
+            l10n.exportInterest,
+            l10n.origin,
+            l10n.event,
+            l10n.place,
+            l10n.writtenNote,
+          ],
+          customer: l10n.client,
+          partner: l10n.partner,
+          supplier: l10n.supplier,
+          low: l10n.interestLow,
+          medium: l10n.interestMedium,
+          high: l10n.interestHigh,
+          event: l10n.event,
+          direct: l10n.directLead,
+        ),
+      );
+      await widget.fileSharer.share(file, origin: origin);
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.exportFailed)));
+    }
   }
 
   @override
@@ -534,7 +620,9 @@ class _RecordsScreenState extends State<RecordsScreen>
                   Expanded(
                     child: OutlinedButton.icon(
                       key: const Key('exportButton'),
-                      onPressed: _showExportDialog,
+                      onPressed: widget.events.isEmpty
+                          ? null
+                          : _showExportDialog,
                       icon: const Icon(Icons.download_outlined, size: 18),
                       label: Text(context.l10n.export),
                     ),
@@ -894,19 +982,22 @@ class _RecordRow extends StatelessWidget {
   }
 }
 
-/// Current read-only detail scaffold for one captured connection (REG-05).
+/// Detail for one captured connection with REG-07 structured editing.
 ///
-/// V1 requires later editable fields; automatic transcription is not exposed.
+/// Media and identity fields remain read-only; automatic transcription is not
+/// exposed in V1.
 class ConnectionDetailScreen extends StatelessWidget {
   const ConnectionDetailScreen({
     required this.record,
     required this.audioPlaying,
     required this.onToggleAudio,
+    this.onEdit,
     super.key,
   });
   final SessionLead record;
   final bool audioPlaying;
   final VoidCallback onToggleAudio;
+  final Future<void> Function(LeadDraft updated)? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -950,6 +1041,25 @@ class ConnectionDetailScreen extends StatelessWidget {
             ),
           ],
         ),
+        actions: [
+          if (onEdit != null)
+            IconButton(
+              key: const Key('editLeadButton'),
+              tooltip: context.l10n.editLead,
+              onPressed: () async {
+                final saved = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute<bool>(
+                    builder: (_) =>
+                        _LeadEditScreen(lead: lead, onSave: onEdit!),
+                  ),
+                );
+                if (saved == true && context.mounted) {
+                  Navigator.pop(context);
+                }
+              },
+              icon: const Icon(Icons.edit_outlined),
+            ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
@@ -1206,7 +1316,7 @@ class ConnectionDetailScreen extends StatelessWidget {
             ),
             _ReadOnlyValue(
               label: context.l10n.capturedBy,
-              value: DemoEventData.capturePerson,
+              value: record.capturedBy,
             ),
           ],
         ),
@@ -1282,6 +1392,189 @@ class ConnectionDetailScreen extends StatelessWidget {
           ),
         ),
       ),
+    ),
+  );
+}
+
+class _LeadEditScreen extends StatefulWidget {
+  const _LeadEditScreen({required this.lead, required this.onSave});
+
+  final LeadDraft lead;
+  final Future<void> Function(LeadDraft updated) onSave;
+
+  @override
+  State<_LeadEditScreen> createState() => _LeadEditScreenState();
+}
+
+class _LeadEditScreenState extends State<_LeadEditScreen> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _name;
+  late final TextEditingController _lastName;
+  late final TextEditingController _role;
+  late final TextEditingController _company;
+  late final TextEditingController _email;
+  late final TextEditingController _phone;
+  late final TextEditingController _note;
+  late final TextEditingController _place;
+  late LeadType _type;
+  late InterestLevel _interest;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final lead = widget.lead;
+    _name = TextEditingController(text: lead.name);
+    _lastName = TextEditingController(text: lead.lastName);
+    _role = TextEditingController(text: lead.role);
+    _company = TextEditingController(text: lead.company);
+    _email = TextEditingController(text: lead.email);
+    _phone = TextEditingController(text: lead.phone);
+    _note = TextEditingController(text: lead.note);
+    _place = TextEditingController(text: lead.place);
+    _type = lead.type;
+    _interest = lead.interest;
+  }
+
+  @override
+  void dispose() {
+    for (final controller in [
+      _name,
+      _lastName,
+      _role,
+      _company,
+      _email,
+      _phone,
+      _note,
+      _place,
+    ]) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    try {
+      await widget.onSave(
+        widget.lead.copyWith(
+          name: _name.text.trim(),
+          lastName: _lastName.text.trim(),
+          role: _role.text.trim(),
+          company: _company.text.trim(),
+          email: _email.text.trim(),
+          phone: _phone.text.trim(),
+          type: _type,
+          interest: _interest,
+          note: _note.text.trim(),
+          place: _place.text.trim(),
+        ),
+      );
+      if (mounted) Navigator.pop(context, true);
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.editLeadFailed)));
+      setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(context.l10n.editLead)),
+    body: Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+        children: [
+          _field(_name, context.l10n.exportFirstName, isRequired: true),
+          _field(_lastName, context.l10n.exportLastName),
+          _field(_role, context.l10n.exportPosition),
+          _field(_company, context.l10n.company, isRequired: true),
+          _field(_email, context.l10n.contactEmail, email: true),
+          _field(_phone, context.l10n.contactPhone),
+          DropdownButtonFormField<LeadType>(
+            initialValue: _type,
+            decoration: InputDecoration(labelText: context.l10n.exportType),
+            items: LeadType.values
+                .map(
+                  (type) => DropdownMenuItem(
+                    value: type,
+                    child: Text(_leadTypeLabel(context, type)),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) => setState(() => _type = value ?? _type),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<InterestLevel>(
+            initialValue: _interest,
+            decoration: InputDecoration(labelText: context.l10n.exportInterest),
+            items: InterestLevel.values
+                .map(
+                  (interest) => DropdownMenuItem(
+                    value: interest,
+                    child: Text(switch (interest) {
+                      InterestLevel.low => context.l10n.interestLow,
+                      InterestLevel.medium => context.l10n.interestMedium,
+                      InterestLevel.high => context.l10n.interestHigh,
+                    }),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) =>
+                setState(() => _interest = value ?? _interest),
+          ),
+          if (widget.lead.originKind == LeadOriginKind.direct) ...[
+            const SizedBox(height: 12),
+            _field(_place, context.l10n.place, isRequired: true),
+          ],
+          const SizedBox(height: 12),
+          _field(_note, context.l10n.writtenNote, lines: 5),
+        ],
+      ),
+    ),
+    bottomNavigationBar: SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+        child: FilledButton(
+          key: const Key('saveLeadEditButton'),
+          onPressed: _saving ? null : _save,
+          child: Text(context.l10n.saveChanges),
+        ),
+      ),
+    ),
+  );
+
+  Widget _field(
+    TextEditingController controller,
+    String label, {
+    bool isRequired = false,
+    bool email = false,
+    int lines = 1,
+  }) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: TextFormField(
+      controller: controller,
+      maxLines: lines,
+      keyboardType: email ? TextInputType.emailAddress : null,
+      decoration: InputDecoration(labelText: label),
+      validator: (value) {
+        final text = value?.trim() ?? '';
+        if (isRequired && text.isEmpty) return context.l10n.requiredField;
+        if (email &&
+            text.isNotEmpty &&
+            !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(text)) {
+          return context.l10n.invalidEmail;
+        }
+        if (identical(controller, _email) &&
+            text.isEmpty &&
+            _phone.text.trim().isEmpty) {
+          return context.l10n.emailOrPhoneRequired;
+        }
+        return null;
+      },
     ),
   );
 }

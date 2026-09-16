@@ -475,7 +475,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get audioPlaybackError => 'This local voice note could not be played.';
 
   @override
-  String get xlsHelp => 'Excel workbook, ready to open';
+  String get xlsHelp => 'Real XLSX file, ready to open';
 
   @override
   String get csvHelp => 'Plain text for another system';
@@ -803,9 +803,37 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String exportDemoMessage(Object format) {
-    return 'The $format export is a demo view only.';
-  }
+  String get chooseExportEvent => 'Choose the event to export';
+
+  @override
+  String get exportFailed => 'The file could not be created or shared.';
+
+  @override
+  String get exportFirstName => 'First name';
+
+  @override
+  String get exportLastName => 'Last name';
+
+  @override
+  String get exportPosition => 'Position';
+
+  @override
+  String get exportType => 'Type';
+
+  @override
+  String get exportInterest => 'Interest';
+
+  @override
+  String get editLead => 'Edit lead';
+
+  @override
+  String get editLeadFailed => 'The edit could not be saved.';
+
+  @override
+  String get requiredField => 'This field is required';
+
+  @override
+  String get revisionConflict => 'Edit conflict · tap Sync to retry';
 
   @override
   String waitingForSignal(num count) {

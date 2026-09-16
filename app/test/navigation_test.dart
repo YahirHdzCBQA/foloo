@@ -215,9 +215,7 @@ void main() {
     );
   });
 
-  testWidgets('saved lead appears in records and opens read-only detail', (
-    tester,
-  ) async {
+  testWidgets('saved lead appears in records and opens detail', (tester) async {
     usePhoneViewport(tester);
     await tester.pumpWidget(const FolooApp());
     await enterCapture(tester);

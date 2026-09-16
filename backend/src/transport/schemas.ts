@@ -76,6 +76,30 @@ export const leadSchema = z
     }
   });
 
+export const leadUpdateSchema = z
+  .object({
+    revision: z.number().int().positive(),
+    firstName: z.string().trim().min(1).max(160),
+    lastName: nullableText(160),
+    position: nullableText(160),
+    company: z.string().trim().min(1).max(160),
+    email: leadEmailSchema,
+    phone: nullableText(40),
+    leadType: z.enum(["customer", "partner", "supplier"]),
+    interest: z.enum(["low", "medium", "high"]),
+    writtenNote: nullableText(10_000),
+    place: nullableText(240),
+  })
+  .superRefine((value, context) => {
+    if (!value.email && !value.phone) {
+      context.addIssue({
+        code: "custom",
+        path: ["email"],
+        message: "email or phone is required",
+      });
+    }
+  });
+
 const mediaBaseSchema = z.object({
   id: z.uuid(),
   kind: z.enum(["business_card", "reference_image", "voice_note"]),

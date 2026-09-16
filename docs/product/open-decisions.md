@@ -36,14 +36,8 @@ El alcance exige detalle editable y el tablero pide regrabar/eliminar Voice
 Note antes y después. Falta definir auditoría, reenvío de correo y efecto sobre
 adjuntos ya congelados.
 
-**Bloquea:** parte post-guardado de `VOZ-03`, `REG-07`, `REG-08`.
-
-### `D-07` · Contrato de exportación XLSX/CSV
-
-**Pregunta:** columnas exactas, orden, nombres, tratamiento de notas/medios y
-conducta cuando el filtro está en “Todos los eventos”.
-
-**Bloquea:** `REG-10`–`REG-13`; no bloquea la presencia del selector XLSX/CSV.
+**Bloquea:** edición/reemplazo/eliminación post-guardado de medios en `VOZ-03`,
+`REG-07` y `REG-08`; no bloquea los campos estructurados aprobados en `REG-07`.
 
 ### `D-08` · Límites y caché de PDF
 

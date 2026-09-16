@@ -478,7 +478,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get audioPlaybackError => 'No se pudo reproducir esta nota local.';
 
   @override
-  String get xlsHelp => 'Hoja de Excel, listo para abrir';
+  String get xlsHelp => 'Archivo XLSX real, listo para abrir';
 
   @override
   String get csvHelp => 'Texto plano, para otro sistema';
@@ -807,9 +807,38 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String exportDemoMessage(Object format) {
-    return 'Exportación $format es solo una vista demo.';
-  }
+  String get chooseExportEvent => 'Elige el evento que deseas exportar';
+
+  @override
+  String get exportFailed => 'No se pudo crear o compartir el archivo.';
+
+  @override
+  String get exportFirstName => 'Nombre';
+
+  @override
+  String get exportLastName => 'Apellido';
+
+  @override
+  String get exportPosition => 'Puesto';
+
+  @override
+  String get exportType => 'Tipo';
+
+  @override
+  String get exportInterest => 'Interés';
+
+  @override
+  String get editLead => 'Editar lead';
+
+  @override
+  String get editLeadFailed => 'No se pudo guardar la edición.';
+
+  @override
+  String get requiredField => 'Este campo es obligatorio';
+
+  @override
+  String get revisionConflict =>
+      'Conflicto de edición · toca Sincronizar para reintentar';
 
   @override
   String waitingForSignal(num count) {

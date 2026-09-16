@@ -971,7 +971,7 @@ abstract class AppLocalizations {
   /// No description provided for @xlsHelp.
   ///
   /// In es, this message translates to:
-  /// **'Hoja de Excel, listo para abrir'**
+  /// **'Archivo XLSX real, listo para abrir'**
   String get xlsHelp;
 
   /// No description provided for @csvHelp.
@@ -1538,11 +1538,71 @@ abstract class AppLocalizations {
   /// **'{leads} de {event}, con notas y datos de contacto.'**
   String exportLeadSummary(Object event, Object leads);
 
-  /// No description provided for @exportDemoMessage.
+  /// No description provided for @chooseExportEvent.
   ///
   /// In es, this message translates to:
-  /// **'Exportación {format} es solo una vista demo.'**
-  String exportDemoMessage(Object format);
+  /// **'Elige el evento que deseas exportar'**
+  String get chooseExportEvent;
+
+  /// No description provided for @exportFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo crear o compartir el archivo.'**
+  String get exportFailed;
+
+  /// No description provided for @exportFirstName.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombre'**
+  String get exportFirstName;
+
+  /// No description provided for @exportLastName.
+  ///
+  /// In es, this message translates to:
+  /// **'Apellido'**
+  String get exportLastName;
+
+  /// No description provided for @exportPosition.
+  ///
+  /// In es, this message translates to:
+  /// **'Puesto'**
+  String get exportPosition;
+
+  /// No description provided for @exportType.
+  ///
+  /// In es, this message translates to:
+  /// **'Tipo'**
+  String get exportType;
+
+  /// No description provided for @exportInterest.
+  ///
+  /// In es, this message translates to:
+  /// **'Interés'**
+  String get exportInterest;
+
+  /// No description provided for @editLead.
+  ///
+  /// In es, this message translates to:
+  /// **'Editar lead'**
+  String get editLead;
+
+  /// No description provided for @editLeadFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo guardar la edición.'**
+  String get editLeadFailed;
+
+  /// No description provided for @requiredField.
+  ///
+  /// In es, this message translates to:
+  /// **'Este campo es obligatorio'**
+  String get requiredField;
+
+  /// No description provided for @revisionConflict.
+  ///
+  /// In es, this message translates to:
+  /// **'Conflicto de edición · toca Sincronizar para reintentar'**
+  String get revisionConflict;
 
   /// No description provided for @waitingForSignal.
   ///

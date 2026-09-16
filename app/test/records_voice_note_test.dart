@@ -7,6 +7,7 @@ import 'package:foloo/models/app_event.dart';
 import 'package:foloo/models/lead_draft.dart';
 import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/screens/records_screen.dart';
+import 'package:foloo/services/records_export_service.dart';
 import 'package:foloo/theme/foloo_theme.dart';
 import 'package:image/image.dart' as image_codec;
 
@@ -47,6 +48,8 @@ Widget recordsApp(
   List<AppEvent> events = const [],
   Future<void> Function()? onSync,
   bool syncing = false,
+  RecordsFileSharer fileSharer = const _FakeRecordsFileSharer(),
+  Future<void> Function(SessionLead, LeadDraft)? onLeadUpdated,
 }) => MaterialApp(
   theme: FolooTheme.light,
   darkTheme: FolooTheme.dark,
@@ -61,8 +64,26 @@ Widget recordsApp(
     onLogout: () {},
     onSync: onSync,
     syncing: syncing,
+    fileSharer: fileSharer,
+    onLeadUpdated: onLeadUpdated,
   ),
 );
+
+class _FakeRecordsFileSharer implements RecordsFileSharer {
+  const _FakeRecordsFileSharer();
+
+  @override
+  Future<void> share(RecordsExportFile file, {Rect? origin}) async {}
+}
+
+class _CapturingRecordsFileSharer implements RecordsFileSharer {
+  RecordsExportFile? file;
+
+  @override
+  Future<void> share(RecordsExportFile file, {Rect? origin}) async {
+    this.file = file;
+  }
+}
 
 void main() {
   testWidgets('record with local audio can play pause resume and replay', (
@@ -247,10 +268,12 @@ void main() {
     expect(find.text('Beatriz Sandoval Ruiz'), findsOneWidget);
     expect(find.text('1 lead · 1 por subir'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('recordsEventFilter')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Todos los eventos').last);
-    await tester.pumpAndSettle();
+    tester
+        .widget<DropdownButton<String>>(
+          find.byKey(const Key('recordsEventFilter')),
+        )
+        .onChanged!('__all_events__');
+    await tester.pump();
 
     expect(find.text('Ana Sandoval Ruiz'), findsOneWidget);
     expect(find.text('Beatriz Sandoval Ruiz'), findsOneWidget);
@@ -350,7 +373,21 @@ void main() {
     tester,
   ) async {
     final service = FakeVoiceNoteService();
-    await tester.pumpWidget(recordsApp(service, records: const []));
+    await tester.pumpWidget(
+      recordsApp(
+        service,
+        records: const [],
+        events: [
+          AppEvent(
+            id: 'event-a',
+            name: 'Evento A',
+            startsOn: DateTime(2026, 9, 1),
+            endsOn: DateTime(2026, 9, 2),
+            active: true,
+          ),
+        ],
+      ),
+    );
 
     await tester.tap(find.byKey(const Key('exportButton')));
     await tester.pumpAndSettle();
@@ -366,7 +403,84 @@ void main() {
 
     await tester.tap(find.byKey(const Key('confirmExportButton')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Exportación CSV'), findsOneWidget);
+    expect(find.text('Exportar registros'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('REG-07 detail edits structured data and leaves media out', (
+    tester,
+  ) async {
+    LeadDraft? updated;
+    final current = SessionLead(
+      localId: 'lead-edit',
+      folio: null,
+      capturedAt: DateTime(2026, 9, 15),
+      lead: lead(cardImagePath: '/private/card.jpg'),
+    );
+    await tester.pumpWidget(
+      recordsApp(
+        FakeVoiceNoteService(),
+        records: [current],
+        onLeadUpdated: (_, value) async => updated = value,
+      ),
+    );
+    await tester.tap(find.text('Mariana Sandoval Ruiz'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('editLeadButton')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, 'María José');
+    await tester.tap(find.byKey(const Key('saveLeadEditButton')));
+    await tester.pumpAndSettle();
+    expect(updated?.name, 'María José');
+    expect(updated?.cardImageLocalPath, '/private/card.jpg');
+    expect(find.byKey(const Key('recordsList')), findsOneWidget);
+  });
+
+  testWidgets('REG-10 all events requires one concrete export event', (
+    tester,
+  ) async {
+    final sharer = _CapturingRecordsFileSharer();
+    final events = [
+      AppEvent(
+        id: 'event-a',
+        name: 'Evento A',
+        startsOn: DateTime(2026, 9, 1),
+        endsOn: DateTime(2026, 9, 2),
+        active: true,
+      ),
+      AppEvent(
+        id: 'event-b',
+        name: 'Evento B',
+        startsOn: DateTime(2026, 9, 3),
+        endsOn: DateTime(2026, 9, 4),
+      ),
+    ];
+    await tester.pumpWidget(
+      recordsApp(
+        FakeVoiceNoteService(),
+        records: [
+          SessionLead(
+            localId: 'b',
+            folio: null,
+            capturedAt: DateTime(2026, 9, 3),
+            lead: lead(eventId: 'event-b', eventName: 'Evento B'),
+          ),
+        ],
+        events: events,
+        fileSharer: sharer,
+      ),
+    );
+    await tester.tap(find.byKey(const Key('recordsEventFilter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Todos los eventos').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('exportButton')));
+    await tester.pumpAndSettle();
+    expect(find.text('Elige el evento que deseas exportar'), findsOneWidget);
+    await tester.tap(find.text('Evento B').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirmExportButton')));
+    await tester.pumpAndSettle();
+    expect(sharer.file?.filename, startsWith('foloo_Evento B_'));
   });
 }

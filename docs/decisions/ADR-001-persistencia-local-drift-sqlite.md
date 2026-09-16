@@ -34,6 +34,9 @@ SQLite. La retención/cifrado/eliminación sigue abierta en D-13.
 - `schemaVersion` comenzó en 1. FL-013A lo incrementa a 2 mediante una migración
   explícita y probada que agrega ownership nullable, preserva filas históricas
   sin adjudicarlas y crea preferencias por usuario.
+- FL-015 agregó outbox/estado durable en versión 3. FL-017 usa versión 4 para
+  añadir `remoteRevision` nullable al Lead; no reescribe datos históricos y
+  permite la revisión optimista de `REG-07` después de reconciliar con cloud.
 - No se precargan fixtures de producto en la base de producción. Los fixtures
   continúan aislados para previews y pruebas de interfaz.
 - Cerrar sesión no borra la base ni los medios (AUT-11).
@@ -57,7 +60,7 @@ SQLite. La retención/cifrado/eliminación sigue abierta en D-13.
   solo modelo funcional.
 - `CAP-08` reutiliza `local_lead_media`: el tipo diferencia cada imagen de
   referencia y el ownership se deriva desde Lead. No necesita una tabla nueva
-  ni cambia `schemaVersion`.
+  ni una tabla adicional.
 
 ## Alternativas consideradas
 

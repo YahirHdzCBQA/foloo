@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/native.dart';
@@ -10,6 +11,7 @@ import 'package:foloo/data/local/private_media_storage.dart';
 import 'package:foloo/data/repositories/local_repositories.dart';
 import 'package:foloo/models/app_event.dart';
 import 'package:foloo/models/lead_draft.dart';
+import 'package:foloo/sync/sync_models.dart';
 import 'package:image/image.dart' as image_codec;
 
 List<int> testJpeg() =>
@@ -121,6 +123,63 @@ void main() {
     );
     await database.close();
   });
+
+  test(
+    'REG-07 edit updates create snapshot or queues optimistic PUT',
+    () async {
+      final database = openDatabase();
+      await EventRepository(database).save(userId, event(), makeActive: true);
+      final leads = LeadRepository(
+        database,
+        PrivateMediaStorage(mediaRoot),
+        idFactory: () => '57d8ce9a-dcc4-4b78-8fd9-552c216a62a1',
+      );
+      final saved = await leads.saveDraft(
+        userId,
+        draft(),
+        capturedBy: const DemoProfile(name: 'Yahir', company: 'CBQA'),
+      );
+      await leads.updateDraft(
+        userId,
+        saved,
+        saved.lead.copyWith(phone: '+52 55 1111 2222'),
+      );
+      var operations = await database.syncDao.forEntity(
+        userId,
+        SyncEntityType.lead.name,
+        saved.localId,
+      );
+      expect(operations.where((item) => item.action == 'update'), isEmpty);
+      expect(
+        jsonDecode(operations.single.payloadJson)['phone'],
+        '+52 55 1111 2222',
+      );
+
+      await database.syncDao.completeCreatesForEntity(
+        userId,
+        SyncEntityType.lead.name,
+        saved.localId,
+      );
+      await database.leadDao.markLeadSynced(userId, saved.localId, 7);
+      final synced = (await leads.listAll(userId)).single;
+      await leads.updateDraft(
+        userId,
+        synced,
+        synced.lead.copyWith(note: 'Nota corregida'),
+      );
+      operations = await database.syncDao.forEntity(
+        userId,
+        SyncEntityType.lead.name,
+        saved.localId,
+      );
+      final update = operations.single;
+      expect(update.action, 'update');
+      expect(jsonDecode(update.payloadJson)['revision'], 7);
+      expect(jsonDecode(update.payloadJson)['writtenNote'], 'Nota corregida');
+      expect((await leads.listAll(userId)).single.lead.note, 'Nota corregida');
+      await database.close();
+    },
+  );
 
   test(
     'events and profile preferences survive reopen; delete is logical',
@@ -372,16 +431,16 @@ void main() {
 
   test('schema version is explicit and stable across reopen', () async {
     var database = openDatabase();
-    expect(database.schemaVersion, 3);
+    expect(database.schemaVersion, 4);
     var version = await database
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 3);
+    expect(version.read<int>('user_version'), 4);
     await database.close();
 
     database = openDatabase();
     version = await database.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 3);
+    expect(version.read<int>('user_version'), 4);
     await database.close();
   });
 

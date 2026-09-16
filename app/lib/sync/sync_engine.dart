@@ -121,6 +121,9 @@ class SyncEngine extends ChangeNotifier {
       });
       return;
     }
+    if (trigger == SyncTrigger.manual) {
+      await _rebaseRevisionConflicts(ownerSub, token);
+    }
     final hadBlockedChildren = await _pushDue(ownerSub, token, trigger);
     await _pull(ownerSub, token);
     if (hadBlockedChildren) {
@@ -150,8 +153,12 @@ class SyncEngine extends ChangeNotifier {
       await _store.markSyncing(operation, _now());
       notifyListeners();
       try {
-        await _sendOperation(token, operation);
-        await _store.complete(operation);
+        final response = await _sendOperation(token, operation);
+        final data = _data(response);
+        await _store.complete(
+          operation,
+          remoteData: data is Map<String, Object?> ? data : null,
+        );
         _log(operation, 'synced');
       } on SyncHttpException catch (error) {
         if (error.statusCode == 401 || error.statusCode == 403) {
@@ -165,7 +172,20 @@ class SyncEngine extends ChangeNotifier {
           );
           return hadBlockedChildren;
         }
-        if (error.retryable) {
+        if (error.errorCode == 'revision_conflict') {
+          await _store.markRevisionConflict(
+            operation,
+            _httpError(error),
+            _now(),
+          );
+          _log(
+            operation,
+            'conflict',
+            httpStatus: error.statusCode,
+            error: error.errorCode,
+            requestId: error.requestId,
+          );
+        } else if (error.retryable) {
           await _retry(
             operation,
             error.retryAfter,
@@ -220,14 +240,13 @@ class SyncEngine extends ChangeNotifier {
     return hadBlockedChildren;
   }
 
-  Future<void> _sendOperation(
+  Future<SyncResponse> _sendOperation(
     String token,
     StoredSyncOperation operation,
   ) async {
     if (operation.entityType != SyncEntityType.leadMedia.name ||
         mediaTransfer == null) {
-      await _api.send(token, _request(operation));
-      return;
+      return _api.send(token, _request(operation));
     }
     final payload = _payload(operation);
     final leadId = payload.remove('leadId');
@@ -255,8 +274,36 @@ class SyncEngine extends ChangeNotifier {
       localPath: media.localPath,
     );
     _logMedia(operation, 'upload_success');
-    await _api.send(token, _request(operation));
+    final confirmation = await _api.send(token, _request(operation));
     _logMedia(operation, 'confirm_success');
+    return confirmation;
+  }
+
+  Future<void> _rebaseRevisionConflicts(String ownerSub, String token) async {
+    try {
+      final leads = _list(
+        _data(
+          await _api.send(
+            token,
+            const SyncRequest(method: 'GET', path: '/v1/leads'),
+          ),
+        ),
+      );
+      final repaired = await _store.rebaseRevisionConflicts(ownerSub, leads);
+      if (repaired > 0) {
+        logger({
+          'scope': 'sync_conflict',
+          'result': 'rearmed',
+          'count': repaired,
+        });
+      }
+    } on SyncHttpException {
+      // The local edit and conflict state remain durable for a later retry.
+    } on SyncTransportException {
+      // The local edit and conflict state remain durable for a later retry.
+    } on FormatException {
+      // Invalid remote data must never replace the local edit.
+    }
   }
 
   ({Uri url, Map<String, String> headers}) _uploadTarget(
@@ -425,7 +472,10 @@ class SyncEngine extends ChangeNotifier {
       switch (SyncEntityType.values.byName(operation.entityType)) {
         SyncEntityType.profile => '/v1/profile',
         SyncEntityType.event => '/v1/events',
-        SyncEntityType.lead => '/v1/leads',
+        SyncEntityType.lead =>
+          operation.action == 'update'
+              ? '/v1/leads/${operation.entityId}'
+              : '/v1/leads',
         SyncEntityType.leadMedia =>
           '/v1/leads/${_payload(operation)['leadId']}/media',
       };
@@ -445,8 +495,10 @@ class SyncEngine extends ChangeNotifier {
         idempotencyKey: operation.idempotencyKey,
       ),
       SyncEntityType.lead => SyncRequest(
-        method: 'POST',
-        path: '/v1/leads',
+        method: operation.action == 'update' ? 'PUT' : 'POST',
+        path: operation.action == 'update'
+            ? '/v1/leads/${operation.entityId}'
+            : '/v1/leads',
         body: payload,
         idempotencyKey: operation.idempotencyKey,
       ),

@@ -106,3 +106,82 @@ test("rejects reuse of an idempotency key with another payload", async () => {
     (error) => error instanceof ApplicationError && error.statusCode === 409,
   );
 });
+
+class LeadUpdateClient extends IdempotencyClient {
+  updateCount = 0;
+  conflictRevision = false;
+
+  override async query<
+    Row extends Record<string, unknown> = Record<string, unknown>,
+  >(sql: string, values: unknown[] = []) {
+    if (sql.includes("SELECT origin FROM leads"))
+      return { rows: [{ origin: "direct" } as unknown as Row], rowCount: 1 };
+    if (sql.includes("UPDATE leads SET")) {
+      this.updateCount += 1;
+      return {
+        rows: this.conflictRevision
+          ? []
+          : ([
+              {
+                id: values[1],
+                firstName: values[3],
+                revision: Number(values[2]) + 1,
+              } as unknown as Row,
+            ] as Row[]),
+        rowCount: this.conflictRevision ? 0 : 1,
+      };
+    }
+    return super.query<Row>(sql, values);
+  }
+}
+
+const leadUpdate = {
+  revision: 3,
+  firstName: "José",
+  company: "Foloo",
+  email: "jose@example.com",
+  leadType: "partner" as const,
+  interest: "high" as const,
+  place: "Monterrey",
+};
+
+test("REG-07 replays an optimistic lead update without a second write", async () => {
+  const client = new LeadUpdateClient();
+  const adapter = repository(client);
+  const hash = requestHash(leadUpdate);
+  const first = await adapter.updateLead(
+    principal,
+    "57d8ce9a-dcc4-4b78-8fd9-552c216a62a1",
+    leadUpdate,
+    "update-key",
+    hash,
+  );
+  const replay = await adapter.updateLead(
+    principal,
+    "57d8ce9a-dcc4-4b78-8fd9-552c216a62a1",
+    leadUpdate,
+    "update-key",
+    hash,
+  );
+  assert.equal(first.replayed, false);
+  assert.equal(replay.replayed, true);
+  assert.equal(client.updateCount, 1);
+});
+
+test("REG-07 returns a specific recoverable revision conflict", async () => {
+  const client = new LeadUpdateClient();
+  client.conflictRevision = true;
+  await assert.rejects(
+    repository(client).updateLead(
+      principal,
+      "57d8ce9a-dcc4-4b78-8fd9-552c216a62a1",
+      leadUpdate,
+      "conflict-key",
+      requestHash(leadUpdate),
+    ),
+    (error) =>
+      error instanceof ApplicationError &&
+      error.statusCode === 409 &&
+      error.code === "revision_conflict",
+  );
+});

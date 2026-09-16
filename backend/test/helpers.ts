@@ -7,6 +7,7 @@ import type {
   EventInput,
   IdempotentResult,
   LeadInput,
+  LeadUpdateInput,
   LeadMediaInput,
   LeadMediaRecord,
   Principal,
@@ -109,6 +110,16 @@ export class MemoryRepository implements FolooRepository {
     input: LeadInput,
   ): Promise<IdempotentResult<unknown>> {
     return { value: input, replayed: false };
+  }
+  async updateLead(
+    _principal: Principal,
+    _leadId: string,
+    input: LeadUpdateInput,
+  ): Promise<IdempotentResult<unknown>> {
+    return {
+      value: { ...input, revision: input.revision + 1 },
+      replayed: false,
+    };
   }
   async listLeadMedia(
     principal: Principal,

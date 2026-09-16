@@ -54,31 +54,31 @@ idempotentes y reconciliación local-first.
   impide el techo técnico antiabuso; D-08/PDF permanece en FL-018 y D-13 no se
   considera resuelta.
 
-## Propuesta FL-017 — Contenido y plantillas productivas
+## FL-017 — Records + XLSX/CSV Export
 
-**Objetivo:** sustituir modelos demo por persistencia local/remota.
+**Estado:** completado en repositorio; pendiente validación física iPhone/AWS DEV.
 
-- PDF, asignación/evento, adjuntos congelados y plantillas validadas.
-- Trazas: `CON-*`, `PLT-*`, E-07.
+- Records local-first, detalle y edición estructurada con revisión optimista.
+- Exportación local por evento a XLSX/CSV y hoja de compartir.
+- Trazas: `REG-01`–`REG-13`, `SYN-*`, `REL-08`, E-06/E-09/E-10.
+- `D-07` resuelta el 2026-09-15; `D-06` sigue bloqueando edición de medios.
+
+## FL-018 — Content/PDF
+
+**Objetivo:** sustituir contenido PDF demo por persistencia local/remota.
+
+- Biblioteca PDF, asignación/evento y adjuntos congelados.
+- Trazas: `CON-*`, E-07.
 - Bloqueos: D-08/D-11.
 
-## Propuesta FL-018 — Correo de seguimiento
+## FL-019 — Email/Templates
 
-**Objetivo:** envío server-side con cola offline y cumplimiento.
+**Objetivo:** plantillas productivas y envío server-side con cumplimiento.
 
-- Proveedor por ADR, variables, adjuntos, SPF/DKIM/DMARC, baja, rebotes y
-  reputación.
-- Trazas: `SAL-*`, `RC-01`, E-08.
-- Bloqueos: D-09 y contrato destinatario/estados incluido allí.
+- Trazas: `PLT-*`, `SAL-*`, `RC-01`, E-08.
+- Bloqueo: D-09.
 
-## Propuesta FL-019 — Exportación XLSX/CSV por evento
-
-**Objetivo:** generar, validar acentos y compartir archivos locales.
-
-- Trazas: `REG-09`–`REG-13`, `REL-08`, E-10.
-- Bloqueo: D-07.
-
-## Propuesta FL-020 — Trial, paywall y suscripción anual
+## FL-020 — Trial & Subscription Foundation
 
 **Objetivo:** autoridad server-side y captura ilimitada tras pago.
 
@@ -87,19 +87,29 @@ idempotentes y reconciliación local-first.
 - Trazas: `MON-*`, E-11.
 - Bloqueos: D-01–D-04 y mockups D-11.
 
-## Propuesta FL-021 — Plataforma, privacidad y observabilidad
+## FL-021 — Paywall & Payments
+
+**Objetivo:** UI y compra aprobadas sobre la autoridad de FL-020.
+
+- Bloqueos: D-01–D-04 y mockups D-11.
+
+## FL-022 — Infra/Production Hardening
 
 **Objetivo:** entornos, CI/CD, crashes/logs, backups, retención y costos.
 
 - Trazas: `INF-04`, `RC-*`, `RNF-*`.
 - Bloqueo: D-13.
 
-## Propuesta FL-022 — QA de campo y tiendas
+## FL-023 — V1 E2E + Field QA
 
 **Objetivo:** cerrar `REL-01`–`REL-08`.
 
 - E2E iOS/Android, offline/reconexión, OCR real, pago test/live, beta, assets,
-  legales, revisión, tag, release notes y soporte.
+  legales y beta de campo.
+
+## FL-024 — Store Release
+
+**Objetivo:** ficha, revisión de tiendas, tag, release notes y soporte V1.
 
 ## Exclusiones del plan V1
 

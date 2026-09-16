@@ -13,6 +13,7 @@ enum SessionUploadState {
   syncedWithMediaPending,
   syncedWithMediaError,
   failed,
+  conflict,
 }
 
 /// Captured lead loaded from local persistence or created by an isolated demo.
@@ -24,6 +25,8 @@ class SessionLead {
     required this.lead,
     this.uploadState = SessionUploadState.pending,
     this.mediaIncomplete = false,
+    this.remoteRevision,
+    this.capturedBy = DemoEventData.capturePerson,
   });
 
   final String localId;
@@ -32,6 +35,8 @@ class SessionLead {
   final LeadDraft lead;
   final SessionUploadState uploadState;
   final bool mediaIncomplete;
+  final int? remoteRevision;
+  final String capturedBy;
 
   String get uiKey => folio ?? localId;
 }

@@ -340,6 +340,20 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     return record;
   }
 
+  Future<void> _updateLead(SessionLead record, LeadDraft updated) async {
+    await _persistence.leads.updateDraft(_userId, record, updated);
+    final leads = await _persistence.leads.listAll(_userId);
+    if (!mounted) return;
+    setState(() {
+      _sessionLeads
+        ..clear()
+        ..addAll(leads);
+    });
+    if (_isOnline) {
+      unawaited(_synchronize(trigger: SyncTrigger.postSave));
+    }
+  }
+
   Future<bool> _authenticate(String username, String password) async {
     final authenticated = await _authRepository.signIn(
       username: username,
@@ -837,6 +851,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           events: List.unmodifiable(events),
           onSync: () => _synchronize(trigger: SyncTrigger.manual),
           syncing: _syncEngine?.running ?? false,
+          onLeadUpdated: _updateLead,
         ),
         EventScreen(
           key: const ValueKey('eventsScreen'),

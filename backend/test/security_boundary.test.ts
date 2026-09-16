@@ -63,3 +63,29 @@ test("keeps user A and user B event lists isolated", async () => {
   assert.doesNotMatch(a.body ?? "", /event-b/);
   assert.match(b.body ?? "", /event-b/);
 });
+
+test("REG-07 update derives ownership from JWT and keeps immutable fields out", async () => {
+  const repository = new MemoryRepository();
+  const router = createRouter(new FolooApplication(repository));
+  const response = await router(
+    apiEvent({
+      method: "PUT",
+      path: "/v1/leads/57d8ce9a-dcc4-4b78-8fd9-552c216a62a1",
+      subject: "subject-a",
+      idempotencyKey: "update-key-a",
+      body: {
+        revision: 1,
+        firstName: "Ada",
+        company: "Foloo",
+        email: "ada@example.com",
+        leadType: "customer",
+        interest: "high",
+        ownerId: "subject-b",
+        capturedAt: "2000-01-01T00:00:00Z",
+      },
+    }),
+  );
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(repository.seenSubjects, ["subject-a"]);
+  assert.doesNotMatch(response.body ?? "", /subject-b|capturedAt/);
+});

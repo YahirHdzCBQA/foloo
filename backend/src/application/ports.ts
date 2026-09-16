@@ -4,6 +4,7 @@ import type {
   EventInput,
   IdempotentResult,
   LeadInput,
+  LeadUpdateInput,
   LeadMediaInput,
   LeadMediaRecord,
   Principal,
@@ -29,6 +30,13 @@ export interface FolooRepository {
   createLead(
     principal: Principal,
     input: LeadInput,
+    idempotencyKey: string,
+    requestHash: string,
+  ): Promise<IdempotentResult<unknown>>;
+  updateLead(
+    principal: Principal,
+    leadId: string,
+    input: LeadUpdateInput,
     idempotencyKey: string,
     requestHash: string,
   ): Promise<IdempotentResult<unknown>>;

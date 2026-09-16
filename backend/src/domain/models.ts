@@ -40,6 +40,21 @@ export type LeadInput = {
   commercialFolio?: string | null;
 };
 
+/** Mutable Lead fields plus the expected server revision (REG-07). */
+export type LeadUpdateInput = {
+  revision: number;
+  firstName: string;
+  lastName?: string | null;
+  position?: string | null;
+  company: string;
+  email?: string | null;
+  phone?: string | null;
+  leadType: "customer" | "partner" | "supplier";
+  interest: "low" | "medium" | "high";
+  writtenNote?: string | null;
+  place?: string | null;
+};
+
 export type LeadMediaInput = {
   id: string;
   kind: "business_card" | "reference_image" | "voice_note";
