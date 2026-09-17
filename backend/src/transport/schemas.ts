@@ -51,6 +51,28 @@ export const eventDeleteSchema = z.object({
   revision: z.number().int().positive(),
 });
 
+const contentFields = {
+  displayName: z.string().trim().min(1).max(160),
+  fileName: z
+    .string()
+    .min(1)
+    .max(255)
+    .refine((name) => name.toLowerCase().endsWith(".pdf")),
+  byteSize: z.number().int().positive().max(25_000_000),
+  allEvents: z.boolean(),
+  eventIds: z.array(z.uuid()),
+};
+export const contentSchema = z.object({ id: z.uuid(), ...contentFields });
+export const contentUpdateSchema = z.object({
+  displayName: contentFields.displayName,
+  allEvents: contentFields.allEvents,
+  eventIds: contentFields.eventIds,
+  revision: z.number().int().positive(),
+});
+export const contentDeleteSchema = z.object({
+  revision: z.number().int().positive(),
+});
+
 export const leadSchema = z
   .object({
     id: z.uuid(),
@@ -68,6 +90,7 @@ export const leadSchema = z
     interest: z.enum(["low", "medium", "high"]),
     writtenNote: nullableText(10_000),
     commercialFolio: nullableText(80),
+    contentFileIds: z.array(z.uuid()).optional(),
   })
   .superRefine((value, context) => {
     if (value.origin === "event" && !value.eventId) {

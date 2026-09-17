@@ -25,6 +25,26 @@ export type EventInput = {
 export type EventUpdateInput = Omit<EventInput, "id"> & { revision: number };
 export type EventDeleteInput = { revision: number };
 
+export type ContentInput = {
+  id: string;
+  displayName: string;
+  fileName: string;
+  byteSize: number;
+  allEvents: boolean;
+  eventIds: string[];
+};
+export type ContentUpdateInput = Pick<
+  ContentInput,
+  "displayName" | "allEvents" | "eventIds"
+> & { revision: number };
+export type ContentDeleteInput = { revision: number };
+export type ContentRecord = ContentInput & {
+  revision: number;
+  deletedAt: string | null;
+  uploadStatus: "pending" | "available";
+  storageObjectKey: string | null;
+};
+
 export type LeadInput = {
   id: string;
   capturedAt: string;
@@ -41,6 +61,7 @@ export type LeadInput = {
   interest: "low" | "medium" | "high";
   writtenNote?: string | null;
   commercialFolio?: string | null;
+  contentFileIds?: string[];
 };
 
 /** Mutable Lead fields plus the expected server revision (REG-07). */

@@ -5,6 +5,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -172,6 +173,19 @@ class SyncEngine extends ChangeNotifier {
           );
           return hadBlockedChildren;
         }
+        if (error.statusCode == 404 &&
+            (operation.entityType == SyncEntityType.content.name ||
+                operation.entityType == SyncEntityType.contentBinary.name)) {
+          // DEV can briefly run an older API during FL-018 rollout. Keep the
+          // local PDF/outbox retryable instead of stranding it as failed.
+          await _retry(
+            operation,
+            error.retryAfter,
+            _httpError(error),
+            httpStatus: error.statusCode,
+          );
+          continue;
+        }
         if (error.errorCode == 'revision_conflict') {
           await _store.markRevisionConflict(
             operation,
@@ -244,6 +258,42 @@ class SyncEngine extends ChangeNotifier {
     String token,
     StoredSyncOperation operation,
   ) async {
+    if (operation.entityType == SyncEntityType.contentBinary.name) {
+      if (mediaTransfer == null) {
+        throw const MediaTransferException(code: 'transport');
+      }
+      final content = await _store.database.contentDao.byId(
+        operation.ownerUserId,
+        operation.entityId,
+      );
+      if (content?.deleted == true) {
+        // A local tombstone supersedes an upload that has not yet started.
+        return const SyncResponse(statusCode: 200);
+      }
+      if (content == null || content.localPath == null) {
+        throw const MediaTransferException(code: 'local_metadata_missing');
+      }
+      final localPath = await _store.mediaStorage?.resolveExistingPath(
+        content.localPath!,
+      );
+      if (localPath == null) {
+        throw const MediaTransferException(code: 'local_file_missing');
+      }
+      final authorization = await _api.send(
+        token,
+        SyncRequest(
+          method: 'POST',
+          path: '/v1/content/${operation.entityId}/uploads',
+        ),
+      );
+      final upload = _uploadTarget(authorization);
+      await mediaTransfer!.upload(
+        url: upload.url,
+        headers: upload.headers,
+        localPath: localPath,
+      );
+      return _api.send(token, _request(operation));
+    }
     if (operation.entityType != SyncEntityType.leadMedia.name ||
         mediaTransfer == null) {
       return _api.send(token, _request(operation));
@@ -297,10 +347,24 @@ class SyncEngine extends ChangeNotifier {
           ),
         ),
       );
+      var content = <Map<String, Object?>>[];
+      try {
+        content = _list(
+          _data(
+            await _api.send(
+              token,
+              const SyncRequest(method: 'GET', path: '/v1/content'),
+            ),
+          ),
+        );
+      } on SyncHttpException {
+        // FL-017 conflicts remain recoverable during a staged FL-018 deploy.
+      }
       final repaired = await _store.rebaseRevisionConflicts(
         ownerSub,
         leads,
         remoteEvents: events,
+        remoteContent: content,
       );
       if (repaired > 0) {
         logger({
@@ -453,17 +517,10 @@ class SyncEngine extends ChangeNotifier {
   Future<bool> _blockedByParent(StoredSyncOperation operation) async {
     final payload = _payload(operation);
     return switch (SyncEntityType.values.byName(operation.entityType)) {
-      SyncEntityType.lead => switch (payload['eventId']) {
-        final String eventId =>
-          _store.database.syncDao
-              .forEntity(
-                operation.ownerUserId,
-                SyncEntityType.event.name,
-                eventId,
-              )
-              .then((items) => items.any((item) => item.action == 'create')),
-        _ => false,
-      },
+      SyncEntityType.lead => await _hasPendingLeadParent(
+        operation.ownerUserId,
+        payload,
+      ),
       SyncEntityType.leadMedia => switch (payload['leadId']) {
         final String leadId => _store.hasPending(
           operation.ownerUserId,
@@ -472,6 +529,15 @@ class SyncEngine extends ChangeNotifier {
         ),
         _ => false,
       },
+      SyncEntityType.content => _hasPendingContentEvent(
+        operation.ownerUserId,
+        payload,
+      ),
+      SyncEntityType.contentBinary => _store.hasPending(
+        operation.ownerUserId,
+        SyncEntityType.content,
+        operation.entityId,
+      ),
       SyncEntityType.event =>
         operation.action == 'delete' && await _hasPendingLeadCreate(operation),
       SyncEntityType.profile => false,
@@ -501,6 +567,62 @@ class SyncEngine extends ChangeNotifier {
     return false;
   }
 
+  Future<bool> _hasPendingContentEvent(
+    String ownerSub,
+    Map<String, Object?> payload,
+  ) async {
+    final ids = payload['eventIds'];
+    if (ids is! List) return false;
+    for (final id in ids.whereType<String>()) {
+      final operations = await _store.database.syncDao.forEntity(
+        ownerSub,
+        SyncEntityType.event.name,
+        id,
+      );
+      if (operations.any(
+        (item) => item.action == 'create' && item.status != 'completed',
+      )) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Future<bool> _hasPendingLeadParent(
+    String ownerSub,
+    Map<String, Object?> payload,
+  ) async {
+    final eventId = payload['eventId'];
+    if (eventId is String) {
+      final events = await _store.database.syncDao.forEntity(
+        ownerSub,
+        SyncEntityType.event.name,
+        eventId,
+      );
+      if (events.any(
+        (item) => item.action == 'create' && item.status != 'completed',
+      )) {
+        return true;
+      }
+    }
+    final ids = payload['contentFileIds'];
+    if (ids is List) {
+      for (final id in ids.whereType<String>()) {
+        final operations = await _store.database.syncDao.forEntity(
+          ownerSub,
+          SyncEntityType.content.name,
+          id,
+        );
+        if (operations.any(
+          (item) => item.action == 'create' && item.status != 'completed',
+        )) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   String _httpError(SyncHttpException error) => error.errorCode == null
       ? 'http_${error.statusCode}'
       : 'http_${error.statusCode}_${error.errorCode}';
@@ -508,20 +630,26 @@ class SyncEngine extends ChangeNotifier {
   Map<String, Object?> _payload(StoredSyncOperation operation) =>
       (jsonDecode(operation.payloadJson) as Map).cast<String, Object?>();
 
-  String _endpoint(StoredSyncOperation operation) =>
-      switch (SyncEntityType.values.byName(operation.entityType)) {
-        SyncEntityType.profile => '/v1/profile',
-        SyncEntityType.event =>
-          operation.action == 'create'
-              ? '/v1/events'
-              : '/v1/events/${operation.entityId}',
-        SyncEntityType.lead =>
-          operation.action == 'update'
-              ? '/v1/leads/${operation.entityId}'
-              : '/v1/leads',
-        SyncEntityType.leadMedia =>
-          '/v1/leads/${_payload(operation)['leadId']}/media',
-      };
+  String _endpoint(StoredSyncOperation operation) => switch (SyncEntityType
+      .values
+      .byName(operation.entityType)) {
+    SyncEntityType.profile => '/v1/profile',
+    SyncEntityType.event =>
+      operation.action == 'create'
+          ? '/v1/events'
+          : '/v1/events/${operation.entityId}',
+    SyncEntityType.lead =>
+      operation.action == 'update'
+          ? '/v1/leads/${operation.entityId}'
+          : '/v1/leads',
+    SyncEntityType.leadMedia =>
+      '/v1/leads/${_payload(operation)['leadId']}/media',
+    SyncEntityType.content =>
+      operation.action == 'create'
+          ? '/v1/content'
+          : '/v1/content/${operation.entityId}',
+    SyncEntityType.contentBinary => '/v1/content/${operation.entityId}/confirm',
+  };
 
   SyncRequest _request(StoredSyncOperation operation) {
     final payload = _payload(operation);
@@ -557,6 +685,23 @@ class SyncEngine extends ChangeNotifier {
         body: payload,
         idempotencyKey: operation.idempotencyKey,
       ),
+      SyncEntityType.content => SyncRequest(
+        method: operation.action == 'create'
+            ? 'POST'
+            : operation.action == 'delete'
+            ? 'DELETE'
+            : 'PUT',
+        path: operation.action == 'create'
+            ? '/v1/content'
+            : '/v1/content/${operation.entityId}',
+        body: payload,
+        idempotencyKey: operation.idempotencyKey,
+      ),
+      SyncEntityType.contentBinary => SyncRequest(
+        method: 'POST',
+        path: '/v1/content/${operation.entityId}/confirm',
+        idempotencyKey: operation.idempotencyKey,
+      ),
     };
   }
 
@@ -580,6 +725,33 @@ class SyncEngine extends ChangeNotifier {
         ),
       );
       await _store.applyRemoteEvents(ownerSub, events);
+      try {
+        final content = _list(
+          _data(
+            await _api.send(
+              token,
+              const SyncRequest(method: 'GET', path: '/v1/content'),
+            ),
+          ),
+        );
+        await _store.applyRemoteContent(
+          ownerSub,
+          content,
+          download: mediaTransfer == null
+              ? null
+              : (url, contentType) =>
+                    mediaTransfer!.download(url: url, contentType: contentType),
+        );
+      } on SyncHttpException {
+        // Older DEV deployments may not expose FL-018 yet. Other entities
+        // must continue to reconcile while deployment catches up.
+      } on MediaTransferException {
+        // A later pull obtains a fresh temporary download authorization.
+      } on FormatException {
+        // Invalid Content metadata never blocks Lead reconciliation.
+      } on FileSystemException {
+        // Local storage pressure is surfaced on open; other entities continue.
+      }
       final leads = _list(
         _data(
           await _api.send(

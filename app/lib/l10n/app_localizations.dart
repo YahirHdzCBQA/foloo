@@ -800,6 +800,30 @@ abstract class AppLocalizations {
   /// **'No se pudo abrir el PDF. Elige un archivo PDF e inténtalo de nuevo.'**
   String get pdfSelectionError;
 
+  /// No description provided for @pdfTooLarge.
+  ///
+  /// In es, this message translates to:
+  /// **'Este PDF supera el límite de 25 MB. Elige un archivo más pequeño.'**
+  String get pdfTooLarge;
+
+  /// No description provided for @pdfStorageError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo guardar el PDF en este dispositivo. Revisa el espacio disponible e inténtalo de nuevo.'**
+  String get pdfStorageError;
+
+  /// No description provided for @pdfUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'Este PDF aún no está disponible en este dispositivo. Conéctate e inténtalo de nuevo.'**
+  String get pdfUnavailable;
+
+  /// No description provided for @editContent.
+  ///
+  /// In es, this message translates to:
+  /// **'Editar contenido'**
+  String get editContent;
+
   /// No description provided for @emailTitle.
   ///
   /// In es, this message translates to:
@@ -1091,7 +1115,7 @@ abstract class AppLocalizations {
   /// No description provided for @localFilesHelp.
   ///
   /// In es, this message translates to:
-  /// **'Los archivos viven en tu teléfono y se adjuntan al correo cuando hay señal.'**
+  /// **'Los PDF permanecen en el almacenamiento privado del teléfono y se sincronizan cuando hay conexión.'**
   String get localFilesHelp;
 
   /// No description provided for @emptyRecords.
@@ -1469,7 +1493,7 @@ abstract class AppLocalizations {
   /// No description provided for @deleteLocalFileQuestion.
   ///
   /// In es, this message translates to:
-  /// **'¿Eliminar {name} de la biblioteca local?'**
+  /// **'¿Quitar {name} de la biblioteca? Los adjuntos de leads existentes no cambian.'**
   String deleteLocalFileQuestion(Object name);
 
   /// No description provided for @previewTo.

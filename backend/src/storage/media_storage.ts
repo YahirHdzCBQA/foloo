@@ -33,6 +33,17 @@ export interface MediaStorage {
   ): Promise<MediaUploadAuthorization>;
   verifyUpload(objectKey: string, input: LeadMediaInput): Promise<void>;
   authorizeDownload(objectKey: string): Promise<MediaDownloadAuthorization>;
+  contentObjectKey(principal: Principal, contentId: string): string;
+  authorizeContentUpload(
+    principal: Principal,
+    contentId: string,
+    byteSize: number,
+  ): Promise<{ upload: MediaUploadAuthorization["upload"] }>;
+  verifyContentUpload(
+    objectKey: string,
+    contentId: string,
+    byteSize: number,
+  ): Promise<void>;
 }
 
 export class S3MediaStorage implements MediaStorage {
@@ -48,6 +59,89 @@ export class S3MediaStorage implements MediaStorage {
 
   objectKey(principal: Principal, leadId: string, mediaId: string): string {
     return `media/workspaces/${principal.workspaceId}/leads/${leadId}/${mediaId}`;
+  }
+
+  contentObjectKey(principal: Principal, contentId: string): string {
+    return `content/workspaces/${principal.workspaceId}/files/${contentId}`;
+  }
+
+  async authorizeContentUpload(
+    principal: Principal,
+    contentId: string,
+    byteSize: number,
+  ): Promise<{ upload: MediaUploadAuthorization["upload"] }> {
+    if (byteSize < 1 || byteSize > 25_000_000)
+      throw invalidMedia("pdf_size_limit");
+    const headers = {
+      "content-type": "application/pdf",
+      "x-amz-meta-foloo-content-id": contentId,
+    };
+    const url = await getSignedUrl(
+      this.client,
+      new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: this.contentObjectKey(principal, contentId),
+        ContentType: "application/pdf",
+        ContentLength: byteSize,
+        Metadata: { "foloo-content-id": contentId },
+      }),
+      {
+        expiresIn: uploadLifetimeSeconds,
+        signableHeaders: new Set(["content-type"]),
+        unhoistableHeaders: new Set(["x-amz-meta-foloo-content-id"]),
+      },
+    );
+    return {
+      upload: {
+        method: "PUT",
+        url,
+        expiresAt: new Date(
+          this.now().getTime() + uploadLifetimeSeconds * 1000,
+        ).toISOString(),
+        headers,
+      },
+    };
+  }
+
+  async verifyContentUpload(
+    objectKey: string,
+    contentId: string,
+    byteSize: number,
+  ): Promise<void> {
+    try {
+      const head = await this.client.send(
+        new HeadObjectCommand({ Bucket: this.bucketName, Key: objectKey }),
+      );
+      if (
+        head.ContentLength !== byteSize ||
+        head.ContentType !== "application/pdf" ||
+        head.Metadata?.["foloo-content-id"] !== contentId
+      ) {
+        throw uploadMismatch("pdf_metadata_mismatch");
+      }
+      const first = await this.client.send(
+        new GetObjectCommand({
+          Bucket: this.bucketName,
+          Key: objectKey,
+          Range: "bytes=0-4",
+        }),
+      );
+      const bytes = await first.Body?.transformToByteArray();
+      if (!bytes || Buffer.from(bytes).toString("ascii") !== "%PDF-") {
+        throw invalidMedia("invalid_pdf_signature");
+      }
+    } catch (error) {
+      if (error instanceof ApplicationError) throw error;
+      const name = (error as { name?: unknown } | null)?.name;
+      if (name === "NotFound" || name === "NoSuchKey") {
+        throw new ApplicationError(
+          "upload_incomplete",
+          409,
+          "The PDF upload has not completed.",
+        );
+      }
+      throw error;
+    }
   }
 
   async authorizeUpload(

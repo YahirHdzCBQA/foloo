@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Foloo API
-  version: 1.0.0-media
-  description: Authenticated Foloo V1 API with offline-sync metadata and private direct media transfer.
+  version: 1.0.0-content
+  description: Authenticated Foloo V1 API with offline-sync metadata and private direct media/PDF transfer.
 servers:
   - url: https://{apiId}.execute-api.us-east-1.amazonaws.com/v1
     variables:
@@ -81,6 +81,76 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/DataResponse" }
         "404": { $ref: "#/components/responses/ErrorResponse" }
+        "409": { $ref: "#/components/responses/ErrorResponse" }
+  /content:
+    get:
+      operationId: listContent
+      description: Owner-scoped snapshot including soft-delete tombstones and temporary download URLs for available PDFs.
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+    post:
+      operationId: createContent
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContentInput" }
+      responses:
+        "201": { $ref: "#/components/responses/DataResponse" }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
+  /content/{contentId}:
+    parameters:
+      - name: contentId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      operationId: updateContent
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContentUpdateInput" }
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+        "409": { $ref: "#/components/responses/ErrorResponse" }
+    delete:
+      operationId: deleteContent
+      description: Creates a tombstone; does not delete the S3 object. Physical retention remains D-13.
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContentDeleteInput" }
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+        "409": { $ref: "#/components/responses/ErrorResponse" }
+  /content/{contentId}/uploads:
+    parameters:
+      - name: contentId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: prepareContentUpload
+      description: Returns a temporary S3 PUT authorization after backend size validation.
+      responses:
+        "201": { $ref: "#/components/responses/DataResponse" }
+  /content/{contentId}/confirm:
+    parameters:
+      - name: contentId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: confirmContentUpload
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      description: Verifies S3 size, MIME, metadata and PDF signature before marking the object available.
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
         "409": { $ref: "#/components/responses/ErrorResponse" }
   /leads:
     get:
@@ -255,6 +325,10 @@ components:
         interest: { type: string, enum: [low, medium, high] }
         writtenNote: { type: string, nullable: true, maxLength: 10000 }
         commercialFolio: { type: string, nullable: true, maxLength: 80 }
+        contentFileIds:
+          description: Selected active Content IDs, frozen with display names by the server at capture time.
+          type: array
+          items: { type: string, format: uuid }
     LeadUpdateInput:
       type: object
       additionalProperties: false
@@ -325,16 +399,35 @@ components:
       properties:
         url: { type: string, format: uri }
         expiresAt: { type: string, format: date-time }
-    ContentFileMetadata:
-      description: Future PDF metadata contract; no FL-014 upload endpoint exists.
+    ContentInput:
       type: object
-      required: [id, displayName, contentType, byteSize, revision]
+      additionalProperties: false
+      required: [id, displayName, fileName, byteSize, allEvents, eventIds]
       properties:
         id: { type: string, format: uuid }
-        displayName: { type: string }
-        contentType: { type: string, enum: [application/pdf] }
-        byteSize: { type: integer, minimum: 0 }
-        sha256: { type: string, nullable: true }
+        displayName: { type: string, minLength: 1, maxLength: 160 }
+        fileName: { type: string, maxLength: 255, pattern: "\\.[Pp][Dd][Ff]$" }
+        byteSize: { type: integer, minimum: 1, maximum: 25000000 }
+        allEvents: { type: boolean }
+        eventIds:
+          type: array
+          items: { type: string, format: uuid }
+    ContentUpdateInput:
+      type: object
+      additionalProperties: false
+      required: [revision, displayName, allEvents, eventIds]
+      properties:
+        revision: { type: integer, minimum: 1 }
+        displayName: { type: string, minLength: 1, maxLength: 160 }
+        allEvents: { type: boolean }
+        eventIds:
+          type: array
+          items: { type: string, format: uuid }
+    ContentDeleteInput:
+      type: object
+      additionalProperties: false
+      required: [revision]
+      properties:
         revision: { type: integer, minimum: 1 }
     ErrorEnvelope:
       type: object

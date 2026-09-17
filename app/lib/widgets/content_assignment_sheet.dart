@@ -5,6 +5,8 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 
 import '../models/app_event.dart';
@@ -137,6 +139,7 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
                 TextField(
                   key: const Key('contentDisplayNameField'),
                   controller: _name,
+                  inputFormatters: [LengthLimitingTextInputFormatter(160)],
                   decoration: InputDecoration(
                     hintText: context.l10n.displayName,
                   ),
@@ -221,16 +224,13 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
                     child: FilledButton(
                       key: const Key('confirmContentButton'),
                       onPressed: () {
-                        final displayName = editing
-                            ? widget.file!.displayName
-                            : _name.text.trim();
+                        final displayName = _name.text.trim();
                         if (displayName.isEmpty) return;
-                        // TODO(PRODUCTION): Upload PDFs and persist assignments.
                         Navigator.pop(
                           context,
                           (widget.file ??
                                   ContentFile(
-                                    id: 'demo-${DateTime.now().microsecondsSinceEpoch}',
+                                    id: const Uuid().v4(),
                                     displayName: displayName,
                                     fileName:
                                         widget.pickedPdf?.name ??

@@ -47,6 +47,9 @@ class _RoundTripApi implements SyncApi {
     if (request.path == '/v1/leads') {
       return const SyncResponse(statusCode: 200, data: {'data': []});
     }
+    if (request.path == '/v1/content') {
+      return const SyncResponse(statusCode: 200, data: {'data': []});
+    }
     throw StateError('Unexpected request: ${request.method} ${request.path}');
   }
 }

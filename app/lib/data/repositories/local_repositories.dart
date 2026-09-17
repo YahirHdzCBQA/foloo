@@ -10,8 +10,10 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:uuid/uuid.dart';
+import 'package:path/path.dart' as p;
 
 import '../../models/app_event.dart';
+import '../../models/content_file.dart';
 import '../../models/lead_draft.dart';
 import '../../models/session_lead.dart';
 import '../../sync/sync_models.dart';
@@ -281,6 +283,235 @@ class EventRepository {
       _database.eventDao.deactivateAll(userId);
 }
 
+/// Owns private PDF copies and owner-scoped metadata/outbox (CON-01–CON-10).
+class ContentRepository {
+  ContentRepository(this._database, this._storage, {SyncStore? syncStore})
+    : _syncStore = syncStore ?? SyncStore(_database);
+
+  static const maxPdfBytes = 25000000;
+  final AppDatabase _database;
+  final PrivateMediaStorage _storage;
+  final SyncStore _syncStore;
+
+  Future<List<ContentFile>> list(String owner) async {
+    final rows = await _database.contentDao.list(owner);
+    return Future.wait(rows.map(_fromStored));
+  }
+
+  Future<ContentFile> _fromStored(StoredContentFile row) async {
+    final path = row.localPath == null
+        ? null
+        : await _storage.resolveExistingPath(row.localPath!);
+    return ContentFile(
+      id: row.localId,
+      displayName: row.displayName,
+      fileName: row.fileName,
+      byteSize: row.byteSize,
+      sizeLabel: _sizeLabel(row.byteSize),
+      localPath: path,
+      allEvents: row.allEvents,
+      eventIds: (jsonDecode(row.eventIdsJson) as List).cast<String>().toSet(),
+    );
+  }
+
+  String _sizeLabel(int bytes) => bytes >= 1000000
+      ? '${(bytes / 1000000).toStringAsFixed(1)} MB'
+      : '${(bytes / 1000).ceil()} KB';
+
+  Future<ContentFile> import(String owner, ContentFile draft) async {
+    if (!Uuid.isValidUUID(fromString: draft.id)) {
+      throw const FormatException('Invalid content ID.');
+    }
+    if (draft.displayName.trim().isEmpty ||
+        draft.displayName.length > 160 ||
+        draft.fileName.length > 255) {
+      throw const FormatException('Invalid content metadata.');
+    }
+    if (!draft.fileName.toLowerCase().endsWith('.pdf') ||
+        draft.localPath == null) {
+      throw const FormatException('A PDF file is required.');
+    }
+    final source = File(draft.localPath!);
+    final bytes = await source.length();
+    if (bytes == 0 || bytes > maxPdfBytes) {
+      throw const FormatException('PDF exceeds the 25 MB limit.');
+    }
+    final handle = await source.open();
+    try {
+      final signature = await handle.read(5);
+      if (signature.length != 5 || String.fromCharCodes(signature) != '%PDF-') {
+        throw const FormatException('Invalid PDF signature.');
+      }
+    } finally {
+      await handle.close();
+    }
+    await _validateEvents(owner, draft.eventIds);
+    if (await _database.contentDao.byAnyId(draft.id) != null) {
+      throw StateError('Content ID already exists.');
+    }
+    final directory = Directory(p.join(_storage.root.path, 'content'));
+    await directory.create(recursive: true);
+    final destination = File(p.join(directory.path, '${draft.id}.pdf'));
+    final staging = File('${destination.path}.partial');
+    try {
+      await source.copy(staging.path);
+      if (await staging.length() != bytes) {
+        throw const FileSystemException('Incomplete PDF copy.');
+      }
+      await staging.rename(destination.path);
+      final now = DateTime.now().toUtc();
+      await _database.transaction(() async {
+        await _database.contentDao.upsert(
+          LocalContentFilesCompanion.insert(
+            localId: draft.id,
+            ownerUserId: owner,
+            displayName: draft.displayName,
+            fileName: draft.fileName,
+            byteSize: bytes,
+            localPath: Value(destination.path),
+            allEvents: Value(draft.allEvents),
+            eventIdsJson: Value(jsonEncode(draft.eventIds.toList())),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+        await _syncStore.enqueue(
+          ownerSub: owner,
+          entityType: SyncEntityType.content,
+          entityId: draft.id,
+          action: 'create',
+          payload: _payload(draft, bytes),
+          now: now,
+        );
+        await _syncStore.enqueue(
+          ownerSub: owner,
+          entityType: SyncEntityType.contentBinary,
+          entityId: draft.id,
+          action: 'upload',
+          payload: {
+            'contentId': draft.id,
+            'byteSize': bytes,
+            'contentType': 'application/pdf',
+          },
+          now: now,
+        );
+      });
+      return (await _fromStored(
+        (await _database.contentDao.byId(owner, draft.id))!,
+      ));
+    } catch (_) {
+      if (await staging.exists()) await staging.delete();
+      if (await destination.exists() &&
+          await _database.contentDao.byId(owner, draft.id) == null) {
+        await destination.delete();
+      }
+      rethrow;
+    }
+  }
+
+  Map<String, Object?> _payload(ContentFile file, int size, {int? revision}) =>
+      {
+        if (revision == null) 'id': file.id else 'revision': revision,
+        'displayName': file.displayName,
+        'fileName': file.fileName,
+        'byteSize': size,
+        'allEvents': file.allEvents,
+        'eventIds': file.eventIds.toList(),
+      };
+
+  Future<void> _validateEvents(String owner, Set<String> ids) async {
+    for (final id in ids) {
+      final event = await _database.eventDao.byId(owner, id);
+      if (event == null || event.deleted) {
+        throw const FormatException('Unavailable event.');
+      }
+    }
+  }
+
+  Future<ContentFile> update(String owner, ContentFile file) async {
+    if (file.displayName.trim().isEmpty || file.displayName.length > 160) {
+      throw const FormatException('Invalid display name.');
+    }
+    final previous = await _database.contentDao.byId(owner, file.id);
+    if (previous == null || previous.deleted) {
+      throw StateError('Content is unavailable.');
+    }
+    await _validateEvents(
+      owner,
+      file.eventIds.difference(
+        (jsonDecode(previous.eventIdsJson) as List).cast<String>().toSet(),
+      ),
+    );
+    final now = DateTime.now().toUtc();
+    await _database.transaction(() async {
+      await _database.contentDao.upsert(
+        LocalContentFilesCompanion.insert(
+          localId: file.id,
+          ownerUserId: owner,
+          displayName: file.displayName,
+          fileName: previous.fileName,
+          byteSize: previous.byteSize,
+          localPath: Value(previous.localPath),
+          allEvents: Value(file.allEvents),
+          eventIdsJson: Value(jsonEncode(file.eventIds.toList())),
+          createdAt: previous.createdAt,
+          updatedAt: now,
+          remoteRevision: Value(previous.remoteRevision),
+          uploadState: Value(previous.uploadState),
+          syncState: const Value('pending'),
+        ),
+      );
+      await _syncStore.enqueue(
+        ownerSub: owner,
+        entityType: SyncEntityType.content,
+        entityId: file.id,
+        action: 'update',
+        payload: _payload(
+          file,
+          previous.byteSize,
+          revision: previous.remoteRevision ?? 1,
+        ),
+        now: now,
+      );
+    });
+    return _fromStored((await _database.contentDao.byId(owner, file.id))!);
+  }
+
+  Future<void> delete(String owner, ContentFile file) async {
+    final previous = await _database.contentDao.byId(owner, file.id);
+    if (previous == null || previous.deleted) return;
+    final now = DateTime.now().toUtc();
+    await _database.transaction(() async {
+      await _database.contentDao.upsert(
+        LocalContentFilesCompanion.insert(
+          localId: file.id,
+          ownerUserId: owner,
+          displayName: previous.displayName,
+          fileName: previous.fileName,
+          byteSize: previous.byteSize,
+          localPath: Value(previous.localPath),
+          allEvents: Value(previous.allEvents),
+          eventIdsJson: Value(previous.eventIdsJson),
+          deleted: const Value(true),
+          uploadState: Value(previous.uploadState),
+          syncState: const Value('pending'),
+          remoteRevision: Value(previous.remoteRevision),
+          createdAt: previous.createdAt,
+          updatedAt: now,
+        ),
+      );
+      await _syncStore.enqueue(
+        ownerSub: owner,
+        entityType: SyncEntityType.content,
+        entityId: file.id,
+        action: 'delete',
+        payload: {'revision': previous.remoteRevision ?? 1},
+        now: now,
+      );
+    });
+  }
+}
+
 /// Commits validated drafts and durable media metadata as one local unit.
 class LeadRepository {
   LeadRepository(
@@ -428,6 +659,7 @@ class LeadRepository {
             'leadType': draft.type.name,
             'interest': draft.interest.name,
             'writtenNote': draft.note.isEmpty ? null : draft.note,
+            'contentFileIds': draft.contentFileIds,
           },
           now: now,
         );
@@ -752,6 +984,7 @@ class LocalPersistence {
        preferences = PreferencesRepository(database),
        globalPreferences = GlobalPreferencesRepository(database),
        events = EventRepository(database),
+       content = ContentRepository(database, mediaStorage),
        leads = LeadRepository(database, mediaStorage),
        syncStore = SyncStore(database, mediaStorage: mediaStorage);
 
@@ -762,6 +995,7 @@ class LocalPersistence {
   final PreferencesRepository preferences;
   final GlobalPreferencesRepository globalPreferences;
   final EventRepository events;
+  final ContentRepository content;
   final LeadRepository leads;
   final SyncStore syncStore;
 

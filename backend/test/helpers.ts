@@ -7,6 +7,10 @@ import type {
   EventInput,
   EventUpdateInput,
   EventDeleteInput,
+  ContentInput,
+  ContentUpdateInput,
+  ContentDeleteInput,
+  ContentRecord,
   IdempotentResult,
   LeadInput,
   LeadUpdateInput,
@@ -69,6 +73,7 @@ export function apiEvent(
 export class MemoryRepository implements FolooRepository {
   readonly seenSubjects: string[] = [];
   readonly eventsByWorkspace = new Map<string, unknown[]>();
+  readonly contentByWorkspace = new Map<string, ContentRecord[]>();
 
   async resolvePrincipal(subject: string): Promise<Principal> {
     this.seenSubjects.push(subject);
@@ -137,6 +142,73 @@ export class MemoryRepository implements FolooRepository {
       value: { id: eventId, revision: input.revision + 1 },
       replayed: false,
     };
+  }
+  async listContent(principal: Principal): Promise<ContentRecord[]> {
+    return this.contentByWorkspace.get(principal.workspaceId) ?? [];
+  }
+  async createContent(
+    principal: Principal,
+    input: ContentInput,
+  ): Promise<IdempotentResult<unknown>> {
+    const rows = this.contentByWorkspace.get(principal.workspaceId) ?? [];
+    const row: ContentRecord = {
+      ...input,
+      revision: 1,
+      deletedAt: null,
+      uploadStatus: "pending",
+      storageObjectKey: null,
+    };
+    rows.push(row);
+    this.contentByWorkspace.set(principal.workspaceId, rows);
+    return { value: row, replayed: false };
+  }
+  async updateContent(
+    principal: Principal,
+    id: string,
+    input: ContentUpdateInput,
+  ): Promise<IdempotentResult<unknown>> {
+    const row = (this.contentByWorkspace.get(principal.workspaceId) ?? []).find(
+      (item) => item.id === id,
+    );
+    if (!row) throw new Error("Content missing");
+    Object.assign(row, input, { revision: input.revision + 1 });
+    return { value: row, replayed: false };
+  }
+  async deleteContent(
+    principal: Principal,
+    id: string,
+    input: ContentDeleteInput,
+  ): Promise<IdempotentResult<unknown>> {
+    const row = (this.contentByWorkspace.get(principal.workspaceId) ?? []).find(
+      (item) => item.id === id,
+    );
+    if (!row) throw new Error("Content missing");
+    row.deletedAt = new Date().toISOString();
+    row.revision = input.revision + 1;
+    return { value: row, replayed: false };
+  }
+  async prepareContent(
+    principal: Principal,
+    id: string,
+  ): Promise<ContentRecord> {
+    const row = (this.contentByWorkspace.get(principal.workspaceId) ?? []).find(
+      (item) => item.id === id && !item.deletedAt,
+    );
+    if (!row) throw new Error("Content missing");
+    return row;
+  }
+  async confirmContent(
+    principal: Principal,
+    id: string,
+    _key: string,
+    _hash: string,
+    objectKey: string,
+  ): Promise<IdempotentResult<unknown>> {
+    const row = await this.prepareContent(principal, id);
+    row.uploadStatus = "available";
+    row.storageObjectKey = objectKey;
+    row.revision += 1;
+    return { value: row, replayed: false };
   }
   async listLeads() {
     return [];

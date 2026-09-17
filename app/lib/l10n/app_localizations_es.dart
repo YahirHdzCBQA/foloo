@@ -376,6 +376,21 @@ class AppLocalizationsEs extends AppLocalizations {
       'No se pudo abrir el PDF. Elige un archivo PDF e inténtalo de nuevo.';
 
   @override
+  String get pdfTooLarge =>
+      'Este PDF supera el límite de 25 MB. Elige un archivo más pequeño.';
+
+  @override
+  String get pdfStorageError =>
+      'No se pudo guardar el PDF en este dispositivo. Revisa el espacio disponible e inténtalo de nuevo.';
+
+  @override
+  String get pdfUnavailable =>
+      'Este PDF aún no está disponible en este dispositivo. Conéctate e inténtalo de nuevo.';
+
+  @override
+  String get editContent => 'Editar contenido';
+
+  @override
   String get emailTitle => 'Correo';
 
   @override
@@ -545,7 +560,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get localFilesHelp =>
-      'Los archivos viven en tu teléfono y se adjuntan al correo cuando hay señal.';
+      'Los PDF permanecen en el almacenamiento privado del teléfono y se sincronizan cuando hay conexión.';
 
   @override
   String get emptyRecords => 'Aún no hay registros';
@@ -760,7 +775,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String deleteLocalFileQuestion(Object name) {
-    return '¿Eliminar $name de la biblioteca local?';
+    return '¿Quitar $name de la biblioteca? Los adjuntos de leads existentes no cambian.';
   }
 
   @override

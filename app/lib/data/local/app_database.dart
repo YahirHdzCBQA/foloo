@@ -47,6 +47,28 @@ class LocalEvents extends Table {
   Set<Column<Object>> get primaryKey => {localId};
 }
 
+@DataClassName('StoredContentFile')
+@TableIndex(name: 'content_owner_idx', columns: {#ownerUserId})
+class LocalContentFiles extends Table {
+  TextColumn get localId => text()();
+  TextColumn get ownerUserId => text()();
+  TextColumn get displayName => text()();
+  TextColumn get fileName => text()();
+  IntColumn get byteSize => integer()();
+  TextColumn get localPath => text().nullable()();
+  BoolColumn get allEvents => boolean().withDefault(const Constant(false))();
+  TextColumn get eventIdsJson => text().withDefault(const Constant('[]'))();
+  BoolColumn get deleted => boolean().withDefault(const Constant(false))();
+  TextColumn get uploadState => text().withDefault(const Constant('pending'))();
+  TextColumn get syncState => text().withDefault(const Constant('local'))();
+  IntColumn get remoteRevision => integer().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {localId};
+}
+
 @DataClassName('StoredLead')
 @TableIndex(name: 'lead_event_idx', columns: {#eventLocalId})
 @TableIndex(name: 'lead_captured_idx', columns: {#capturedAt})
@@ -281,6 +303,58 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
               remoteRevision: Value(revision),
             ),
           );
+}
+
+@DriftAccessor(tables: [LocalContentFiles])
+class ContentDao extends DatabaseAccessor<AppDatabase> with _$ContentDaoMixin {
+  ContentDao(super.db);
+
+  Future<List<StoredContentFile>> list(String owner) =>
+      (select(localContentFiles)
+            ..where(
+              (row) =>
+                  row.ownerUserId.equals(owner) & row.deleted.equals(false),
+            )
+            ..orderBy([(row) => OrderingTerm.desc(row.createdAt)]))
+          .get();
+
+  Future<StoredContentFile?> byId(String owner, String id) =>
+      (select(localContentFiles)..where(
+            (row) => row.ownerUserId.equals(owner) & row.localId.equals(id),
+          ))
+          .getSingleOrNull();
+
+  Future<StoredContentFile?> byAnyId(String id) => (select(
+    localContentFiles,
+  )..where((row) => row.localId.equals(id))).getSingleOrNull();
+
+  Future<void> upsert(LocalContentFilesCompanion file) =>
+      into(localContentFiles).insertOnConflictUpdate(file);
+
+  Future<void> markSynced(
+    String owner,
+    String id,
+    int revision, {
+    bool uploaded = false,
+  }) =>
+      (update(localContentFiles)..where(
+            (row) => row.ownerUserId.equals(owner) & row.localId.equals(id),
+          ))
+          .write(
+            LocalContentFilesCompanion(
+              syncState: const Value('synced'),
+              remoteRevision: Value(revision),
+              uploadState: uploaded
+                  ? const Value('available')
+                  : const Value.absent(),
+            ),
+          );
+
+  Future<void> markState(String owner, String id, String state) =>
+      (update(localContentFiles)..where(
+            (row) => row.ownerUserId.equals(owner) & row.localId.equals(id),
+          ))
+          .write(LocalContentFilesCompanion(syncState: Value(state)));
 }
 
 @DriftAccessor(tables: [LocalLeads, LocalLeadMedia])
@@ -588,13 +662,14 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
   tables: [
     LocalProfiles,
     LocalEvents,
+    LocalContentFiles,
     LocalLeads,
     LocalLeadMedia,
     LocalPreferences,
     LocalUserPreferences,
     SyncOperations,
   ],
-  daos: [ProfilePreferencesDao, EventDao, LeadDao, SyncDao],
+  daos: [ProfilePreferencesDao, EventDao, ContentDao, LeadDao, SyncDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
@@ -609,7 +684,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -647,6 +722,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 5) {
         await migrator.addColumn(localEvents, localEvents.remoteRevision);
+      }
+      if (from < 6) {
+        await migrator.createTable(localContentFiles);
       }
     },
     beforeOpen: (details) async {

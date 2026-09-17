@@ -4,6 +4,10 @@ import type {
   EventInput,
   EventUpdateInput,
   EventDeleteInput,
+  ContentInput,
+  ContentUpdateInput,
+  ContentDeleteInput,
+  ContentRecord,
   IdempotentResult,
   LeadInput,
   LeadUpdateInput,
@@ -41,6 +45,35 @@ export interface FolooRepository {
     input: EventDeleteInput,
     idempotencyKey: string,
     requestHash: string,
+  ): Promise<IdempotentResult<unknown>>;
+  listContent(principal: Principal): Promise<ContentRecord[]>;
+  createContent(
+    principal: Principal,
+    input: ContentInput,
+    key: string,
+    hash: string,
+  ): Promise<IdempotentResult<unknown>>;
+  updateContent(
+    principal: Principal,
+    id: string,
+    input: ContentUpdateInput,
+    key: string,
+    hash: string,
+  ): Promise<IdempotentResult<unknown>>;
+  deleteContent(
+    principal: Principal,
+    id: string,
+    input: ContentDeleteInput,
+    key: string,
+    hash: string,
+  ): Promise<IdempotentResult<unknown>>;
+  prepareContent(principal: Principal, id: string): Promise<ContentRecord>;
+  confirmContent(
+    principal: Principal,
+    id: string,
+    key: string,
+    hash: string,
+    objectKey: string,
   ): Promise<IdempotentResult<unknown>>;
   listLeads(principal: Principal): Promise<unknown[]>;
   createLead(

@@ -51,8 +51,8 @@ idempotentes y reconciliación local-first.
 - PostgreSQL conserva metadata/estado mediante migration 002; no binarios.
 - Trazas: `SYN-04`–`SYN-10`, `INF-02`, `RC-02`, `RC-03`.
 - Validación AWS DEV y política final de retención siguen pendientes. D-05 no
-  impide el techo técnico antiabuso; D-08/PDF permanece en FL-018 y D-13 no se
-  considera resuelta.
+  impide el techo técnico antiabuso; el contrato PDF se definió en FL-018 y
+  D-13 no se considera resuelta.
 
 ## FL-017 — Records + XLSX/CSV Export
 
@@ -70,7 +70,7 @@ física sobre la misma instalación de iPhone. No cerrar todavía.
 
 - Biblioteca PDF, asignación/evento y adjuntos congelados.
 - Trazas: `CON-*`, E-07.
-- Bloqueos: D-08/D-11.
+- D-08 resuelta el 2026-09-17: 25 MB/PDF, sin cuota comercial total ni desalojo automático; borrado lógico sin `DeleteObject`. D-11 no bloquea funcionalidad técnica, solo fidelidad visual final.
 
 ## FL-019 — Email/Templates
 

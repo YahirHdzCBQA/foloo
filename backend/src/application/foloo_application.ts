@@ -5,6 +5,9 @@ import type {
   EventInput,
   EventUpdateInput,
   EventDeleteInput,
+  ContentInput,
+  ContentUpdateInput,
+  ContentDeleteInput,
   LeadInput,
   LeadUpdateInput,
   LeadMediaInput,
@@ -68,6 +71,75 @@ export class FolooApplication {
   ) {
     const principal = await this.repository.resolvePrincipal(subject);
     return this.repository.deleteEvent(principal, eventId, input, key, hash);
+  }
+
+  async content(subject: string) {
+    const principal = await this.repository.resolvePrincipal(subject);
+    const rows = await this.repository.listContent(principal);
+    return Promise.all(
+      rows.map(async ({ storageObjectKey, ...row }) => ({
+        ...row,
+        download:
+          row.uploadStatus === "available" &&
+          !row.deletedAt &&
+          storageObjectKey &&
+          this.mediaStorage
+            ? await this.mediaStorage.authorizeDownload(storageObjectKey)
+            : null,
+      })),
+    );
+  }
+
+  async createContent(
+    subject: string,
+    input: ContentInput,
+    key: string,
+    hash: string,
+  ) {
+    const principal = await this.repository.resolvePrincipal(subject);
+    return this.repository.createContent(principal, input, key, hash);
+  }
+
+  async updateContent(
+    subject: string,
+    id: string,
+    input: ContentUpdateInput,
+    key: string,
+    hash: string,
+  ) {
+    const principal = await this.repository.resolvePrincipal(subject);
+    return this.repository.updateContent(principal, id, input, key, hash);
+  }
+
+  async deleteContent(
+    subject: string,
+    id: string,
+    input: ContentDeleteInput,
+    key: string,
+    hash: string,
+  ) {
+    const principal = await this.repository.resolvePrincipal(subject);
+    return this.repository.deleteContent(principal, id, input, key, hash);
+  }
+
+  async prepareContentUpload(subject: string, id: string) {
+    const storage = this.requiredMediaStorage();
+    const principal = await this.repository.resolvePrincipal(subject);
+    const content = await this.repository.prepareContent(principal, id);
+    return storage.authorizeContentUpload(
+      principal,
+      id,
+      Number(content.byteSize),
+    );
+  }
+
+  async confirmContent(subject: string, id: string, key: string, hash: string) {
+    const storage = this.requiredMediaStorage();
+    const principal = await this.repository.resolvePrincipal(subject);
+    const content = await this.repository.prepareContent(principal, id);
+    const objectKey = storage.contentObjectKey(principal, id);
+    await storage.verifyContentUpload(objectKey, id, Number(content.byteSize));
+    return this.repository.confirmContent(principal, id, key, hash, objectKey);
   }
 
   async leads(subject: string) {

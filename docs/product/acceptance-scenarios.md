@@ -98,6 +98,12 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Crear evento permite seleccionar contenido existente o iniciar PDF.
 - Adjuntos elegidos quedan congelados por Lead y un PDF atascado no bloquea
   Leads.
+- El PDF de hasta 25 000 000 bytes se copia a almacenamiento privado antes de
+  encolarse, se abre offline desde esa copia y no se desaloja automáticamente.
+  Un archivo mayor, inválido o sin espacio disponible se rechaza con error ES/EN.
+- Upload/confirmación a S3 y descarga autenticada usan URLs temporales sin
+  persistirlas; un retry conserva identidad y copia local. El borrado lógico
+  deja de ofrecer el Content activo y no borra S3 ni adjuntos históricos.
 
 ## E-08 · Plantillas y correo
 

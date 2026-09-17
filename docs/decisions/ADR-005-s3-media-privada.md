@@ -2,7 +2,7 @@
 
 - Estado: Aceptado
 - Fecha: 2026-09-11
-- Alcance: FL-016, medios de Leads Foloo V1
+- Alcance: FL-016 Lead media; FL-018 Content/PDF Foloo V1
 - Trazas: `CAP-08`, `CAP-09`, `VOZ-04`, `VOZ-05`, `SYN-04`–`SYN-10`,
   `INF-02`, `INF-10`, `RNF-05`, `RNF-07`, `RC-02`, `RC-03`, E-09/E-12/E-13
 
@@ -42,5 +42,18 @@ Evento → Lead → Media. PostgreSQL agrega estado/timestamp pero no binarios n
 URLs temporales. Una falla S3 deja el medio retryable y no degrada un Lead ya
 sincronizado. No se adelanta PDF/FL-018, CDN, thumbnails, IA o transcripción.
 
-Retención, borrado legal y limpieza de caché local/remota permanecen en D-13;
+Retención, borrado legal y limpieza física remota permanecen en D-13;
 por ello no se configura lifecycle ni eliminación automática en FL-016.
+
+## Extensión FL-018 — PDF
+
+`CON-05`, `CON-09`, `CON-10` y E-07 reutilizan la transferencia directa: un
+Content owner-scoped se crea en PostgreSQL, solicita PUT temporal para su key
+determinística, confirma tamaño/MIME/metadata/firma `%PDF-` y publica GET
+temporal para otro dispositivo. El límite por PDF es 25 000 000 bytes. La copia
+privada local permanece después del upload y no se desaloja automáticamente.
+La firma es una comprobación básica de formato, no un análisis antimalware;
+FL-018 no añade un escáner ni presenta los PDF como libres de malware.
+El borrado de Content es un tombstone sincronizado; no invoca `DeleteObject` ni
+borra Events, Leads o sus medios. D-13 sigue decidiendo retención y limpieza
+física remota, sin plazo implícito en FL-018.

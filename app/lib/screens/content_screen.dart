@@ -1,10 +1,13 @@
-/// V1 content library for locally selected, event-scoped PDFs.
+/// V1 content library for durable, event-scoped private PDFs.
 ///
-/// The screen owns native selection and session metadata only; upload,
-/// persistence and delivery remain backend work.
+/// The screen delegates persistence to the app repository and renders local
+/// copies without needing a network connection (CON-02/CON-04/CON-09).
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
@@ -16,9 +19,7 @@ import '../widgets/app_drawer.dart';
 import '../widgets/content_assignment_sheet.dart';
 import '../widgets/module_header.dart';
 
-/// Lists and edits session-only V1 content metadata.
-///
-/// DEMO: Durable content storage and upload remain future work.
+/// Lists PDF metadata, opens the private copy, and edits event assignments.
 class ContentScreen extends StatefulWidget {
   const ContentScreen({
     required this.files,
@@ -32,6 +33,7 @@ class ContentScreen extends StatefulWidget {
     required this.onFileAdded,
     required this.onFileUpdated,
     required this.onFileDeleted,
+    this.demoMode = false,
     this.pdfPickerService,
     super.key,
   });
@@ -43,9 +45,10 @@ class ContentScreen extends StatefulWidget {
   final ValueChanged<AppDestination> onDestinationSelected;
   final ValueChanged<bool> onAppearanceChanged;
   final VoidCallback onLogout;
-  final ValueChanged<ContentFile> onFileAdded;
-  final ValueChanged<ContentFile> onFileUpdated;
-  final ValueChanged<ContentFile> onFileDeleted;
+  final Future<void> Function(ContentFile) onFileAdded;
+  final Future<void> Function(ContentFile) onFileUpdated;
+  final Future<void> Function(ContentFile) onFileDeleted;
+  final bool demoMode;
   final PdfPickerService? pdfPickerService;
 
   @override
@@ -61,6 +64,15 @@ class _ContentScreenState extends State<ContentScreen> {
   void initState() {
     super.initState();
     _pdfPicker = widget.pdfPickerService ?? const DevicePdfPickerService();
+  }
+
+  @override
+  void didUpdateWidget(covariant ContentScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_eventId != null &&
+        !widget.events.any((event) => event.id == _eventId)) {
+      _eventId = null;
+    }
   }
 
   List<ContentFile> get _visible => _eventId == null
@@ -83,12 +95,17 @@ class _ContentScreenState extends State<ContentScreen> {
       return;
     }
     if (!mounted || pickedPdf == null) return;
+    if (pickedPdf.byteSize > 25000000) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.pdfTooLarge)));
+      return;
+    }
     final result = await showContentAssignmentSheet(
       context,
       events: widget.events,
       pickedPdf: pickedPdf,
     );
-    if (result != null) widget.onFileAdded(result);
+    if (result != null) await widget.onFileAdded(result);
   }
 
   Future<void> _edit(ContentFile file) async {
@@ -97,7 +114,29 @@ class _ContentScreenState extends State<ContentScreen> {
       events: widget.events,
       file: file,
     );
-    if (result != null) widget.onFileUpdated(result);
+    if (result != null) await widget.onFileUpdated(result);
+  }
+
+  Future<void> _open(ContentFile file) async {
+    final path = file.localPath;
+    if (path == null || !await File(path).exists()) {
+      if (widget.demoMode) {
+        await _edit(file);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(context.l10n.pdfUnavailable)));
+      }
+      return;
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: Text(file.displayName)),
+          body: PdfViewer.file(path),
+        ),
+      ),
+    );
   }
 
   @override
@@ -224,7 +263,8 @@ class _ContentScreenState extends State<ContentScreen> {
                         key: Key('contentFile-${file.id}'),
                         file: file,
                         eventNames: names,
-                        onTap: () => _edit(file),
+                        onTap: () => _open(file),
+                        onEdit: () => _edit(file),
                         onDelete: () => showDialog<void>(
                           context: context,
                           builder: (dialogContext) => AlertDialog(
@@ -240,9 +280,9 @@ class _ContentScreenState extends State<ContentScreen> {
                                 child: Text(context.l10n.cancel),
                               ),
                               FilledButton(
-                                onPressed: () {
+                                onPressed: () async {
                                   Navigator.pop(dialogContext);
-                                  widget.onFileDeleted(file);
+                                  await widget.onFileDeleted(file);
                                 },
                                 child: Text(context.l10n.delete),
                               ),
@@ -353,6 +393,7 @@ class _ContentFileCard extends StatelessWidget {
     required this.file,
     required this.eventNames,
     required this.onTap,
+    required this.onEdit,
     required this.onDelete,
     super.key,
   });
@@ -360,6 +401,7 @@ class _ContentFileCard extends StatelessWidget {
   final ContentFile file;
   final List<String> eventNames;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   @override
@@ -432,6 +474,11 @@ class _ContentFileCard extends StatelessWidget {
                     ],
                   ],
                 ),
+              ),
+              IconButton(
+                tooltip: context.l10n.editContent,
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined, size: 18),
               ),
               IconButton(
                 tooltip: context.l10n.deleteFile,

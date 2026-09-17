@@ -74,7 +74,11 @@ class IoMediaBinaryTransfer implements MediaBinaryTransfer {
     required Uri url,
     required String contentType,
   }) async {
-    final extension = contentType == 'audio/m4a' ? '.m4a' : '.jpg';
+    final extension = contentType == 'application/pdf'
+        ? '.pdf'
+        : contentType == 'audio/m4a'
+        ? '.m4a'
+        : '.jpg';
     final destination = File(
       '${Directory.systemTemp.path}${Platform.pathSeparator}'
       'foloo_media_${DateTime.now().microsecondsSinceEpoch}$extension',

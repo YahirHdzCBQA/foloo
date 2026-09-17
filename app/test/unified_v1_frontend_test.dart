@@ -405,6 +405,31 @@ void main() {
     );
   });
 
+  testWidgets('CON-05 cancel keeps Content; confirm removes it from library', (
+    tester,
+  ) async {
+    phone(tester);
+    await login(tester);
+    await drawer(tester);
+    await tester.tap(find.byKey(const Key('drawerContent')));
+    await tester.pumpAndSettle();
+    final card = find.byKey(const Key('contentFile-scanley-ims'));
+    await tester.tap(
+      find.descendant(of: card, matching: find.byIcon(Icons.delete_outline)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancelar').last);
+    await tester.pumpAndSettle();
+    expect(card, findsOneWidget);
+    await tester.tap(
+      find.descendant(of: card, matching: find.byIcon(Icons.delete_outline)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Eliminar').last);
+    await tester.pumpAndSettle();
+    expect(card, findsNothing);
+  });
+
   testWidgets('V1 templates are independent and reject unknown variables', (
     tester,
   ) async {

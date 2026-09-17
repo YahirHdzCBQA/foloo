@@ -83,6 +83,17 @@ class MediaRepository extends MemoryRepository {
 }
 
 class FakeMediaStorage implements MediaStorage {
+  contentObjectKey(principal: Principal, contentId: string): string {
+    return `content/${principal.workspaceId}/${contentId}`;
+  }
+  async authorizeContentUpload(): Promise<{
+    upload: MediaUploadAuthorization["upload"];
+  }> {
+    throw new Error("not used");
+  }
+  async verifyContentUpload(): Promise<void> {
+    throw new Error("not used");
+  }
   verified: string[] = [];
 
   objectKey(principal: Principal, targetLeadId: string, mediaId: string) {
@@ -266,6 +277,29 @@ test("S3 confirmation verifies metadata and the actual JPEG signature", async ()
     "GetObjectCommand",
     "GetObjectCommand",
   ]);
+});
+
+test("FL-018 S3 confirmation accepts only matching PDF metadata and signature", async () => {
+  const client = {
+    send: async (command: object) =>
+      command.constructor.name === "HeadObjectCommand"
+        ? {
+            ContentLength: 8,
+            ContentType: "application/pdf",
+            Metadata: { "foloo-content-id": media.id },
+          }
+        : {
+            Body: {
+              transformToByteArray: async () =>
+                Uint8Array.from(Buffer.from("%PDF-", "ascii")),
+            },
+          },
+  } as unknown as S3Client;
+  const storage = new S3MediaStorage("private-bucket", client);
+  await storage.verifyContentUpload("content/derived/key", media.id, 8);
+  await assert.rejects(
+    storage.verifyContentUpload("content/derived/key", media.id, 25_000_001),
+  );
 });
 
 test("S3 confirmation accepts a valid reference-image JPEG", async () => {

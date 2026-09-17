@@ -8,7 +8,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 void main() {
   test(
-    'v1 to v5 preserves rows and adds outbox plus nullable revisions',
+    'v1 to v6 preserves rows and adds outbox, revisions and Content',
     () async {
       final directory = await Directory.systemTemp.createTemp('foloo_v1_v2_');
       addTearDown(() async {
@@ -132,7 +132,7 @@ void main() {
       final version = await database
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 5);
+      expect(version.read<int>('user_version'), 6);
       expect(await database.select(database.syncOperations).get(), isEmpty);
 
       final profiles = await database.select(database.localProfiles).get();

@@ -42,6 +42,22 @@ class EventDaoManager {
       $$LocalEventsTableTableManager(_db.attachedDatabase, _db.localEvents);
 }
 
+mixin _$ContentDaoMixin on DatabaseAccessor<AppDatabase> {
+  $LocalContentFilesTable get localContentFiles =>
+      attachedDatabase.localContentFiles;
+  ContentDaoManager get managers => ContentDaoManager(this);
+}
+
+class ContentDaoManager {
+  final _$ContentDaoMixin _db;
+  ContentDaoManager(this._db);
+  $$LocalContentFilesTableTableManager get localContentFiles =>
+      $$LocalContentFilesTableTableManager(
+        _db.attachedDatabase,
+        _db.localContentFiles,
+      );
+}
+
 mixin _$LeadDaoMixin on DatabaseAccessor<AppDatabase> {
   $LocalEventsTable get localEvents => attachedDatabase.localEvents;
   $LocalLeadsTable get localLeads => attachedDatabase.localLeads;
@@ -1322,6 +1338,837 @@ class LocalEventsCompanion extends UpdateCompanion<StoredEvent> {
           ..write('updatedAt: $updatedAt, ')
           ..write('syncState: $syncState, ')
           ..write('remoteRevision: $remoteRevision, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LocalContentFilesTable extends LocalContentFiles
+    with TableInfo<$LocalContentFilesTable, StoredContentFile> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalContentFilesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _localIdMeta = const VerificationMeta(
+    'localId',
+  );
+  @override
+  late final GeneratedColumn<String> localId = GeneratedColumn<String>(
+    'local_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ownerUserIdMeta = const VerificationMeta(
+    'ownerUserId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerUserId = GeneratedColumn<String>(
+    'owner_user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _displayNameMeta = const VerificationMeta(
+    'displayName',
+  );
+  @override
+  late final GeneratedColumn<String> displayName = GeneratedColumn<String>(
+    'display_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fileNameMeta = const VerificationMeta(
+    'fileName',
+  );
+  @override
+  late final GeneratedColumn<String> fileName = GeneratedColumn<String>(
+    'file_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _byteSizeMeta = const VerificationMeta(
+    'byteSize',
+  );
+  @override
+  late final GeneratedColumn<int> byteSize = GeneratedColumn<int>(
+    'byte_size',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _localPathMeta = const VerificationMeta(
+    'localPath',
+  );
+  @override
+  late final GeneratedColumn<String> localPath = GeneratedColumn<String>(
+    'local_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _allEventsMeta = const VerificationMeta(
+    'allEvents',
+  );
+  @override
+  late final GeneratedColumn<bool> allEvents = GeneratedColumn<bool>(
+    'all_events',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("all_events" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _eventIdsJsonMeta = const VerificationMeta(
+    'eventIdsJson',
+  );
+  @override
+  late final GeneratedColumn<String> eventIdsJson = GeneratedColumn<String>(
+    'event_ids_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _deletedMeta = const VerificationMeta(
+    'deleted',
+  );
+  @override
+  late final GeneratedColumn<bool> deleted = GeneratedColumn<bool>(
+    'deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _uploadStateMeta = const VerificationMeta(
+    'uploadState',
+  );
+  @override
+  late final GeneratedColumn<String> uploadState = GeneratedColumn<String>(
+    'upload_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _syncStateMeta = const VerificationMeta(
+    'syncState',
+  );
+  @override
+  late final GeneratedColumn<String> syncState = GeneratedColumn<String>(
+    'sync_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('local'),
+  );
+  static const VerificationMeta _remoteRevisionMeta = const VerificationMeta(
+    'remoteRevision',
+  );
+  @override
+  late final GeneratedColumn<int> remoteRevision = GeneratedColumn<int>(
+    'remote_revision',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    localId,
+    ownerUserId,
+    displayName,
+    fileName,
+    byteSize,
+    localPath,
+    allEvents,
+    eventIdsJson,
+    deleted,
+    uploadState,
+    syncState,
+    remoteRevision,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_content_files';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StoredContentFile> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('local_id')) {
+      context.handle(
+        _localIdMeta,
+        localId.isAcceptableOrUnknown(data['local_id']!, _localIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_localIdMeta);
+    }
+    if (data.containsKey('owner_user_id')) {
+      context.handle(
+        _ownerUserIdMeta,
+        ownerUserId.isAcceptableOrUnknown(
+          data['owner_user_id']!,
+          _ownerUserIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerUserIdMeta);
+    }
+    if (data.containsKey('display_name')) {
+      context.handle(
+        _displayNameMeta,
+        displayName.isAcceptableOrUnknown(
+          data['display_name']!,
+          _displayNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_displayNameMeta);
+    }
+    if (data.containsKey('file_name')) {
+      context.handle(
+        _fileNameMeta,
+        fileName.isAcceptableOrUnknown(data['file_name']!, _fileNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fileNameMeta);
+    }
+    if (data.containsKey('byte_size')) {
+      context.handle(
+        _byteSizeMeta,
+        byteSize.isAcceptableOrUnknown(data['byte_size']!, _byteSizeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_byteSizeMeta);
+    }
+    if (data.containsKey('local_path')) {
+      context.handle(
+        _localPathMeta,
+        localPath.isAcceptableOrUnknown(data['local_path']!, _localPathMeta),
+      );
+    }
+    if (data.containsKey('all_events')) {
+      context.handle(
+        _allEventsMeta,
+        allEvents.isAcceptableOrUnknown(data['all_events']!, _allEventsMeta),
+      );
+    }
+    if (data.containsKey('event_ids_json')) {
+      context.handle(
+        _eventIdsJsonMeta,
+        eventIdsJson.isAcceptableOrUnknown(
+          data['event_ids_json']!,
+          _eventIdsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('deleted')) {
+      context.handle(
+        _deletedMeta,
+        deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
+      );
+    }
+    if (data.containsKey('upload_state')) {
+      context.handle(
+        _uploadStateMeta,
+        uploadState.isAcceptableOrUnknown(
+          data['upload_state']!,
+          _uploadStateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sync_state')) {
+      context.handle(
+        _syncStateMeta,
+        syncState.isAcceptableOrUnknown(data['sync_state']!, _syncStateMeta),
+      );
+    }
+    if (data.containsKey('remote_revision')) {
+      context.handle(
+        _remoteRevisionMeta,
+        remoteRevision.isAcceptableOrUnknown(
+          data['remote_revision']!,
+          _remoteRevisionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {localId};
+  @override
+  StoredContentFile map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StoredContentFile(
+      localId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_id'],
+      )!,
+      ownerUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_user_id'],
+      )!,
+      displayName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}display_name'],
+      )!,
+      fileName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_name'],
+      )!,
+      byteSize: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}byte_size'],
+      )!,
+      localPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_path'],
+      ),
+      allEvents: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}all_events'],
+      )!,
+      eventIdsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_ids_json'],
+      )!,
+      deleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}deleted'],
+      )!,
+      uploadState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}upload_state'],
+      )!,
+      syncState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_state'],
+      )!,
+      remoteRevision: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}remote_revision'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalContentFilesTable createAlias(String alias) {
+    return $LocalContentFilesTable(attachedDatabase, alias);
+  }
+}
+
+class StoredContentFile extends DataClass
+    implements Insertable<StoredContentFile> {
+  final String localId;
+  final String ownerUserId;
+  final String displayName;
+  final String fileName;
+  final int byteSize;
+  final String? localPath;
+  final bool allEvents;
+  final String eventIdsJson;
+  final bool deleted;
+  final String uploadState;
+  final String syncState;
+  final int? remoteRevision;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const StoredContentFile({
+    required this.localId,
+    required this.ownerUserId,
+    required this.displayName,
+    required this.fileName,
+    required this.byteSize,
+    this.localPath,
+    required this.allEvents,
+    required this.eventIdsJson,
+    required this.deleted,
+    required this.uploadState,
+    required this.syncState,
+    this.remoteRevision,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['local_id'] = Variable<String>(localId);
+    map['owner_user_id'] = Variable<String>(ownerUserId);
+    map['display_name'] = Variable<String>(displayName);
+    map['file_name'] = Variable<String>(fileName);
+    map['byte_size'] = Variable<int>(byteSize);
+    if (!nullToAbsent || localPath != null) {
+      map['local_path'] = Variable<String>(localPath);
+    }
+    map['all_events'] = Variable<bool>(allEvents);
+    map['event_ids_json'] = Variable<String>(eventIdsJson);
+    map['deleted'] = Variable<bool>(deleted);
+    map['upload_state'] = Variable<String>(uploadState);
+    map['sync_state'] = Variable<String>(syncState);
+    if (!nullToAbsent || remoteRevision != null) {
+      map['remote_revision'] = Variable<int>(remoteRevision);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  LocalContentFilesCompanion toCompanion(bool nullToAbsent) {
+    return LocalContentFilesCompanion(
+      localId: Value(localId),
+      ownerUserId: Value(ownerUserId),
+      displayName: Value(displayName),
+      fileName: Value(fileName),
+      byteSize: Value(byteSize),
+      localPath: localPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(localPath),
+      allEvents: Value(allEvents),
+      eventIdsJson: Value(eventIdsJson),
+      deleted: Value(deleted),
+      uploadState: Value(uploadState),
+      syncState: Value(syncState),
+      remoteRevision: remoteRevision == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteRevision),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory StoredContentFile.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StoredContentFile(
+      localId: serializer.fromJson<String>(json['localId']),
+      ownerUserId: serializer.fromJson<String>(json['ownerUserId']),
+      displayName: serializer.fromJson<String>(json['displayName']),
+      fileName: serializer.fromJson<String>(json['fileName']),
+      byteSize: serializer.fromJson<int>(json['byteSize']),
+      localPath: serializer.fromJson<String?>(json['localPath']),
+      allEvents: serializer.fromJson<bool>(json['allEvents']),
+      eventIdsJson: serializer.fromJson<String>(json['eventIdsJson']),
+      deleted: serializer.fromJson<bool>(json['deleted']),
+      uploadState: serializer.fromJson<String>(json['uploadState']),
+      syncState: serializer.fromJson<String>(json['syncState']),
+      remoteRevision: serializer.fromJson<int?>(json['remoteRevision']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'localId': serializer.toJson<String>(localId),
+      'ownerUserId': serializer.toJson<String>(ownerUserId),
+      'displayName': serializer.toJson<String>(displayName),
+      'fileName': serializer.toJson<String>(fileName),
+      'byteSize': serializer.toJson<int>(byteSize),
+      'localPath': serializer.toJson<String?>(localPath),
+      'allEvents': serializer.toJson<bool>(allEvents),
+      'eventIdsJson': serializer.toJson<String>(eventIdsJson),
+      'deleted': serializer.toJson<bool>(deleted),
+      'uploadState': serializer.toJson<String>(uploadState),
+      'syncState': serializer.toJson<String>(syncState),
+      'remoteRevision': serializer.toJson<int?>(remoteRevision),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  StoredContentFile copyWith({
+    String? localId,
+    String? ownerUserId,
+    String? displayName,
+    String? fileName,
+    int? byteSize,
+    Value<String?> localPath = const Value.absent(),
+    bool? allEvents,
+    String? eventIdsJson,
+    bool? deleted,
+    String? uploadState,
+    String? syncState,
+    Value<int?> remoteRevision = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => StoredContentFile(
+    localId: localId ?? this.localId,
+    ownerUserId: ownerUserId ?? this.ownerUserId,
+    displayName: displayName ?? this.displayName,
+    fileName: fileName ?? this.fileName,
+    byteSize: byteSize ?? this.byteSize,
+    localPath: localPath.present ? localPath.value : this.localPath,
+    allEvents: allEvents ?? this.allEvents,
+    eventIdsJson: eventIdsJson ?? this.eventIdsJson,
+    deleted: deleted ?? this.deleted,
+    uploadState: uploadState ?? this.uploadState,
+    syncState: syncState ?? this.syncState,
+    remoteRevision: remoteRevision.present
+        ? remoteRevision.value
+        : this.remoteRevision,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  StoredContentFile copyWithCompanion(LocalContentFilesCompanion data) {
+    return StoredContentFile(
+      localId: data.localId.present ? data.localId.value : this.localId,
+      ownerUserId: data.ownerUserId.present
+          ? data.ownerUserId.value
+          : this.ownerUserId,
+      displayName: data.displayName.present
+          ? data.displayName.value
+          : this.displayName,
+      fileName: data.fileName.present ? data.fileName.value : this.fileName,
+      byteSize: data.byteSize.present ? data.byteSize.value : this.byteSize,
+      localPath: data.localPath.present ? data.localPath.value : this.localPath,
+      allEvents: data.allEvents.present ? data.allEvents.value : this.allEvents,
+      eventIdsJson: data.eventIdsJson.present
+          ? data.eventIdsJson.value
+          : this.eventIdsJson,
+      deleted: data.deleted.present ? data.deleted.value : this.deleted,
+      uploadState: data.uploadState.present
+          ? data.uploadState.value
+          : this.uploadState,
+      syncState: data.syncState.present ? data.syncState.value : this.syncState,
+      remoteRevision: data.remoteRevision.present
+          ? data.remoteRevision.value
+          : this.remoteRevision,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredContentFile(')
+          ..write('localId: $localId, ')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('displayName: $displayName, ')
+          ..write('fileName: $fileName, ')
+          ..write('byteSize: $byteSize, ')
+          ..write('localPath: $localPath, ')
+          ..write('allEvents: $allEvents, ')
+          ..write('eventIdsJson: $eventIdsJson, ')
+          ..write('deleted: $deleted, ')
+          ..write('uploadState: $uploadState, ')
+          ..write('syncState: $syncState, ')
+          ..write('remoteRevision: $remoteRevision, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    localId,
+    ownerUserId,
+    displayName,
+    fileName,
+    byteSize,
+    localPath,
+    allEvents,
+    eventIdsJson,
+    deleted,
+    uploadState,
+    syncState,
+    remoteRevision,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StoredContentFile &&
+          other.localId == this.localId &&
+          other.ownerUserId == this.ownerUserId &&
+          other.displayName == this.displayName &&
+          other.fileName == this.fileName &&
+          other.byteSize == this.byteSize &&
+          other.localPath == this.localPath &&
+          other.allEvents == this.allEvents &&
+          other.eventIdsJson == this.eventIdsJson &&
+          other.deleted == this.deleted &&
+          other.uploadState == this.uploadState &&
+          other.syncState == this.syncState &&
+          other.remoteRevision == this.remoteRevision &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class LocalContentFilesCompanion extends UpdateCompanion<StoredContentFile> {
+  final Value<String> localId;
+  final Value<String> ownerUserId;
+  final Value<String> displayName;
+  final Value<String> fileName;
+  final Value<int> byteSize;
+  final Value<String?> localPath;
+  final Value<bool> allEvents;
+  final Value<String> eventIdsJson;
+  final Value<bool> deleted;
+  final Value<String> uploadState;
+  final Value<String> syncState;
+  final Value<int?> remoteRevision;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const LocalContentFilesCompanion({
+    this.localId = const Value.absent(),
+    this.ownerUserId = const Value.absent(),
+    this.displayName = const Value.absent(),
+    this.fileName = const Value.absent(),
+    this.byteSize = const Value.absent(),
+    this.localPath = const Value.absent(),
+    this.allEvents = const Value.absent(),
+    this.eventIdsJson = const Value.absent(),
+    this.deleted = const Value.absent(),
+    this.uploadState = const Value.absent(),
+    this.syncState = const Value.absent(),
+    this.remoteRevision = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalContentFilesCompanion.insert({
+    required String localId,
+    required String ownerUserId,
+    required String displayName,
+    required String fileName,
+    required int byteSize,
+    this.localPath = const Value.absent(),
+    this.allEvents = const Value.absent(),
+    this.eventIdsJson = const Value.absent(),
+    this.deleted = const Value.absent(),
+    this.uploadState = const Value.absent(),
+    this.syncState = const Value.absent(),
+    this.remoteRevision = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : localId = Value(localId),
+       ownerUserId = Value(ownerUserId),
+       displayName = Value(displayName),
+       fileName = Value(fileName),
+       byteSize = Value(byteSize),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<StoredContentFile> custom({
+    Expression<String>? localId,
+    Expression<String>? ownerUserId,
+    Expression<String>? displayName,
+    Expression<String>? fileName,
+    Expression<int>? byteSize,
+    Expression<String>? localPath,
+    Expression<bool>? allEvents,
+    Expression<String>? eventIdsJson,
+    Expression<bool>? deleted,
+    Expression<String>? uploadState,
+    Expression<String>? syncState,
+    Expression<int>? remoteRevision,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (localId != null) 'local_id': localId,
+      if (ownerUserId != null) 'owner_user_id': ownerUserId,
+      if (displayName != null) 'display_name': displayName,
+      if (fileName != null) 'file_name': fileName,
+      if (byteSize != null) 'byte_size': byteSize,
+      if (localPath != null) 'local_path': localPath,
+      if (allEvents != null) 'all_events': allEvents,
+      if (eventIdsJson != null) 'event_ids_json': eventIdsJson,
+      if (deleted != null) 'deleted': deleted,
+      if (uploadState != null) 'upload_state': uploadState,
+      if (syncState != null) 'sync_state': syncState,
+      if (remoteRevision != null) 'remote_revision': remoteRevision,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalContentFilesCompanion copyWith({
+    Value<String>? localId,
+    Value<String>? ownerUserId,
+    Value<String>? displayName,
+    Value<String>? fileName,
+    Value<int>? byteSize,
+    Value<String?>? localPath,
+    Value<bool>? allEvents,
+    Value<String>? eventIdsJson,
+    Value<bool>? deleted,
+    Value<String>? uploadState,
+    Value<String>? syncState,
+    Value<int?>? remoteRevision,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return LocalContentFilesCompanion(
+      localId: localId ?? this.localId,
+      ownerUserId: ownerUserId ?? this.ownerUserId,
+      displayName: displayName ?? this.displayName,
+      fileName: fileName ?? this.fileName,
+      byteSize: byteSize ?? this.byteSize,
+      localPath: localPath ?? this.localPath,
+      allEvents: allEvents ?? this.allEvents,
+      eventIdsJson: eventIdsJson ?? this.eventIdsJson,
+      deleted: deleted ?? this.deleted,
+      uploadState: uploadState ?? this.uploadState,
+      syncState: syncState ?? this.syncState,
+      remoteRevision: remoteRevision ?? this.remoteRevision,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (localId.present) {
+      map['local_id'] = Variable<String>(localId.value);
+    }
+    if (ownerUserId.present) {
+      map['owner_user_id'] = Variable<String>(ownerUserId.value);
+    }
+    if (displayName.present) {
+      map['display_name'] = Variable<String>(displayName.value);
+    }
+    if (fileName.present) {
+      map['file_name'] = Variable<String>(fileName.value);
+    }
+    if (byteSize.present) {
+      map['byte_size'] = Variable<int>(byteSize.value);
+    }
+    if (localPath.present) {
+      map['local_path'] = Variable<String>(localPath.value);
+    }
+    if (allEvents.present) {
+      map['all_events'] = Variable<bool>(allEvents.value);
+    }
+    if (eventIdsJson.present) {
+      map['event_ids_json'] = Variable<String>(eventIdsJson.value);
+    }
+    if (deleted.present) {
+      map['deleted'] = Variable<bool>(deleted.value);
+    }
+    if (uploadState.present) {
+      map['upload_state'] = Variable<String>(uploadState.value);
+    }
+    if (syncState.present) {
+      map['sync_state'] = Variable<String>(syncState.value);
+    }
+    if (remoteRevision.present) {
+      map['remote_revision'] = Variable<int>(remoteRevision.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalContentFilesCompanion(')
+          ..write('localId: $localId, ')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('displayName: $displayName, ')
+          ..write('fileName: $fileName, ')
+          ..write('byteSize: $byteSize, ')
+          ..write('localPath: $localPath, ')
+          ..write('allEvents: $allEvents, ')
+          ..write('eventIdsJson: $eventIdsJson, ')
+          ..write('deleted: $deleted, ')
+          ..write('uploadState: $uploadState, ')
+          ..write('syncState: $syncState, ')
+          ..write('remoteRevision: $remoteRevision, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4583,6 +5430,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $LocalProfilesTable localProfiles = $LocalProfilesTable(this);
   late final $LocalEventsTable localEvents = $LocalEventsTable(this);
+  late final $LocalContentFilesTable localContentFiles =
+      $LocalContentFilesTable(this);
   late final $LocalLeadsTable localLeads = $LocalLeadsTable(this);
   late final $LocalLeadMediaTable localLeadMedia = $LocalLeadMediaTable(this);
   late final $LocalPreferencesTable localPreferences = $LocalPreferencesTable(
@@ -4598,6 +5447,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final Index eventOwnerIdx = Index(
     'event_owner_idx',
     'CREATE INDEX event_owner_idx ON local_events (owner_user_id)',
+  );
+  late final Index contentOwnerIdx = Index(
+    'content_owner_idx',
+    'CREATE INDEX content_owner_idx ON local_content_files (owner_user_id)',
   );
   late final Index leadEventIdx = Index(
     'lead_event_idx',
@@ -4622,6 +5475,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final ProfilePreferencesDao profilePreferencesDao =
       ProfilePreferencesDao(this as AppDatabase);
   late final EventDao eventDao = EventDao(this as AppDatabase);
+  late final ContentDao contentDao = ContentDao(this as AppDatabase);
   late final LeadDao leadDao = LeadDao(this as AppDatabase);
   late final SyncDao syncDao = SyncDao(this as AppDatabase);
   @override
@@ -4631,6 +5485,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     localProfiles,
     localEvents,
+    localContentFiles,
     localLeads,
     localLeadMedia,
     localPreferences,
@@ -4638,6 +5493,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     syncOperations,
     profileOwnerIdx,
     eventOwnerIdx,
+    contentOwnerIdx,
     leadEventIdx,
     leadCapturedIdx,
     leadOwnerIdx,
@@ -5374,6 +6230,411 @@ typedef $$LocalEventsTableProcessedTableManager =
       (StoredEvent, $$LocalEventsTableReferences),
       StoredEvent,
       PrefetchHooks Function({bool localLeadsRefs})
+    >;
+typedef $$LocalContentFilesTableCreateCompanionBuilder =
+    LocalContentFilesCompanion Function({
+      required String localId,
+      required String ownerUserId,
+      required String displayName,
+      required String fileName,
+      required int byteSize,
+      Value<String?> localPath,
+      Value<bool> allEvents,
+      Value<String> eventIdsJson,
+      Value<bool> deleted,
+      Value<String> uploadState,
+      Value<String> syncState,
+      Value<int?> remoteRevision,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$LocalContentFilesTableUpdateCompanionBuilder =
+    LocalContentFilesCompanion Function({
+      Value<String> localId,
+      Value<String> ownerUserId,
+      Value<String> displayName,
+      Value<String> fileName,
+      Value<int> byteSize,
+      Value<String?> localPath,
+      Value<bool> allEvents,
+      Value<String> eventIdsJson,
+      Value<bool> deleted,
+      Value<String> uploadState,
+      Value<String> syncState,
+      Value<int?> remoteRevision,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$LocalContentFilesTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalContentFilesTable> {
+  $$LocalContentFilesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get localId => $composableBuilder(
+    column: $table.localId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fileName => $composableBuilder(
+    column: $table.fileName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get byteSize => $composableBuilder(
+    column: $table.byteSize,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get localPath => $composableBuilder(
+    column: $table.localPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get allEvents => $composableBuilder(
+    column: $table.allEvents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get eventIdsJson => $composableBuilder(
+    column: $table.eventIdsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get deleted => $composableBuilder(
+    column: $table.deleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get uploadState => $composableBuilder(
+    column: $table.uploadState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get remoteRevision => $composableBuilder(
+    column: $table.remoteRevision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalContentFilesTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalContentFilesTable> {
+  $$LocalContentFilesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get localId => $composableBuilder(
+    column: $table.localId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fileName => $composableBuilder(
+    column: $table.fileName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get byteSize => $composableBuilder(
+    column: $table.byteSize,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get localPath => $composableBuilder(
+    column: $table.localPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get allEvents => $composableBuilder(
+    column: $table.allEvents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get eventIdsJson => $composableBuilder(
+    column: $table.eventIdsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get deleted => $composableBuilder(
+    column: $table.deleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get uploadState => $composableBuilder(
+    column: $table.uploadState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get remoteRevision => $composableBuilder(
+    column: $table.remoteRevision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalContentFilesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalContentFilesTable> {
+  $$LocalContentFilesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get localId =>
+      $composableBuilder(column: $table.localId, builder: (column) => column);
+
+  GeneratedColumn<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get fileName =>
+      $composableBuilder(column: $table.fileName, builder: (column) => column);
+
+  GeneratedColumn<int> get byteSize =>
+      $composableBuilder(column: $table.byteSize, builder: (column) => column);
+
+  GeneratedColumn<String> get localPath =>
+      $composableBuilder(column: $table.localPath, builder: (column) => column);
+
+  GeneratedColumn<bool> get allEvents =>
+      $composableBuilder(column: $table.allEvents, builder: (column) => column);
+
+  GeneratedColumn<String> get eventIdsJson => $composableBuilder(
+    column: $table.eventIdsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get deleted =>
+      $composableBuilder(column: $table.deleted, builder: (column) => column);
+
+  GeneratedColumn<String> get uploadState => $composableBuilder(
+    column: $table.uploadState,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get syncState =>
+      $composableBuilder(column: $table.syncState, builder: (column) => column);
+
+  GeneratedColumn<int> get remoteRevision => $composableBuilder(
+    column: $table.remoteRevision,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$LocalContentFilesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalContentFilesTable,
+          StoredContentFile,
+          $$LocalContentFilesTableFilterComposer,
+          $$LocalContentFilesTableOrderingComposer,
+          $$LocalContentFilesTableAnnotationComposer,
+          $$LocalContentFilesTableCreateCompanionBuilder,
+          $$LocalContentFilesTableUpdateCompanionBuilder,
+          (
+            StoredContentFile,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalContentFilesTable,
+              StoredContentFile
+            >,
+          ),
+          StoredContentFile,
+          PrefetchHooks Function()
+        > {
+  $$LocalContentFilesTableTableManager(
+    _$AppDatabase db,
+    $LocalContentFilesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalContentFilesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalContentFilesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocalContentFilesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> localId = const Value.absent(),
+                Value<String> ownerUserId = const Value.absent(),
+                Value<String> displayName = const Value.absent(),
+                Value<String> fileName = const Value.absent(),
+                Value<int> byteSize = const Value.absent(),
+                Value<String?> localPath = const Value.absent(),
+                Value<bool> allEvents = const Value.absent(),
+                Value<String> eventIdsJson = const Value.absent(),
+                Value<bool> deleted = const Value.absent(),
+                Value<String> uploadState = const Value.absent(),
+                Value<String> syncState = const Value.absent(),
+                Value<int?> remoteRevision = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalContentFilesCompanion(
+                localId: localId,
+                ownerUserId: ownerUserId,
+                displayName: displayName,
+                fileName: fileName,
+                byteSize: byteSize,
+                localPath: localPath,
+                allEvents: allEvents,
+                eventIdsJson: eventIdsJson,
+                deleted: deleted,
+                uploadState: uploadState,
+                syncState: syncState,
+                remoteRevision: remoteRevision,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String localId,
+                required String ownerUserId,
+                required String displayName,
+                required String fileName,
+                required int byteSize,
+                Value<String?> localPath = const Value.absent(),
+                Value<bool> allEvents = const Value.absent(),
+                Value<String> eventIdsJson = const Value.absent(),
+                Value<bool> deleted = const Value.absent(),
+                Value<String> uploadState = const Value.absent(),
+                Value<String> syncState = const Value.absent(),
+                Value<int?> remoteRevision = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => LocalContentFilesCompanion.insert(
+                localId: localId,
+                ownerUserId: ownerUserId,
+                displayName: displayName,
+                fileName: fileName,
+                byteSize: byteSize,
+                localPath: localPath,
+                allEvents: allEvents,
+                eventIdsJson: eventIdsJson,
+                deleted: deleted,
+                uploadState: uploadState,
+                syncState: syncState,
+                remoteRevision: remoteRevision,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LocalContentFilesTable, StoredContentFile>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $LocalContentFilesTable,
+                    StoredContentFile
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalContentFilesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalContentFilesTable,
+      StoredContentFile,
+      $$LocalContentFilesTableFilterComposer,
+      $$LocalContentFilesTableOrderingComposer,
+      $$LocalContentFilesTableAnnotationComposer,
+      $$LocalContentFilesTableCreateCompanionBuilder,
+      $$LocalContentFilesTableUpdateCompanionBuilder,
+      (
+        StoredContentFile,
+        BaseReferences<
+          _$AppDatabase,
+          $LocalContentFilesTable,
+          StoredContentFile
+        >,
+      ),
+      StoredContentFile,
+      PrefetchHooks Function()
     >;
 typedef $$LocalLeadsTableCreateCompanionBuilder = LocalLeadsCompanion Function({
   required String localId,
@@ -7330,6 +8591,8 @@ class $AppDatabaseManager {
       $$LocalProfilesTableTableManager(_db, _db.localProfiles);
   $$LocalEventsTableTableManager get localEvents =>
       $$LocalEventsTableTableManager(_db, _db.localEvents);
+  $$LocalContentFilesTableTableManager get localContentFiles =>
+      $$LocalContentFilesTableTableManager(_db, _db.localContentFiles);
   $$LocalLeadsTableTableManager get localLeads =>
       $$LocalLeadsTableTableManager(_db, _db.localLeads);
   $$LocalLeadMediaTableTableManager get localLeadMedia =>

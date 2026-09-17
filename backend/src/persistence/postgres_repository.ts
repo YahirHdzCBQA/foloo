@@ -15,6 +15,10 @@ import type {
   EventInput,
   EventUpdateInput,
   EventDeleteInput,
+  ContentInput,
+  ContentUpdateInput,
+  ContentDeleteInput,
+  ContentRecord,
   IdempotentResult,
   LeadInput,
   LeadUpdateInput,
@@ -211,12 +215,189 @@ export class PostgresFolooRepository implements FolooRepository {
     );
   }
 
+  private async validateContentEvents(
+    db: Queryable,
+    principal: Principal,
+    ids: string[],
+  ): Promise<void> {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return;
+    const result = await db.query(
+      `SELECT id FROM events WHERE workspace_id = $1 AND id = ANY($2::uuid[]) AND deleted_at IS NULL`,
+      [principal.workspaceId, unique],
+    );
+    if (result.rows.length !== unique.length) throw notFound("Event");
+  }
+
+  async listContent(principal: Principal): Promise<ContentRecord[]> {
+    const result = await this.pool.query<ContentRecord>(
+      `SELECT id, display_name AS "displayName", file_name AS "fileName",
+              byte_size AS "byteSize", all_events AS "allEvents",
+              event_ids AS "eventIds", revision, deleted_at AS "deletedAt",
+              upload_status AS "uploadStatus", storage_object_key AS "storageObjectKey"
+       FROM content_files WHERE workspace_id = $1 ORDER BY created_at DESC`,
+      [principal.workspaceId],
+    );
+    return result.rows;
+  }
+
+  async createContent(
+    principal: Principal,
+    input: ContentInput,
+    key: string,
+    hash: string,
+  ): Promise<IdempotentResult<unknown>> {
+    return this.idempotent(
+      principal.workspaceId,
+      "create-content",
+      key,
+      hash,
+      async (db) => {
+        await this.validateContentEvents(db, principal, input.eventIds);
+        const result = await db.query(
+          `INSERT INTO content_files
+          (id, workspace_id, display_name, file_name, byte_size, all_events, event_ids)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::uuid[])
+         RETURNING id, display_name AS "displayName", revision, upload_status AS "uploadStatus"`,
+          [
+            input.id,
+            principal.workspaceId,
+            input.displayName,
+            input.fileName,
+            input.byteSize,
+            input.allEvents,
+            [...new Set(input.eventIds)],
+          ],
+        );
+        return result.rows[0];
+      },
+    );
+  }
+
+  async updateContent(
+    principal: Principal,
+    id: string,
+    input: ContentUpdateInput,
+    key: string,
+    hash: string,
+  ): Promise<IdempotentResult<unknown>> {
+    return this.idempotent(
+      principal.workspaceId,
+      "update-content",
+      key,
+      hash,
+      async (db) => {
+        const current = await db.query<{ event_ids: string[] }>(
+          `SELECT event_ids FROM content_files WHERE workspace_id = $1 AND id = $2 AND deleted_at IS NULL FOR UPDATE`,
+          [principal.workspaceId, id],
+        );
+        if (!current.rows[0]) throw notFound("Content");
+        const previous = new Set(current.rows[0].event_ids);
+        await this.validateContentEvents(
+          db,
+          principal,
+          input.eventIds.filter((eventId) => !previous.has(eventId)),
+        );
+        const result = await db.query(
+          `UPDATE content_files SET display_name = $4, all_events = $5, event_ids = $6::uuid[]
+         WHERE workspace_id = $1 AND id = $2 AND revision = $3 AND deleted_at IS NULL
+         RETURNING id, display_name AS "displayName", revision`,
+          [
+            principal.workspaceId,
+            id,
+            input.revision,
+            input.displayName,
+            input.allEvents,
+            [...new Set(input.eventIds)],
+          ],
+        );
+        if (!result.rows[0]) throw revisionConflict();
+        return result.rows[0];
+      },
+      200,
+    );
+  }
+
+  async deleteContent(
+    principal: Principal,
+    id: string,
+    input: ContentDeleteInput,
+    key: string,
+    hash: string,
+  ): Promise<IdempotentResult<unknown>> {
+    return this.idempotent(
+      principal.workspaceId,
+      "delete-content",
+      key,
+      hash,
+      async (db) => {
+        const result = await db.query(
+          `UPDATE content_files SET deleted_at = now()
+         WHERE workspace_id = $1 AND id = $2 AND revision = $3 AND deleted_at IS NULL
+         RETURNING id, revision, deleted_at AS "deletedAt"`,
+          [principal.workspaceId, id, input.revision],
+        );
+        if (result.rows[0]) return result.rows[0];
+        const found = await db.query(
+          `SELECT id FROM content_files WHERE workspace_id = $1 AND id = $2`,
+          [principal.workspaceId, id],
+        );
+        if (!found.rows[0]) throw notFound("Content");
+        throw revisionConflict();
+      },
+      200,
+    );
+  }
+
+  async prepareContent(
+    principal: Principal,
+    id: string,
+  ): Promise<ContentRecord> {
+    const result = await this.pool.query<ContentRecord>(
+      `SELECT id, display_name AS "displayName", file_name AS "fileName",
+              byte_size AS "byteSize", all_events AS "allEvents", event_ids AS "eventIds",
+              revision, deleted_at AS "deletedAt", upload_status AS "uploadStatus",
+              storage_object_key AS "storageObjectKey"
+       FROM content_files WHERE workspace_id = $1 AND id = $2 AND deleted_at IS NULL`,
+      [principal.workspaceId, id],
+    );
+    if (!result.rows[0]) throw notFound("Content");
+    return result.rows[0];
+  }
+
+  async confirmContent(
+    principal: Principal,
+    id: string,
+    key: string,
+    hash: string,
+    objectKey: string,
+  ): Promise<IdempotentResult<unknown>> {
+    return this.idempotent(
+      principal.workspaceId,
+      "confirm-content",
+      key,
+      hash,
+      async (db) => {
+        const result = await db.query(
+          `UPDATE content_files SET storage_object_key = $3, upload_status = 'available', uploaded_at = now()
+         WHERE workspace_id = $1 AND id = $2 AND deleted_at IS NULL
+         RETURNING id, revision, upload_status AS "uploadStatus"`,
+          [principal.workspaceId, id, objectKey],
+        );
+        if (!result.rows[0]) throw notFound("Content");
+        return result.rows[0];
+      },
+      200,
+    );
+  }
+
   async listLeads(principal: Principal): Promise<unknown[]> {
     const result = await this.pool.query(
       `SELECT id, event_id AS "eventId", captured_at AS "capturedAt", origin, place,
               first_name AS "firstName", last_name AS "lastName", position, company,
               email, phone, lead_type AS "leadType", interest, written_note AS "writtenNote",
-              commercial_folio AS "commercialFolio", revision
+              commercial_folio AS "commercialFolio",
+              content_file_ids AS "contentFileIds", content_names AS "contentNames", revision
        FROM leads WHERE workspace_id = $1 AND deleted_at IS NULL ORDER BY captured_at DESC`,
       [principal.workspaceId],
     );
@@ -235,16 +416,35 @@ export class PostgresFolooRepository implements FolooRepository {
       key,
       hash,
       async (db) => {
+        const selected = [...new Set(input.contentFileIds ?? [])];
+        const attachments =
+          selected.length === 0
+            ? []
+            : (
+                await db.query<{
+                  id: string;
+                  display_name: string;
+                }>(
+                  `SELECT id, display_name FROM content_files
+            WHERE workspace_id = $1 AND id = ANY($2::uuid[]) AND deleted_at IS NULL`,
+                  [principal.workspaceId, selected],
+                )
+              ).rows;
+        if (attachments.length !== selected.length) throw notFound("Content");
+        const names = new Map(
+          attachments.map((item) => [item.id, item.display_name]),
+        );
         const result = await db.query(
           `INSERT INTO leads
           (id, workspace_id, event_id, captured_by_user_id, captured_at, origin, place,
            first_name, last_name, position, company, email, phone, lead_type, interest,
-           written_note, commercial_folio)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+           written_note, commercial_folio, content_file_ids, content_names)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::uuid[],$19::text[])
          RETURNING id, event_id AS "eventId", captured_at AS "capturedAt", origin,
                    place, first_name AS "firstName", last_name AS "lastName",
                    position, company, email, phone, lead_type AS "leadType", interest,
-                   written_note AS "writtenNote", commercial_folio AS "commercialFolio", revision`,
+                   written_note AS "writtenNote", commercial_folio AS "commercialFolio",
+                   content_file_ids AS "contentFileIds", content_names AS "contentNames", revision`,
           [
             input.id,
             principal.workspaceId,
@@ -263,6 +463,8 @@ export class PostgresFolooRepository implements FolooRepository {
             input.interest,
             input.writtenNote ?? null,
             input.commercialFolio ?? null,
+            selected,
+            selected.map((id) => names.get(id)!),
           ],
         );
         return result.rows[0];
@@ -316,7 +518,7 @@ export class PostgresFolooRepository implements FolooRepository {
                      place, first_name AS "firstName", last_name AS "lastName",
                      position, company, email, phone, lead_type AS "leadType", interest,
                      written_note AS "writtenNote", commercial_folio AS "commercialFolio",
-                     revision`,
+                     content_file_ids AS "contentFileIds", content_names AS "contentNames", revision`,
           [
             principal.workspaceId,
             leadId,

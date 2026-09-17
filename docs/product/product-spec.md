@@ -211,12 +211,12 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `CON-02` | Estado vacío “Sin contenido todavía” y Subir PDF abren el selector local, solo PDF. |
 | `CON-03` | Al seleccionar PDF se captura nombre visible y eventos aplicables con buscador, contador y scroll propio. |
 | `CON-04` | “Todos los eventos” domina la selección individual sin destruirla. |
-| `CON-05` | Se puede editar asignación o eliminar un archivo con confirmación. |
+| `CON-05` | Se puede editar asignación o eliminar un archivo con confirmación. Eliminar es lógico: deja de ofrecerse para nuevas asociaciones sin borrar Events, Leads, adjuntos históricos ni el objeto S3; el tombstone se sincroniza. |
 | `CON-06` | Crear evento permite asignar contenido y comenzar la selección de un PDF. |
 | `CON-07` | Captura muestra contenido del evento preseleccionado y desmarcable por Lead. |
 | `CON-08` | Adjuntos elegidos quedan congelados en el Lead; cambios posteriores no reescriben historia. |
-| `CON-09` | PDF se conserva localmente y su futura subida no bloquea la cola de Leads. |
-| `CON-10` | Límites por archivo/biblioteca y desalojo requieren `D-08`. |
+| `CON-09` | PDF se conserva en copia privada local sin desalojo automático, incluso después de subirlo; importación y subida directa privada a S3 por outbox no bloquean la cola de Leads. |
+| `CON-10` | Cada PDF tiene límite V1 de 25 MB decimales (25 000 000 bytes), validado localmente y en backend. V1 no impone cuota total comercial ni desalojo automático; falta de espacio se comunica sin borrar otros archivos. |
 
 | ID | Requerimiento de plantilla |
 |---|---|
@@ -268,7 +268,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | ID | Requerimiento |
 |---|---|
 | `INF-01` | Dirección: Flutter → Drift/SQLite → Offline Sync → Foloo API → API Gateway → Lambda Node.js/TypeScript → persistencia cloud. |
-| `INF-02` | S3 privado almacena tarjeta, imágenes de referencia y voz mediante URLs temporales; PDF permanece para FL-018. La API deriva la key, verifica el objeto antes de marcarlo disponible y ofrece lectura temporal autenticada. |
+| `INF-02` | S3 privado almacena tarjeta, imágenes de referencia, voz y PDF mediante URLs temporales. La API deriva la key, verifica el objeto antes de marcarlo disponible y ofrece lectura temporal autenticada. |
 | `INF-03` | PostgreSQL en AWS RDS es la persistencia cloud relacional; RDS permanece privado y Lambda accede únicamente dentro de la VPC (ADR-003). |
 | `INF-04` | DEV/staging/PROD, secretos, CI/CD, observabilidad, respaldos y borrado requieren trabajo de infraestructura trazado. |
 | `INF-05` | La API Foloo usa rutas REST versionadas bajo `/v1` y valida inputs en runtime con un contrato de error estable. |

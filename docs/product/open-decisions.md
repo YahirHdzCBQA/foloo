@@ -39,12 +39,6 @@ adjuntos ya congelados.
 **Bloquea:** edición/reemplazo/eliminación post-guardado de medios en `VOZ-03`,
 `REG-07` y `REG-08`; no bloquea los campos estructurados aprobados en `REG-07`.
 
-### `D-08` · Límites y caché de PDF
-
-**Pregunta:** peso por PDF, total local/remoto y política de desalojo.
-
-**Bloquea:** `CON-09`, `CON-10` e infraestructura/costos asociados.
-
 ### `D-09` · Plataforma de correo
 
 El SDD anterior recomendaba evaluar Amazon SES; el tablero 2026-09-08 exige

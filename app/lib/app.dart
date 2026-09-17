@@ -95,6 +95,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   bool _profileCompleted = false;
   late List<AppEvent> _events;
   late List<ContentFile> _contentFiles;
+  final Map<String, List<ContentFile>> _contentAwaitingEvent = {};
   OriginSelection? _origin;
   final List<SessionLead> _sessionLeads = [];
   late Locale _locale;
@@ -169,7 +170,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       )..addListener(_onSyncChanged);
     }
     _events = List.of(DemoAppData.events);
-    _contentFiles = List.of(DemoContentData.files);
+    _contentFiles = widget.useDemoFixtures
+        ? List.of(DemoContentData.files)
+        : [];
     final system = WidgetsBinding.instance.platformDispatcher.locale;
     final requested =
         widget.initialLocale ??
@@ -298,6 +301,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       );
     }
     final storedLeads = await _persistence.leads.listAll(userId);
+    final storedContent = await _persistence.content.list(userId);
     if (!mounted) return;
     setState(() {
       _profile = storedProfile ?? DemoAppData.profile;
@@ -306,7 +310,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       _eventSelectionMode = shouldChooseAutomatically
           ? 'automatic'
           : (storedEventSelectionMode ?? 'manual');
-      _contentFiles = List.of(DemoContentData.files);
+      _contentFiles = widget.useDemoFixtures
+          ? List.of(DemoContentData.files)
+          : storedContent;
       _sessionLeads
         ..clear()
         ..addAll(storedLeads);
@@ -475,7 +481,10 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       _profileCompleted = false;
       _profile = DemoAppData.profile;
       _events = [];
-      _contentFiles = List.of(DemoContentData.files);
+      _contentAwaitingEvent.clear();
+      _contentFiles = widget.useDemoFixtures
+          ? List.of(DemoContentData.files)
+          : [];
       _sessionLeads.clear();
       _origin = null;
       _accessStage = _AccessStage.login;
@@ -519,6 +528,22 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
         event: _events.first,
       );
     });
+    for (final file
+        in _contentAwaitingEvent.remove(event.id) ?? const <ContentFile>[]) {
+      await _addContentFile(file);
+    }
+    // Existing library selections in the event dialog are also persisted as
+    // Content-side relations, which is the sync authority for Event ↔ Content.
+    for (final id in event.contentFileIds) {
+      final matches = _contentFiles.where((file) => file.id == id);
+      if (matches.isEmpty) continue;
+      final file = matches.first;
+      if (!file.allEvents && !file.eventIds.contains(event.id)) {
+        await _updateContentFile(
+          file.copyWith(eventIds: {...file.eventIds, event.id}),
+        );
+      }
+    }
     unawaited(_synchronize(trigger: SyncTrigger.postSave));
   }
 
@@ -573,8 +598,68 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     await _activateEvent(preferred, manual: false);
   }
 
-  void _addContentFile(ContentFile file) {
-    setState(() => _contentFiles.add(file));
+  Future<void> _addContentFile(ContentFile file) async {
+    if (widget.useDemoFixtures) {
+      setState(() => _contentFiles.add(file));
+      return;
+    }
+    // The create-event dialog stages PDFs before the event row is committed.
+    for (final id in file.eventIds) {
+      if (!_events.any((event) => event.id == id)) {
+        _contentAwaitingEvent.putIfAbsent(id, () => []).add(file);
+        return;
+      }
+    }
+    try {
+      final stored = await _persistence.content.import(_userId, file);
+      if (!mounted) return;
+      setState(() => _contentFiles.add(stored));
+      unawaited(_synchronize(trigger: SyncTrigger.postSave));
+    } catch (_) {
+      if (mounted) {
+        _messengerKey.currentState?.showSnackBar(
+          SnackBar(content: Text(context.l10n.pdfStorageError)),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateContentFile(ContentFile file) async {
+    if (widget.useDemoFixtures) {
+      setState(
+        () => _contentFiles = _contentFiles
+            .map((item) => item.id == file.id ? file : item)
+            .toList(),
+      );
+      return;
+    }
+    try {
+      final stored = await _persistence.content.update(_userId, file);
+      if (!mounted) return;
+      setState(
+        () => _contentFiles = _contentFiles
+            .map((item) => item.id == stored.id ? stored : item)
+            .toList(),
+      );
+      unawaited(_synchronize(trigger: SyncTrigger.postSave));
+    } catch (_) {
+      if (mounted) _showPersistenceError();
+    }
+  }
+
+  Future<void> _deleteContentFile(ContentFile file) async {
+    if (widget.useDemoFixtures) {
+      setState(() => _contentFiles.removeWhere((item) => item.id == file.id));
+      return;
+    }
+    try {
+      await _persistence.content.delete(_userId, file);
+      if (!mounted) return;
+      setState(() => _contentFiles.removeWhere((item) => item.id == file.id));
+      unawaited(_synchronize(trigger: SyncTrigger.postSave));
+    } catch (_) {
+      if (mounted) _showPersistenceError();
+    }
   }
 
   Future<void> _updateEvent(AppEvent event) async {
@@ -636,11 +721,15 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
 
   Future<void> _reloadSyncProjection(String userId) async {
     final leads = await _persistence.leads.listAll(userId);
+    final content = widget.useDemoFixtures
+        ? null
+        : await _persistence.content.list(userId);
     if (!mounted || _authRepository.state.user?.id != userId) return;
     setState(() {
       _sessionLeads
         ..clear()
         ..addAll(leads);
+      if (content != null) _contentFiles = content;
     });
   }
 
@@ -658,12 +747,16 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     final leads = await _persistence.leads.listAll(user.id);
     final events = await _persistence.events.list(user.id);
     final profile = await _persistence.profiles.load(user.id);
+    final content = widget.useDemoFixtures
+        ? null
+        : await _persistence.content.list(user.id);
     if (!mounted || _authRepository.state.user?.id != user.id) return;
     setState(() {
       _sessionLeads
         ..clear()
         ..addAll(leads);
       _events = events;
+      if (content != null) _contentFiles = content;
       if (profile != null) {
         _profile = profile;
         _profileCompleted = true;
@@ -886,14 +979,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           onAppearanceChanged: _setAppearance,
           onLogout: _logout,
           onFileAdded: _addContentFile,
-          onFileUpdated: (file) => setState(
-            () => _contentFiles = _contentFiles
-                .map((item) => item.id == file.id ? file : item)
-                .toList(),
-          ),
-          onFileDeleted: (file) => setState(
-            () => _contentFiles.removeWhere((item) => item.id == file.id),
-          ),
+          onFileUpdated: _updateContentFile,
+          onFileDeleted: _deleteContentFile,
+          demoMode: widget.useDemoFixtures,
           pdfPickerService: widget.pdfPickerService,
         ),
         EmailScreen(

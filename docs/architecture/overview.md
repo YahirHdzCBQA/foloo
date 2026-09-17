@@ -43,11 +43,12 @@ VPC privada → AWS RDS PostgreSQL
 ```
 
 ADR-003 gobierna la fundación y ADR-005 el boundary de medios. FL-016 añade un
-bucket S3 privado para tarjeta, imágenes de referencia y Voice Note. Flutter
+bucket S3 privado para tarjeta, imágenes de referencia y Voice Note. FL-018
+reutiliza ese bucket para Content/PDF. Flutter
 obtiene una autorización corta de la API, transfiere directamente al objeto y
-confirma por la API; Lambda verifica S3 antes de actualizar PostgreSQL. PDF
-permanece en FL-018 y correo en su fase correspondiente. La implementación de
-FL-016 en repositorio no presume despliegue AWS ni migración DEV ejecutada.
+confirma por la API; Lambda verifica S3 antes de actualizar PostgreSQL. Correo
+permanece en su fase correspondiente. La implementación de FL-018 en repositorio
+no presume despliegue AWS ni migración DEV ejecutada.
 
 ### Boundary de identidad y tenancy
 

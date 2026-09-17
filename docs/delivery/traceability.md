@@ -10,7 +10,7 @@
 | `VOZ-*` | E-04 | ADR-001; D-05/D-06 | voice service/media/tests; f1-10, 21–23 |
 | `SYN-*` | E-05/E-09/E-13 | ADR-001/003/004/005; D-13 | Drift, outbox owner-scoped, retry/reconciliación FL-015 y transferencia media FL-016 |
 | `REG-*` | E-06/E-10 | ADR-001/004; D-06 | FL-017: filtro/detalle/edición optimista y export XLSX/CSV local; f1-16–19, f2-06/07, f5-12 |
-| `CON-*` | E-07 | D-08/D-11 | content/picker/sheet; f2-01–03 |
+| `CON-*` | E-07 | D-11/D-13 | FL-018: 25 MB/PDF, copia privada durable, outbox/S3 y tombstone; D-11 afecta solo fidelidad visual y D-13 retención física; f2-01–03 |
 | `PLT-*`, `SAL-*` | E-08 | D-09 | editor demo; f2-04/05, f4-04/12 |
 | `NAV-*` | E-12 | ADR-001 | drawer/theme/l10n; f1-15/25/26 |
 | `MON-*` | E-11 | D-01–D-04/D-11 | sin implementación; f3-01–08 |

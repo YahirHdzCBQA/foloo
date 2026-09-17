@@ -9,6 +9,10 @@ const mediaMigrationUrl = new URL(
   "../migrations/002_media_upload_state.sql",
   import.meta.url,
 );
+const contentMigrationUrl = new URL(
+  "../migrations/003_content_pdf.sql",
+  import.meta.url,
+);
 
 test("migration scopes resource foreign keys by workspace and excludes blobs", async () => {
   const sql = await readFile(migrationUrl, "utf8");
@@ -39,4 +43,12 @@ test("FL-016 migration adds explicit pending/available media state without blobs
   assert.match(sql, /uploaded_at timestamptz/);
   assert.match(sql, /storage_object_key IS NOT NULL/);
   assert.doesNotMatch(sql, /bytea|large object/i);
+});
+
+test("FL-018 constrains each PDF and freezes Lead Content without destructive cascade", async () => {
+  const sql = await readFile(contentMigrationUrl, "utf8");
+  assert.match(sql, /byte_size BETWEEN 1 AND 25000000/);
+  assert.match(sql, /content_file_ids uuid\[\]/);
+  assert.match(sql, /content_names text\[\]/);
+  assert.doesNotMatch(sql, /DELETE FROM|ON DELETE CASCADE|bytea/i);
 });

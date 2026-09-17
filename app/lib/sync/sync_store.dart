@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
+import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../data/local/app_database.dart';
@@ -87,7 +88,14 @@ class SyncStore {
       now.toUtc(),
       ignoreRetryBackoff: ignoreRetryBackoff,
     );
-    const priority = {'profile': 0, 'event': 1, 'lead': 2, 'leadMedia': 3};
+    const priority = {
+      'profile': 0,
+      'event': 1,
+      'content': 2,
+      'lead': 3,
+      'leadMedia': 4,
+      'contentBinary': 5,
+    };
     operations.sort((a, b) {
       final typeOrder = (priority[a.entityType] ?? 9).compareTo(
         priority[b.entityType] ?? 9,
@@ -592,6 +600,8 @@ class SyncStore {
             'leadType': lead.leadType,
             'interest': lead.interestLevel,
             'writtenNote': lead.note.isEmpty ? null : lead.note,
+            'contentFileIds': (jsonDecode(lead.contentFileIdsJson) as List)
+                .cast<String>(),
             'commercialFolio': lead.commercialFolio,
           },
           now: lead.updatedAt,
@@ -638,6 +648,16 @@ class SyncStore {
           leadRevision,
         );
         await _advanceQueuedEventMutations(operation, leadRevision);
+      } else if ((operation.entityType == SyncEntityType.content.name ||
+              operation.entityType == SyncEntityType.contentBinary.name) &&
+          leadRevision != null) {
+        await database.contentDao.markSynced(
+          operation.ownerUserId,
+          operation.entityId,
+          leadRevision,
+          uploaded: operation.entityType == SyncEntityType.contentBinary.name,
+        );
+        await _advanceQueuedContentMutations(operation, leadRevision);
       } else {
         await _markEntity(operation, 'synced');
       }
@@ -676,6 +696,30 @@ class SyncStore {
     for (final operation in await database.syncDao.forEntity(
       completed.ownerUserId,
       SyncEntityType.event.name,
+      completed.entityId,
+    )) {
+      if (operation.operationId == completed.operationId ||
+          operation.status == 'syncing' ||
+          (operation.action != 'update' && operation.action != 'delete')) {
+        continue;
+      }
+      final payload = _payloadMap(operation.payloadJson);
+      payload['revision'] = revision;
+      await database.syncDao.repairFailedPayload(
+        operation.operationId,
+        jsonEncode(payload),
+        DateTime.now().toUtc(),
+      );
+    }
+  }
+
+  Future<void> _advanceQueuedContentMutations(
+    StoredSyncOperation completed,
+    int revision,
+  ) async {
+    for (final operation in await database.syncDao.forEntity(
+      completed.ownerUserId,
+      SyncEntityType.content.name,
       completed.entityId,
     )) {
       if (operation.operationId == completed.operationId ||
@@ -748,6 +792,7 @@ class SyncStore {
     String ownerSub,
     List<Map<String, Object?>> remoteLeads, {
     List<Map<String, Object?>> remoteEvents = const [],
+    List<Map<String, Object?>> remoteContent = const [],
   }) async {
     final revisions = <String, int>{
       for (final lead in remoteLeads)
@@ -760,11 +805,18 @@ class SyncStore {
           '${SyncEntityType.event.name}:${event['id']}': _remoteRevision(
             event['revision'],
           )!,
+      for (final content in remoteContent)
+        if (content['id'] is String &&
+            _remoteRevision(content['revision']) != null)
+          '${SyncEntityType.content.name}:${content['id']}': _remoteRevision(
+            content['revision'],
+          )!,
     };
     var repaired = 0;
     for (final operation in await all(ownerSub)) {
       if ((operation.entityType != SyncEntityType.lead.name &&
-              operation.entityType != SyncEntityType.event.name) ||
+              operation.entityType != SyncEntityType.event.name &&
+              operation.entityType != SyncEntityType.content.name) ||
           (operation.action != 'update' && operation.action != 'delete') ||
           operation.status != 'failed' ||
           operation.lastError != 'http_409_revision_conflict') {
@@ -821,6 +873,14 @@ class SyncStore {
         return;
       case SyncEntityType.leadMedia:
         await database.leadDao.markMediaSyncState(operation.entityId, state);
+        return;
+      case SyncEntityType.content:
+      case SyncEntityType.contentBinary:
+        await database.contentDao.markState(
+          operation.ownerUserId,
+          operation.entityId,
+          state,
+        );
         return;
     }
   }
@@ -991,8 +1051,20 @@ class SyncStore {
           note: (lead['writtenNote'] as String?) ?? '',
           place: Value(lead['place'] as String?),
           commercialFolio: Value(lead['commercialFolio'] as String?),
-          contentFileIdsJson: Value(existing?.contentFileIdsJson ?? '[]'),
-          contentNamesJson: Value(existing?.contentNamesJson ?? '[]'),
+          contentFileIdsJson: Value(
+            jsonEncode(
+              lead['contentFileIds'] is List
+                  ? lead['contentFileIds']
+                  : jsonDecode(existing?.contentFileIdsJson ?? '[]'),
+            ),
+          ),
+          contentNamesJson: Value(
+            jsonEncode(
+              lead['contentNames'] is List
+                  ? lead['contentNames']
+                  : jsonDecode(existing?.contentNamesJson ?? '[]'),
+            ),
+          ),
           transcription: Value(existing?.transcription),
           syncState: const Value('synced'),
           remoteRevision: Value(_requiredRemoteRevision(lead['revision'])),
@@ -1068,6 +1140,96 @@ class SyncStore {
         if (await temporary.exists()) await temporary.delete();
       }
     }
+  }
+
+  /// Reconciles owner-scoped PDF metadata, including tombstones (CON-05).
+  /// Dirty local edits win until their outbox operations have completed.
+  Future<void> applyRemoteContent(
+    String ownerSub,
+    List<Map<String, Object?>> items, {
+    Future<String> Function(Uri url, String contentType)? download,
+  }) async {
+    for (final item in items) {
+      final id = item['id'];
+      if (id is! String || !_isUuid(id)) continue;
+      final existing = await database.contentDao.byId(ownerSub, id);
+      if (await hasPending(ownerSub, SyncEntityType.content, id) ||
+          await hasPending(ownerSub, SyncEntityType.contentBinary, id)) {
+        continue;
+      }
+      final revision = _requiredRemoteRevision(item['revision']);
+      final deleted = item['deletedAt'] != null;
+      String? localPath = existing?.localPath == null
+          ? null
+          : await mediaStorage?.resolveExistingPath(existing!.localPath!);
+      if (!deleted &&
+          localPath == null &&
+          item['uploadStatus'] == 'available' &&
+          mediaStorage != null &&
+          download != null) {
+        final target = item['download'];
+        if (target is Map && target['url'] is String) {
+          final temporary = await download(
+            Uri.parse(target['url'] as String),
+            'application/pdf',
+          );
+          try {
+            final source = File(temporary);
+            final size = await source.length();
+            if (size < 1 || size > 25000000) {
+              throw const FormatException('Invalid PDF size');
+            }
+            final reader = await source.open();
+            try {
+              if (String.fromCharCodes(await reader.read(5)) != '%PDF-') {
+                throw const FormatException('Invalid PDF signature');
+              }
+            } finally {
+              await reader.close();
+            }
+            final directory = Directory(
+              p.join(mediaStorage!.root.path, 'content'),
+            );
+            await directory.create(recursive: true);
+            final file = File(p.join(directory.path, '$id.pdf'));
+            await source.copy(file.path);
+            localPath = file.path;
+          } finally {
+            final file = File(temporary);
+            if (await file.exists()) await file.delete();
+          }
+        }
+      }
+      final eventIds = item['eventIds'];
+      await database.contentDao.upsert(
+        LocalContentFilesCompanion.insert(
+          localId: id,
+          ownerUserId: ownerSub,
+          displayName: item['displayName'] as String,
+          fileName: item['fileName'] as String,
+          byteSize: _requiredByteSize(item['byteSize']),
+          localPath: Value(localPath),
+          allEvents: Value(item['allEvents'] == true),
+          eventIdsJson: Value(
+            jsonEncode(eventIds is List ? eventIds : const <String>[]),
+          ),
+          deleted: Value(deleted),
+          uploadState: Value((item['uploadStatus'] as String?) ?? 'pending'),
+          syncState: const Value('synced'),
+          remoteRevision: Value(revision),
+          createdAt: existing?.createdAt ?? DateTime.now().toUtc(),
+          updatedAt: DateTime.now().toUtc(),
+        ),
+      );
+    }
+  }
+
+  int _requiredByteSize(Object? value) {
+    final parsed = value is int ? value : int.tryParse(value?.toString() ?? '');
+    if (parsed == null || parsed < 1 || parsed > 25000000) {
+      throw const FormatException('Invalid PDF size');
+    }
+    return parsed;
   }
 
   String _apiKind(String localType) => switch (localType) {

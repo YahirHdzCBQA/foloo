@@ -82,6 +82,11 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
       return;
     }
     if (!mounted || picked == null) return;
+    if (picked.byteSize > 25000000) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.pdfTooLarge)));
+      return;
+    }
     final provisionalEvent = AppEvent(
       id: _eventId,
       name: _name.text.trim().isEmpty

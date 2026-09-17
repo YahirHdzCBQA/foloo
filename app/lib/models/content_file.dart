@@ -1,7 +1,7 @@
-/// Session models and fixtures for Foloo V1 content and email-template surfaces.
+/// Presentation model for V1 Content/PDF and legacy email-template fixtures.
 ///
-/// The fixtures support local UI validation only. CON-* and PLT-* require
-/// durable local/server-owned data in later delivery work.
+/// Production Content is backed by owner-scoped Drift rows and private files.
+/// Demo fixtures remain only for isolated frontend tests.
 library;
 
 import 'app_event.dart';
@@ -46,7 +46,7 @@ class ContentFile {
   bool appliesTo(AppEvent event) => allEvents || eventIds.contains(event.id);
 }
 
-/// Local fixtures used while the V1 content repository remains pending.
+/// Local fixtures for isolated frontend tests; not production Content.
 abstract final class DemoContentData {
   static const files = <ContentFile>[
     ContentFile(

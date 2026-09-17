@@ -61,6 +61,9 @@ dependencies:
   connectivity_plus: ^7.3.1
   # CON-02/CON-13: open the native document picker restricted to PDF files.
   file_picker: ^12.1.1
+  # CON-04/CON-09: render durable private PDFs on-device while offline.
+  # Flutter's SDK and existing dependencies do not provide a PDF viewer.
+  pdfrx: ^2.6.1
   # REG-09–REG-13: real local XLSX generation. The platform SDK has no XLSX
   # writer; this maintained community fork keeps generation on-device.
   excel_community: ^2.4.0

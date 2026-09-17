@@ -15,6 +15,9 @@ import {
   eventSchema,
   eventUpdateSchema,
   eventDeleteSchema,
+  contentSchema,
+  contentUpdateSchema,
+  contentDeleteSchema,
   leadSchema,
   leadUpdateSchema,
   mediaSchema,
@@ -150,6 +153,78 @@ export function createRouter(application: FolooApplication) {
               key,
               hash,
             );
+      return json(
+        200,
+        { data: result.value },
+        result.replayed ? { "idempotency-replayed": "true" } : {},
+      );
+    }
+    if (method === "GET" && path === "/v1/content")
+      return json(200, { data: await application.content(subject) });
+    if (method === "POST" && path === "/v1/content") {
+      const payload = contentSchema.parse(body(event));
+      const result = await application.createContent(
+        subject,
+        payload,
+        idempotencyKey(event),
+        requestHash(payload),
+      );
+      return json(
+        201,
+        { data: result.value },
+        result.replayed ? { "idempotency-replayed": "true" } : {},
+      );
+    }
+    const contentMatch = /^\/v1\/content\/([^/]+)$/.exec(path);
+    if (contentMatch?.[1] && (method === "PUT" || method === "DELETE")) {
+      const id = uuidSchema.parse(contentMatch[1]);
+      const payload =
+        method === "PUT"
+          ? contentUpdateSchema.parse(body(event))
+          : contentDeleteSchema.parse(body(event));
+      const key = idempotencyKey(event);
+      const hash = requestHash({ id, ...payload });
+      const result =
+        method === "PUT"
+          ? await application.updateContent(
+              subject,
+              id,
+              payload as z.infer<typeof contentUpdateSchema>,
+              key,
+              hash,
+            )
+          : await application.deleteContent(
+              subject,
+              id,
+              payload as z.infer<typeof contentDeleteSchema>,
+              key,
+              hash,
+            );
+      return json(
+        200,
+        { data: result.value },
+        result.replayed ? { "idempotency-replayed": "true" } : {},
+      );
+    }
+    const contentUploadMatch = /^\/v1\/content\/([^/]+)\/uploads$/.exec(path);
+    if (contentUploadMatch?.[1] && method === "POST") {
+      return json(201, {
+        data: await application.prepareContentUpload(
+          subject,
+          uuidSchema.parse(contentUploadMatch[1]),
+        ),
+      });
+    }
+    const contentConfirmMatch = /^\/v1\/content\/([^/]+)\/confirm$/.exec(path);
+    if (contentConfirmMatch?.[1] && method === "POST") {
+      const id = uuidSchema.parse(contentConfirmMatch[1]);
+      const key = idempotencyKey(event);
+      const result = await application.confirmContent(
+        subject,
+        id,
+        key,
+        requestHash({ id }),
+      );
       return json(
         200,
         { data: result.value },
