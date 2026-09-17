@@ -124,6 +124,11 @@ class EventRepository {
   Future<List<AppEvent>> list(String userId) async =>
       (await _database.eventDao.listActive(userId)).map(_fromStored).toList();
 
+  /// Resolves the current owner-scoped name, including a soft-deleted event.
+  /// REG-05: Lead snapshots are fallback text, not the relation's authority.
+  Future<String?> nameForId(String userId, String eventId) async =>
+      (await _database.eventDao.byId(userId, eventId))?.name;
+
   Stream<List<AppEvent>> watch(String userId) => _database.eventDao
       .watchActive(userId)
       .map((events) => events.map(_fromStored).toList());

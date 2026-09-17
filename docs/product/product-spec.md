@@ -193,7 +193,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `REG-02` | Selector incluye “Todos los eventos” y eventos persistidos; filtra sin cambiar el activo. |
 | `REG-03` | Buscar por nombre/empresa y filtrar Cliente/Partner/Proveedor funciona localmente. |
 | `REG-04` | Orden descendente por fecha de captura, con UUID como desempate estable, y estado vacío invitan a capturar; conteos reflejan el filtro actual. |
-| `REG-05` | El detalle muestra contacto, fecha/hora, origen, capturó, medios, notas, adjuntos y estados. |
+| `REG-05` | El detalle muestra contacto, fecha/hora, origen, capturó, medios, notas, adjuntos y estados. Para un Lead de evento, Origen resuelve el nombre actual por su eventId local incluso si el evento fue eliminado lógicamente; el nombre histórico del Lead es solo respaldo. Para un Lead directo, Origen muestra también Lugar cuando existe. |
 | `REG-06` | La tarjeta e imágenes de referencia se abren completas en un visor modal. |
 | `REG-07` | El detalle permite corregir nombre, apellido, puesto, empresa, correo, teléfono, tipo, interés, nota escrita y, solo en lead directo, lugar. UUID, owner, fecha original, origen, evento, capturó y medios son inmutables. La edición persiste primero en Drift y usa `PUT /v1/leads/{leadId}` con revisión optimista; un conflicto conserva el cambio local y queda recuperable sin duplicar. |
 | `REG-08` | Voice Note se reproduce desde lista/detalle; controles post-guardado siguen la política de `D-06`. |

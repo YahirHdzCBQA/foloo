@@ -851,6 +851,8 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           onLogout: _logout,
           contentFiles: List.unmodifiable(_contentFiles),
           events: List.unmodifiable(events),
+          eventNameForId: (eventId) =>
+              _persistence.events.nameForId(_userId, eventId),
           onSync: () => _synchronize(trigger: SyncTrigger.manual),
           syncing: _syncEngine?.running ?? false,
           onLeadUpdated: _updateLead,

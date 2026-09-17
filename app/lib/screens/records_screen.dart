@@ -67,6 +67,7 @@ class RecordsScreen extends StatefulWidget {
     required this.onLogout,
     this.contentFiles = const [],
     this.events = const [],
+    this.eventNameForId,
     this.profile = DemoAppData.profile,
     this.voiceNoteService,
     this.onSync,
@@ -86,6 +87,7 @@ class RecordsScreen extends StatefulWidget {
   final VoiceNoteService? voiceNoteService;
   final List<ContentFile> contentFiles;
   final List<AppEvent> events;
+  final Future<String?> Function(String eventId)? eventNameForId;
   final Future<void> Function()? onSync;
   final bool syncing;
   final Future<void> Function(SessionLead record, LeadDraft updated)?
@@ -262,10 +264,25 @@ class _RecordsScreenState extends State<RecordsScreen>
   }
 
   Future<void> _openDetail(SessionLead record) async {
+    String? currentEventName;
+    final eventId = record.lead.eventLocalId;
+    if (record.lead.originKind == LeadOriginKind.event && eventId != null) {
+      try {
+        currentEventName = await widget.eventNameForId?.call(eventId);
+      } catch (_) {
+        // A failed lookup must not hide an otherwise durable Lead detail.
+      }
+      currentEventName ??= widget.events
+          .where((event) => event.id == eventId)
+          .firstOrNull
+          ?.name;
+    }
+    if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ConnectionDetailScreen(
           record: record,
+          currentEventName: currentEventName,
           audioPlaying:
               _activeAudioPath == record.lead.audioLocalPath && _audioPlaying,
           onToggleAudio: () => _toggleAudio(record),
@@ -420,6 +437,7 @@ class _RecordsScreenState extends State<RecordsScreen>
                       subtitle: MaterialLocalizations.of(context)
                           .formatMediumDate(event.startsOn),
                       selected: false,
+                      showSelectionIndicator: false,
                       onTap: () => Navigator.pop(context, event),
                     );
                   },
@@ -762,6 +780,7 @@ class _ExportFormatOption extends StatelessWidget {
     required this.subtitle,
     required this.selected,
     required this.onTap,
+    this.showSelectionIndicator = true,
     super.key,
   });
 
@@ -770,6 +789,7 @@ class _ExportFormatOption extends StatelessWidget {
   final String subtitle;
   final bool selected;
   final VoidCallback onTap;
+  final bool showSelectionIndicator;
 
   @override
   Widget build(BuildContext context) {
@@ -811,20 +831,26 @@ class _ExportFormatOption extends StatelessWidget {
                   ],
                 ),
               ),
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: selected ? palette.ink : Colors.transparent,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: selected ? palette.ink : palette.inkMuted,
+              if (showSelectionIndicator)
+                Container(
+                  key: const Key('exportOptionSelectionIndicator'),
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: selected ? palette.ink : Colors.transparent,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: selected ? palette.ink : palette.inkMuted,
+                    ),
                   ),
+                  child: selected
+                      ? const Icon(
+                          Icons.check,
+                          size: 14,
+                          color: FolooColors.lime,
+                        )
+                      : null,
                 ),
-                child: selected
-                    ? const Icon(Icons.check, size: 14, color: FolooColors.lime)
-                    : null,
-              ),
             ],
           ),
         ),
@@ -1021,12 +1047,14 @@ class ConnectionDetailScreen extends StatelessWidget {
     required this.record,
     required this.audioPlaying,
     required this.onToggleAudio,
+    this.currentEventName,
     this.onEdit,
     super.key,
   });
   final SessionLead record;
   final bool audioPlaying;
   final VoidCallback onToggleAudio;
+  final String? currentEventName;
   final Future<void> Function(LeadDraft updated)? onEdit;
 
   @override
@@ -1341,7 +1369,9 @@ class ConnectionDetailScreen extends StatelessWidget {
             _ReadOnlyValue(
               label: context.l10n.origin,
               value: lead.originKind == LeadOriginKind.event
-                  ? (lead.eventName ?? context.l10n.event)
+                  ? (currentEventName ?? lead.eventName ?? context.l10n.event)
+                  : lead.place?.trim().isNotEmpty == true
+                  ? '${context.l10n.directLead} · ${lead.place!.trim()}'
                   : context.l10n.directLead,
             ),
             _ReadOnlyValue(

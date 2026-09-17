@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foloo/data/repositories/local_repositories.dart';
+import 'package:foloo/l10n/app_localizations.dart';
 import 'package:foloo/models/app_destination.dart';
 import 'package:foloo/models/app_event.dart';
 import 'package:foloo/models/lead_draft.dart';
@@ -21,6 +23,8 @@ LeadDraft lead({
   String eventName = DemoEventData.eventName,
   String name = 'Mariana',
   List<String> referenceImagePaths = const [],
+  LeadOriginKind originKind = LeadOriginKind.event,
+  String? place,
 }) => LeadDraft(
   name: name,
   lastName: 'Sandoval Ruiz',
@@ -31,9 +35,10 @@ LeadDraft lead({
   type: LeadType.customer,
   interest: InterestLevel.high,
   note: '',
-  originKind: LeadOriginKind.event,
-  eventLocalId: eventId,
-  eventName: eventName,
+  originKind: originKind,
+  eventLocalId: originKind == LeadOriginKind.event ? eventId : null,
+  eventName: originKind == LeadOriginKind.event ? eventName : null,
+  place: place,
   audioLocalPath: audioPath,
   audioSeconds: audioSeconds,
   cardImageLocalPath: cardImagePath,
@@ -50,14 +55,20 @@ Widget recordsApp(
   bool syncing = false,
   RecordsFileSharer fileSharer = const _FakeRecordsFileSharer(),
   Future<void> Function(SessionLead, LeadDraft)? onLeadUpdated,
+  Future<String?> Function(String eventId)? eventNameForId,
+  Locale locale = const Locale('es'),
 }) => MaterialApp(
   theme: FolooTheme.light,
   darkTheme: FolooTheme.dark,
   themeMode: darkMode ? ThemeMode.dark : ThemeMode.light,
+  locale: locale,
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
   home: RecordsScreen(
     records: records,
     darkMode: darkMode,
     events: events,
+    eventNameForId: eventNameForId,
     voiceNoteService: service,
     onDestinationSelected: onDestinationSelected ?? (_) {},
     onAppearanceChanged: (_) {},
@@ -479,10 +490,176 @@ void main() {
     expect(find.text('Elige el evento que deseas exportar'), findsOneWidget);
     expect(find.byType(Dialog), findsOneWidget);
     expect(find.byType(AlertDialog), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('exportEvent-event-b')),
+        matching: find.byKey(const Key('exportOptionSelectionIndicator')),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('exportEvent-event-b')),
+        matching: find.byIcon(Icons.check),
+      ),
+      findsNothing,
+    );
     await tester.tap(find.text('Evento B').last);
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('exportXlsOption')), findsOneWidget);
+    expect(find.byKey(const Key('exportCsvOption')), findsOneWidget);
     await tester.tap(find.byKey(const Key('confirmExportButton')));
     await tester.pumpAndSettle();
     expect(sharer.file?.filename, startsWith('foloo_Evento B_'));
+    expect(sharer.file?.filename, endsWith('.xlsx'));
   });
+
+  testWidgets(
+    'REG-05 detail prefers renamed local Event over stale Lead snapshot',
+    (tester) async {
+      const owner = 'owner-a';
+      const eventId = '41414141-4141-4414-8414-414141414141';
+      final persistence = LocalPersistence.inMemory();
+      addTearDown(persistence.close);
+      final original = AppEvent(
+        id: eventId,
+        name: 'Expo México',
+        startsOn: DateTime(2026, 9, 1),
+        endsOn: DateTime(2026, 9, 2),
+        active: true,
+      );
+      await persistence.events.save(owner, original);
+      final renamed = original.copyWith(name: 'Expo México 2026');
+      await persistence.events.save(owner, renamed);
+      final record = SessionLead(
+        localId: 'lead-event',
+        folio: null,
+        capturedAt: DateTime(2026, 9, 1),
+        lead: lead(eventId: eventId, eventName: 'Expo México'),
+      );
+      await tester.pumpWidget(
+        recordsApp(
+          FakeVoiceNoteService(),
+          records: [record],
+          events: [renamed],
+          eventNameForId: (id) => persistence.events.nameForId(owner, id),
+        ),
+      );
+      await tester.tap(find.text('Mariana Sandoval Ruiz'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widgetList<SelectableText>(find.byType(SelectableText))
+            .map((value) => value.data),
+        contains('Expo México 2026'),
+      );
+      expect(find.text('Expo México'), findsNothing);
+      expect(await persistence.events.nameForId('owner-b', eventId), isNull);
+    },
+  );
+
+  testWidgets('REG-05 soft-deleted Event still names its retained Lead', (
+    tester,
+  ) async {
+    const owner = 'owner-a';
+    const eventId = '42424242-4242-4424-8424-424242424242';
+    final persistence = LocalPersistence.inMemory();
+    addTearDown(persistence.close);
+    final event = AppEvent(
+      id: eventId,
+      name: 'Expo León',
+      startsOn: DateTime(2026, 9, 1),
+      endsOn: DateTime(2026, 9, 2),
+    );
+    await persistence.events.save(owner, event);
+    await persistence.events.delete(owner, event);
+    expect(await persistence.events.list(owner), isEmpty);
+    final record = SessionLead(
+      localId: 'lead-deleted-event',
+      folio: null,
+      capturedAt: DateTime(2026, 9, 1),
+      lead: lead(eventId: eventId, eventName: 'Nombre anterior'),
+    );
+    await tester.pumpWidget(
+      recordsApp(
+        FakeVoiceNoteService(),
+        records: [record],
+        eventNameForId: (id) => persistence.events.nameForId(owner, id),
+      ),
+    );
+    await tester.tap(find.text('Mariana Sandoval Ruiz'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Expo León'), findsOneWidget);
+    expect(find.text('Nombre anterior'), findsNothing);
+  });
+
+  for (final locale in const [Locale('es'), Locale('en')]) {
+    testWidgets(
+      'REG-05 direct origin includes Lugar in ${locale.languageCode}',
+      (tester) async {
+        final record = SessionLead(
+          localId: 'direct-place',
+          folio: null,
+          capturedAt: DateTime(2026, 9, 1),
+          lead: lead(
+            originKind: LeadOriginKind.direct,
+            place: 'León, Guanajuato',
+          ),
+        );
+        await tester.pumpWidget(
+          recordsApp(FakeVoiceNoteService(), records: [record], locale: locale),
+        );
+        await tester.tap(find.text('Mariana Sandoval Ruiz'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text(
+            locale.languageCode == 'es'
+                ? 'Lead directo · León, Guanajuato'
+                : 'Direct lead · León, Guanajuato',
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'REG-05 direct origin omits empty Lugar in ${locale.languageCode}',
+      (tester) async {
+        final record = SessionLead(
+          localId: 'direct-empty',
+          folio: null,
+          capturedAt: DateTime(2026, 9, 1),
+          lead: lead(originKind: LeadOriginKind.direct),
+        );
+        await tester.pumpWidget(
+          recordsApp(FakeVoiceNoteService(), records: [record], locale: locale),
+        );
+        await tester.tap(find.text('Mariana Sandoval Ruiz'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text(
+            locale.languageCode == 'es' ? 'Lead directo' : 'Direct lead',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widgetList<SelectableText>(find.byType(SelectableText))
+              .map((value) => value.data)
+              .where(
+                (value) =>
+                    value?.startsWith(
+                      locale.languageCode == 'es'
+                          ? 'Lead directo ·'
+                          : 'Direct lead ·',
+                    ) ==
+                    true,
+              ),
+          isEmpty,
+        );
+      },
+    );
+  }
 }

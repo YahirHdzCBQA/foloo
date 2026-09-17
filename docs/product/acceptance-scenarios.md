@@ -78,6 +78,10 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - El renglón comunica interés, voz y sync con icono/palabra.
 - El detalle reproduce voz, abre tarjeta/referencias completas y muestra
   fecha/hora, origen y capturó.
+- Tras renombrar un evento, el detalle de sus Leads muestra el nombre vigente
+  desde la relación local, no un snapshot antiguo; también resuelve el nombre
+  del evento eliminado lógicamente. Un Lead directo muestra "Lead directo · Lugar"
+  (o su equivalente EN) si Lugar existe, y solo "Lead directo" si falta.
 - Corregir los campos estructurados de `REG-07` persiste primero en Drift,
   actualiza por outbox y no cambia owner, UUID, captura, origen, evento o medios.
 - Una revisión remota distinta conserva la edición local, muestra conflicto
@@ -143,6 +147,8 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Exportar abre XLSX/CSV con XLSX inicial.
 - Elegir evento produce exclusivamente datos locales de ese owner/evento,
   incluidos pendientes; “Todos los eventos” exige elegir uno.
+- La elección de evento es de una sola acción: la fila completa es táctil y no
+  muestra un indicador circular de selección múltiple.
 - Las trece columnas aparecen en el orden de `REG-11`, con vacíos como celda
   vacía, encabezados ES/EN y fecha local con offset.
 - CSV usa BOM UTF-8 y escaping RFC 4180; XLSX es un archivo real. Ambos
