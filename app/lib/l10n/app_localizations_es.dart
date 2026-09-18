@@ -994,6 +994,54 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String emailDefaultSubjectV1(Object name) {
+    return 'Un gusto conocerte, $name';
+  }
+
+  @override
+  String emailDefaultBodyEventV1(Object content, Object context, Object name) {
+    return 'Hola $name,\n\nFue un gusto conocerte en $context y poder platicar contigo.\n\nTe comparto $content, como seguimiento a nuestra conversación.\n\nQuedo pendiente y espero que podamos seguir en contacto.';
+  }
+
+  @override
+  String emailDefaultBodyDirectV1(Object content, Object context, Object name) {
+    return 'Hola $name,\n\nFue un gusto conocerte en $context y poder platicar contigo.\n\nTe comparto $content, como seguimiento a nuestra conversación.\n\nQuedo pendiente y espero que podamos seguir en contacto.';
+  }
+
+  @override
+  String emailDefaultSignatureV1(Object sellerCompany, Object sellerName) {
+    return 'Saludos,\n$sellerName\n$sellerCompany';
+  }
+
+  @override
+  String emailFooterEventV1(Object context) {
+    return 'Recibiste este correo como seguimiento a nuestro encuentro en $context.';
+  }
+
+  @override
+  String emailFooterDirectV1(Object context) {
+    return 'Recibiste este correo como seguimiento a nuestro encuentro en $context.';
+  }
+
+  @override
+  String get emailFooterGenericV1 =>
+      'Recibiste este correo como seguimiento a nuestro encuentro.';
+
+  @override
+  String get emailUnsubscribeV1 =>
+      'Si prefieres no recibir más comunicaciones, puedes darte de baja aquí.';
+
+  @override
+  String get emailSignatureV1 => 'Firma';
+
+  @override
+  String get templateSavedV1 => 'Plantilla guardada en este dispositivo.';
+
+  @override
+  String get emailNoLeadPreviewV1 =>
+      'Captura un lead para ver una vista previa con datos reales.';
+
+  @override
   String get unclosedVariable => 'Hay una variable con llaves sin cerrar.';
 
   @override

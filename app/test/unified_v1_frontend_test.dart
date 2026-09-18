@@ -443,7 +443,14 @@ void main() {
         .controller!
         .text;
     expect(defaultBody, startsWith('Hola {nombre},'));
-    expect(defaultBody.trim(), endsWith('{capturadoPor}'));
+    expect(defaultBody, contains('Te comparto {contenido}'));
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const ValueKey('emailSignature-event')))
+          .controller
+          ?.text,
+      contains('{nombreVendedor}'),
+    );
     final eventSubject = find.byKey(const ValueKey('emailSubject-event'));
     await tester.enterText(eventSubject, 'Evento especial {evento}');
     await tester.tap(find.text('Lead directo'));
@@ -453,7 +460,7 @@ void main() {
           .widget<TextField>(find.byKey(const ValueKey('emailSubject-direct')))
           .controller
           ?.text,
-      'Seguimiento · {lugar}',
+      'Un gusto conocerte, {nombre}',
     );
     await tester.enterText(
       find.byKey(const ValueKey('emailSubject-direct')),

@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Foloo API
-  version: 1.0.0-content
-  description: Authenticated Foloo V1 API with offline-sync metadata and private direct media/PDF transfer.
+  version: 1.0.0-email-foundation
+  description: Authenticated Foloo V1 API with offline-sync metadata, private media/PDF transfer and email-template foundation. Follow-up delivery is not yet exposed.
 servers:
   - url: https://{apiId}.execute-api.us-east-1.amazonaws.com/v1
     variables:
@@ -11,6 +11,24 @@ servers:
 security:
   - cognitoJwt: []
 paths:
+  /email/templates:
+    get:
+      operationId: listEmailTemplates
+      description: Lists the current seller's saved Event/Direct ES/EN templates.
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+    put:
+      operationId: putEmailTemplate
+      description: Saves one validated owner-scoped template; does not send email.
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmailTemplateInput" }
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
   /workspace:
     get:
       operationId: getWorkspace
@@ -261,6 +279,16 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
   schemas:
+    EmailTemplateInput:
+      type: object
+      additionalProperties: false
+      required: [origin, language, subject, body, signature]
+      properties:
+        origin: { type: string, enum: [event, direct] }
+        language: { type: string, enum: [es, en] }
+        subject: { type: string, minLength: 1, maxLength: 500 }
+        body: { type: string, minLength: 1, maxLength: 20000 }
+        signature: { type: string, maxLength: 2000 }
     SellerProfileInput:
       type: object
       additionalProperties: false

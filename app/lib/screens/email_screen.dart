@@ -1,6 +1,7 @@
-/// V1 email-template editor and deterministic preview.
+/// V1 email-template editor and local preview of the latest matching Lead.
 ///
-/// DEMO: Edits remain in memory and no message is sent (PLT-* / SAL-*).
+/// Editable templates persist owner-scoped before sync. Sending remains a
+/// separate, explicitly confirmed follow-up flow (PLT-*, SAL-01).
 library;
 
 import 'package:flutter/material.dart';
@@ -10,14 +11,17 @@ import '../models/app_event.dart';
 import '../models/lead_draft.dart';
 import '../models/content_file.dart';
 import '../models/session_lead.dart';
+import '../models/email_template.dart';
+import '../data/repositories/local_repositories.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
+import '../l10n/app_localizations.dart';
 import '../widgets/module_header.dart';
 import '../widgets/segmented_bubble.dart';
 
 enum _TemplateKind { event, direct }
 
-/// Edits the event or direct-lead V1 template for the current demo session.
+/// Edits the Event or Direct template without initiating a send.
 class EmailScreen extends StatefulWidget {
   const EmailScreen({
     required this.recordsCount,
@@ -26,6 +30,9 @@ class EmailScreen extends StatefulWidget {
     required this.onDestinationSelected,
     required this.onAppearanceChanged,
     required this.onLogout,
+    this.templateRepository,
+    this.ownerSub,
+    this.onTemplateSaved,
     required this.contentCount,
     required this.records,
     required this.contentFiles,
@@ -37,6 +44,9 @@ class EmailScreen extends StatefulWidget {
   final ValueChanged<AppDestination> onDestinationSelected;
   final ValueChanged<bool> onAppearanceChanged;
   final VoidCallback onLogout;
+  final EmailTemplateRepository? templateRepository;
+  final String? ownerSub;
+  final VoidCallback? onTemplateSaved;
   final int contentCount;
   final List<SessionLead> records;
   final List<ContentFile> contentFiles;
@@ -51,69 +61,94 @@ class _EmailScreenState extends State<EmailScreen> {
   final _directSubject = TextEditingController();
   final _eventBody = TextEditingController();
   final _directBody = TextEditingController();
+  final _eventSignature = TextEditingController();
+  final _directSignature = TextEditingController();
+  final Map<String, EmailTemplateData> _stored = {};
   _TemplateKind _kind = _TemplateKind.event;
   String? _error;
-  String? _previousEventSubject;
-  String? _previousDirectSubject;
-  String? _previousEventBody;
-  String? _previousDirectBody;
+  String? _languageCode;
 
   TextEditingController get _subject =>
       _kind == _TemplateKind.event ? _eventSubject : _directSubject;
   TextEditingController get _body =>
       _kind == _TemplateKind.event ? _eventBody : _directBody;
-  List<String> get _variables => _kind == _TemplateKind.event
-      ? const [
-          '{nombre}',
-          '{empresa}',
-          '{evento}',
-          '{contenido}',
-          '{capturadoPor}',
-        ]
-      : const [
-          '{nombre}',
-          '{empresa}',
-          '{lugar}',
-          '{contenido}',
-          '{capturadoPor}',
-        ];
+  TextEditingController get _signature =>
+      _kind == _TemplateKind.event ? _eventSignature : _directSignature;
+  static const _variables = [
+    '{nombre}',
+    '{apellido}',
+    '{empresa}',
+    '{puesto}',
+    '{evento}',
+    '{lugar}',
+    '{contenido}',
+    '{nombreVendedor}',
+    '{empresaVendedor}',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTemplates();
+  }
+
+  @override
+  void didUpdateWidget(covariant EmailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.ownerSub != widget.ownerSub) {
+      _stored.clear();
+      _loadTemplates();
+    }
+  }
+
+  Future<void> _loadTemplates() async {
+    final owner = widget.ownerSub;
+    final repository = widget.templateRepository;
+    if (owner == null || repository == null) return;
+    final loaded = await repository.list(owner);
+    if (!mounted || owner != widget.ownerSub) return;
+    setState(() {
+      _stored
+        ..clear()
+        ..addEntries(loaded.map((item) => MapEntry(item.key, item)));
+      _applyLanguage(context.l10n);
+    });
+  }
+
+  void _applyLanguage(AppLocalizations l10n) {
+    final language = l10n.localeName.startsWith('en') ? 'en' : 'es';
+    _languageCode = language;
+    for (final origin in ['event', 'direct']) {
+      final stored = _stored['$origin:$language'];
+      final subject = origin == 'event' ? _eventSubject : _directSubject;
+      final body = origin == 'event' ? _eventBody : _directBody;
+      final signature = origin == 'event' ? _eventSignature : _directSignature;
+      subject.text = stored?.subject ?? l10n.emailDefaultSubjectV1('{nombre}');
+      body.text =
+          stored?.body ??
+          (origin == 'event'
+              ? l10n.emailDefaultBodyEventV1(
+                  '{contenido}',
+                  '{evento}',
+                  '{nombre}',
+                )
+              : l10n.emailDefaultBodyDirectV1(
+                  '{contenido}',
+                  '{lugar}',
+                  '{nombre}',
+                ));
+      signature.text =
+          stored?.signature ??
+          l10n.emailDefaultSignatureV1('{empresaVendedor}', '{nombreVendedor}');
+    }
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final l10n = context.l10n;
-    final eventSubject = l10n.defaultEmailSubject('{evento}');
-    final directSubject = l10n.defaultEmailSubject('{lugar}');
-    final eventBody = l10n.defaultEmailBody(
-      '{capturadoPor}',
-      '{contenido}',
-      '{evento}',
-      '{nombre}',
-    );
-    final directBody = l10n.defaultEmailBody(
-      '{capturadoPor}',
-      '{contenido}',
-      '{lugar}',
-      '{nombre}',
-    );
-    _replaceDefault(_eventSubject, _previousEventSubject, eventSubject);
-    _replaceDefault(_directSubject, _previousDirectSubject, directSubject);
-    _replaceDefault(_eventBody, _previousEventBody, eventBody);
-    _replaceDefault(_directBody, _previousDirectBody, directBody);
-    _previousEventSubject = eventSubject;
-    _previousDirectSubject = directSubject;
-    _previousEventBody = eventBody;
-    _previousDirectBody = directBody;
-  }
-
-  void _replaceDefault(
-    TextEditingController controller,
-    String? previous,
-    String next,
-  ) {
-    if (controller.text.isEmpty || controller.text == previous) {
-      controller.text = next;
-    }
+    final language = l10n.localeName.startsWith('en') ? 'en' : 'es';
+    if (_languageCode != language) _applyLanguage(l10n);
   }
 
   @override
@@ -123,6 +158,8 @@ class _EmailScreenState extends State<EmailScreen> {
       _directSubject,
       _eventBody,
       _directBody,
+      _eventSignature,
+      _directSignature,
     ]) {
       controller.dispose();
     }
@@ -142,14 +179,14 @@ class _EmailScreenState extends State<EmailScreen> {
     setState(() {});
   }
 
-  void _save() {
+  Future<void> _save() async {
     final allowed = _variables.toSet();
     final found = RegExp(r'\{[^}]+\}')
-        .allMatches('${_subject.text} ${_body.text}')
+        .allMatches('${_subject.text} ${_body.text} ${_signature.text}')
         .map((m) => m.group(0)!)
         .toSet();
     final invalid = found.difference(allowed);
-    final source = '${_subject.text} ${_body.text}';
+    final source = '${_subject.text} ${_body.text} ${_signature.text}';
     final bracesBalanced =
         RegExp(r'\{').allMatches(source).length ==
         RegExp(r'\}').allMatches(source).length;
@@ -161,10 +198,23 @@ class _EmailScreenState extends State<EmailScreen> {
           : context.l10n.invalidVariable(invalid.join(', ')),
     );
     if (_error == null) {
-      // TODO(PRODUCTION): Persist PLT-* templates and send through the backend.
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(context.l10n.templateSavedDemo)));
+      final template = EmailTemplateData(
+        origin: _kind.name,
+        language: _languageCode ?? 'es',
+        subject: _subject.text,
+        body: _body.text,
+        signature: _signature.text,
+      );
+      final repository = widget.templateRepository;
+      final owner = widget.ownerSub;
+      if (repository != null && owner != null) {
+        await repository.save(owner, template);
+        widget.onTemplateSaved?.call();
+      }
+      _stored[template.key] = template;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.templateSavedV1)));
     }
   }
 
@@ -178,31 +228,51 @@ class _EmailScreenState extends State<EmailScreen> {
     return null;
   }
 
-  /// Produces a local preview from known fixtures; it is not delivery output.
+  /// Resolves preview only from a real matching Lead, never from demo fixtures.
   String _preview(String value) {
     final lead = _previewRecord?.lead;
-    final attachments = lead == null
-        ? context.l10n.demoAttachments
-        : lead.contentNames.isEmpty
-        ? context.l10n.noAttachments
-        : [
-            for (var index = 0; index < lead.contentNames.length; index++)
-              '• ${lead.contentNames[index]}${index < lead.contentFileIds.length ? _sizeFor(lead.contentFileIds[index]) : ''}',
-          ].join('\n');
-    return value
-        .replaceAll('{nombre}', lead?.name ?? 'Mariana')
-        .replaceAll('{empresa}', lead?.company ?? 'Grupo Lácteo del Norte')
-        .replaceAll('{evento}', lead?.eventName ?? 'Expo Alimentaria México')
-        .replaceAll('{lugar}', lead?.place ?? context.l10n.demoOffice)
+    if (lead == null) return '';
+    final names = lead.contentNames
+        .where((name) => name.trim().isNotEmpty)
+        .toList();
+    final connector = _languageCode == 'en' ? ' and ' : ' y ';
+    final attachments = names.length <= 1
+        ? (names.isEmpty ? '' : names.first)
+        : '${names.take(names.length - 1).join(', ')}$connector${names.last}';
+    var rendered = value
+        .replaceAll('{nombre}', lead.name)
+        .replaceAll('{apellido}', lead.lastName)
+        .replaceAll('{empresa}', lead.company)
+        .replaceAll('{puesto}', lead.role)
+        .replaceAll('{evento}', lead.eventName ?? '')
+        .replaceAll('{lugar}', lead.place ?? '')
         .replaceAll('{contenido}', attachments)
-        .replaceAll('{capturadoPor}', widget.profile.name);
-  }
-
-  String _sizeFor(String id) {
-    for (final file in widget.contentFiles) {
-      if (file.id == id) return ' · ${file.sizeLabel}';
+        .replaceAll('{nombreVendedor}', widget.profile.name)
+        .replaceAll('{empresaVendedor}', widget.profile.company);
+    if (attachments.isEmpty) {
+      rendered = rendered
+          .split('\n')
+          .where(
+            (line) =>
+                !line.startsWith('Te comparto ') &&
+                !line.startsWith("I'm sharing "),
+          )
+          .join('\n');
     }
-    return '';
+    if ((lead.originKind == LeadOriginKind.event &&
+            (lead.eventName?.trim().isEmpty ?? true)) ||
+        (lead.originKind == LeadOriginKind.direct &&
+            (lead.place?.trim().isEmpty ?? true))) {
+      rendered = rendered
+          .split('\n')
+          .where(
+            (line) =>
+                !line.startsWith('Fue un gusto conocerte en ') &&
+                !line.startsWith('It was great meeting you at '),
+          )
+          .join('\n');
+    }
+    return rendered.trim();
   }
 
   @override
@@ -284,6 +354,24 @@ class _EmailScreenState extends State<EmailScreen> {
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
+                  const SizedBox(height: 14),
+                  Text(
+                    context.l10n.emailSignatureV1,
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  const SizedBox(height: 7),
+                  TextField(
+                    key: ValueKey('emailSignature-${_kind.name}'),
+                    controller: _signature,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      border: FolooBorders.borderlessField,
+                      enabledBorder: FolooBorders.borderlessField,
+                      focusedBorder: FolooBorders.borderlessField,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
                   if (_error != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -328,29 +416,45 @@ class _EmailScreenState extends State<EmailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          context.l10n.previewTo(
-                            _previewRecord?.lead.fullName ??
-                                'Mariana Sandoval Ruiz',
+                        if (_previewRecord != null) ...[
+                          Text(
+                            context.l10n.previewTo(
+                              _previewRecord!.lead.fullName,
+                            ),
+                            style: const TextStyle(fontSize: 12),
                           ),
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          _preview(_subject.text),
-                          style: const TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                        const Divider(height: 24),
-                        Text(_preview(_body.text)),
-                        const SizedBox(height: 18),
-                        Text(
-                          context.l10n.emailPreviewServerHelp(
-                            _previewRecord == null
-                                ? context.l10n.demoFixture
-                                : context.l10n.latestLeadData,
+                          const SizedBox(height: 5),
+                          Text(
+                            _preview(_subject.text),
+                            style: const TextStyle(fontWeight: FontWeight.w900),
                           ),
-                          style: TextStyle(fontSize: 11),
-                        ),
+                          const Divider(height: 24),
+                          Text(_preview(_body.text)),
+                          const SizedBox(height: 12),
+                          Text(_preview(_signature.text)),
+                          const SizedBox(height: 12),
+                          Text(
+                            (_kind == _TemplateKind.event
+                                            ? _previewRecord!.lead.eventName
+                                            : _previewRecord!.lead.place)
+                                        ?.trim()
+                                        .isNotEmpty ==
+                                    true
+                                ? (_kind == _TemplateKind.event
+                                      ? context.l10n.emailFooterEventV1(
+                                          _previewRecord!.lead.eventName!,
+                                        )
+                                      : context.l10n.emailFooterDirectV1(
+                                          _previewRecord!.lead.place!,
+                                        ))
+                                : context.l10n.emailFooterGenericV1,
+                          ),
+                          Text(context.l10n.emailUnsubscribeV1),
+                        ] else
+                          Text(
+                            context.l10n.emailNoLeadPreviewV1,
+                            style: const TextStyle(fontSize: 11),
+                          ),
                       ],
                     ),
                   ),

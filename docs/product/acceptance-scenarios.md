@@ -107,16 +107,32 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 ## E-08 · Plantillas y correo
 
-**Trazas:** `PLT-01`–`PLT-07`, `SAL-01`–`SAL-07`, `RC-01`.
+**Trazas:** `PLT-01`–`PLT-07`, `SAL-01`–`SAL-09`, `RC-01`, ADR-006/007.
 
-- Evento/directo usan plantillas distintas y variables correctas, incluido
-  evento o lugar y capturó.
-- Variable inválida bloquea guardar; pie legal/baja no se puede borrar.
-- Guardar Lead crea trabajo de correo server-side con adjuntos congelados.
-- Offline o fallo deja cola visible sin revertir el Lead.
-- Estados, rebotes y baja se reconcilian; no existen credenciales de correo en
-  la app.
-- El proveedor no puede aceptarse hasta resolver `D-09`.
+- Event/Direct ES/EN eligen por origen estructurado; asunto, cuerpo y firma
+  editados sobreviven reinicio y cambio de cuenta. Preview del Lead real no envía.
+- Solo los nueve tokens `PLT-03` se guardan; tokens desconocidos o llaves
+  incompletas se rechazan. Datos históricos ausentes nunca producen tokens
+  literales, `null`, `undefined` ni información inventada. `{contenido}` usa
+  el snapshot histórico del Lead y representa varios PDF con nombres humanos.
+- Footer fijo ES/EN de Evento o Directo incluye enlace de baja operativo y no
+  editable. Baja repetida es idempotente; token inválido no cambia datos; otro
+  workspace no se ve afectado; Lead e historial se preservan.
+- Guardar Lead crea seguimiento listo pero no envía. Falta de email se muestra
+  sin crear envío imposible. Confirmación online envía; offline persiste la
+  intención y la outbox la reanuda al recuperar señal, incluso tras reinicio.
+- Pendiente/Enviando/Enviado/Error/Estado por confirmar se muestran con texto,
+  sin equiparar aceptación a entrega. Timeout ambiguo tras posible aceptación
+  jamás reintenta solo; nuevo intento exige advertencia/decisión. Un reenvío
+  manual posterior es una intención distinta del retry técnico.
+- Adjuntos congelados se validan en backend. PDF borrado/no disponible o exceso
+  de tamaño no se omite en silencio: el vendedor decide omitirlo para esa
+  intención o cancelar. El Lead y su snapshot no cambian.
+- Google/Microsoft conectan por OAuth y least privilege; sin conexión o con
+  autorización revocada hay CTA de conectar/reconectar sin perder datos. Un
+  pendiente de identidad anterior requiere confirmar el nuevo remitente. Los
+  envíos históricos mantienen su remitente efectivo y ninguna cuenta B accede
+  a conexión, plantilla, follow-up u opt-out de A.
 
 ## E-09 · Offline total y sincronización
 

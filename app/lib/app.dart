@@ -986,6 +986,10 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
         ),
         EmailScreen(
           key: const ValueKey('emailScreen'),
+          templateRepository: _persistence.templates,
+          ownerSub: _userId,
+          onTemplateSaved: () =>
+              unawaited(_synchronize(trigger: SyncTrigger.postSave)),
           recordsCount: _sessionLeads.length,
           contentCount: _contentFiles.length,
           records: List.unmodifiable(_sessionLeads),

@@ -14,6 +14,7 @@ import 'package:path/path.dart' as p;
 
 import '../../models/app_event.dart';
 import '../../models/content_file.dart';
+import '../../models/email_template.dart';
 import '../../models/lead_draft.dart';
 import '../../models/session_lead.dart';
 import '../../sync/sync_models.dart';
@@ -86,6 +87,54 @@ class PreferencesRepository {
 
   Future<void> write(String userId, String key, String value) =>
       _database.profilePreferencesDao.saveUserPreference(userId, key, value);
+}
+
+/// Owner-scoped local-first template persistence (PLT-06, SYN-01).
+class EmailTemplateRepository {
+  EmailTemplateRepository(this._database, {SyncStore? syncStore})
+    : _syncStore = syncStore ?? SyncStore(_database);
+
+  final AppDatabase _database;
+  final SyncStore _syncStore;
+
+  Future<List<EmailTemplateData>> list(String ownerSub) async =>
+      (await _database.emailTemplateDao.listForOwner(ownerSub))
+          .map(
+            (row) => EmailTemplateData(
+              origin: row.originKind,
+              language: row.languageCode,
+              subject: row.subject,
+              body: row.body,
+              signature: row.signature,
+            ),
+          )
+          .toList();
+
+  Future<void> save(String ownerSub, EmailTemplateData template) async {
+    final now = DateTime.now().toUtc();
+    await _database.transaction(() async {
+      await _database.emailTemplateDao.upsert(
+        LocalEmailTemplatesCompanion.insert(
+          ownerUserId: ownerSub,
+          originKind: template.origin,
+          languageCode: template.language,
+          subject: template.subject,
+          body: template.body,
+          signature: template.signature,
+          updatedAt: now,
+          syncState: const Value('local'),
+        ),
+      );
+      await _syncStore.enqueue(
+        ownerSub: ownerSub,
+        entityType: SyncEntityType.emailTemplate,
+        entityId: template.key,
+        action: 'upsert',
+        payload: template.toSyncPayload(),
+        now: now,
+      );
+    });
+  }
 }
 
 /// Device-global values used only before a user-scoped repository is known.
@@ -982,6 +1031,7 @@ class LocalPersistence {
     this.deleteMediaOnClose = false,
   }) : profiles = ProfileRepository(database),
        preferences = PreferencesRepository(database),
+       templates = EmailTemplateRepository(database),
        globalPreferences = GlobalPreferencesRepository(database),
        events = EventRepository(database),
        content = ContentRepository(database, mediaStorage),
@@ -993,6 +1043,7 @@ class LocalPersistence {
   final bool deleteMediaOnClose;
   final ProfileRepository profiles;
   final PreferencesRepository preferences;
+  final EmailTemplateRepository templates;
   final GlobalPreferencesRepository globalPreferences;
   final EventRepository events;
   final ContentRepository content;

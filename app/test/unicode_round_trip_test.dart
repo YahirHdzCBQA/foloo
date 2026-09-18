@@ -41,6 +41,9 @@ class _RoundTripApi implements SyncApi {
     if (request.path == '/v1/profile') {
       return const SyncResponse(statusCode: 200, data: {'data': null});
     }
+    if (request.path == '/v1/email/templates') {
+      return const SyncResponse(statusCode: 200, data: {'data': []});
+    }
     if (request.path == '/v1/events') {
       return SyncResponse(statusCode: 200, data: {'data': remoteEvents});
     }

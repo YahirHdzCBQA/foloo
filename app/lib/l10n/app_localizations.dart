@@ -1789,6 +1789,72 @@ abstract class AppLocalizations {
     Object name,
   );
 
+  /// No description provided for @emailDefaultSubjectV1.
+  ///
+  /// In es, this message translates to:
+  /// **'Un gusto conocerte, {name}'**
+  String emailDefaultSubjectV1(Object name);
+
+  /// No description provided for @emailDefaultBodyEventV1.
+  ///
+  /// In es, this message translates to:
+  /// **'Hola {name},\n\nFue un gusto conocerte en {context} y poder platicar contigo.\n\nTe comparto {content}, como seguimiento a nuestra conversación.\n\nQuedo pendiente y espero que podamos seguir en contacto.'**
+  String emailDefaultBodyEventV1(Object content, Object context, Object name);
+
+  /// No description provided for @emailDefaultBodyDirectV1.
+  ///
+  /// In es, this message translates to:
+  /// **'Hola {name},\n\nFue un gusto conocerte en {context} y poder platicar contigo.\n\nTe comparto {content}, como seguimiento a nuestra conversación.\n\nQuedo pendiente y espero que podamos seguir en contacto.'**
+  String emailDefaultBodyDirectV1(Object content, Object context, Object name);
+
+  /// No description provided for @emailDefaultSignatureV1.
+  ///
+  /// In es, this message translates to:
+  /// **'Saludos,\n{sellerName}\n{sellerCompany}'**
+  String emailDefaultSignatureV1(Object sellerCompany, Object sellerName);
+
+  /// No description provided for @emailFooterEventV1.
+  ///
+  /// In es, this message translates to:
+  /// **'Recibiste este correo como seguimiento a nuestro encuentro en {context}.'**
+  String emailFooterEventV1(Object context);
+
+  /// No description provided for @emailFooterDirectV1.
+  ///
+  /// In es, this message translates to:
+  /// **'Recibiste este correo como seguimiento a nuestro encuentro en {context}.'**
+  String emailFooterDirectV1(Object context);
+
+  /// No description provided for @emailFooterGenericV1.
+  ///
+  /// In es, this message translates to:
+  /// **'Recibiste este correo como seguimiento a nuestro encuentro.'**
+  String get emailFooterGenericV1;
+
+  /// No description provided for @emailUnsubscribeV1.
+  ///
+  /// In es, this message translates to:
+  /// **'Si prefieres no recibir más comunicaciones, puedes darte de baja aquí.'**
+  String get emailUnsubscribeV1;
+
+  /// No description provided for @emailSignatureV1.
+  ///
+  /// In es, this message translates to:
+  /// **'Firma'**
+  String get emailSignatureV1;
+
+  /// No description provided for @templateSavedV1.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantilla guardada en este dispositivo.'**
+  String get templateSavedV1;
+
+  /// No description provided for @emailNoLeadPreviewV1.
+  ///
+  /// In es, this message translates to:
+  /// **'Captura un lead para ver una vista previa con datos reales.'**
+  String get emailNoLeadPreviewV1;
+
   /// No description provided for @unclosedVariable.
   ///
   /// In es, this message translates to:

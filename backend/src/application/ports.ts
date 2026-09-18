@@ -16,8 +16,16 @@ import type {
   Principal,
   SellerProfileInput,
 } from "../domain/models.js";
+import type { EmailTemplate } from "../domain/email_templates.js";
 
 export interface FolooRepository {
+  listEmailTemplates(principal: Principal): Promise<EmailTemplate[]>;
+  saveEmailTemplate(
+    principal: Principal,
+    template: EmailTemplate,
+    idempotencyKey: string,
+    requestHash: string,
+  ): Promise<IdempotentResult<EmailTemplate>>;
   resolvePrincipal(subject: string): Promise<Principal>;
   getWorkspace(principal: Principal): Promise<unknown>;
   getProfile(principal: Principal): Promise<unknown | null>;

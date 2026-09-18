@@ -69,6 +69,21 @@ class LocalContentFiles extends Table {
   Set<Column<Object>> get primaryKey => {localId};
 }
 
+@DataClassName('StoredEmailTemplate')
+class LocalEmailTemplates extends Table {
+  TextColumn get ownerUserId => text()();
+  TextColumn get originKind => text()();
+  TextColumn get languageCode => text()();
+  TextColumn get subject => text()();
+  TextColumn get body => text()();
+  TextColumn get signature => text()();
+  DateTimeColumn get updatedAt => dateTime()();
+  TextColumn get syncState => text().withDefault(const Constant('local'))();
+
+  @override
+  Set<Column<Object>> get primaryKey => {ownerUserId, originKind, languageCode};
+}
+
 @DataClassName('StoredLead')
 @TableIndex(name: 'lead_event_idx', columns: {#eventLocalId})
 @TableIndex(name: 'lead_captured_idx', columns: {#capturedAt})
@@ -177,6 +192,34 @@ class StoredLeadBundle {
 
   final StoredLead lead;
   final List<StoredLeadMedia> media;
+}
+
+@DriftAccessor(tables: [LocalEmailTemplates])
+class EmailTemplateDao extends DatabaseAccessor<AppDatabase>
+    with _$EmailTemplateDaoMixin {
+  EmailTemplateDao(super.db);
+
+  Future<List<StoredEmailTemplate>> listForOwner(String ownerSub) => (select(
+    localEmailTemplates,
+  )..where((row) => row.ownerUserId.equals(ownerSub))).get();
+
+  Future<void> upsert(LocalEmailTemplatesCompanion template) =>
+      into(localEmailTemplates).insertOnConflictUpdate(template);
+
+  Future<void> markSynced(
+    String ownerSub,
+    String originKind,
+    String languageCode,
+  ) =>
+      (update(localEmailTemplates)..where(
+            (row) =>
+                row.ownerUserId.equals(ownerSub) &
+                row.originKind.equals(originKind) &
+                row.languageCode.equals(languageCode),
+          ))
+          .write(
+            const LocalEmailTemplatesCompanion(syncState: Value('synced')),
+          );
 }
 
 @DriftAccessor(tables: [LocalProfiles, LocalPreferences, LocalUserPreferences])
@@ -663,13 +706,21 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
     LocalProfiles,
     LocalEvents,
     LocalContentFiles,
+    LocalEmailTemplates,
     LocalLeads,
     LocalLeadMedia,
     LocalPreferences,
     LocalUserPreferences,
     SyncOperations,
   ],
-  daos: [ProfilePreferencesDao, EventDao, ContentDao, LeadDao, SyncDao],
+  daos: [
+    ProfilePreferencesDao,
+    EventDao,
+    ContentDao,
+    EmailTemplateDao,
+    LeadDao,
+    SyncDao,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
@@ -684,7 +735,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -725,6 +776,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 6) {
         await migrator.createTable(localContentFiles);
+      }
+      if (from < 7) {
+        await migrator.createTable(localEmailTemplates);
       }
     },
     beforeOpen: (details) async {

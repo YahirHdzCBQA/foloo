@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 
 import type pg from "pg";
+import type { EmailTemplate } from "../domain/email_templates.js";
 
 import {
   ApplicationError,
@@ -36,6 +37,55 @@ export function requestHash(value: unknown): string {
 
 export class PostgresFolooRepository implements FolooRepository {
   constructor(private readonly pool: pg.Pool) {}
+
+  async listEmailTemplates(principal: Principal): Promise<EmailTemplate[]> {
+    const result = await this.pool.query<EmailTemplate>(
+      `SELECT origin, language, subject, body, signature
+       FROM email_templates WHERE workspace_id = $1 AND owner_user_id = $2
+       ORDER BY origin, language`,
+      [principal.workspaceId, principal.userId],
+    );
+    return result.rows;
+  }
+
+  async saveEmailTemplate(
+    principal: Principal,
+    template: EmailTemplate,
+    key: string,
+    hash: string,
+  ): Promise<IdempotentResult<EmailTemplate>> {
+    return this.idempotent(
+      principal.workspaceId,
+      "save-email-template",
+      key,
+      hash,
+      async (db) => {
+        const result = await db.query<EmailTemplate>(
+          `INSERT INTO email_templates
+         (workspace_id, owner_user_id, origin, language, subject, body, signature)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (workspace_id, origin, language) DO UPDATE SET
+         subject = EXCLUDED.subject, body = EXCLUDED.body,
+         signature = EXCLUDED.signature
+       WHERE email_templates.owner_user_id = $2
+       RETURNING origin, language, subject, body, signature`,
+          [
+            principal.workspaceId,
+            principal.userId,
+            template.origin,
+            template.language,
+            template.subject,
+            template.body,
+            template.signature,
+          ],
+        );
+        const row = result.rows[0];
+        if (!row) throw notFound("Email template");
+        return row;
+      },
+      200,
+    );
+  }
 
   async resolvePrincipal(subject: string): Promise<Principal> {
     const result = await this.pool.query<{

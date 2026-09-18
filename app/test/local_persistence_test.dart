@@ -484,16 +484,16 @@ void main() {
 
   test('schema version is explicit and stable across reopen', () async {
     var database = openDatabase();
-    expect(database.schemaVersion, 6);
+    expect(database.schemaVersion, 7);
     var version = await database
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 6);
+    expect(version.read<int>('user_version'), 7);
     await database.close();
 
     database = openDatabase();
     version = await database.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 6);
+    expect(version.read<int>('user_version'), 7);
     await database.close();
   });
 

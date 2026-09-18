@@ -541,6 +541,7 @@ class SyncEngine extends ChangeNotifier {
       SyncEntityType.event =>
         operation.action == 'delete' && await _hasPendingLeadCreate(operation),
       SyncEntityType.profile => false,
+      SyncEntityType.emailTemplate => false,
     };
   }
 
@@ -634,6 +635,7 @@ class SyncEngine extends ChangeNotifier {
       .values
       .byName(operation.entityType)) {
     SyncEntityType.profile => '/v1/profile',
+    SyncEntityType.emailTemplate => '/v1/email/templates',
     SyncEntityType.event =>
       operation.action == 'create'
           ? '/v1/events'
@@ -658,6 +660,12 @@ class SyncEngine extends ChangeNotifier {
         method: 'PUT',
         path: '/v1/profile',
         body: payload,
+      ),
+      SyncEntityType.emailTemplate => SyncRequest(
+        method: 'PUT',
+        path: '/v1/email/templates',
+        body: payload,
+        idempotencyKey: operation.idempotencyKey,
       ),
       SyncEntityType.event => SyncRequest(
         method: operation.action == 'create'
@@ -715,6 +723,19 @@ class SyncEngine extends ChangeNotifier {
       );
       if (profile is Map<String, Object?>) {
         await _store.applyRemoteProfile(ownerSub, profile);
+      }
+      try {
+        final templates = _list(
+          _data(
+            await _api.send(
+              token,
+              const SyncRequest(method: 'GET', path: '/v1/email/templates'),
+            ),
+          ),
+        );
+        await _store.applyRemoteEmailTemplates(ownerSub, templates);
+      } on SyncHttpException {
+        // A DEV backend without FL-019 must not block existing sync flows.
       }
       final events = _list(
         _data(

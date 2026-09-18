@@ -856,6 +856,16 @@ class SyncStore {
           );
         }
         return;
+      case SyncEntityType.emailTemplate:
+        final parts = operation.entityId.split(':');
+        if (state == 'synced' && parts.length == 2) {
+          await database.emailTemplateDao.markSynced(
+            operation.ownerUserId,
+            parts[0],
+            parts[1],
+          );
+        }
+        return;
       case SyncEntityType.event:
         if (state == 'synced') {
           await database.eventDao.markSynced(
@@ -956,6 +966,48 @@ class SyncStore {
         syncState: const Value('synced'),
       ),
     );
+  }
+
+  /// Pulls seller templates without overwriting unsent local edits.
+  Future<void> applyRemoteEmailTemplates(
+    String ownerSub,
+    List<Map<String, Object?>> templates,
+  ) async {
+    for (final template in templates) {
+      final origin = template['origin'];
+      final language = template['language'];
+      final subject = template['subject'];
+      final body = template['body'];
+      final signature = template['signature'];
+      if (origin is! String ||
+          language is! String ||
+          subject is! String ||
+          body is! String ||
+          signature is! String ||
+          !['event', 'direct'].contains(origin) ||
+          !['es', 'en'].contains(language)) {
+        continue;
+      }
+      if (await hasPending(
+        ownerSub,
+        SyncEntityType.emailTemplate,
+        '$origin:$language',
+      )) {
+        continue;
+      }
+      await database.emailTemplateDao.upsert(
+        LocalEmailTemplatesCompanion.insert(
+          ownerUserId: ownerSub,
+          originKind: origin,
+          languageCode: language,
+          subject: subject,
+          body: body,
+          signature: signature,
+          updatedAt: DateTime.now().toUtc(),
+          syncState: const Value('synced'),
+        ),
+      );
+    }
   }
 
   Future<void> applyRemoteEvents(

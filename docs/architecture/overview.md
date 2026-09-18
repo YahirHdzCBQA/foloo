@@ -47,8 +47,11 @@ bucket S3 privado para tarjeta, imágenes de referencia y Voice Note. FL-018
 reutiliza ese bucket para Content/PDF. Flutter
 obtiene una autorización corta de la API, transfiere directamente al objeto y
 confirma por la API; Lambda verifica S3 antes de actualizar PostgreSQL. Correo
-permanece en su fase correspondiente. La implementación de FL-018 en repositorio
-no presume despliegue AWS ni migración DEV ejecutada.
+permanece en FL-019. ADR-006 fija Google/Microsoft como proveedores de
+follow-up desde la cuenta autorizada del vendedor; la outbox existente deberá
+llevar la intención a una frontera backend de proveedor, sin credenciales de
+correo en Flutter. La Lambda actual está en subredes aisladas sin NAT: ADR-007
+documenta la separación de la llamada pública al proveedor.
 
 ### Boundary de identidad y tenancy
 
@@ -104,7 +107,8 @@ conserva. La retención/borrado definitivo continúa abierta en D-13.
 - Autoridad futura del trial y suscripción, webhooks y reconciliación.
 - Storage S3 protegido, retención y URLs no públicas.
 - Sync reanudable de Leads y medios con colas independientes.
-- Plantillas server-side, sustitución, adjuntos y correo.
+- Plantillas server-side, sustitución, adjuntos y correo mediante la identidad
+  Google/Microsoft autorizada del vendedor (ADR-006/007, `PLT-*` y `SAL-*`).
 - SPF/DKIM/DMARC, rebotes, bajas y reputación.
 - Entregar estado remoto verificable a la app.
 
@@ -119,12 +123,15 @@ No forman parte de V1 Google Sheets, Transcribe/IA, QR, Teams o HQ dashboard.
 5. El contador remoto autoriza la nueva captura o conserva el borrador y abre
    paywall al sexto Lead.
 6. La futura sync envía operaciones idempotentes y medios por colas separadas.
-7. El backend prepara correo y adjuntos; los estados regresan al dispositivo.
+7. Guardar prepara un follow-up local, pero solo la confirmación del vendedor
+   crea intención de envío. El backend envía con Google/Microsoft autorizada;
+   los estados regresan al dispositivo. Una aceptación ambigua no se reintenta
+   automáticamente.
 8. Vencimiento limita solo nuevas capturas y nunca oculta datos existentes.
 
 ## Decisiones pendientes
 
 Ver `../product/open-decisions.md`: pago/tiendas,
-precio/vencimiento/reembolso, Voice Note, edición post-guardado,
-límites PDF, correo, Teams, mockups y retención. La base cloud quedó resuelta
-por ADR-003.
+precio/vencimiento/reembolso, Voice Note, edición post-guardado, contrato de
+correo, Teams, mockups y retención. La base cloud quedó resuelta por ADR-003;
+la elección de proveedores de correo, por ADR-006.

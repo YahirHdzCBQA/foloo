@@ -3,6 +3,7 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 
 import type { FolooRepository } from "../src/application/ports.js";
+import type { EmailTemplate } from "../src/domain/email_templates.js";
 import type {
   EventInput,
   EventUpdateInput,
@@ -72,8 +73,29 @@ export function apiEvent(
 
 export class MemoryRepository implements FolooRepository {
   readonly seenSubjects: string[] = [];
+  readonly templatesByWorkspace = new Map<string, EmailTemplate[]>();
   readonly eventsByWorkspace = new Map<string, unknown[]>();
   readonly contentByWorkspace = new Map<string, ContentRecord[]>();
+
+  async listEmailTemplates(principal: Principal): Promise<EmailTemplate[]> {
+    return this.templatesByWorkspace.get(principal.workspaceId) ?? [];
+  }
+
+  async saveEmailTemplate(
+    principal: Principal,
+    template: EmailTemplate,
+  ): Promise<IdempotentResult<EmailTemplate>> {
+    const templates =
+      this.templatesByWorkspace.get(principal.workspaceId) ?? [];
+    const existing = templates.findIndex(
+      (item) =>
+        item.origin === template.origin && item.language === template.language,
+    );
+    if (existing >= 0) templates[existing] = template;
+    else templates.push(template);
+    this.templatesByWorkspace.set(principal.workspaceId, templates);
+    return { value: template, replayed: false };
+  }
 
   async resolvePrincipal(subject: string): Promise<Principal> {
     this.seenSubjects.push(subject);

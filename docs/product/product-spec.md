@@ -220,23 +220,25 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 
 | ID | Requerimiento de plantilla |
 |---|---|
-| `PLT-01` | Existen dos plantillas editables: evento y directo. |
-| `PLT-02` | Cada una conserva asunto, cuerpo y firma; el origen selecciona la correcta automáticamente. |
-| `PLT-03` | Variables válidas incluyen contacto/capturó y evento o lugar; contenido representa adjuntos. |
-| `PLT-04` | Variables inválidas o llaves abiertas bloquean guardar con explicación. |
-| `PLT-05` | Pie de privacidad/baja no es editable ni removible. |
-| `PLT-06` | Plantillas tienen default funcional, persistencia local y futura autoridad server-side. |
-| `PLT-07` | Texto y variables funcionan en ES/EN sin traducir identificadores contractuales. |
+| `PLT-01` | Hay plantillas editables separadas para origen Evento y Directo, elegidas por el origen estructurado del Lead, no por texto visible. |
+| `PLT-02` | Cada variante ES/EN conserva asunto, cuerpo y firma editables por cuenta; el default es un mensaje personal sin diseño de marketing. Evento menciona `{evento}` y Directo `{lugar}`. Se genera HTML ligero y plain text compatible. |
+| `PLT-03` | La whitelist única V1 es `{nombre}`, `{apellido}`, `{empresa}`, `{puesto}`, `{evento}`, `{lugar}`, `{contenido}`, `{nombreVendedor}` y `{empresaVendedor}`. `{contenido}` representa los nombres congelados en el Lead, no IDs ni el estado actual de la biblioteca. |
+| `PLT-04` | Variables desconocidas o llaves abiertas bloquean guardar. El render defensivo de datos históricos omite valores ausentes y nunca envía tokens sin resolver, `null` ni `undefined`. No ejecuta expresiones. |
+| `PLT-05` | Todo follow-up incorpora un footer de privacidad/baja no editable, específico de Evento/Directo y ES/EN, con enlace Foloo operativo para opt-out dentro del scope del vendedor/workspace. |
+| `PLT-06` | Defaults y ediciones persisten local y remotamente por cuenta, con revisión/timestamps; cerrar/reabrir o cambiar de cuenta no mezcla plantillas. |
+| `PLT-07` | Texto visible y defaults son ES/EN; los identificadores de variables contractuales no se traducen. Preview usa Lead real, firma, footer y adjuntos y no envía correo. |
 
 | ID | Requerimiento de salida |
 |---|---|
-| `SAL-01` | Guardar un Lead programa correo de seguimiento al contacto con la plantilla correspondiente y adjuntos congelados. |
-| `SAL-02` | Si no hay red, el correo queda en cola; un fallo nunca revierte el Lead. |
-| `SAL-03` | Estado enviado/en cola/fallido es visible y recuperable. |
-| `SAL-04` | El servidor ejecuta envío, sustitución y adjuntos; no hay credenciales ni cliente de correo en Flutter. |
-| `SAL-05` | Dominio de envío cumple SPF, DKIM, DMARC, rebotes y monitoreo de reputación. |
-| `SAL-06` | El tablero exige envío firmado por Google Workspace con DKIM, pero el proveedor final está bloqueado por `D-09`. |
-| `SAL-07` | Destinatario sin email, reintento, baja y estados exactos requieren contrato explícito antes del backend. |
+| `SAL-01` | Guardar Lead genera follow-up listo para revisión con origen y adjuntos congelados; solo una confirmación explícita del vendedor crea la intención de envío. Sin email no crea un envío imposible. |
+| `SAL-02` | El Lead nunca depende del correo. Una confirmación offline persiste intención owner-scoped en la outbox existente y se procesa al recuperar señal; retry técnico conserva identidad, reenvío manual crea una intención nueva. |
+| `SAL-03` | Estados visibles ES/EN: Pendiente, Enviando, Enviado, Error y Estado por confirmar. Enviado significa aceptación confirmada por Gmail/Graph, no entrega final. Si pudo haber aceptación antes de un timeout, no hay retry automático: el vendedor ve advertencia y decide. |
+| `SAL-04` | El servidor ejecuta envío, sustitución y adjuntos; no hay credenciales ni cliente de correo del proveedor en Flutter. |
+| `SAL-05` | La identidad/dominio de envío autorizado cumple la autenticación de correo aplicable; rebotes y reputación se gestionan sin afirmar entrega por mera aceptación del proveedor. |
+| `SAL-06` | El follow-up sale de la cuenta de correo autorizada del vendedor: Gmail/Google Workspace mediante OAuth 2.0 + Gmail API, u Outlook/Microsoft 365 mediante OAuth 2.0 + Microsoft Graph. Una abstracción de proveedor aísla la lógica Foloo. No se usa SMTP manual, SES ni remitente general Foloo para estos follow-ups. |
+| `SAL-07` | Opt-out por enlace público opaco e idempotente se guarda server-side por vendedor/workspace y bloquea futuros envíos a esa dirección sin borrar Lead, Content ni historial. Errores definitivos se separan de reintentos seguros; attachments no disponibles o grandes requieren decisión explícita de omitir o cancelar, sin alterar el snapshot histórico. |
+| `SAL-08` | La conexión OAuth del correo se vincula en backend al Cognito `sub`/workspace; el remitente efectivo deriva de la identidad autorizada por el proveedor, nunca de un `From` arbitrario enviado por Flutter. Tokens, secretos y credenciales del proveedor no se guardan en Flutter, Drift, SharedPreferences ni Git. El usuario puede identificar el proveedor/cuenta conectada, reconectar y desconectar sin ocultar follow-ups históricos. |
+| `SAL-09` | Sin cuenta conectada se puede seguir usando Foloo pero enviar pide conectar Google/Microsoft. Una autorización revocada pide reconectar sin pérdida. Un pendiente creado bajo otra identidad no se envía desde la nueva sin confirmación explícita; el historial conserva proveedor, remitente, destinatario, fecha, estado e intención originales sin secretos. |
 
 ### 4.8 Navegación, apariencia e idioma
 
@@ -337,5 +339,7 @@ Precedencia: Alcance MVP validado 2026-09-07; Cambios de alcance y Ruta a
 producción del mismo día; después el tablero operativo 2026-09-08 donde declara
 una actualización explícita. Por ello XLSX/CSV reingresan a V1 y Google Sheets
 permanece backlog. ML Kit local reemplaza la antigua dirección de OCR remoto y
-la transcripción automática queda fuera. El proveedor de correo no se resolvió:
-ver `D-09`.
+la transcripción automática queda fuera. Las decisiones de producto
+2026-09-18 resuelven `D-09` y `D-14`–`D-20` mediante `PLT-*`/`SAL-*`, E-08 y
+ADR-006/007. FL-019 permanece OPEN hasta implementación, despliegue y
+validación física.

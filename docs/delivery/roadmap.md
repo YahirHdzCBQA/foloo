@@ -76,8 +76,12 @@ física sobre la misma instalación de iPhone. No cerrar todavía.
 
 **Objetivo:** plantillas productivas y envío server-side con cumplimiento.
 
-- Trazas: `PLT-*`, `SAL-*`, `RC-01`, E-08.
-- Bloqueo: D-09.
+- Trazas: `PLT-*`, `SAL-*`, `RC-01`, E-08; ADR-006.
+- D-09 resuelta el 2026-09-18: cuenta autorizada del vendedor, Google OAuth +
+  Gmail API y Microsoft OAuth + Graph; sin SES/SMTP para follow-ups.
+- D-14–D-20 resueltas el 2026-09-18; implementar el contrato de E-08 y el
+  egreso seguro documentado en ADR-007. No cerrar hasta deploy y validación
+  física Google, Microsoft, offline, adjuntos, baja y anti-duplicados.
 
 ## FL-020 — Trial & Subscription Foundation
 

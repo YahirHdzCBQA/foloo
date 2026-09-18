@@ -19,6 +19,12 @@ ownership por su Lead o archivo. Email nunca sustituye el identificador estable.
 - Content/PDF: id, owner, nombre visible, nombre de archivo, peso,
   asignación a eventos o todos, ruta privada, revisión y tombstone. Plantilla
   y suscripción todavía no tienen un modelo productivo durable completo.
+- Conexión de correo/follow-up: ADR-006 fija la relación Cognito
+  `sub`/workspace → identidad Google/Microsoft autorizada. Plantillas
+  Event/Direct por idioma, intención de envío, intento, snapshot de remitente,
+  adjuntos y opt-out deben ser owner-scoped. La intención confirmada es distinta
+  de la preparación tras guardar Lead y del retry técnico. Un timeout tras
+  posible aceptación del proveedor deja Estado por confirmar, no retry ciego.
 
 ## Invariantes
 

@@ -4,7 +4,15 @@
 /// from widgets and the concrete HTTP implementation (SYN-04–SYN-10).
 library;
 
-enum SyncEntityType { profile, event, content, lead, leadMedia, contentBinary }
+enum SyncEntityType {
+  profile,
+  event,
+  content,
+  lead,
+  leadMedia,
+  contentBinary,
+  emailTemplate,
+}
 
 enum SyncOperationStatus { pending, syncing, retryable, failed }
 

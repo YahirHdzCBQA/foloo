@@ -14,12 +14,32 @@ import type {
   SellerProfileInput,
 } from "../domain/models.js";
 import type { MediaStorage } from "../storage/media_storage.js";
+import {
+  validateEmailTemplate,
+  type EmailTemplate,
+} from "../domain/email_templates.js";
 
 export class FolooApplication {
   constructor(
     private readonly repository: FolooRepository,
     private readonly mediaStorage?: MediaStorage,
   ) {}
+
+  async emailTemplates(subject: string) {
+    const principal = await this.repository.resolvePrincipal(subject);
+    return this.repository.listEmailTemplates(principal);
+  }
+
+  async saveEmailTemplate(
+    subject: string,
+    template: EmailTemplate,
+    key: string,
+    hash: string,
+  ) {
+    validateEmailTemplate(template);
+    const principal = await this.repository.resolvePrincipal(subject);
+    return this.repository.saveEmailTemplate(principal, template, key, hash);
+  }
 
   async workspace(subject: string) {
     const principal = await this.repository.resolvePrincipal(subject);

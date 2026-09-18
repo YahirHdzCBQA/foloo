@@ -39,14 +39,6 @@ adjuntos ya congelados.
 **Bloquea:** edición/reemplazo/eliminación post-guardado de medios en `VOZ-03`,
 `REG-07` y `REG-08`; no bloquea los campos estructurados aprobados en `REG-07`.
 
-### `D-09` · Plataforma de correo
-
-El SDD anterior recomendaba evaluar Amazon SES; el tablero 2026-09-08 exige
-envío firmado por Google Workspace con DKIM. SPF/DKIM/DMARC, rebotes y
-reputación son requisitos, pero ninguna fuente aprueba el proveedor final.
-
-**Bloquea:** backend de `SAL-01`–`SAL-07` y ADR de correo.
-
 ### `D-10` · Contrato API futuro de Foloo Teams
 
 **Bloquea:** cerrar el modelo organizacional futuro de `INF-01`; no autoriza
@@ -63,3 +55,24 @@ parcial, no una resolución de Diseño.
 ### `D-13` · Retención, cifrado local y eliminación legal
 
 **Bloquea:** producción de `INF-02`, `RC-02`–`RC-04`.
+
+## FL-019 · Decisiones resueltas el 2026-09-18
+
+`D-09`–`D-20` ya no son bloqueos de producto. Su contrato vigente está en
+`PLT-01`–`PLT-07`, `SAL-01`–`SAL-09`, E-08 y ADR-006/007:
+
+- `D-14`: whitelist de nueve variables y render defensivo.
+- `D-15`: defaults Event/Direct ES/EN, mensaje personal HTML ligero y plain text,
+  asunto/cuerpo/firma editables.
+- `D-16`: footer fijo con enlace Foloo de opt-out owner/workspace-scoped.
+  La dirección postal/responsable legal exacto sigue pendiente de compliance;
+  no se inventa ni bloquea el mecanismo técnico de baja.
+- `D-17`: Lead guardado crea seguimiento listo; solo confirmación envía o
+  encola; sin email no crea envío; reenvío manual es nueva intención.
+- `D-18`: cinco estados visibles y no retry automático tras aceptación ambigua;
+  aceptación de proveedor no significa entrega final. Rebotes posteriores,
+  si el proveedor los notifica, no se inventan como confirmación en V1.
+- `D-19`: ausencia o tamaño de PDF requiere elección explícita del vendedor;
+  límite de email depende del proveedor y del MIME, no de CON-10.
+- `D-20`: conectar/reconectar sin pérdida; cambio de identidad exige
+  confirmación para pendientes; historial conserva remitente original.

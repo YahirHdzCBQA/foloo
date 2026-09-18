@@ -989,6 +989,54 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String emailDefaultSubjectV1(Object name) {
+    return 'Nice meeting you, $name';
+  }
+
+  @override
+  String emailDefaultBodyEventV1(Object content, Object context, Object name) {
+    return 'Hi $name,\n\nIt was great meeting you at $context and having the opportunity to talk.\n\nI\'m sharing $content as a follow-up to our conversation.\n\nFeel free to reach out if you have any questions. I hope we can stay in touch.';
+  }
+
+  @override
+  String emailDefaultBodyDirectV1(Object content, Object context, Object name) {
+    return 'Hi $name,\n\nIt was great meeting you at $context and having the opportunity to talk.\n\nI\'m sharing $content as a follow-up to our conversation.\n\nFeel free to reach out if you have any questions. I hope we can stay in touch.';
+  }
+
+  @override
+  String emailDefaultSignatureV1(Object sellerCompany, Object sellerName) {
+    return 'Best,\n$sellerName\n$sellerCompany';
+  }
+
+  @override
+  String emailFooterEventV1(Object context) {
+    return 'You received this email as a follow-up to our meeting at $context.';
+  }
+
+  @override
+  String emailFooterDirectV1(Object context) {
+    return 'You received this email as a follow-up to our meeting at $context.';
+  }
+
+  @override
+  String get emailFooterGenericV1 =>
+      'You received this email as a follow-up to our meeting.';
+
+  @override
+  String get emailUnsubscribeV1 =>
+      'If you prefer not to receive further messages, you can unsubscribe here.';
+
+  @override
+  String get emailSignatureV1 => 'Signature';
+
+  @override
+  String get templateSavedV1 => 'Template saved on this device.';
+
+  @override
+  String get emailNoLeadPreviewV1 =>
+      'Capture a lead to preview with real data.';
+
+  @override
   String get unclosedVariable => 'A variable has an unclosed brace.';
 
   @override

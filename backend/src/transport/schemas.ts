@@ -2,6 +2,14 @@
 
 import { z } from "zod";
 
+export const emailTemplateSchema = z.object({
+  origin: z.enum(["event", "direct"]),
+  language: z.enum(["es", "en"]),
+  subject: z.string().min(1).max(500),
+  body: z.string().min(1).max(20_000),
+  signature: z.string().max(2_000),
+});
+
 const nullableText = (max: number) =>
   z.string().trim().max(max).nullable().optional();
 

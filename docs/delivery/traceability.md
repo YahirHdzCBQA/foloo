@@ -11,10 +11,10 @@
 | `SYN-*` | E-05/E-09/E-13 | ADR-001/003/004/005; D-13 | Drift, outbox owner-scoped, retry/reconciliación FL-015 y transferencia media FL-016 |
 | `REG-*` | E-06/E-10 | ADR-001/004; D-06 | FL-017: filtro/detalle/edición optimista y export XLSX/CSV local; f1-16–19, f2-06/07, f5-12 |
 | `CON-*` | E-07 | D-11/D-13 | FL-018: 25 MB/PDF, copia privada durable, outbox/S3 y tombstone; D-11 afecta solo fidelidad visual y D-13 retención física; f2-01–03 |
-| `PLT-*`, `SAL-*` | E-08 | D-09 | editor demo; f2-04/05, f4-04/12 |
+| `PLT-*`, `SAL-*` | E-08 | ADR-006/007; D-09 y D-14–D-20 resueltas | FL-019 parcial: renderer/defaults ES/EN, editor local Drift v7, outbox y API/SQL de plantillas; tests de owner y Unicode. Sin OAuth/envío/opt-out operativos: no cerrar; f2-04/05, f4-04/12 |
 | `NAV-*` | E-12 | ADR-001 | drawer/theme/l10n; f1-15/25/26 |
 | `MON-*` | E-11 | D-01–D-04/D-11 | sin implementación; f3-01–08 |
-| `INF-*`, `RC-*` | E-09/E-12/E-13 | ADR-001/002/003/005; D-09/D-10/D-13 | backend AWS FL-014 y S3 privado/presigned/confirmación FL-016; despliegue FL-016 pendiente |
+| `INF-*`, `RC-*` | E-09/E-12/E-13 | ADR-001/002/003/005/006/007; D-10/D-13 | backend AWS FL-014 y S3 privado/presigned/confirmación FL-016; FL-019 implementa egreso seguro y opt-out técnico; compliance postal sigue pendiente |
 | `REL-*`, `RNF-*` | E-12 | decisiones aplicables | suite local parcial y round-trip UTF-8 en app/backend; f5-01–12 |
 
 Los IDs antiguos aún presentes en código/tests describen el origen histórico de
@@ -86,8 +86,8 @@ interna sea reutilizable.
 | f2-01 | P | ContentScreen y ContentFile demo, filtro visual | FL-009/012.1; sin repositorio durable |
 | f2-02 | P | PdfPickerService, empty state y assignment sheet | FL-012.1; no persiste/sube |
 | f2-03 | P | UI edita eventos/elimina en memoria | FL-009; falta persistencia/S3 |
-| f2-04 | P | EmailScreen con dos plantillas/variables demo | FL-009; falta persistencia/validación/backend |
-| f2-05 | F | TODOs y estados demo; no cola/envío | FL posterior tras D-09 |
+| f2-04 | P | FL-019: EmailScreen Event/Direct ES/EN persiste en Drift v7 y sincroniza al endpoint owner-scoped; preview usa Lead real; renderer backend con whitelist | Faltan flujo completo de follow-up, firma/preview de entrega y validación física |
+| f2-05 | F | TODOs y estados demo; no cola/envío | FL-019, D-14–D-20 resueltas |
 | f2-06 | I | XLSX real por evento, columnas/filename ES/EN y share sheet | FL-017; `records_export_service_test.dart` |
 | f2-07 | I | CSV BOM UTF-8, RFC 4180, Unicode y share sheet | FL-017; `records_export_service_test.dart` |
 
@@ -111,7 +111,7 @@ interna sea reutilizable.
 | f4-01 | P | modelo/repositorios locales Drift | FL-012/013A; faltan API/cloud |
 | f4-02 | P | Cognito real y `sub` ownership | FL-013B; workspace remoto no existe |
 | f4-03 | P | storage privado local + implementación S3 directa/segura | FL-012/016; falta deploy DEV y retención D-13 |
-| f4-04 | F | sin servicio de correo/dominio/rebotes | bloqueado D-09 |
+| f4-04 | F | sin servicio de correo/dominio/rebotes | FL-019: ADR-006/007; D-14–D-20 resueltas |
 | f4-05 | F | confirmación informa solo el guardado local real | Google Sheets sigue fuera de V1; salida remota pendiente |
 | f4-06 | F | no hay modelo org/teams aprobado | bloqueado D-10 |
 | f4-07 | P | config Cognito DEV/PROD centralizada | FL-013B; sin staging/secret ops |
@@ -119,7 +119,7 @@ interna sea reutilizable.
 | f4-09 | F | sin observabilidad/alerta sync | FL plataforma |
 | f4-10 | F | sin backup/retención/borrado | bloqueado D-13 |
 | f4-11 | F | sin modelo de costo por vendedor | FL infraestructura |
-| f4-12 | F | sin Google Workspace/DKIM/reputación | bloqueado D-09 |
+| f4-12 | F | sin autenticación/reputación de identidades de envío | ADR-006; falta implementación y cumplimiento |
 
 ## F5 · Salida a producción (12)
 

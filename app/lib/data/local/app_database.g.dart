@@ -3,6 +3,22 @@
 part of 'app_database.dart';
 
 // ignore_for_file: type=lint
+mixin _$EmailTemplateDaoMixin on DatabaseAccessor<AppDatabase> {
+  $LocalEmailTemplatesTable get localEmailTemplates =>
+      attachedDatabase.localEmailTemplates;
+  EmailTemplateDaoManager get managers => EmailTemplateDaoManager(this);
+}
+
+class EmailTemplateDaoManager {
+  final _$EmailTemplateDaoMixin _db;
+  EmailTemplateDaoManager(this._db);
+  $$LocalEmailTemplatesTableTableManager get localEmailTemplates =>
+      $$LocalEmailTemplatesTableTableManager(
+        _db.attachedDatabase,
+        _db.localEmailTemplates,
+      );
+}
+
 mixin _$ProfilePreferencesDaoMixin on DatabaseAccessor<AppDatabase> {
   $LocalProfilesTable get localProfiles => attachedDatabase.localProfiles;
   $LocalPreferencesTable get localPreferences =>
@@ -2169,6 +2185,537 @@ class LocalContentFilesCompanion extends UpdateCompanion<StoredContentFile> {
           ..write('remoteRevision: $remoteRevision, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LocalEmailTemplatesTable extends LocalEmailTemplates
+    with TableInfo<$LocalEmailTemplatesTable, StoredEmailTemplate> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalEmailTemplatesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerUserIdMeta = const VerificationMeta(
+    'ownerUserId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerUserId = GeneratedColumn<String>(
+    'owner_user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _originKindMeta = const VerificationMeta(
+    'originKind',
+  );
+  @override
+  late final GeneratedColumn<String> originKind = GeneratedColumn<String>(
+    'origin_kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _languageCodeMeta = const VerificationMeta(
+    'languageCode',
+  );
+  @override
+  late final GeneratedColumn<String> languageCode = GeneratedColumn<String>(
+    'language_code',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _subjectMeta = const VerificationMeta(
+    'subject',
+  );
+  @override
+  late final GeneratedColumn<String> subject = GeneratedColumn<String>(
+    'subject',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyMeta = const VerificationMeta('body');
+  @override
+  late final GeneratedColumn<String> body = GeneratedColumn<String>(
+    'body',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _signatureMeta = const VerificationMeta(
+    'signature',
+  );
+  @override
+  late final GeneratedColumn<String> signature = GeneratedColumn<String>(
+    'signature',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _syncStateMeta = const VerificationMeta(
+    'syncState',
+  );
+  @override
+  late final GeneratedColumn<String> syncState = GeneratedColumn<String>(
+    'sync_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('local'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerUserId,
+    originKind,
+    languageCode,
+    subject,
+    body,
+    signature,
+    updatedAt,
+    syncState,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_email_templates';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StoredEmailTemplate> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_user_id')) {
+      context.handle(
+        _ownerUserIdMeta,
+        ownerUserId.isAcceptableOrUnknown(
+          data['owner_user_id']!,
+          _ownerUserIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerUserIdMeta);
+    }
+    if (data.containsKey('origin_kind')) {
+      context.handle(
+        _originKindMeta,
+        originKind.isAcceptableOrUnknown(data['origin_kind']!, _originKindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_originKindMeta);
+    }
+    if (data.containsKey('language_code')) {
+      context.handle(
+        _languageCodeMeta,
+        languageCode.isAcceptableOrUnknown(
+          data['language_code']!,
+          _languageCodeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_languageCodeMeta);
+    }
+    if (data.containsKey('subject')) {
+      context.handle(
+        _subjectMeta,
+        subject.isAcceptableOrUnknown(data['subject']!, _subjectMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_subjectMeta);
+    }
+    if (data.containsKey('body')) {
+      context.handle(
+        _bodyMeta,
+        body.isAcceptableOrUnknown(data['body']!, _bodyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyMeta);
+    }
+    if (data.containsKey('signature')) {
+      context.handle(
+        _signatureMeta,
+        signature.isAcceptableOrUnknown(data['signature']!, _signatureMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_signatureMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('sync_state')) {
+      context.handle(
+        _syncStateMeta,
+        syncState.isAcceptableOrUnknown(data['sync_state']!, _syncStateMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {
+    ownerUserId,
+    originKind,
+    languageCode,
+  };
+  @override
+  StoredEmailTemplate map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StoredEmailTemplate(
+      ownerUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_user_id'],
+      )!,
+      originKind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_kind'],
+      )!,
+      languageCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}language_code'],
+      )!,
+      subject: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subject'],
+      )!,
+      body: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body'],
+      )!,
+      signature: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}signature'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      syncState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_state'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalEmailTemplatesTable createAlias(String alias) {
+    return $LocalEmailTemplatesTable(attachedDatabase, alias);
+  }
+}
+
+class StoredEmailTemplate extends DataClass
+    implements Insertable<StoredEmailTemplate> {
+  final String ownerUserId;
+  final String originKind;
+  final String languageCode;
+  final String subject;
+  final String body;
+  final String signature;
+  final DateTime updatedAt;
+  final String syncState;
+  const StoredEmailTemplate({
+    required this.ownerUserId,
+    required this.originKind,
+    required this.languageCode,
+    required this.subject,
+    required this.body,
+    required this.signature,
+    required this.updatedAt,
+    required this.syncState,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_user_id'] = Variable<String>(ownerUserId);
+    map['origin_kind'] = Variable<String>(originKind);
+    map['language_code'] = Variable<String>(languageCode);
+    map['subject'] = Variable<String>(subject);
+    map['body'] = Variable<String>(body);
+    map['signature'] = Variable<String>(signature);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['sync_state'] = Variable<String>(syncState);
+    return map;
+  }
+
+  LocalEmailTemplatesCompanion toCompanion(bool nullToAbsent) {
+    return LocalEmailTemplatesCompanion(
+      ownerUserId: Value(ownerUserId),
+      originKind: Value(originKind),
+      languageCode: Value(languageCode),
+      subject: Value(subject),
+      body: Value(body),
+      signature: Value(signature),
+      updatedAt: Value(updatedAt),
+      syncState: Value(syncState),
+    );
+  }
+
+  factory StoredEmailTemplate.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StoredEmailTemplate(
+      ownerUserId: serializer.fromJson<String>(json['ownerUserId']),
+      originKind: serializer.fromJson<String>(json['originKind']),
+      languageCode: serializer.fromJson<String>(json['languageCode']),
+      subject: serializer.fromJson<String>(json['subject']),
+      body: serializer.fromJson<String>(json['body']),
+      signature: serializer.fromJson<String>(json['signature']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      syncState: serializer.fromJson<String>(json['syncState']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerUserId': serializer.toJson<String>(ownerUserId),
+      'originKind': serializer.toJson<String>(originKind),
+      'languageCode': serializer.toJson<String>(languageCode),
+      'subject': serializer.toJson<String>(subject),
+      'body': serializer.toJson<String>(body),
+      'signature': serializer.toJson<String>(signature),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'syncState': serializer.toJson<String>(syncState),
+    };
+  }
+
+  StoredEmailTemplate copyWith({
+    String? ownerUserId,
+    String? originKind,
+    String? languageCode,
+    String? subject,
+    String? body,
+    String? signature,
+    DateTime? updatedAt,
+    String? syncState,
+  }) => StoredEmailTemplate(
+    ownerUserId: ownerUserId ?? this.ownerUserId,
+    originKind: originKind ?? this.originKind,
+    languageCode: languageCode ?? this.languageCode,
+    subject: subject ?? this.subject,
+    body: body ?? this.body,
+    signature: signature ?? this.signature,
+    updatedAt: updatedAt ?? this.updatedAt,
+    syncState: syncState ?? this.syncState,
+  );
+  StoredEmailTemplate copyWithCompanion(LocalEmailTemplatesCompanion data) {
+    return StoredEmailTemplate(
+      ownerUserId: data.ownerUserId.present
+          ? data.ownerUserId.value
+          : this.ownerUserId,
+      originKind: data.originKind.present
+          ? data.originKind.value
+          : this.originKind,
+      languageCode: data.languageCode.present
+          ? data.languageCode.value
+          : this.languageCode,
+      subject: data.subject.present ? data.subject.value : this.subject,
+      body: data.body.present ? data.body.value : this.body,
+      signature: data.signature.present ? data.signature.value : this.signature,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      syncState: data.syncState.present ? data.syncState.value : this.syncState,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredEmailTemplate(')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('originKind: $originKind, ')
+          ..write('languageCode: $languageCode, ')
+          ..write('subject: $subject, ')
+          ..write('body: $body, ')
+          ..write('signature: $signature, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('syncState: $syncState')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    ownerUserId,
+    originKind,
+    languageCode,
+    subject,
+    body,
+    signature,
+    updatedAt,
+    syncState,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StoredEmailTemplate &&
+          other.ownerUserId == this.ownerUserId &&
+          other.originKind == this.originKind &&
+          other.languageCode == this.languageCode &&
+          other.subject == this.subject &&
+          other.body == this.body &&
+          other.signature == this.signature &&
+          other.updatedAt == this.updatedAt &&
+          other.syncState == this.syncState);
+}
+
+class LocalEmailTemplatesCompanion
+    extends UpdateCompanion<StoredEmailTemplate> {
+  final Value<String> ownerUserId;
+  final Value<String> originKind;
+  final Value<String> languageCode;
+  final Value<String> subject;
+  final Value<String> body;
+  final Value<String> signature;
+  final Value<DateTime> updatedAt;
+  final Value<String> syncState;
+  final Value<int> rowid;
+  const LocalEmailTemplatesCompanion({
+    this.ownerUserId = const Value.absent(),
+    this.originKind = const Value.absent(),
+    this.languageCode = const Value.absent(),
+    this.subject = const Value.absent(),
+    this.body = const Value.absent(),
+    this.signature = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.syncState = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalEmailTemplatesCompanion.insert({
+    required String ownerUserId,
+    required String originKind,
+    required String languageCode,
+    required String subject,
+    required String body,
+    required String signature,
+    required DateTime updatedAt,
+    this.syncState = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : ownerUserId = Value(ownerUserId),
+       originKind = Value(originKind),
+       languageCode = Value(languageCode),
+       subject = Value(subject),
+       body = Value(body),
+       signature = Value(signature),
+       updatedAt = Value(updatedAt);
+  static Insertable<StoredEmailTemplate> custom({
+    Expression<String>? ownerUserId,
+    Expression<String>? originKind,
+    Expression<String>? languageCode,
+    Expression<String>? subject,
+    Expression<String>? body,
+    Expression<String>? signature,
+    Expression<DateTime>? updatedAt,
+    Expression<String>? syncState,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerUserId != null) 'owner_user_id': ownerUserId,
+      if (originKind != null) 'origin_kind': originKind,
+      if (languageCode != null) 'language_code': languageCode,
+      if (subject != null) 'subject': subject,
+      if (body != null) 'body': body,
+      if (signature != null) 'signature': signature,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (syncState != null) 'sync_state': syncState,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalEmailTemplatesCompanion copyWith({
+    Value<String>? ownerUserId,
+    Value<String>? originKind,
+    Value<String>? languageCode,
+    Value<String>? subject,
+    Value<String>? body,
+    Value<String>? signature,
+    Value<DateTime>? updatedAt,
+    Value<String>? syncState,
+    Value<int>? rowid,
+  }) {
+    return LocalEmailTemplatesCompanion(
+      ownerUserId: ownerUserId ?? this.ownerUserId,
+      originKind: originKind ?? this.originKind,
+      languageCode: languageCode ?? this.languageCode,
+      subject: subject ?? this.subject,
+      body: body ?? this.body,
+      signature: signature ?? this.signature,
+      updatedAt: updatedAt ?? this.updatedAt,
+      syncState: syncState ?? this.syncState,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerUserId.present) {
+      map['owner_user_id'] = Variable<String>(ownerUserId.value);
+    }
+    if (originKind.present) {
+      map['origin_kind'] = Variable<String>(originKind.value);
+    }
+    if (languageCode.present) {
+      map['language_code'] = Variable<String>(languageCode.value);
+    }
+    if (subject.present) {
+      map['subject'] = Variable<String>(subject.value);
+    }
+    if (body.present) {
+      map['body'] = Variable<String>(body.value);
+    }
+    if (signature.present) {
+      map['signature'] = Variable<String>(signature.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (syncState.present) {
+      map['sync_state'] = Variable<String>(syncState.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalEmailTemplatesCompanion(')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('originKind: $originKind, ')
+          ..write('languageCode: $languageCode, ')
+          ..write('subject: $subject, ')
+          ..write('body: $body, ')
+          ..write('signature: $signature, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('syncState: $syncState, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5432,6 +5979,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $LocalEventsTable localEvents = $LocalEventsTable(this);
   late final $LocalContentFilesTable localContentFiles =
       $LocalContentFilesTable(this);
+  late final $LocalEmailTemplatesTable localEmailTemplates =
+      $LocalEmailTemplatesTable(this);
   late final $LocalLeadsTable localLeads = $LocalLeadsTable(this);
   late final $LocalLeadMediaTable localLeadMedia = $LocalLeadMediaTable(this);
   late final $LocalPreferencesTable localPreferences = $LocalPreferencesTable(
@@ -5476,6 +6025,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       ProfilePreferencesDao(this as AppDatabase);
   late final EventDao eventDao = EventDao(this as AppDatabase);
   late final ContentDao contentDao = ContentDao(this as AppDatabase);
+  late final EmailTemplateDao emailTemplateDao = EmailTemplateDao(
+    this as AppDatabase,
+  );
   late final LeadDao leadDao = LeadDao(this as AppDatabase);
   late final SyncDao syncDao = SyncDao(this as AppDatabase);
   @override
@@ -5486,6 +6038,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localProfiles,
     localEvents,
     localContentFiles,
+    localEmailTemplates,
     localLeads,
     localLeadMedia,
     localPreferences,
@@ -6634,6 +7187,296 @@ typedef $$LocalContentFilesTableProcessedTableManager =
         >,
       ),
       StoredContentFile,
+      PrefetchHooks Function()
+    >;
+typedef $$LocalEmailTemplatesTableCreateCompanionBuilder =
+    LocalEmailTemplatesCompanion Function({
+      required String ownerUserId,
+      required String originKind,
+      required String languageCode,
+      required String subject,
+      required String body,
+      required String signature,
+      required DateTime updatedAt,
+      Value<String> syncState,
+      Value<int> rowid,
+    });
+typedef $$LocalEmailTemplatesTableUpdateCompanionBuilder =
+    LocalEmailTemplatesCompanion Function({
+      Value<String> ownerUserId,
+      Value<String> originKind,
+      Value<String> languageCode,
+      Value<String> subject,
+      Value<String> body,
+      Value<String> signature,
+      Value<DateTime> updatedAt,
+      Value<String> syncState,
+      Value<int> rowid,
+    });
+
+class $$LocalEmailTemplatesTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalEmailTemplatesTable> {
+  $$LocalEmailTemplatesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originKind => $composableBuilder(
+    column: $table.originKind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get signature => $composableBuilder(
+    column: $table.signature,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalEmailTemplatesTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalEmailTemplatesTable> {
+  $$LocalEmailTemplatesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originKind => $composableBuilder(
+    column: $table.originKind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get signature => $composableBuilder(
+    column: $table.signature,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalEmailTemplatesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalEmailTemplatesTable> {
+  $$LocalEmailTemplatesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get originKind => $composableBuilder(
+    column: $table.originKind,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get subject =>
+      $composableBuilder(column: $table.subject, builder: (column) => column);
+
+  GeneratedColumn<String> get body =>
+      $composableBuilder(column: $table.body, builder: (column) => column);
+
+  GeneratedColumn<String> get signature =>
+      $composableBuilder(column: $table.signature, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncState =>
+      $composableBuilder(column: $table.syncState, builder: (column) => column);
+}
+
+class $$LocalEmailTemplatesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalEmailTemplatesTable,
+          StoredEmailTemplate,
+          $$LocalEmailTemplatesTableFilterComposer,
+          $$LocalEmailTemplatesTableOrderingComposer,
+          $$LocalEmailTemplatesTableAnnotationComposer,
+          $$LocalEmailTemplatesTableCreateCompanionBuilder,
+          $$LocalEmailTemplatesTableUpdateCompanionBuilder,
+          (
+            StoredEmailTemplate,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalEmailTemplatesTable,
+              StoredEmailTemplate
+            >,
+          ),
+          StoredEmailTemplate,
+          PrefetchHooks Function()
+        > {
+  $$LocalEmailTemplatesTableTableManager(
+    _$AppDatabase db,
+    $LocalEmailTemplatesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalEmailTemplatesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalEmailTemplatesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$LocalEmailTemplatesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerUserId = const Value.absent(),
+                Value<String> originKind = const Value.absent(),
+                Value<String> languageCode = const Value.absent(),
+                Value<String> subject = const Value.absent(),
+                Value<String> body = const Value.absent(),
+                Value<String> signature = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<String> syncState = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalEmailTemplatesCompanion(
+                ownerUserId: ownerUserId,
+                originKind: originKind,
+                languageCode: languageCode,
+                subject: subject,
+                body: body,
+                signature: signature,
+                updatedAt: updatedAt,
+                syncState: syncState,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerUserId,
+                required String originKind,
+                required String languageCode,
+                required String subject,
+                required String body,
+                required String signature,
+                required DateTime updatedAt,
+                Value<String> syncState = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalEmailTemplatesCompanion.insert(
+                ownerUserId: ownerUserId,
+                originKind: originKind,
+                languageCode: languageCode,
+                subject: subject,
+                body: body,
+                signature: signature,
+                updatedAt: updatedAt,
+                syncState: syncState,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LocalEmailTemplatesTable, StoredEmailTemplate>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $LocalEmailTemplatesTable,
+                    StoredEmailTemplate
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalEmailTemplatesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalEmailTemplatesTable,
+      StoredEmailTemplate,
+      $$LocalEmailTemplatesTableFilterComposer,
+      $$LocalEmailTemplatesTableOrderingComposer,
+      $$LocalEmailTemplatesTableAnnotationComposer,
+      $$LocalEmailTemplatesTableCreateCompanionBuilder,
+      $$LocalEmailTemplatesTableUpdateCompanionBuilder,
+      (
+        StoredEmailTemplate,
+        BaseReferences<
+          _$AppDatabase,
+          $LocalEmailTemplatesTable,
+          StoredEmailTemplate
+        >,
+      ),
+      StoredEmailTemplate,
       PrefetchHooks Function()
     >;
 typedef $$LocalLeadsTableCreateCompanionBuilder = LocalLeadsCompanion Function({
@@ -8593,6 +9436,8 @@ class $AppDatabaseManager {
       $$LocalEventsTableTableManager(_db, _db.localEvents);
   $$LocalContentFilesTableTableManager get localContentFiles =>
       $$LocalContentFilesTableTableManager(_db, _db.localContentFiles);
+  $$LocalEmailTemplatesTableTableManager get localEmailTemplates =>
+      $$LocalEmailTemplatesTableTableManager(_db, _db.localEmailTemplates);
   $$LocalLeadsTableTableManager get localLeads =>
       $$LocalLeadsTableTableManager(_db, _db.localLeads);
   $$LocalLeadMediaTableTableManager get localLeadMedia =>

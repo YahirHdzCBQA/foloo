@@ -22,6 +22,7 @@ import {
   leadUpdateSchema,
   mediaSchema,
   profileSchema,
+  emailTemplateSchema,
 } from "./schemas.js";
 
 const idempotencyKeySchema = z.string().min(8).max(128);
@@ -102,6 +103,22 @@ export function createRouter(application: FolooApplication) {
 
     if (method === "GET" && path === "/v1/workspace")
       return json(200, { data: await application.workspace(subject) });
+    if (method === "GET" && path === "/v1/email/templates")
+      return json(200, { data: await application.emailTemplates(subject) });
+    if (method === "PUT" && path === "/v1/email/templates") {
+      const payload = emailTemplateSchema.parse(body(event));
+      const result = await application.saveEmailTemplate(
+        subject,
+        payload,
+        idempotencyKey(event),
+        requestHash(payload),
+      );
+      return json(
+        200,
+        { data: result.value },
+        result.replayed ? { "idempotency-replayed": "true" } : {},
+      );
+    }
     if (method === "GET" && path === "/v1/profile")
       return json(200, { data: await application.profile(subject) });
     if (method === "PUT" && path === "/v1/profile") {
