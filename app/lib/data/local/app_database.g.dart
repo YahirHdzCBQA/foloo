@@ -19,6 +19,42 @@ class EmailTemplateDaoManager {
       );
 }
 
+mixin _$EmailDeliveryDaoMixin on DatabaseAccessor<AppDatabase> {
+  $LocalEmailConnectionsTable get localEmailConnections =>
+      attachedDatabase.localEmailConnections;
+  $LocalEventsTable get localEvents => attachedDatabase.localEvents;
+  $LocalLeadsTable get localLeads => attachedDatabase.localLeads;
+  $LocalEmailFollowUpsTable get localEmailFollowUps =>
+      attachedDatabase.localEmailFollowUps;
+  $LocalEmailSendIntentsTable get localEmailSendIntents =>
+      attachedDatabase.localEmailSendIntents;
+  EmailDeliveryDaoManager get managers => EmailDeliveryDaoManager(this);
+}
+
+class EmailDeliveryDaoManager {
+  final _$EmailDeliveryDaoMixin _db;
+  EmailDeliveryDaoManager(this._db);
+  $$LocalEmailConnectionsTableTableManager get localEmailConnections =>
+      $$LocalEmailConnectionsTableTableManager(
+        _db.attachedDatabase,
+        _db.localEmailConnections,
+      );
+  $$LocalEventsTableTableManager get localEvents =>
+      $$LocalEventsTableTableManager(_db.attachedDatabase, _db.localEvents);
+  $$LocalLeadsTableTableManager get localLeads =>
+      $$LocalLeadsTableTableManager(_db.attachedDatabase, _db.localLeads);
+  $$LocalEmailFollowUpsTableTableManager get localEmailFollowUps =>
+      $$LocalEmailFollowUpsTableTableManager(
+        _db.attachedDatabase,
+        _db.localEmailFollowUps,
+      );
+  $$LocalEmailSendIntentsTableTableManager get localEmailSendIntents =>
+      $$LocalEmailSendIntentsTableTableManager(
+        _db.attachedDatabase,
+        _db.localEmailSendIntents,
+      );
+}
+
 mixin _$ProfilePreferencesDaoMixin on DatabaseAccessor<AppDatabase> {
   $LocalProfilesTable get localProfiles => attachedDatabase.localProfiles;
   $LocalPreferencesTable get localPreferences =>
@@ -2722,6 +2758,442 @@ class LocalEmailTemplatesCompanion
   }
 }
 
+class $LocalEmailConnectionsTable extends LocalEmailConnections
+    with TableInfo<$LocalEmailConnectionsTable, StoredEmailConnection> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalEmailConnectionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerUserIdMeta = const VerificationMeta(
+    'ownerUserId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerUserId = GeneratedColumn<String>(
+    'owner_user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _connectionIdMeta = const VerificationMeta(
+    'connectionId',
+  );
+  @override
+  late final GeneratedColumn<String> connectionId = GeneratedColumn<String>(
+    'connection_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _providerMeta = const VerificationMeta(
+    'provider',
+  );
+  @override
+  late final GeneratedColumn<String> provider = GeneratedColumn<String>(
+    'provider',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _senderAddressMeta = const VerificationMeta(
+    'senderAddress',
+  );
+  @override
+  late final GeneratedColumn<String> senderAddress = GeneratedColumn<String>(
+    'sender_address',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerUserId,
+    connectionId,
+    provider,
+    senderAddress,
+    status,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_email_connections';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StoredEmailConnection> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_user_id')) {
+      context.handle(
+        _ownerUserIdMeta,
+        ownerUserId.isAcceptableOrUnknown(
+          data['owner_user_id']!,
+          _ownerUserIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerUserIdMeta);
+    }
+    if (data.containsKey('connection_id')) {
+      context.handle(
+        _connectionIdMeta,
+        connectionId.isAcceptableOrUnknown(
+          data['connection_id']!,
+          _connectionIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_connectionIdMeta);
+    }
+    if (data.containsKey('provider')) {
+      context.handle(
+        _providerMeta,
+        provider.isAcceptableOrUnknown(data['provider']!, _providerMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_providerMeta);
+    }
+    if (data.containsKey('sender_address')) {
+      context.handle(
+        _senderAddressMeta,
+        senderAddress.isAcceptableOrUnknown(
+          data['sender_address']!,
+          _senderAddressMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_senderAddressMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {ownerUserId};
+  @override
+  StoredEmailConnection map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StoredEmailConnection(
+      ownerUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_user_id'],
+      )!,
+      connectionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}connection_id'],
+      )!,
+      provider: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}provider'],
+      )!,
+      senderAddress: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sender_address'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalEmailConnectionsTable createAlias(String alias) {
+    return $LocalEmailConnectionsTable(attachedDatabase, alias);
+  }
+}
+
+class StoredEmailConnection extends DataClass
+    implements Insertable<StoredEmailConnection> {
+  final String ownerUserId;
+  final String connectionId;
+  final String provider;
+  final String senderAddress;
+  final String status;
+  final DateTime updatedAt;
+  const StoredEmailConnection({
+    required this.ownerUserId,
+    required this.connectionId,
+    required this.provider,
+    required this.senderAddress,
+    required this.status,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_user_id'] = Variable<String>(ownerUserId);
+    map['connection_id'] = Variable<String>(connectionId);
+    map['provider'] = Variable<String>(provider);
+    map['sender_address'] = Variable<String>(senderAddress);
+    map['status'] = Variable<String>(status);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  LocalEmailConnectionsCompanion toCompanion(bool nullToAbsent) {
+    return LocalEmailConnectionsCompanion(
+      ownerUserId: Value(ownerUserId),
+      connectionId: Value(connectionId),
+      provider: Value(provider),
+      senderAddress: Value(senderAddress),
+      status: Value(status),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory StoredEmailConnection.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StoredEmailConnection(
+      ownerUserId: serializer.fromJson<String>(json['ownerUserId']),
+      connectionId: serializer.fromJson<String>(json['connectionId']),
+      provider: serializer.fromJson<String>(json['provider']),
+      senderAddress: serializer.fromJson<String>(json['senderAddress']),
+      status: serializer.fromJson<String>(json['status']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerUserId': serializer.toJson<String>(ownerUserId),
+      'connectionId': serializer.toJson<String>(connectionId),
+      'provider': serializer.toJson<String>(provider),
+      'senderAddress': serializer.toJson<String>(senderAddress),
+      'status': serializer.toJson<String>(status),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  StoredEmailConnection copyWith({
+    String? ownerUserId,
+    String? connectionId,
+    String? provider,
+    String? senderAddress,
+    String? status,
+    DateTime? updatedAt,
+  }) => StoredEmailConnection(
+    ownerUserId: ownerUserId ?? this.ownerUserId,
+    connectionId: connectionId ?? this.connectionId,
+    provider: provider ?? this.provider,
+    senderAddress: senderAddress ?? this.senderAddress,
+    status: status ?? this.status,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  StoredEmailConnection copyWithCompanion(LocalEmailConnectionsCompanion data) {
+    return StoredEmailConnection(
+      ownerUserId: data.ownerUserId.present
+          ? data.ownerUserId.value
+          : this.ownerUserId,
+      connectionId: data.connectionId.present
+          ? data.connectionId.value
+          : this.connectionId,
+      provider: data.provider.present ? data.provider.value : this.provider,
+      senderAddress: data.senderAddress.present
+          ? data.senderAddress.value
+          : this.senderAddress,
+      status: data.status.present ? data.status.value : this.status,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredEmailConnection(')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('connectionId: $connectionId, ')
+          ..write('provider: $provider, ')
+          ..write('senderAddress: $senderAddress, ')
+          ..write('status: $status, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    ownerUserId,
+    connectionId,
+    provider,
+    senderAddress,
+    status,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StoredEmailConnection &&
+          other.ownerUserId == this.ownerUserId &&
+          other.connectionId == this.connectionId &&
+          other.provider == this.provider &&
+          other.senderAddress == this.senderAddress &&
+          other.status == this.status &&
+          other.updatedAt == this.updatedAt);
+}
+
+class LocalEmailConnectionsCompanion
+    extends UpdateCompanion<StoredEmailConnection> {
+  final Value<String> ownerUserId;
+  final Value<String> connectionId;
+  final Value<String> provider;
+  final Value<String> senderAddress;
+  final Value<String> status;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const LocalEmailConnectionsCompanion({
+    this.ownerUserId = const Value.absent(),
+    this.connectionId = const Value.absent(),
+    this.provider = const Value.absent(),
+    this.senderAddress = const Value.absent(),
+    this.status = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalEmailConnectionsCompanion.insert({
+    required String ownerUserId,
+    required String connectionId,
+    required String provider,
+    required String senderAddress,
+    required String status,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : ownerUserId = Value(ownerUserId),
+       connectionId = Value(connectionId),
+       provider = Value(provider),
+       senderAddress = Value(senderAddress),
+       status = Value(status),
+       updatedAt = Value(updatedAt);
+  static Insertable<StoredEmailConnection> custom({
+    Expression<String>? ownerUserId,
+    Expression<String>? connectionId,
+    Expression<String>? provider,
+    Expression<String>? senderAddress,
+    Expression<String>? status,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerUserId != null) 'owner_user_id': ownerUserId,
+      if (connectionId != null) 'connection_id': connectionId,
+      if (provider != null) 'provider': provider,
+      if (senderAddress != null) 'sender_address': senderAddress,
+      if (status != null) 'status': status,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalEmailConnectionsCompanion copyWith({
+    Value<String>? ownerUserId,
+    Value<String>? connectionId,
+    Value<String>? provider,
+    Value<String>? senderAddress,
+    Value<String>? status,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return LocalEmailConnectionsCompanion(
+      ownerUserId: ownerUserId ?? this.ownerUserId,
+      connectionId: connectionId ?? this.connectionId,
+      provider: provider ?? this.provider,
+      senderAddress: senderAddress ?? this.senderAddress,
+      status: status ?? this.status,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerUserId.present) {
+      map['owner_user_id'] = Variable<String>(ownerUserId.value);
+    }
+    if (connectionId.present) {
+      map['connection_id'] = Variable<String>(connectionId.value);
+    }
+    if (provider.present) {
+      map['provider'] = Variable<String>(provider.value);
+    }
+    if (senderAddress.present) {
+      map['sender_address'] = Variable<String>(senderAddress.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalEmailConnectionsCompanion(')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('connectionId: $connectionId, ')
+          ..write('provider: $provider, ')
+          ..write('senderAddress: $senderAddress, ')
+          ..write('status: $status, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $LocalLeadsTable extends LocalLeads
     with TableInfo<$LocalLeadsTable, StoredLead> {
   @override
@@ -4104,6 +4576,1504 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
           ..write('transcription: $transcription, ')
           ..write('syncState: $syncState, ')
           ..write('remoteRevision: $remoteRevision, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LocalEmailFollowUpsTable extends LocalEmailFollowUps
+    with TableInfo<$LocalEmailFollowUpsTable, StoredEmailFollowUp> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalEmailFollowUpsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _localIdMeta = const VerificationMeta(
+    'localId',
+  );
+  @override
+  late final GeneratedColumn<String> localId = GeneratedColumn<String>(
+    'local_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ownerUserIdMeta = const VerificationMeta(
+    'ownerUserId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerUserId = GeneratedColumn<String>(
+    'owner_user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _leadLocalIdMeta = const VerificationMeta(
+    'leadLocalId',
+  );
+  @override
+  late final GeneratedColumn<String> leadLocalId = GeneratedColumn<String>(
+    'lead_local_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES local_leads (local_id)',
+    ),
+  );
+  static const VerificationMeta _recipientAddressMeta = const VerificationMeta(
+    'recipientAddress',
+  );
+  @override
+  late final GeneratedColumn<String> recipientAddress = GeneratedColumn<String>(
+    'recipient_address',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _subjectMeta = const VerificationMeta(
+    'subject',
+  );
+  @override
+  late final GeneratedColumn<String> subject = GeneratedColumn<String>(
+    'subject',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _plainBodyMeta = const VerificationMeta(
+    'plainBody',
+  );
+  @override
+  late final GeneratedColumn<String> plainBody = GeneratedColumn<String>(
+    'plain_body',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _htmlBodyMeta = const VerificationMeta(
+    'htmlBody',
+  );
+  @override
+  late final GeneratedColumn<String> htmlBody = GeneratedColumn<String>(
+    'html_body',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentFileIdsJsonMeta =
+      const VerificationMeta('contentFileIdsJson');
+  @override
+  late final GeneratedColumn<String> contentFileIdsJson =
+      GeneratedColumn<String>(
+        'content_file_ids_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('[]'),
+      );
+  static const VerificationMeta _contentNamesJsonMeta = const VerificationMeta(
+    'contentNamesJson',
+  );
+  @override
+  late final GeneratedColumn<String> contentNamesJson = GeneratedColumn<String>(
+    'content_names_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _languageCodeMeta = const VerificationMeta(
+    'languageCode',
+  );
+  @override
+  late final GeneratedColumn<String> languageCode = GeneratedColumn<String>(
+    'language_code',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _preparedAtMeta = const VerificationMeta(
+    'preparedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> preparedAt = GeneratedColumn<DateTime>(
+    'prepared_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _syncStateMeta = const VerificationMeta(
+    'syncState',
+  );
+  @override
+  late final GeneratedColumn<String> syncState = GeneratedColumn<String>(
+    'sync_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('local'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    localId,
+    ownerUserId,
+    leadLocalId,
+    recipientAddress,
+    subject,
+    plainBody,
+    htmlBody,
+    contentFileIdsJson,
+    contentNamesJson,
+    languageCode,
+    preparedAt,
+    syncState,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_email_follow_ups';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StoredEmailFollowUp> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('local_id')) {
+      context.handle(
+        _localIdMeta,
+        localId.isAcceptableOrUnknown(data['local_id']!, _localIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_localIdMeta);
+    }
+    if (data.containsKey('owner_user_id')) {
+      context.handle(
+        _ownerUserIdMeta,
+        ownerUserId.isAcceptableOrUnknown(
+          data['owner_user_id']!,
+          _ownerUserIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerUserIdMeta);
+    }
+    if (data.containsKey('lead_local_id')) {
+      context.handle(
+        _leadLocalIdMeta,
+        leadLocalId.isAcceptableOrUnknown(
+          data['lead_local_id']!,
+          _leadLocalIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_leadLocalIdMeta);
+    }
+    if (data.containsKey('recipient_address')) {
+      context.handle(
+        _recipientAddressMeta,
+        recipientAddress.isAcceptableOrUnknown(
+          data['recipient_address']!,
+          _recipientAddressMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_recipientAddressMeta);
+    }
+    if (data.containsKey('subject')) {
+      context.handle(
+        _subjectMeta,
+        subject.isAcceptableOrUnknown(data['subject']!, _subjectMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_subjectMeta);
+    }
+    if (data.containsKey('plain_body')) {
+      context.handle(
+        _plainBodyMeta,
+        plainBody.isAcceptableOrUnknown(data['plain_body']!, _plainBodyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_plainBodyMeta);
+    }
+    if (data.containsKey('html_body')) {
+      context.handle(
+        _htmlBodyMeta,
+        htmlBody.isAcceptableOrUnknown(data['html_body']!, _htmlBodyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_htmlBodyMeta);
+    }
+    if (data.containsKey('content_file_ids_json')) {
+      context.handle(
+        _contentFileIdsJsonMeta,
+        contentFileIdsJson.isAcceptableOrUnknown(
+          data['content_file_ids_json']!,
+          _contentFileIdsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('content_names_json')) {
+      context.handle(
+        _contentNamesJsonMeta,
+        contentNamesJson.isAcceptableOrUnknown(
+          data['content_names_json']!,
+          _contentNamesJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('language_code')) {
+      context.handle(
+        _languageCodeMeta,
+        languageCode.isAcceptableOrUnknown(
+          data['language_code']!,
+          _languageCodeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_languageCodeMeta);
+    }
+    if (data.containsKey('prepared_at')) {
+      context.handle(
+        _preparedAtMeta,
+        preparedAt.isAcceptableOrUnknown(data['prepared_at']!, _preparedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_preparedAtMeta);
+    }
+    if (data.containsKey('sync_state')) {
+      context.handle(
+        _syncStateMeta,
+        syncState.isAcceptableOrUnknown(data['sync_state']!, _syncStateMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {localId};
+  @override
+  StoredEmailFollowUp map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StoredEmailFollowUp(
+      localId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_id'],
+      )!,
+      ownerUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_user_id'],
+      )!,
+      leadLocalId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}lead_local_id'],
+      )!,
+      recipientAddress: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recipient_address'],
+      )!,
+      subject: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subject'],
+      )!,
+      plainBody: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}plain_body'],
+      )!,
+      htmlBody: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}html_body'],
+      )!,
+      contentFileIdsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_file_ids_json'],
+      )!,
+      contentNamesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_names_json'],
+      )!,
+      languageCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}language_code'],
+      )!,
+      preparedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}prepared_at'],
+      )!,
+      syncState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_state'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalEmailFollowUpsTable createAlias(String alias) {
+    return $LocalEmailFollowUpsTable(attachedDatabase, alias);
+  }
+}
+
+class StoredEmailFollowUp extends DataClass
+    implements Insertable<StoredEmailFollowUp> {
+  final String localId;
+  final String ownerUserId;
+  final String leadLocalId;
+  final String recipientAddress;
+  final String subject;
+  final String plainBody;
+  final String htmlBody;
+  final String contentFileIdsJson;
+  final String contentNamesJson;
+  final String languageCode;
+  final DateTime preparedAt;
+  final String syncState;
+  const StoredEmailFollowUp({
+    required this.localId,
+    required this.ownerUserId,
+    required this.leadLocalId,
+    required this.recipientAddress,
+    required this.subject,
+    required this.plainBody,
+    required this.htmlBody,
+    required this.contentFileIdsJson,
+    required this.contentNamesJson,
+    required this.languageCode,
+    required this.preparedAt,
+    required this.syncState,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['local_id'] = Variable<String>(localId);
+    map['owner_user_id'] = Variable<String>(ownerUserId);
+    map['lead_local_id'] = Variable<String>(leadLocalId);
+    map['recipient_address'] = Variable<String>(recipientAddress);
+    map['subject'] = Variable<String>(subject);
+    map['plain_body'] = Variable<String>(plainBody);
+    map['html_body'] = Variable<String>(htmlBody);
+    map['content_file_ids_json'] = Variable<String>(contentFileIdsJson);
+    map['content_names_json'] = Variable<String>(contentNamesJson);
+    map['language_code'] = Variable<String>(languageCode);
+    map['prepared_at'] = Variable<DateTime>(preparedAt);
+    map['sync_state'] = Variable<String>(syncState);
+    return map;
+  }
+
+  LocalEmailFollowUpsCompanion toCompanion(bool nullToAbsent) {
+    return LocalEmailFollowUpsCompanion(
+      localId: Value(localId),
+      ownerUserId: Value(ownerUserId),
+      leadLocalId: Value(leadLocalId),
+      recipientAddress: Value(recipientAddress),
+      subject: Value(subject),
+      plainBody: Value(plainBody),
+      htmlBody: Value(htmlBody),
+      contentFileIdsJson: Value(contentFileIdsJson),
+      contentNamesJson: Value(contentNamesJson),
+      languageCode: Value(languageCode),
+      preparedAt: Value(preparedAt),
+      syncState: Value(syncState),
+    );
+  }
+
+  factory StoredEmailFollowUp.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StoredEmailFollowUp(
+      localId: serializer.fromJson<String>(json['localId']),
+      ownerUserId: serializer.fromJson<String>(json['ownerUserId']),
+      leadLocalId: serializer.fromJson<String>(json['leadLocalId']),
+      recipientAddress: serializer.fromJson<String>(json['recipientAddress']),
+      subject: serializer.fromJson<String>(json['subject']),
+      plainBody: serializer.fromJson<String>(json['plainBody']),
+      htmlBody: serializer.fromJson<String>(json['htmlBody']),
+      contentFileIdsJson: serializer.fromJson<String>(
+        json['contentFileIdsJson'],
+      ),
+      contentNamesJson: serializer.fromJson<String>(json['contentNamesJson']),
+      languageCode: serializer.fromJson<String>(json['languageCode']),
+      preparedAt: serializer.fromJson<DateTime>(json['preparedAt']),
+      syncState: serializer.fromJson<String>(json['syncState']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'localId': serializer.toJson<String>(localId),
+      'ownerUserId': serializer.toJson<String>(ownerUserId),
+      'leadLocalId': serializer.toJson<String>(leadLocalId),
+      'recipientAddress': serializer.toJson<String>(recipientAddress),
+      'subject': serializer.toJson<String>(subject),
+      'plainBody': serializer.toJson<String>(plainBody),
+      'htmlBody': serializer.toJson<String>(htmlBody),
+      'contentFileIdsJson': serializer.toJson<String>(contentFileIdsJson),
+      'contentNamesJson': serializer.toJson<String>(contentNamesJson),
+      'languageCode': serializer.toJson<String>(languageCode),
+      'preparedAt': serializer.toJson<DateTime>(preparedAt),
+      'syncState': serializer.toJson<String>(syncState),
+    };
+  }
+
+  StoredEmailFollowUp copyWith({
+    String? localId,
+    String? ownerUserId,
+    String? leadLocalId,
+    String? recipientAddress,
+    String? subject,
+    String? plainBody,
+    String? htmlBody,
+    String? contentFileIdsJson,
+    String? contentNamesJson,
+    String? languageCode,
+    DateTime? preparedAt,
+    String? syncState,
+  }) => StoredEmailFollowUp(
+    localId: localId ?? this.localId,
+    ownerUserId: ownerUserId ?? this.ownerUserId,
+    leadLocalId: leadLocalId ?? this.leadLocalId,
+    recipientAddress: recipientAddress ?? this.recipientAddress,
+    subject: subject ?? this.subject,
+    plainBody: plainBody ?? this.plainBody,
+    htmlBody: htmlBody ?? this.htmlBody,
+    contentFileIdsJson: contentFileIdsJson ?? this.contentFileIdsJson,
+    contentNamesJson: contentNamesJson ?? this.contentNamesJson,
+    languageCode: languageCode ?? this.languageCode,
+    preparedAt: preparedAt ?? this.preparedAt,
+    syncState: syncState ?? this.syncState,
+  );
+  StoredEmailFollowUp copyWithCompanion(LocalEmailFollowUpsCompanion data) {
+    return StoredEmailFollowUp(
+      localId: data.localId.present ? data.localId.value : this.localId,
+      ownerUserId: data.ownerUserId.present
+          ? data.ownerUserId.value
+          : this.ownerUserId,
+      leadLocalId: data.leadLocalId.present
+          ? data.leadLocalId.value
+          : this.leadLocalId,
+      recipientAddress: data.recipientAddress.present
+          ? data.recipientAddress.value
+          : this.recipientAddress,
+      subject: data.subject.present ? data.subject.value : this.subject,
+      plainBody: data.plainBody.present ? data.plainBody.value : this.plainBody,
+      htmlBody: data.htmlBody.present ? data.htmlBody.value : this.htmlBody,
+      contentFileIdsJson: data.contentFileIdsJson.present
+          ? data.contentFileIdsJson.value
+          : this.contentFileIdsJson,
+      contentNamesJson: data.contentNamesJson.present
+          ? data.contentNamesJson.value
+          : this.contentNamesJson,
+      languageCode: data.languageCode.present
+          ? data.languageCode.value
+          : this.languageCode,
+      preparedAt: data.preparedAt.present
+          ? data.preparedAt.value
+          : this.preparedAt,
+      syncState: data.syncState.present ? data.syncState.value : this.syncState,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredEmailFollowUp(')
+          ..write('localId: $localId, ')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('leadLocalId: $leadLocalId, ')
+          ..write('recipientAddress: $recipientAddress, ')
+          ..write('subject: $subject, ')
+          ..write('plainBody: $plainBody, ')
+          ..write('htmlBody: $htmlBody, ')
+          ..write('contentFileIdsJson: $contentFileIdsJson, ')
+          ..write('contentNamesJson: $contentNamesJson, ')
+          ..write('languageCode: $languageCode, ')
+          ..write('preparedAt: $preparedAt, ')
+          ..write('syncState: $syncState')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    localId,
+    ownerUserId,
+    leadLocalId,
+    recipientAddress,
+    subject,
+    plainBody,
+    htmlBody,
+    contentFileIdsJson,
+    contentNamesJson,
+    languageCode,
+    preparedAt,
+    syncState,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StoredEmailFollowUp &&
+          other.localId == this.localId &&
+          other.ownerUserId == this.ownerUserId &&
+          other.leadLocalId == this.leadLocalId &&
+          other.recipientAddress == this.recipientAddress &&
+          other.subject == this.subject &&
+          other.plainBody == this.plainBody &&
+          other.htmlBody == this.htmlBody &&
+          other.contentFileIdsJson == this.contentFileIdsJson &&
+          other.contentNamesJson == this.contentNamesJson &&
+          other.languageCode == this.languageCode &&
+          other.preparedAt == this.preparedAt &&
+          other.syncState == this.syncState);
+}
+
+class LocalEmailFollowUpsCompanion
+    extends UpdateCompanion<StoredEmailFollowUp> {
+  final Value<String> localId;
+  final Value<String> ownerUserId;
+  final Value<String> leadLocalId;
+  final Value<String> recipientAddress;
+  final Value<String> subject;
+  final Value<String> plainBody;
+  final Value<String> htmlBody;
+  final Value<String> contentFileIdsJson;
+  final Value<String> contentNamesJson;
+  final Value<String> languageCode;
+  final Value<DateTime> preparedAt;
+  final Value<String> syncState;
+  final Value<int> rowid;
+  const LocalEmailFollowUpsCompanion({
+    this.localId = const Value.absent(),
+    this.ownerUserId = const Value.absent(),
+    this.leadLocalId = const Value.absent(),
+    this.recipientAddress = const Value.absent(),
+    this.subject = const Value.absent(),
+    this.plainBody = const Value.absent(),
+    this.htmlBody = const Value.absent(),
+    this.contentFileIdsJson = const Value.absent(),
+    this.contentNamesJson = const Value.absent(),
+    this.languageCode = const Value.absent(),
+    this.preparedAt = const Value.absent(),
+    this.syncState = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalEmailFollowUpsCompanion.insert({
+    required String localId,
+    required String ownerUserId,
+    required String leadLocalId,
+    required String recipientAddress,
+    required String subject,
+    required String plainBody,
+    required String htmlBody,
+    this.contentFileIdsJson = const Value.absent(),
+    this.contentNamesJson = const Value.absent(),
+    required String languageCode,
+    required DateTime preparedAt,
+    this.syncState = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : localId = Value(localId),
+       ownerUserId = Value(ownerUserId),
+       leadLocalId = Value(leadLocalId),
+       recipientAddress = Value(recipientAddress),
+       subject = Value(subject),
+       plainBody = Value(plainBody),
+       htmlBody = Value(htmlBody),
+       languageCode = Value(languageCode),
+       preparedAt = Value(preparedAt);
+  static Insertable<StoredEmailFollowUp> custom({
+    Expression<String>? localId,
+    Expression<String>? ownerUserId,
+    Expression<String>? leadLocalId,
+    Expression<String>? recipientAddress,
+    Expression<String>? subject,
+    Expression<String>? plainBody,
+    Expression<String>? htmlBody,
+    Expression<String>? contentFileIdsJson,
+    Expression<String>? contentNamesJson,
+    Expression<String>? languageCode,
+    Expression<DateTime>? preparedAt,
+    Expression<String>? syncState,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (localId != null) 'local_id': localId,
+      if (ownerUserId != null) 'owner_user_id': ownerUserId,
+      if (leadLocalId != null) 'lead_local_id': leadLocalId,
+      if (recipientAddress != null) 'recipient_address': recipientAddress,
+      if (subject != null) 'subject': subject,
+      if (plainBody != null) 'plain_body': plainBody,
+      if (htmlBody != null) 'html_body': htmlBody,
+      if (contentFileIdsJson != null)
+        'content_file_ids_json': contentFileIdsJson,
+      if (contentNamesJson != null) 'content_names_json': contentNamesJson,
+      if (languageCode != null) 'language_code': languageCode,
+      if (preparedAt != null) 'prepared_at': preparedAt,
+      if (syncState != null) 'sync_state': syncState,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalEmailFollowUpsCompanion copyWith({
+    Value<String>? localId,
+    Value<String>? ownerUserId,
+    Value<String>? leadLocalId,
+    Value<String>? recipientAddress,
+    Value<String>? subject,
+    Value<String>? plainBody,
+    Value<String>? htmlBody,
+    Value<String>? contentFileIdsJson,
+    Value<String>? contentNamesJson,
+    Value<String>? languageCode,
+    Value<DateTime>? preparedAt,
+    Value<String>? syncState,
+    Value<int>? rowid,
+  }) {
+    return LocalEmailFollowUpsCompanion(
+      localId: localId ?? this.localId,
+      ownerUserId: ownerUserId ?? this.ownerUserId,
+      leadLocalId: leadLocalId ?? this.leadLocalId,
+      recipientAddress: recipientAddress ?? this.recipientAddress,
+      subject: subject ?? this.subject,
+      plainBody: plainBody ?? this.plainBody,
+      htmlBody: htmlBody ?? this.htmlBody,
+      contentFileIdsJson: contentFileIdsJson ?? this.contentFileIdsJson,
+      contentNamesJson: contentNamesJson ?? this.contentNamesJson,
+      languageCode: languageCode ?? this.languageCode,
+      preparedAt: preparedAt ?? this.preparedAt,
+      syncState: syncState ?? this.syncState,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (localId.present) {
+      map['local_id'] = Variable<String>(localId.value);
+    }
+    if (ownerUserId.present) {
+      map['owner_user_id'] = Variable<String>(ownerUserId.value);
+    }
+    if (leadLocalId.present) {
+      map['lead_local_id'] = Variable<String>(leadLocalId.value);
+    }
+    if (recipientAddress.present) {
+      map['recipient_address'] = Variable<String>(recipientAddress.value);
+    }
+    if (subject.present) {
+      map['subject'] = Variable<String>(subject.value);
+    }
+    if (plainBody.present) {
+      map['plain_body'] = Variable<String>(plainBody.value);
+    }
+    if (htmlBody.present) {
+      map['html_body'] = Variable<String>(htmlBody.value);
+    }
+    if (contentFileIdsJson.present) {
+      map['content_file_ids_json'] = Variable<String>(contentFileIdsJson.value);
+    }
+    if (contentNamesJson.present) {
+      map['content_names_json'] = Variable<String>(contentNamesJson.value);
+    }
+    if (languageCode.present) {
+      map['language_code'] = Variable<String>(languageCode.value);
+    }
+    if (preparedAt.present) {
+      map['prepared_at'] = Variable<DateTime>(preparedAt.value);
+    }
+    if (syncState.present) {
+      map['sync_state'] = Variable<String>(syncState.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalEmailFollowUpsCompanion(')
+          ..write('localId: $localId, ')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('leadLocalId: $leadLocalId, ')
+          ..write('recipientAddress: $recipientAddress, ')
+          ..write('subject: $subject, ')
+          ..write('plainBody: $plainBody, ')
+          ..write('htmlBody: $htmlBody, ')
+          ..write('contentFileIdsJson: $contentFileIdsJson, ')
+          ..write('contentNamesJson: $contentNamesJson, ')
+          ..write('languageCode: $languageCode, ')
+          ..write('preparedAt: $preparedAt, ')
+          ..write('syncState: $syncState, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LocalEmailSendIntentsTable extends LocalEmailSendIntents
+    with TableInfo<$LocalEmailSendIntentsTable, StoredEmailSendIntent> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalEmailSendIntentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _localIdMeta = const VerificationMeta(
+    'localId',
+  );
+  @override
+  late final GeneratedColumn<String> localId = GeneratedColumn<String>(
+    'local_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ownerUserIdMeta = const VerificationMeta(
+    'ownerUserId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerUserId = GeneratedColumn<String>(
+    'owner_user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _followUpLocalIdMeta = const VerificationMeta(
+    'followUpLocalId',
+  );
+  @override
+  late final GeneratedColumn<String> followUpLocalId = GeneratedColumn<String>(
+    'follow_up_local_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES local_email_follow_ups (local_id)',
+    ),
+  );
+  static const VerificationMeta _connectionIdMeta = const VerificationMeta(
+    'connectionId',
+  );
+  @override
+  late final GeneratedColumn<String> connectionId = GeneratedColumn<String>(
+    'connection_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _senderAddressMeta = const VerificationMeta(
+    'senderAddress',
+  );
+  @override
+  late final GeneratedColumn<String> senderAddress = GeneratedColumn<String>(
+    'sender_address',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _omittedContentIdsJsonMeta =
+      const VerificationMeta('omittedContentIdsJson');
+  @override
+  late final GeneratedColumn<String> omittedContentIdsJson =
+      GeneratedColumn<String>(
+        'omitted_content_ids_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('[]'),
+      );
+  static const VerificationMeta _parentIntentIdMeta = const VerificationMeta(
+    'parentIntentId',
+  );
+  @override
+  late final GeneratedColumn<String> parentIntentId = GeneratedColumn<String>(
+    'parent_intent_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _attemptCountMeta = const VerificationMeta(
+    'attemptCount',
+  );
+  @override
+  late final GeneratedColumn<int> attemptCount = GeneratedColumn<int>(
+    'attempt_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _errorCodeMeta = const VerificationMeta(
+    'errorCode',
+  );
+  @override
+  late final GeneratedColumn<String> errorCode = GeneratedColumn<String>(
+    'error_code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    localId,
+    ownerUserId,
+    followUpLocalId,
+    connectionId,
+    senderAddress,
+    status,
+    omittedContentIdsJson,
+    parentIntentId,
+    attemptCount,
+    errorCode,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_email_send_intents';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StoredEmailSendIntent> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('local_id')) {
+      context.handle(
+        _localIdMeta,
+        localId.isAcceptableOrUnknown(data['local_id']!, _localIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_localIdMeta);
+    }
+    if (data.containsKey('owner_user_id')) {
+      context.handle(
+        _ownerUserIdMeta,
+        ownerUserId.isAcceptableOrUnknown(
+          data['owner_user_id']!,
+          _ownerUserIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerUserIdMeta);
+    }
+    if (data.containsKey('follow_up_local_id')) {
+      context.handle(
+        _followUpLocalIdMeta,
+        followUpLocalId.isAcceptableOrUnknown(
+          data['follow_up_local_id']!,
+          _followUpLocalIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_followUpLocalIdMeta);
+    }
+    if (data.containsKey('connection_id')) {
+      context.handle(
+        _connectionIdMeta,
+        connectionId.isAcceptableOrUnknown(
+          data['connection_id']!,
+          _connectionIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sender_address')) {
+      context.handle(
+        _senderAddressMeta,
+        senderAddress.isAcceptableOrUnknown(
+          data['sender_address']!,
+          _senderAddressMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('omitted_content_ids_json')) {
+      context.handle(
+        _omittedContentIdsJsonMeta,
+        omittedContentIdsJson.isAcceptableOrUnknown(
+          data['omitted_content_ids_json']!,
+          _omittedContentIdsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('parent_intent_id')) {
+      context.handle(
+        _parentIntentIdMeta,
+        parentIntentId.isAcceptableOrUnknown(
+          data['parent_intent_id']!,
+          _parentIntentIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('attempt_count')) {
+      context.handle(
+        _attemptCountMeta,
+        attemptCount.isAcceptableOrUnknown(
+          data['attempt_count']!,
+          _attemptCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('error_code')) {
+      context.handle(
+        _errorCodeMeta,
+        errorCode.isAcceptableOrUnknown(data['error_code']!, _errorCodeMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {localId};
+  @override
+  StoredEmailSendIntent map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StoredEmailSendIntent(
+      localId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_id'],
+      )!,
+      ownerUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_user_id'],
+      )!,
+      followUpLocalId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}follow_up_local_id'],
+      )!,
+      connectionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}connection_id'],
+      ),
+      senderAddress: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sender_address'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      omittedContentIdsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}omitted_content_ids_json'],
+      )!,
+      parentIntentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parent_intent_id'],
+      ),
+      attemptCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attempt_count'],
+      )!,
+      errorCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_code'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalEmailSendIntentsTable createAlias(String alias) {
+    return $LocalEmailSendIntentsTable(attachedDatabase, alias);
+  }
+}
+
+class StoredEmailSendIntent extends DataClass
+    implements Insertable<StoredEmailSendIntent> {
+  final String localId;
+  final String ownerUserId;
+  final String followUpLocalId;
+  final String? connectionId;
+  final String? senderAddress;
+  final String status;
+  final String omittedContentIdsJson;
+  final String? parentIntentId;
+  final int attemptCount;
+  final String? errorCode;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const StoredEmailSendIntent({
+    required this.localId,
+    required this.ownerUserId,
+    required this.followUpLocalId,
+    this.connectionId,
+    this.senderAddress,
+    required this.status,
+    required this.omittedContentIdsJson,
+    this.parentIntentId,
+    required this.attemptCount,
+    this.errorCode,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['local_id'] = Variable<String>(localId);
+    map['owner_user_id'] = Variable<String>(ownerUserId);
+    map['follow_up_local_id'] = Variable<String>(followUpLocalId);
+    if (!nullToAbsent || connectionId != null) {
+      map['connection_id'] = Variable<String>(connectionId);
+    }
+    if (!nullToAbsent || senderAddress != null) {
+      map['sender_address'] = Variable<String>(senderAddress);
+    }
+    map['status'] = Variable<String>(status);
+    map['omitted_content_ids_json'] = Variable<String>(omittedContentIdsJson);
+    if (!nullToAbsent || parentIntentId != null) {
+      map['parent_intent_id'] = Variable<String>(parentIntentId);
+    }
+    map['attempt_count'] = Variable<int>(attemptCount);
+    if (!nullToAbsent || errorCode != null) {
+      map['error_code'] = Variable<String>(errorCode);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  LocalEmailSendIntentsCompanion toCompanion(bool nullToAbsent) {
+    return LocalEmailSendIntentsCompanion(
+      localId: Value(localId),
+      ownerUserId: Value(ownerUserId),
+      followUpLocalId: Value(followUpLocalId),
+      connectionId: connectionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(connectionId),
+      senderAddress: senderAddress == null && nullToAbsent
+          ? const Value.absent()
+          : Value(senderAddress),
+      status: Value(status),
+      omittedContentIdsJson: Value(omittedContentIdsJson),
+      parentIntentId: parentIntentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentIntentId),
+      attemptCount: Value(attemptCount),
+      errorCode: errorCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorCode),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory StoredEmailSendIntent.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StoredEmailSendIntent(
+      localId: serializer.fromJson<String>(json['localId']),
+      ownerUserId: serializer.fromJson<String>(json['ownerUserId']),
+      followUpLocalId: serializer.fromJson<String>(json['followUpLocalId']),
+      connectionId: serializer.fromJson<String?>(json['connectionId']),
+      senderAddress: serializer.fromJson<String?>(json['senderAddress']),
+      status: serializer.fromJson<String>(json['status']),
+      omittedContentIdsJson: serializer.fromJson<String>(
+        json['omittedContentIdsJson'],
+      ),
+      parentIntentId: serializer.fromJson<String?>(json['parentIntentId']),
+      attemptCount: serializer.fromJson<int>(json['attemptCount']),
+      errorCode: serializer.fromJson<String?>(json['errorCode']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'localId': serializer.toJson<String>(localId),
+      'ownerUserId': serializer.toJson<String>(ownerUserId),
+      'followUpLocalId': serializer.toJson<String>(followUpLocalId),
+      'connectionId': serializer.toJson<String?>(connectionId),
+      'senderAddress': serializer.toJson<String?>(senderAddress),
+      'status': serializer.toJson<String>(status),
+      'omittedContentIdsJson': serializer.toJson<String>(omittedContentIdsJson),
+      'parentIntentId': serializer.toJson<String?>(parentIntentId),
+      'attemptCount': serializer.toJson<int>(attemptCount),
+      'errorCode': serializer.toJson<String?>(errorCode),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  StoredEmailSendIntent copyWith({
+    String? localId,
+    String? ownerUserId,
+    String? followUpLocalId,
+    Value<String?> connectionId = const Value.absent(),
+    Value<String?> senderAddress = const Value.absent(),
+    String? status,
+    String? omittedContentIdsJson,
+    Value<String?> parentIntentId = const Value.absent(),
+    int? attemptCount,
+    Value<String?> errorCode = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => StoredEmailSendIntent(
+    localId: localId ?? this.localId,
+    ownerUserId: ownerUserId ?? this.ownerUserId,
+    followUpLocalId: followUpLocalId ?? this.followUpLocalId,
+    connectionId: connectionId.present ? connectionId.value : this.connectionId,
+    senderAddress: senderAddress.present
+        ? senderAddress.value
+        : this.senderAddress,
+    status: status ?? this.status,
+    omittedContentIdsJson: omittedContentIdsJson ?? this.omittedContentIdsJson,
+    parentIntentId: parentIntentId.present
+        ? parentIntentId.value
+        : this.parentIntentId,
+    attemptCount: attemptCount ?? this.attemptCount,
+    errorCode: errorCode.present ? errorCode.value : this.errorCode,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  StoredEmailSendIntent copyWithCompanion(LocalEmailSendIntentsCompanion data) {
+    return StoredEmailSendIntent(
+      localId: data.localId.present ? data.localId.value : this.localId,
+      ownerUserId: data.ownerUserId.present
+          ? data.ownerUserId.value
+          : this.ownerUserId,
+      followUpLocalId: data.followUpLocalId.present
+          ? data.followUpLocalId.value
+          : this.followUpLocalId,
+      connectionId: data.connectionId.present
+          ? data.connectionId.value
+          : this.connectionId,
+      senderAddress: data.senderAddress.present
+          ? data.senderAddress.value
+          : this.senderAddress,
+      status: data.status.present ? data.status.value : this.status,
+      omittedContentIdsJson: data.omittedContentIdsJson.present
+          ? data.omittedContentIdsJson.value
+          : this.omittedContentIdsJson,
+      parentIntentId: data.parentIntentId.present
+          ? data.parentIntentId.value
+          : this.parentIntentId,
+      attemptCount: data.attemptCount.present
+          ? data.attemptCount.value
+          : this.attemptCount,
+      errorCode: data.errorCode.present ? data.errorCode.value : this.errorCode,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredEmailSendIntent(')
+          ..write('localId: $localId, ')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('followUpLocalId: $followUpLocalId, ')
+          ..write('connectionId: $connectionId, ')
+          ..write('senderAddress: $senderAddress, ')
+          ..write('status: $status, ')
+          ..write('omittedContentIdsJson: $omittedContentIdsJson, ')
+          ..write('parentIntentId: $parentIntentId, ')
+          ..write('attemptCount: $attemptCount, ')
+          ..write('errorCode: $errorCode, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    localId,
+    ownerUserId,
+    followUpLocalId,
+    connectionId,
+    senderAddress,
+    status,
+    omittedContentIdsJson,
+    parentIntentId,
+    attemptCount,
+    errorCode,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StoredEmailSendIntent &&
+          other.localId == this.localId &&
+          other.ownerUserId == this.ownerUserId &&
+          other.followUpLocalId == this.followUpLocalId &&
+          other.connectionId == this.connectionId &&
+          other.senderAddress == this.senderAddress &&
+          other.status == this.status &&
+          other.omittedContentIdsJson == this.omittedContentIdsJson &&
+          other.parentIntentId == this.parentIntentId &&
+          other.attemptCount == this.attemptCount &&
+          other.errorCode == this.errorCode &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class LocalEmailSendIntentsCompanion
+    extends UpdateCompanion<StoredEmailSendIntent> {
+  final Value<String> localId;
+  final Value<String> ownerUserId;
+  final Value<String> followUpLocalId;
+  final Value<String?> connectionId;
+  final Value<String?> senderAddress;
+  final Value<String> status;
+  final Value<String> omittedContentIdsJson;
+  final Value<String?> parentIntentId;
+  final Value<int> attemptCount;
+  final Value<String?> errorCode;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const LocalEmailSendIntentsCompanion({
+    this.localId = const Value.absent(),
+    this.ownerUserId = const Value.absent(),
+    this.followUpLocalId = const Value.absent(),
+    this.connectionId = const Value.absent(),
+    this.senderAddress = const Value.absent(),
+    this.status = const Value.absent(),
+    this.omittedContentIdsJson = const Value.absent(),
+    this.parentIntentId = const Value.absent(),
+    this.attemptCount = const Value.absent(),
+    this.errorCode = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalEmailSendIntentsCompanion.insert({
+    required String localId,
+    required String ownerUserId,
+    required String followUpLocalId,
+    this.connectionId = const Value.absent(),
+    this.senderAddress = const Value.absent(),
+    this.status = const Value.absent(),
+    this.omittedContentIdsJson = const Value.absent(),
+    this.parentIntentId = const Value.absent(),
+    this.attemptCount = const Value.absent(),
+    this.errorCode = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : localId = Value(localId),
+       ownerUserId = Value(ownerUserId),
+       followUpLocalId = Value(followUpLocalId),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<StoredEmailSendIntent> custom({
+    Expression<String>? localId,
+    Expression<String>? ownerUserId,
+    Expression<String>? followUpLocalId,
+    Expression<String>? connectionId,
+    Expression<String>? senderAddress,
+    Expression<String>? status,
+    Expression<String>? omittedContentIdsJson,
+    Expression<String>? parentIntentId,
+    Expression<int>? attemptCount,
+    Expression<String>? errorCode,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (localId != null) 'local_id': localId,
+      if (ownerUserId != null) 'owner_user_id': ownerUserId,
+      if (followUpLocalId != null) 'follow_up_local_id': followUpLocalId,
+      if (connectionId != null) 'connection_id': connectionId,
+      if (senderAddress != null) 'sender_address': senderAddress,
+      if (status != null) 'status': status,
+      if (omittedContentIdsJson != null)
+        'omitted_content_ids_json': omittedContentIdsJson,
+      if (parentIntentId != null) 'parent_intent_id': parentIntentId,
+      if (attemptCount != null) 'attempt_count': attemptCount,
+      if (errorCode != null) 'error_code': errorCode,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalEmailSendIntentsCompanion copyWith({
+    Value<String>? localId,
+    Value<String>? ownerUserId,
+    Value<String>? followUpLocalId,
+    Value<String?>? connectionId,
+    Value<String?>? senderAddress,
+    Value<String>? status,
+    Value<String>? omittedContentIdsJson,
+    Value<String?>? parentIntentId,
+    Value<int>? attemptCount,
+    Value<String?>? errorCode,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return LocalEmailSendIntentsCompanion(
+      localId: localId ?? this.localId,
+      ownerUserId: ownerUserId ?? this.ownerUserId,
+      followUpLocalId: followUpLocalId ?? this.followUpLocalId,
+      connectionId: connectionId ?? this.connectionId,
+      senderAddress: senderAddress ?? this.senderAddress,
+      status: status ?? this.status,
+      omittedContentIdsJson:
+          omittedContentIdsJson ?? this.omittedContentIdsJson,
+      parentIntentId: parentIntentId ?? this.parentIntentId,
+      attemptCount: attemptCount ?? this.attemptCount,
+      errorCode: errorCode ?? this.errorCode,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (localId.present) {
+      map['local_id'] = Variable<String>(localId.value);
+    }
+    if (ownerUserId.present) {
+      map['owner_user_id'] = Variable<String>(ownerUserId.value);
+    }
+    if (followUpLocalId.present) {
+      map['follow_up_local_id'] = Variable<String>(followUpLocalId.value);
+    }
+    if (connectionId.present) {
+      map['connection_id'] = Variable<String>(connectionId.value);
+    }
+    if (senderAddress.present) {
+      map['sender_address'] = Variable<String>(senderAddress.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (omittedContentIdsJson.present) {
+      map['omitted_content_ids_json'] = Variable<String>(
+        omittedContentIdsJson.value,
+      );
+    }
+    if (parentIntentId.present) {
+      map['parent_intent_id'] = Variable<String>(parentIntentId.value);
+    }
+    if (attemptCount.present) {
+      map['attempt_count'] = Variable<int>(attemptCount.value);
+    }
+    if (errorCode.present) {
+      map['error_code'] = Variable<String>(errorCode.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalEmailSendIntentsCompanion(')
+          ..write('localId: $localId, ')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('followUpLocalId: $followUpLocalId, ')
+          ..write('connectionId: $connectionId, ')
+          ..write('senderAddress: $senderAddress, ')
+          ..write('status: $status, ')
+          ..write('omittedContentIdsJson: $omittedContentIdsJson, ')
+          ..write('parentIntentId: $parentIntentId, ')
+          ..write('attemptCount: $attemptCount, ')
+          ..write('errorCode: $errorCode, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -5981,7 +7951,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $LocalContentFilesTable(this);
   late final $LocalEmailTemplatesTable localEmailTemplates =
       $LocalEmailTemplatesTable(this);
+  late final $LocalEmailConnectionsTable localEmailConnections =
+      $LocalEmailConnectionsTable(this);
   late final $LocalLeadsTable localLeads = $LocalLeadsTable(this);
+  late final $LocalEmailFollowUpsTable localEmailFollowUps =
+      $LocalEmailFollowUpsTable(this);
+  late final $LocalEmailSendIntentsTable localEmailSendIntents =
+      $LocalEmailSendIntentsTable(this);
   late final $LocalLeadMediaTable localLeadMedia = $LocalLeadMediaTable(this);
   late final $LocalPreferencesTable localPreferences = $LocalPreferencesTable(
     this,
@@ -6000,6 +7976,14 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final Index contentOwnerIdx = Index(
     'content_owner_idx',
     'CREATE INDEX content_owner_idx ON local_content_files (owner_user_id)',
+  );
+  late final Index emailFollowUpOwnerIdx = Index(
+    'email_follow_up_owner_idx',
+    'CREATE INDEX email_follow_up_owner_idx ON local_email_follow_ups (owner_user_id, prepared_at)',
+  );
+  late final Index emailIntentOwnerStatusIdx = Index(
+    'email_intent_owner_status_idx',
+    'CREATE INDEX email_intent_owner_status_idx ON local_email_send_intents (owner_user_id, status)',
   );
   late final Index leadEventIdx = Index(
     'lead_event_idx',
@@ -6028,6 +8012,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final EmailTemplateDao emailTemplateDao = EmailTemplateDao(
     this as AppDatabase,
   );
+  late final EmailDeliveryDao emailDeliveryDao = EmailDeliveryDao(
+    this as AppDatabase,
+  );
   late final LeadDao leadDao = LeadDao(this as AppDatabase);
   late final SyncDao syncDao = SyncDao(this as AppDatabase);
   @override
@@ -6039,7 +8026,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localEvents,
     localContentFiles,
     localEmailTemplates,
+    localEmailConnections,
     localLeads,
+    localEmailFollowUps,
+    localEmailSendIntents,
     localLeadMedia,
     localPreferences,
     localUserPreferences,
@@ -6047,6 +8037,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     profileOwnerIdx,
     eventOwnerIdx,
     contentOwnerIdx,
+    emailFollowUpOwnerIdx,
+    emailIntentOwnerStatusIdx,
     leadEventIdx,
     leadCapturedIdx,
     leadOwnerIdx,
@@ -7479,6 +9471,262 @@ typedef $$LocalEmailTemplatesTableProcessedTableManager =
       StoredEmailTemplate,
       PrefetchHooks Function()
     >;
+typedef $$LocalEmailConnectionsTableCreateCompanionBuilder =
+    LocalEmailConnectionsCompanion Function({
+      required String ownerUserId,
+      required String connectionId,
+      required String provider,
+      required String senderAddress,
+      required String status,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$LocalEmailConnectionsTableUpdateCompanionBuilder =
+    LocalEmailConnectionsCompanion Function({
+      Value<String> ownerUserId,
+      Value<String> connectionId,
+      Value<String> provider,
+      Value<String> senderAddress,
+      Value<String> status,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$LocalEmailConnectionsTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalEmailConnectionsTable> {
+  $$LocalEmailConnectionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get connectionId => $composableBuilder(
+    column: $table.connectionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get provider => $composableBuilder(
+    column: $table.provider,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get senderAddress => $composableBuilder(
+    column: $table.senderAddress,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalEmailConnectionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalEmailConnectionsTable> {
+  $$LocalEmailConnectionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get connectionId => $composableBuilder(
+    column: $table.connectionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get provider => $composableBuilder(
+    column: $table.provider,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get senderAddress => $composableBuilder(
+    column: $table.senderAddress,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalEmailConnectionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalEmailConnectionsTable> {
+  $$LocalEmailConnectionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get connectionId => $composableBuilder(
+    column: $table.connectionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get provider =>
+      $composableBuilder(column: $table.provider, builder: (column) => column);
+
+  GeneratedColumn<String> get senderAddress => $composableBuilder(
+    column: $table.senderAddress,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$LocalEmailConnectionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalEmailConnectionsTable,
+          StoredEmailConnection,
+          $$LocalEmailConnectionsTableFilterComposer,
+          $$LocalEmailConnectionsTableOrderingComposer,
+          $$LocalEmailConnectionsTableAnnotationComposer,
+          $$LocalEmailConnectionsTableCreateCompanionBuilder,
+          $$LocalEmailConnectionsTableUpdateCompanionBuilder,
+          (
+            StoredEmailConnection,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalEmailConnectionsTable,
+              StoredEmailConnection
+            >,
+          ),
+          StoredEmailConnection,
+          PrefetchHooks Function()
+        > {
+  $$LocalEmailConnectionsTableTableManager(
+    _$AppDatabase db,
+    $LocalEmailConnectionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalEmailConnectionsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$LocalEmailConnectionsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$LocalEmailConnectionsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerUserId = const Value.absent(),
+                Value<String> connectionId = const Value.absent(),
+                Value<String> provider = const Value.absent(),
+                Value<String> senderAddress = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalEmailConnectionsCompanion(
+                ownerUserId: ownerUserId,
+                connectionId: connectionId,
+                provider: provider,
+                senderAddress: senderAddress,
+                status: status,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerUserId,
+                required String connectionId,
+                required String provider,
+                required String senderAddress,
+                required String status,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => LocalEmailConnectionsCompanion.insert(
+                ownerUserId: ownerUserId,
+                connectionId: connectionId,
+                provider: provider,
+                senderAddress: senderAddress,
+                status: status,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $LocalEmailConnectionsTable,
+                    StoredEmailConnection
+                  >(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $LocalEmailConnectionsTable,
+                    StoredEmailConnection
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalEmailConnectionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalEmailConnectionsTable,
+      StoredEmailConnection,
+      $$LocalEmailConnectionsTableFilterComposer,
+      $$LocalEmailConnectionsTableOrderingComposer,
+      $$LocalEmailConnectionsTableAnnotationComposer,
+      $$LocalEmailConnectionsTableCreateCompanionBuilder,
+      $$LocalEmailConnectionsTableUpdateCompanionBuilder,
+      (
+        StoredEmailConnection,
+        BaseReferences<
+          _$AppDatabase,
+          $LocalEmailConnectionsTable,
+          StoredEmailConnection
+        >,
+      ),
+      StoredEmailConnection,
+      PrefetchHooks Function()
+    >;
 typedef $$LocalLeadsTableCreateCompanionBuilder = LocalLeadsCompanion Function({
   required String localId,
   Value<String?> ownerUserId,
@@ -7555,6 +9803,36 @@ final class $$LocalLeadsTableReferences
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $LocalEmailFollowUpsTable,
+    List<StoredEmailFollowUp>
+  >
+  _localEmailFollowUpsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.localEmailFollowUps,
+        aliasName:
+            'local_leads__local_id__local_email_follow_ups__lead_local_id',
+      );
+
+  $$LocalEmailFollowUpsTableProcessedTableManager get localEmailFollowUpsRefs {
+    final manager =
+        $$LocalEmailFollowUpsTableTableManager(
+          $_db,
+          $_db.localEmailFollowUps,
+        ).filter(
+          (f) => f.leadLocalId.localId.sqlEquals(
+            $_itemColumn<String>('local_id')!,
+          ),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _localEmailFollowUpsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
     );
   }
 
@@ -7729,6 +10007,31 @@ class $$LocalLeadsTableFilterComposer
           ),
     );
     return composer;
+  }
+
+  Expression<bool> localEmailFollowUpsRefs(
+    Expression<bool> Function($$LocalEmailFollowUpsTableFilterComposer f) f,
+  ) {
+    final $$LocalEmailFollowUpsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.localId,
+      referencedTable: $db.localEmailFollowUps,
+      getReferencedColumn: (t) => t.leadLocalId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalEmailFollowUpsTableFilterComposer(
+            $db: $db,
+            $table: $db.localEmailFollowUps,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
   }
 
   Expression<bool> localLeadMediaRefs(
@@ -8036,6 +10339,32 @@ class $$LocalLeadsTableAnnotationComposer
     return composer;
   }
 
+  Expression<T> localEmailFollowUpsRefs<T extends Object>(
+    Expression<T> Function($$LocalEmailFollowUpsTableAnnotationComposer a) f,
+  ) {
+    final $$LocalEmailFollowUpsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.localId,
+          referencedTable: $db.localEmailFollowUps,
+          getReferencedColumn: (t) => t.leadLocalId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$LocalEmailFollowUpsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.localEmailFollowUps,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
   Expression<T> localLeadMediaRefs<T extends Object>(
     Expression<T> Function($$LocalLeadMediaTableAnnotationComposer a) f,
   ) {
@@ -8075,7 +10404,11 @@ class $$LocalLeadsTableTableManager
           $$LocalLeadsTableUpdateCompanionBuilder,
           (StoredLead, $$LocalLeadsTableReferences),
           StoredLead,
-          PrefetchHooks Function({bool eventLocalId, bool localLeadMediaRefs})
+          PrefetchHooks Function({
+            bool eventLocalId,
+            bool localEmailFollowUpsRefs,
+            bool localLeadMediaRefs,
+          })
         > {
   $$LocalLeadsTableTableManager(_$AppDatabase db, $LocalLeadsTable table)
     : super(
@@ -8209,10 +10542,15 @@ class $$LocalLeadsTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({eventLocalId = false, localLeadMediaRefs = false}) {
+              ({
+                eventLocalId = false,
+                localEmailFollowUpsRefs = false,
+                localLeadMediaRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
+                    if (localEmailFollowUpsRefs) db.localEmailFollowUps,
                     if (localLeadMediaRefs) db.localLeadMedia,
                   ],
                   addJoins:
@@ -8247,6 +10585,27 @@ class $$LocalLeadsTableTableManager
                       },
                   getPrefetchedDataCallback: (items) async {
                     return [
+                      if (localEmailFollowUpsRefs)
+                        await $_getPrefetchedData<
+                          StoredLead,
+                          $LocalLeadsTable,
+                          StoredEmailFollowUp
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalLeadsTableReferences
+                              ._localEmailFollowUpsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalLeadsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).localEmailFollowUpsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.leadLocalId == item.localId,
+                              ),
+                          typedResults: items,
+                        ),
                       if (localLeadMediaRefs)
                         await $_getPrefetchedData<
                           StoredLead,
@@ -8288,7 +10647,1091 @@ typedef $$LocalLeadsTableProcessedTableManager =
       $$LocalLeadsTableUpdateCompanionBuilder,
       (StoredLead, $$LocalLeadsTableReferences),
       StoredLead,
-      PrefetchHooks Function({bool eventLocalId, bool localLeadMediaRefs})
+      PrefetchHooks Function({
+        bool eventLocalId,
+        bool localEmailFollowUpsRefs,
+        bool localLeadMediaRefs,
+      })
+    >;
+typedef $$LocalEmailFollowUpsTableCreateCompanionBuilder =
+    LocalEmailFollowUpsCompanion Function({
+      required String localId,
+      required String ownerUserId,
+      required String leadLocalId,
+      required String recipientAddress,
+      required String subject,
+      required String plainBody,
+      required String htmlBody,
+      Value<String> contentFileIdsJson,
+      Value<String> contentNamesJson,
+      required String languageCode,
+      required DateTime preparedAt,
+      Value<String> syncState,
+      Value<int> rowid,
+    });
+typedef $$LocalEmailFollowUpsTableUpdateCompanionBuilder =
+    LocalEmailFollowUpsCompanion Function({
+      Value<String> localId,
+      Value<String> ownerUserId,
+      Value<String> leadLocalId,
+      Value<String> recipientAddress,
+      Value<String> subject,
+      Value<String> plainBody,
+      Value<String> htmlBody,
+      Value<String> contentFileIdsJson,
+      Value<String> contentNamesJson,
+      Value<String> languageCode,
+      Value<DateTime> preparedAt,
+      Value<String> syncState,
+      Value<int> rowid,
+    });
+
+final class $$LocalEmailFollowUpsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $LocalEmailFollowUpsTable,
+          StoredEmailFollowUp
+        > {
+  $$LocalEmailFollowUpsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LocalLeadsTable _leadLocalIdTable(_$AppDatabase db) =>
+      db.localLeads.createAlias(
+        'local_email_follow_ups__lead_local_id__local_leads__local_id',
+      );
+
+  $$LocalLeadsTableProcessedTableManager get leadLocalId {
+    final $_column = $_itemColumn<String>('lead_local_id')!;
+
+    final manager = $$LocalLeadsTableTableManager(
+      $_db,
+      $_db.localLeads,
+    ).filter((f) => f.localId.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_leadLocalIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $LocalEmailSendIntentsTable,
+    List<StoredEmailSendIntent>
+  >
+  _localEmailSendIntentsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.localEmailSendIntents,
+        aliasName: 'local_email_follow_ups__local_id__local_email_send_intents__follow_up_local_id',
+      );
+
+  $$LocalEmailSendIntentsTableProcessedTableManager
+  get localEmailSendIntentsRefs {
+    final manager =
+        $$LocalEmailSendIntentsTableTableManager(
+          $_db,
+          $_db.localEmailSendIntents,
+        ).filter(
+          (f) => f.followUpLocalId.localId.sqlEquals(
+            $_itemColumn<String>('local_id')!,
+          ),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _localEmailSendIntentsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$LocalEmailFollowUpsTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalEmailFollowUpsTable> {
+  $$LocalEmailFollowUpsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get localId => $composableBuilder(
+    column: $table.localId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recipientAddress => $composableBuilder(
+    column: $table.recipientAddress,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get plainBody => $composableBuilder(
+    column: $table.plainBody,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get htmlBody => $composableBuilder(
+    column: $table.htmlBody,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentFileIdsJson => $composableBuilder(
+    column: $table.contentFileIdsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentNamesJson => $composableBuilder(
+    column: $table.contentNamesJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get preparedAt => $composableBuilder(
+    column: $table.preparedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocalLeadsTableFilterComposer get leadLocalId {
+    final $$LocalLeadsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.leadLocalId,
+      referencedTable: $db.localLeads,
+      getReferencedColumn: (t) => t.localId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalLeadsTableFilterComposer(
+            $db: $db,
+            $table: $db.localLeads,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> localEmailSendIntentsRefs(
+    Expression<bool> Function($$LocalEmailSendIntentsTableFilterComposer f) f,
+  ) {
+    final $$LocalEmailSendIntentsTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.localId,
+          referencedTable: $db.localEmailSendIntents,
+          getReferencedColumn: (t) => t.followUpLocalId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$LocalEmailSendIntentsTableFilterComposer(
+                $db: $db,
+                $table: $db.localEmailSendIntents,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+}
+
+class $$LocalEmailFollowUpsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalEmailFollowUpsTable> {
+  $$LocalEmailFollowUpsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get localId => $composableBuilder(
+    column: $table.localId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recipientAddress => $composableBuilder(
+    column: $table.recipientAddress,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get plainBody => $composableBuilder(
+    column: $table.plainBody,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get htmlBody => $composableBuilder(
+    column: $table.htmlBody,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentFileIdsJson => $composableBuilder(
+    column: $table.contentFileIdsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentNamesJson => $composableBuilder(
+    column: $table.contentNamesJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get preparedAt => $composableBuilder(
+    column: $table.preparedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocalLeadsTableOrderingComposer get leadLocalId {
+    final $$LocalLeadsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.leadLocalId,
+      referencedTable: $db.localLeads,
+      getReferencedColumn: (t) => t.localId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalLeadsTableOrderingComposer(
+            $db: $db,
+            $table: $db.localLeads,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LocalEmailFollowUpsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalEmailFollowUpsTable> {
+  $$LocalEmailFollowUpsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get localId =>
+      $composableBuilder(column: $table.localId, builder: (column) => column);
+
+  GeneratedColumn<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get recipientAddress => $composableBuilder(
+    column: $table.recipientAddress,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get subject =>
+      $composableBuilder(column: $table.subject, builder: (column) => column);
+
+  GeneratedColumn<String> get plainBody =>
+      $composableBuilder(column: $table.plainBody, builder: (column) => column);
+
+  GeneratedColumn<String> get htmlBody =>
+      $composableBuilder(column: $table.htmlBody, builder: (column) => column);
+
+  GeneratedColumn<String> get contentFileIdsJson => $composableBuilder(
+    column: $table.contentFileIdsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get contentNamesJson => $composableBuilder(
+    column: $table.contentNamesJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get preparedAt => $composableBuilder(
+    column: $table.preparedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get syncState =>
+      $composableBuilder(column: $table.syncState, builder: (column) => column);
+
+  $$LocalLeadsTableAnnotationComposer get leadLocalId {
+    final $$LocalLeadsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.leadLocalId,
+      referencedTable: $db.localLeads,
+      getReferencedColumn: (t) => t.localId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalLeadsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.localLeads,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> localEmailSendIntentsRefs<T extends Object>(
+    Expression<T> Function($$LocalEmailSendIntentsTableAnnotationComposer a) f,
+  ) {
+    final $$LocalEmailSendIntentsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.localId,
+          referencedTable: $db.localEmailSendIntents,
+          getReferencedColumn: (t) => t.followUpLocalId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$LocalEmailSendIntentsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.localEmailSendIntents,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+}
+
+class $$LocalEmailFollowUpsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalEmailFollowUpsTable,
+          StoredEmailFollowUp,
+          $$LocalEmailFollowUpsTableFilterComposer,
+          $$LocalEmailFollowUpsTableOrderingComposer,
+          $$LocalEmailFollowUpsTableAnnotationComposer,
+          $$LocalEmailFollowUpsTableCreateCompanionBuilder,
+          $$LocalEmailFollowUpsTableUpdateCompanionBuilder,
+          (StoredEmailFollowUp, $$LocalEmailFollowUpsTableReferences),
+          StoredEmailFollowUp,
+          PrefetchHooks Function({
+            bool leadLocalId,
+            bool localEmailSendIntentsRefs,
+          })
+        > {
+  $$LocalEmailFollowUpsTableTableManager(
+    _$AppDatabase db,
+    $LocalEmailFollowUpsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalEmailFollowUpsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalEmailFollowUpsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$LocalEmailFollowUpsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> localId = const Value.absent(),
+                Value<String> ownerUserId = const Value.absent(),
+                Value<String> leadLocalId = const Value.absent(),
+                Value<String> recipientAddress = const Value.absent(),
+                Value<String> subject = const Value.absent(),
+                Value<String> plainBody = const Value.absent(),
+                Value<String> htmlBody = const Value.absent(),
+                Value<String> contentFileIdsJson = const Value.absent(),
+                Value<String> contentNamesJson = const Value.absent(),
+                Value<String> languageCode = const Value.absent(),
+                Value<DateTime> preparedAt = const Value.absent(),
+                Value<String> syncState = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalEmailFollowUpsCompanion(
+                localId: localId,
+                ownerUserId: ownerUserId,
+                leadLocalId: leadLocalId,
+                recipientAddress: recipientAddress,
+                subject: subject,
+                plainBody: plainBody,
+                htmlBody: htmlBody,
+                contentFileIdsJson: contentFileIdsJson,
+                contentNamesJson: contentNamesJson,
+                languageCode: languageCode,
+                preparedAt: preparedAt,
+                syncState: syncState,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String localId,
+                required String ownerUserId,
+                required String leadLocalId,
+                required String recipientAddress,
+                required String subject,
+                required String plainBody,
+                required String htmlBody,
+                Value<String> contentFileIdsJson = const Value.absent(),
+                Value<String> contentNamesJson = const Value.absent(),
+                required String languageCode,
+                required DateTime preparedAt,
+                Value<String> syncState = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalEmailFollowUpsCompanion.insert(
+                localId: localId,
+                ownerUserId: ownerUserId,
+                leadLocalId: leadLocalId,
+                recipientAddress: recipientAddress,
+                subject: subject,
+                plainBody: plainBody,
+                htmlBody: htmlBody,
+                contentFileIdsJson: contentFileIdsJson,
+                contentNamesJson: contentNamesJson,
+                languageCode: languageCode,
+                preparedAt: preparedAt,
+                syncState: syncState,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LocalEmailFollowUpsTable, StoredEmailFollowUp>(
+                    table,
+                  ),
+                  $$LocalEmailFollowUpsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({leadLocalId = false, localEmailSendIntentsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (localEmailSendIntentsRefs) db.localEmailSendIntents,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (leadLocalId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.leadLocalId,
+                            referencedTable:
+                                $$LocalEmailFollowUpsTableReferences
+                                    ._leadLocalIdTable(db),
+                            referencedColumn:
+                                $$LocalEmailFollowUpsTableReferences
+                                    ._leadLocalIdTable(db)
+                                    .localId,
+                          ) as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (localEmailSendIntentsRefs)
+                        await $_getPrefetchedData<
+                          StoredEmailFollowUp,
+                          $LocalEmailFollowUpsTable,
+                          StoredEmailSendIntent
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalEmailFollowUpsTableReferences
+                              ._localEmailSendIntentsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalEmailFollowUpsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).localEmailSendIntentsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.followUpLocalId == item.localId,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$LocalEmailFollowUpsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalEmailFollowUpsTable,
+      StoredEmailFollowUp,
+      $$LocalEmailFollowUpsTableFilterComposer,
+      $$LocalEmailFollowUpsTableOrderingComposer,
+      $$LocalEmailFollowUpsTableAnnotationComposer,
+      $$LocalEmailFollowUpsTableCreateCompanionBuilder,
+      $$LocalEmailFollowUpsTableUpdateCompanionBuilder,
+      (StoredEmailFollowUp, $$LocalEmailFollowUpsTableReferences),
+      StoredEmailFollowUp,
+      PrefetchHooks Function({bool leadLocalId, bool localEmailSendIntentsRefs})
+    >;
+typedef $$LocalEmailSendIntentsTableCreateCompanionBuilder =
+    LocalEmailSendIntentsCompanion Function({
+      required String localId,
+      required String ownerUserId,
+      required String followUpLocalId,
+      Value<String?> connectionId,
+      Value<String?> senderAddress,
+      Value<String> status,
+      Value<String> omittedContentIdsJson,
+      Value<String?> parentIntentId,
+      Value<int> attemptCount,
+      Value<String?> errorCode,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$LocalEmailSendIntentsTableUpdateCompanionBuilder =
+    LocalEmailSendIntentsCompanion Function({
+      Value<String> localId,
+      Value<String> ownerUserId,
+      Value<String> followUpLocalId,
+      Value<String?> connectionId,
+      Value<String?> senderAddress,
+      Value<String> status,
+      Value<String> omittedContentIdsJson,
+      Value<String?> parentIntentId,
+      Value<int> attemptCount,
+      Value<String?> errorCode,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+final class $$LocalEmailSendIntentsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $LocalEmailSendIntentsTable,
+          StoredEmailSendIntent
+        > {
+  $$LocalEmailSendIntentsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LocalEmailFollowUpsTable _followUpLocalIdTable(_$AppDatabase db) =>
+      db.localEmailFollowUps.createAlias(
+        'local_email_send_intents__follow_up_local_id__local_email_follow_ups__local_id',
+      );
+
+  $$LocalEmailFollowUpsTableProcessedTableManager get followUpLocalId {
+    final $_column = $_itemColumn<String>('follow_up_local_id')!;
+
+    final manager = $$LocalEmailFollowUpsTableTableManager(
+      $_db,
+      $_db.localEmailFollowUps,
+    ).filter((f) => f.localId.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_followUpLocalIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$LocalEmailSendIntentsTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalEmailSendIntentsTable> {
+  $$LocalEmailSendIntentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get localId => $composableBuilder(
+    column: $table.localId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get connectionId => $composableBuilder(
+    column: $table.connectionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get senderAddress => $composableBuilder(
+    column: $table.senderAddress,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get omittedContentIdsJson => $composableBuilder(
+    column: $table.omittedContentIdsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parentIntentId => $composableBuilder(
+    column: $table.parentIntentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorCode => $composableBuilder(
+    column: $table.errorCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocalEmailFollowUpsTableFilterComposer get followUpLocalId {
+    final $$LocalEmailFollowUpsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.followUpLocalId,
+      referencedTable: $db.localEmailFollowUps,
+      getReferencedColumn: (t) => t.localId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalEmailFollowUpsTableFilterComposer(
+            $db: $db,
+            $table: $db.localEmailFollowUps,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LocalEmailSendIntentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalEmailSendIntentsTable> {
+  $$LocalEmailSendIntentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get localId => $composableBuilder(
+    column: $table.localId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get connectionId => $composableBuilder(
+    column: $table.connectionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get senderAddress => $composableBuilder(
+    column: $table.senderAddress,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get omittedContentIdsJson => $composableBuilder(
+    column: $table.omittedContentIdsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parentIntentId => $composableBuilder(
+    column: $table.parentIntentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get errorCode => $composableBuilder(
+    column: $table.errorCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocalEmailFollowUpsTableOrderingComposer get followUpLocalId {
+    final $$LocalEmailFollowUpsTableOrderingComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.followUpLocalId,
+          referencedTable: $db.localEmailFollowUps,
+          getReferencedColumn: (t) => t.localId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$LocalEmailFollowUpsTableOrderingComposer(
+                $db: $db,
+                $table: $db.localEmailFollowUps,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return composer;
+  }
+}
+
+class $$LocalEmailSendIntentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalEmailSendIntentsTable> {
+  $$LocalEmailSendIntentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get localId =>
+      $composableBuilder(column: $table.localId, builder: (column) => column);
+
+  GeneratedColumn<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get connectionId => $composableBuilder(
+    column: $table.connectionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get senderAddress => $composableBuilder(
+    column: $table.senderAddress,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get omittedContentIdsJson => $composableBuilder(
+    column: $table.omittedContentIdsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get parentIntentId => $composableBuilder(
+    column: $table.parentIntentId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get errorCode =>
+      $composableBuilder(column: $table.errorCode, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$LocalEmailFollowUpsTableAnnotationComposer get followUpLocalId {
+    final $$LocalEmailFollowUpsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.followUpLocalId,
+          referencedTable: $db.localEmailFollowUps,
+          getReferencedColumn: (t) => t.localId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$LocalEmailFollowUpsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.localEmailFollowUps,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return composer;
+  }
+}
+
+class $$LocalEmailSendIntentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalEmailSendIntentsTable,
+          StoredEmailSendIntent,
+          $$LocalEmailSendIntentsTableFilterComposer,
+          $$LocalEmailSendIntentsTableOrderingComposer,
+          $$LocalEmailSendIntentsTableAnnotationComposer,
+          $$LocalEmailSendIntentsTableCreateCompanionBuilder,
+          $$LocalEmailSendIntentsTableUpdateCompanionBuilder,
+          (StoredEmailSendIntent, $$LocalEmailSendIntentsTableReferences),
+          StoredEmailSendIntent,
+          PrefetchHooks Function({bool followUpLocalId})
+        > {
+  $$LocalEmailSendIntentsTableTableManager(
+    _$AppDatabase db,
+    $LocalEmailSendIntentsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalEmailSendIntentsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$LocalEmailSendIntentsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$LocalEmailSendIntentsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> localId = const Value.absent(),
+                Value<String> ownerUserId = const Value.absent(),
+                Value<String> followUpLocalId = const Value.absent(),
+                Value<String?> connectionId = const Value.absent(),
+                Value<String?> senderAddress = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String> omittedContentIdsJson = const Value.absent(),
+                Value<String?> parentIntentId = const Value.absent(),
+                Value<int> attemptCount = const Value.absent(),
+                Value<String?> errorCode = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalEmailSendIntentsCompanion(
+                localId: localId,
+                ownerUserId: ownerUserId,
+                followUpLocalId: followUpLocalId,
+                connectionId: connectionId,
+                senderAddress: senderAddress,
+                status: status,
+                omittedContentIdsJson: omittedContentIdsJson,
+                parentIntentId: parentIntentId,
+                attemptCount: attemptCount,
+                errorCode: errorCode,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String localId,
+                required String ownerUserId,
+                required String followUpLocalId,
+                Value<String?> connectionId = const Value.absent(),
+                Value<String?> senderAddress = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String> omittedContentIdsJson = const Value.absent(),
+                Value<String?> parentIntentId = const Value.absent(),
+                Value<int> attemptCount = const Value.absent(),
+                Value<String?> errorCode = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => LocalEmailSendIntentsCompanion.insert(
+                localId: localId,
+                ownerUserId: ownerUserId,
+                followUpLocalId: followUpLocalId,
+                connectionId: connectionId,
+                senderAddress: senderAddress,
+                status: status,
+                omittedContentIdsJson: omittedContentIdsJson,
+                parentIntentId: parentIntentId,
+                attemptCount: attemptCount,
+                errorCode: errorCode,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $LocalEmailSendIntentsTable,
+                    StoredEmailSendIntent
+                  >(table),
+                  $$LocalEmailSendIntentsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({followUpLocalId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (followUpLocalId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.followUpLocalId,
+                        referencedTable: $$LocalEmailSendIntentsTableReferences
+                            ._followUpLocalIdTable(db),
+                        referencedColumn: $$LocalEmailSendIntentsTableReferences
+                            ._followUpLocalIdTable(db)
+                            .localId,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$LocalEmailSendIntentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalEmailSendIntentsTable,
+      StoredEmailSendIntent,
+      $$LocalEmailSendIntentsTableFilterComposer,
+      $$LocalEmailSendIntentsTableOrderingComposer,
+      $$LocalEmailSendIntentsTableAnnotationComposer,
+      $$LocalEmailSendIntentsTableCreateCompanionBuilder,
+      $$LocalEmailSendIntentsTableUpdateCompanionBuilder,
+      (StoredEmailSendIntent, $$LocalEmailSendIntentsTableReferences),
+      StoredEmailSendIntent,
+      PrefetchHooks Function({bool followUpLocalId})
     >;
 typedef $$LocalLeadMediaTableCreateCompanionBuilder =
     LocalLeadMediaCompanion Function({
@@ -9438,8 +12881,14 @@ class $AppDatabaseManager {
       $$LocalContentFilesTableTableManager(_db, _db.localContentFiles);
   $$LocalEmailTemplatesTableTableManager get localEmailTemplates =>
       $$LocalEmailTemplatesTableTableManager(_db, _db.localEmailTemplates);
+  $$LocalEmailConnectionsTableTableManager get localEmailConnections =>
+      $$LocalEmailConnectionsTableTableManager(_db, _db.localEmailConnections);
   $$LocalLeadsTableTableManager get localLeads =>
       $$LocalLeadsTableTableManager(_db, _db.localLeads);
+  $$LocalEmailFollowUpsTableTableManager get localEmailFollowUps =>
+      $$LocalEmailFollowUpsTableTableManager(_db, _db.localEmailFollowUps);
+  $$LocalEmailSendIntentsTableTableManager get localEmailSendIntents =>
+      $$LocalEmailSendIntentsTableTableManager(_db, _db.localEmailSendIntents);
   $$LocalLeadMediaTableTableManager get localLeadMedia =>
       $$LocalLeadMediaTableTableManager(_db, _db.localLeadMedia);
   $$LocalPreferencesTableTableManager get localPreferences =>

@@ -4,6 +4,8 @@
 /// future network delivery. Binary media is intentionally stored elsewhere.
 library;
 
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:path_provider/path_provider.dart';
@@ -82,6 +84,68 @@ class LocalEmailTemplates extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {ownerUserId, originKind, languageCode};
+}
+
+@DataClassName('StoredEmailConnection')
+class LocalEmailConnections extends Table {
+  TextColumn get ownerUserId => text()();
+  TextColumn get connectionId => text()();
+  TextColumn get provider => text()();
+  TextColumn get senderAddress => text()();
+  TextColumn get status => text()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {ownerUserId};
+}
+
+@DataClassName('StoredEmailFollowUp')
+@TableIndex(
+  name: 'email_follow_up_owner_idx',
+  columns: {#ownerUserId, #preparedAt},
+)
+class LocalEmailFollowUps extends Table {
+  TextColumn get localId => text()();
+  TextColumn get ownerUserId => text()();
+  TextColumn get leadLocalId => text().references(LocalLeads, #localId)();
+  TextColumn get recipientAddress => text()();
+  TextColumn get subject => text()();
+  TextColumn get plainBody => text()();
+  TextColumn get htmlBody => text()();
+  TextColumn get contentFileIdsJson =>
+      text().withDefault(const Constant('[]'))();
+  TextColumn get contentNamesJson => text().withDefault(const Constant('[]'))();
+  TextColumn get languageCode => text()();
+  DateTimeColumn get preparedAt => dateTime()();
+  TextColumn get syncState => text().withDefault(const Constant('local'))();
+
+  @override
+  Set<Column<Object>> get primaryKey => {localId};
+}
+
+@DataClassName('StoredEmailSendIntent')
+@TableIndex(
+  name: 'email_intent_owner_status_idx',
+  columns: {#ownerUserId, #status},
+)
+class LocalEmailSendIntents extends Table {
+  TextColumn get localId => text()();
+  TextColumn get ownerUserId => text()();
+  TextColumn get followUpLocalId =>
+      text().references(LocalEmailFollowUps, #localId)();
+  TextColumn get connectionId => text().nullable()();
+  TextColumn get senderAddress => text().nullable()();
+  TextColumn get status => text().withDefault(const Constant('pending'))();
+  TextColumn get omittedContentIdsJson =>
+      text().withDefault(const Constant('[]'))();
+  TextColumn get parentIntentId => text().nullable()();
+  IntColumn get attemptCount => integer().withDefault(const Constant(0))();
+  TextColumn get errorCode => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {localId};
 }
 
 @DataClassName('StoredLead')
@@ -219,6 +283,71 @@ class EmailTemplateDao extends DatabaseAccessor<AppDatabase>
           ))
           .write(
             const LocalEmailTemplatesCompanion(syncState: Value('synced')),
+          );
+}
+
+@DriftAccessor(
+  tables: [LocalEmailConnections, LocalEmailFollowUps, LocalEmailSendIntents],
+)
+class EmailDeliveryDao extends DatabaseAccessor<AppDatabase>
+    with _$EmailDeliveryDaoMixin {
+  EmailDeliveryDao(super.db);
+
+  Future<StoredEmailConnection?> connectionForOwner(String owner) => (select(
+    localEmailConnections,
+  )..where((row) => row.ownerUserId.equals(owner))).getSingleOrNull();
+
+  Future<void> saveConnection(LocalEmailConnectionsCompanion value) =>
+      into(localEmailConnections).insertOnConflictUpdate(value);
+
+  Future<List<StoredEmailFollowUp>> followUps(String owner) =>
+      (select(localEmailFollowUps)
+            ..where((row) => row.ownerUserId.equals(owner))
+            ..orderBy([(row) => OrderingTerm.desc(row.preparedAt)]))
+          .get();
+
+  Future<void> saveFollowUp(LocalEmailFollowUpsCompanion value) =>
+      into(localEmailFollowUps).insertOnConflictUpdate(value);
+
+  Future<void> markFollowUpSynced(String owner, String id) =>
+      (update(localEmailFollowUps)..where(
+            (row) => row.ownerUserId.equals(owner) & row.localId.equals(id),
+          ))
+          .write(
+            const LocalEmailFollowUpsCompanion(syncState: Value('synced')),
+          );
+
+  Future<List<StoredEmailSendIntent>> intents(String owner) =>
+      (select(localEmailSendIntents)
+            ..where((row) => row.ownerUserId.equals(owner))
+            ..orderBy([(row) => OrderingTerm.desc(row.createdAt)]))
+          .get();
+
+  Future<void> saveIntent(LocalEmailSendIntentsCompanion value) =>
+      into(localEmailSendIntents).insertOnConflictUpdate(value);
+
+  Future<void> updateIntentState(
+    String owner,
+    String id,
+    String status,
+    int attempts,
+    String? errorCode,
+    DateTime now, {
+    List<String>? omittedContentIds,
+  }) =>
+      (update(localEmailSendIntents)..where(
+            (row) => row.ownerUserId.equals(owner) & row.localId.equals(id),
+          ))
+          .write(
+            LocalEmailSendIntentsCompanion(
+              status: Value(status),
+              attemptCount: Value(attempts),
+              errorCode: Value(errorCode),
+              omittedContentIdsJson: omittedContentIds == null
+                  ? const Value.absent()
+                  : Value(jsonEncode(omittedContentIds)),
+              updatedAt: Value(now),
+            ),
           );
 }
 
@@ -707,6 +836,9 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
     LocalEvents,
     LocalContentFiles,
     LocalEmailTemplates,
+    LocalEmailConnections,
+    LocalEmailFollowUps,
+    LocalEmailSendIntents,
     LocalLeads,
     LocalLeadMedia,
     LocalPreferences,
@@ -718,6 +850,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
     EventDao,
     ContentDao,
     EmailTemplateDao,
+    EmailDeliveryDao,
     LeadDao,
     SyncDao,
   ],
@@ -735,7 +868,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -779,6 +912,11 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 7) {
         await migrator.createTable(localEmailTemplates);
+      }
+      if (from < 8) {
+        await migrator.createTable(localEmailConnections);
+        await migrator.createTable(localEmailFollowUps);
+        await migrator.createTable(localEmailSendIntents);
       }
     },
     beforeOpen: (details) async {

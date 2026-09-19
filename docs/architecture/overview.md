@@ -46,12 +46,16 @@ ADR-003 gobierna la fundación y ADR-005 el boundary de medios. FL-016 añade un
 bucket S3 privado para tarjeta, imágenes de referencia y Voice Note. FL-018
 reutiliza ese bucket para Content/PDF. Flutter
 obtiene una autorización corta de la API, transfiere directamente al objeto y
-confirma por la API; Lambda verifica S3 antes de actualizar PostgreSQL. Correo
-permanece en FL-019. ADR-006 fija Google/Microsoft como proveedores de
-follow-up desde la cuenta autorizada del vendedor; la outbox existente deberá
-llevar la intención a una frontera backend de proveedor, sin credenciales de
-correo en Flutter. La Lambda actual está en subredes aisladas sin NAT: ADR-007
-documenta la separación de la llamada pública al proveedor.
+confirma por la API; Lambda verifica S3 antes de actualizar PostgreSQL.
+FL-019 usa Google/Microsoft como proveedores de follow-up desde la cuenta
+autorizada del vendedor; la outbox lleva el snapshot local inmutable y la
+intención a una frontera backend de proveedor, sin credenciales de
+correo en Flutter. ADR-007 mantiene API/RDS en subredes aisladas y lleva el
+egreso a una Lambda de proveedor sin VPC, invocada por un endpoint privado de
+Lambda. Esa frontera lee secretos OAuth de aplicación y cifra/descifra tokens
+renovables con KMS, pero no tiene acceso a PostgreSQL. Callback OAuth y opt-out
+son las únicas rutas públicas sin JWT y usan respectivamente state+PKCE de un
+solo uso y token opaco.
 
 ### Boundary de identidad y tenancy
 
@@ -124,7 +128,9 @@ No forman parte de V1 Google Sheets, Transcribe/IA, QR, Teams o HQ dashboard.
    paywall al sexto Lead.
 6. La futura sync envía operaciones idempotentes y medios por colas separadas.
 7. Guardar prepara un follow-up local, pero solo la confirmación del vendedor
-   crea intención de envío. El backend envía con Google/Microsoft autorizada;
+   crea intención de envío. El snapshot revisado queda congelado antes de sync;
+   destinatario, adjuntos y footer de baja se resuelven server-side. El backend
+   envía con Google/Microsoft autorizada;
    los estados regresan al dispositivo. Una aceptación ambigua no se reintenta
    automáticamente.
 8. Vencimiento limita solo nuevas capturas y nunca oculta datos existentes.

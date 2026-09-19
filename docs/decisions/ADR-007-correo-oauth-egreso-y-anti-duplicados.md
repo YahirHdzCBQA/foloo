@@ -1,6 +1,7 @@
 # ADR-007 — Frontera OAuth, egreso e idempotencia de correo
 
-- Estado: Aceptado como diseño técnico para FL-019; implementación pendiente.
+- Estado: Aceptado e implementado localmente para FL-019; pendiente de
+  configuración externa, deploy y validación física.
 - Fecha: 2026-09-18
 - Trazas: `PLT-*`, `SAL-01`–`SAL-09`, E-08, ADR-003/004/005/006.
 

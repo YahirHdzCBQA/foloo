@@ -154,6 +154,23 @@ function footer(
   };
 }
 
+/** Adds the server-owned compliance footer to an already frozen local body. */
+export function appendFixedEmailFooter(
+  preview: EmailPreview,
+  language: EmailLanguage,
+  context: string,
+  unsubscribeUrl: string,
+): EmailPreview {
+  const url = new URL(unsubscribeUrl);
+  if (url.protocol !== "https:") throw new Error("invalid_unsubscribe_url");
+  const fixed = footer(language, context.trim(), unsubscribeUrl);
+  return {
+    subject: preview.subject.replace(/[\r\n]+/g, " ").trim(),
+    plainText: `${preview.plainText.trim()}\n\n${fixed.plain}`,
+    html: `${preview.html}${fixed.html}`,
+  };
+}
+
 /** Renders an immutable fixed footer; caller must supply a Foloo HTTPS URL. */
 export function renderEmailPreview(
   template: EmailTemplate,

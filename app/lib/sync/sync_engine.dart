@@ -542,6 +542,22 @@ class SyncEngine extends ChangeNotifier {
         operation.action == 'delete' && await _hasPendingLeadCreate(operation),
       SyncEntityType.profile => false,
       SyncEntityType.emailTemplate => false,
+      SyncEntityType.emailFollowUp => switch (payload['leadId']) {
+        final String leadId => _store.hasPending(
+          operation.ownerUserId,
+          SyncEntityType.lead,
+          leadId,
+        ),
+        _ => false,
+      },
+      SyncEntityType.emailSendIntent => switch (payload['followUpId']) {
+        final String followUpId => _store.hasPending(
+          operation.ownerUserId,
+          SyncEntityType.emailFollowUp,
+          followUpId,
+        ),
+        _ => false,
+      },
     };
   }
 
@@ -636,6 +652,11 @@ class SyncEngine extends ChangeNotifier {
       .byName(operation.entityType)) {
     SyncEntityType.profile => '/v1/profile',
     SyncEntityType.emailTemplate => '/v1/email/templates',
+    SyncEntityType.emailFollowUp => '/v1/email/follow-ups',
+    SyncEntityType.emailSendIntent =>
+      operation.action == 'retry' || operation.action == 'cancel'
+          ? '/v1/email/send-intents/${operation.entityId}/${operation.action}'
+          : '/v1/email/follow-ups/${_payload(operation)['followUpId']}/${operation.action == 'resend' ? 'resend' : 'confirm'}',
     SyncEntityType.event =>
       operation.action == 'create'
           ? '/v1/events'
@@ -667,6 +688,27 @@ class SyncEngine extends ChangeNotifier {
         body: payload,
         idempotencyKey: operation.idempotencyKey,
       ),
+      SyncEntityType.emailFollowUp => SyncRequest(
+        method: 'POST',
+        path: '/v1/email/follow-ups',
+        body: payload,
+        idempotencyKey: operation.idempotencyKey,
+      ),
+      SyncEntityType.emailSendIntent =>
+        operation.action == 'retry' || operation.action == 'cancel'
+            ? SyncRequest(
+                method: 'POST',
+                path:
+                    '/v1/email/send-intents/${operation.entityId}/${operation.action}',
+                idempotencyKey: operation.idempotencyKey,
+              )
+            : SyncRequest(
+                method: 'POST',
+                path:
+                    '/v1/email/follow-ups/${payload.remove('followUpId')}/${operation.action == 'resend' ? 'resend' : 'confirm'}',
+                body: payload,
+                idempotencyKey: operation.idempotencyKey,
+              ),
       SyncEntityType.event => SyncRequest(
         method: operation.action == 'create'
             ? 'POST'
@@ -810,6 +852,19 @@ class SyncEngine extends ChangeNotifier {
                   }
                 },
         );
+      }
+      try {
+        final followUps = _list(
+          _data(
+            await _api.send(
+              token,
+              const SyncRequest(method: 'GET', path: '/v1/email/follow-ups'),
+            ),
+          ),
+        );
+        await _store.applyRemoteEmailFollowUps(ownerSub, followUps);
+      } on SyncHttpException {
+        // A pre-FL-019 DEV backend must not block existing entity pull.
       }
     } on SyncHttpException {
       // Pull is opportunistic; queued local writes remain the source of truth.

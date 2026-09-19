@@ -82,6 +82,10 @@ física sobre la misma instalación de iPhone. No cerrar todavía.
 - D-14–D-20 resueltas el 2026-09-18; implementar el contrato de E-08 y el
   egreso seguro documentado en ADR-007. No cerrar hasta deploy y validación
   física Google, Microsoft, offline, adjuntos, baja y anti-duplicados.
+- Implementación local 2026-09-18: OAuth Google/Microsoft, follow-up/outbox,
+  Gmail/Graph, adjuntos, opt-out, KMS y Lambda de egreso separada. Microsoft
+  conserva `Mail.Send` y nunca eleva a `Mail.ReadWrite`; sigue pendiente la
+  configuración externa, deploy y validación física.
 
 ## FL-020 — Trial & Subscription Foundation
 

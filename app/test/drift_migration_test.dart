@@ -8,7 +8,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 void main() {
   test(
-    'v1 to v7 preserves rows and adds outbox, Content and templates',
+    'v1 to v8 preserves rows and adds email delivery without data loss',
     () async {
       final directory = await Directory.systemTemp.createTemp('foloo_v1_v2_');
       addTearDown(() async {
@@ -132,8 +132,16 @@ void main() {
       final version = await database
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 7);
+      expect(version.read<int>('user_version'), 8);
       expect(await database.select(database.syncOperations).get(), isEmpty);
+      expect(
+        await database.select(database.localEmailFollowUps).get(),
+        isEmpty,
+      );
+      expect(
+        await database.select(database.localEmailSendIntents).get(),
+        isEmpty,
+      );
 
       final profiles = await database.select(database.localProfiles).get();
       final events = await database.select(database.localEvents).get();

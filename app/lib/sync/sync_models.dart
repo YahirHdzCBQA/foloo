@@ -12,6 +12,8 @@ enum SyncEntityType {
   leadMedia,
   contentBinary,
   emailTemplate,
+  emailFollowUp,
+  emailSendIntent,
 }
 
 enum SyncOperationStatus { pending, syncing, retryable, failed }

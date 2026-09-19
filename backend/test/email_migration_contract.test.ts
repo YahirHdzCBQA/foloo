@@ -24,3 +24,19 @@ test("FL-019 migration is additive and scopes mail entities", async () => {
   assert.match(sql, /confirmation_required/);
   assert.doesNotMatch(sql, /\bDROP\s+(TABLE|COLUMN)\b/i);
 });
+
+test("delivery migration preserves ambiguous and manual resend history", async () => {
+  const sql = await readFile(
+    join(import.meta.dirname, "../migrations/005_email_delivery.sql"),
+    "utf8",
+  );
+  assert.match(sql, /omitted_content_ids/);
+  assert.match(sql, /parent_intent_id/);
+  assert.match(sql, /manual_resend/);
+  assert.match(sql, /email_send_intents_parent_fk/);
+  assert.match(
+    sql,
+    /email_connections_current_owner_idx[\s\S]*workspace_id, owner_user_id/,
+  );
+  assert.doesNotMatch(sql, /\bDROP\s+(TABLE|COLUMN)\b/i);
+});

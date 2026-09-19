@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Foloo API
-  version: 1.0.0-email-foundation
-  description: Authenticated Foloo V1 API with offline-sync metadata, private media/PDF transfer and email-template foundation. Follow-up delivery is not yet exposed.
+  version: 1.0.0-email-delivery
+  description: Authenticated Foloo V1 API with offline sync, private media/PDF transfer, OAuth email connections and explicit follow-up delivery.
 servers:
   - url: https://{apiId}.execute-api.us-east-1.amazonaws.com/v1
     variables:
@@ -11,6 +11,122 @@ servers:
 security:
   - cognitoJwt: []
 paths:
+  /email/connection:
+    get:
+      operationId: getEmailConnection
+      description: Returns safe provider/sender/status metadata and never OAuth tokens.
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+    delete:
+      operationId: disconnectEmail
+      responses:
+        "204": { description: Connection disconnected; history retained. }
+  /email/connection/{provider}:
+    parameters:
+      - name: provider
+        in: path
+        required: true
+        schema: { type: string, enum: [google, microsoft] }
+    post:
+      operationId: beginEmailOAuth
+      description: Creates a ten-minute, one-use state/PKCE authorization.
+      responses:
+        "201": { $ref: "#/components/responses/DataResponse" }
+  /email/oauth/callback/{provider}:
+    security: []
+    parameters:
+      - name: provider
+        in: path
+        required: true
+        schema: { type: string, enum: [google, microsoft] }
+      - { name: code, in: query, required: true, schema: { type: string } }
+      - { name: state, in: query, required: true, schema: { type: string } }
+    get:
+      operationId: completeEmailOAuth
+      description: Public provider callback protected by opaque, expiring, one-use state and PKCE.
+      responses:
+        "200": { description: Browser completion page. }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
+  /email/follow-ups:
+    get:
+      operationId: listEmailFollowUps
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+    post:
+      operationId: prepareEmailFollowUp
+      description: Creates an immutable preview from one owner-scoped Lead; it does not send.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PrepareFollowUpInput" }
+      responses:
+        "201": { $ref: "#/components/responses/DataResponse" }
+        "409": { $ref: "#/components/responses/ErrorResponse" }
+  /email/follow-ups/{followUpId}/confirm:
+    parameters: [{ $ref: "#/components/parameters/FollowUpId" }]
+    post:
+      operationId: confirmEmailFollowUp
+      description: Explicitly creates a send intent. Incompatible attachments require an omission decision or cancellation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConfirmFollowUpInput" }
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+        "409": { $ref: "#/components/responses/ErrorResponse" }
+  /email/follow-ups/{followUpId}/resend:
+    parameters: [{ $ref: "#/components/parameters/FollowUpId" }]
+    post:
+      operationId: manuallyResendEmailFollowUp
+      description: Creates a distinct intent linked to the previous intent; never mutates history.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConfirmFollowUpInput" }
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+  /email/send-intents/{intentId}/retry:
+    parameters:
+      - name: intentId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: retryEmailSendIntent
+      description: Safe technical retry only; confirmation_required is explicitly rejected.
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+        "409": { $ref: "#/components/responses/ErrorResponse" }
+  /email/send-intents/{intentId}/cancel:
+    parameters:
+      - name: intentId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: cancelEmailSendIntent
+      description: Explicitly cancels a pending intent after an attachment decision; no provider call occurs.
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+        "409": { $ref: "#/components/responses/ErrorResponse" }
+  /email/unsubscribe:
+    security: []
+    get:
+      operationId: unsubscribeEmailRecipient
+      description: Public, opaque and idempotent workspace-scoped opt-out.
+      parameters:
+        - {
+            name: token,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 32 },
+          }
+      responses:
+        "200": { description: Opt-out recorded or already active. }
+        "400": { description: Invalid token. }
   /email/templates:
     get:
       operationId: listEmailTemplates
@@ -258,6 +374,11 @@ components:
       bearerFormat: JWT
       description: Cognito access token validated by API Gateway against the DEV issuer and App Client audience.
   parameters:
+    FollowUpId:
+      name: followUpId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -279,6 +400,35 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorEnvelope" }
   schemas:
+    PrepareFollowUpInput:
+      type: object
+      additionalProperties: false
+      required: [leadId, language]
+      properties:
+        id: { type: string, format: uuid }
+        leadId: { type: string, format: uuid }
+        language: { type: string, enum: [es, en] }
+        subject:
+          type: string
+          maxLength: 200
+          description: Frozen local subject; supplied together with both body fields.
+        plainBody:
+          type: string
+          maxLength: 20000
+          description: Frozen local plain body before the server-owned opt-out footer.
+        htmlBody:
+          type: string
+          maxLength: 40000
+          description: Frozen local HTML body before the server-owned opt-out footer.
+    ConfirmFollowUpInput:
+      type: object
+      additionalProperties: false
+      properties:
+        intentId: { type: string, format: uuid }
+        omittedContentIds:
+          type: array
+          items: { type: string, format: uuid }
+        parentIntentId: { type: string, format: uuid }
     EmailTemplateInput:
       type: object
       additionalProperties: false

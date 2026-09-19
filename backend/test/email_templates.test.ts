@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  appendFixedEmailFooter,
   contentNamesForEmail,
   defaultEmailTemplate,
   renderEmailPreview,
@@ -75,4 +76,21 @@ test("HTML escapes Lead data and requires HTTPS footer link", () => {
   const preview = renderEmailPreview(template, { nombre: "<Ana & Co>" }, url);
   assert.match(preview.html, /&lt;Ana &amp; Co&gt;/);
   assert.throws(() => renderEmailPreview(template, {}, "javascript:alert(1)"));
+});
+
+test("an offline frozen snapshot is preserved while the server adds its footer", () => {
+  const preview = appendFixedEmailFooter(
+    {
+      subject: "Snapshot original",
+      plainText: "Cuerpo revisado sin conexión",
+      html: "<p>Cuerpo revisado sin conexión</p>",
+    },
+    "es",
+    "Expo Norte",
+    url,
+  );
+  assert.equal(preview.subject, "Snapshot original");
+  assert.match(preview.plainText, /^Cuerpo revisado sin conexión/);
+  assert.match(preview.plainText, /Expo Norte/);
+  assert.match(preview.html, /href="https:\/\/example.org\/u\/opaque"/);
 });

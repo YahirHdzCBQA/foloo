@@ -69,6 +69,9 @@ dependencies:
   excel_community: ^2.4.0
   # REG-12: native iOS/Android share sheet for private temporary exports.
   share_plus: ^13.3.0
+  # SAL-08: opens the provider OAuth authorization in the system browser.
+  # Flutter has no platform-neutral external-browser API.
+  url_launcher: ^6.3.2
   # AUT-01/AUT-02/AUT-10–AUT-13: maintained Cognito client and secure session
   # storage. Flutter's platform SDK does not implement Cognito SRP/confirmation.
   amplify_flutter: ^2.15.0

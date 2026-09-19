@@ -66,3 +66,42 @@ test("FL-016 provisions private encrypted S3 without NAT or broad IAM", () => {
   assert.ok(mediaPolicy);
   assert.doesNotMatch(JSON.stringify(mediaPolicy), /s3:\*/);
 });
+
+test("FL-019 isolates provider egress and exposes only callback and opt-out publicly", () => {
+  const app = new cdk.App();
+  const stack = new FolooBackendStack(app, "EmailInfrastructureTest", {
+    config: environmentConfig("dev"),
+    env: { account: "111111111111", region: "us-east-1" },
+  });
+  const template = Template.fromStack(stack);
+  template.resourceCountIs("AWS::KMS::Key", 1);
+  const functions = template.findResources("AWS::Lambda::Function");
+  const provider = Object.entries(functions).find(([id]) =>
+    id.includes("EmailProviderFunction"),
+  )?.[1] as { Properties?: Record<string, unknown> } | undefined;
+  const api = Object.entries(functions).find(([id]) =>
+    id.includes("ApiFunction"),
+  )?.[1] as { Properties?: Record<string, unknown> } | undefined;
+  assert.ok(provider);
+  assert.ok(api);
+  assert.equal(provider.Properties?.VpcConfig, undefined);
+  assert.ok(api.Properties?.VpcConfig);
+
+  const routes = Object.values(
+    template.findResources("AWS::ApiGatewayV2::Route"),
+  ) as Array<{ Properties: Record<string, unknown> }>;
+  for (const suffix of [
+    "/v1/email/oauth/callback/{provider}",
+    "/v1/email/unsubscribe",
+  ]) {
+    const route = routes.find((item) =>
+      String(item.Properties.RouteKey).endsWith(suffix),
+    );
+    assert.ok(route, suffix);
+    assert.equal(route.Properties.AuthorizationType, "NONE");
+  }
+  const protectedRoute = routes.find((item) =>
+    String(item.Properties.RouteKey).includes("/v1/{proxy+}"),
+  );
+  assert.ok(protectedRoute?.Properties.AuthorizerId);
+});

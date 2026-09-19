@@ -34,6 +34,7 @@ import 'screens/records_screen.dart';
 import 'services/connectivity_service.dart';
 import 'services/contact_image_picker_service.dart';
 import 'services/event_selection_policy.dart';
+import 'services/email_connection_service.dart';
 import 'services/pdf_picker_service.dart';
 import 'sync/sync_engine.dart';
 import 'sync/media_binary_transfer.dart';
@@ -340,6 +341,13 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       _userId,
       lead,
       capturedBy: _profile,
+    );
+    await _persistence.emailDelivery.prepareForLead(
+      owner: _userId,
+      leadId: record.localId,
+      lead: record.lead,
+      seller: _profile,
+      language: _locale.languageCode == 'en' ? 'en' : 'es',
     );
     if (mounted) setState(() => _sessionLeads.insert(0, record));
     unawaited(_synchronize(trigger: SyncTrigger.postSave));
@@ -989,6 +997,15 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           templateRepository: _persistence.templates,
           ownerSub: _userId,
           onTemplateSaved: () =>
+              unawaited(_synchronize(trigger: SyncTrigger.postSave)),
+          deliveryRepository: _persistence.emailDelivery,
+          connectionService: widget.syncApi == null
+              ? null
+              : EmailConnectionService(
+                  widget.syncApi!,
+                  widget.syncSessionProvider ?? const NoSyncSessionProvider(),
+                ),
+          onSendQueued: () =>
               unawaited(_synchronize(trigger: SyncTrigger.postSave)),
           recordsCount: _sessionLeads.length,
           contentCount: _contentFiles.length,

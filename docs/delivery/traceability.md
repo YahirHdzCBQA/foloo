@@ -11,7 +11,7 @@
 | `SYN-*` | E-05/E-09/E-13 | ADR-001/003/004/005; D-13 | Drift, outbox owner-scoped, retry/reconciliación FL-015 y transferencia media FL-016 |
 | `REG-*` | E-06/E-10 | ADR-001/004; D-06 | FL-017: filtro/detalle/edición optimista y export XLSX/CSV local; f1-16–19, f2-06/07, f5-12 |
 | `CON-*` | E-07 | D-11/D-13 | FL-018: 25 MB/PDF, copia privada durable, outbox/S3 y tombstone; D-11 afecta solo fidelidad visual y D-13 retención física; f2-01–03 |
-| `PLT-*`, `SAL-*` | E-08 | ADR-006/007; D-09 y D-14–D-20 resueltas | FL-019 parcial: renderer/defaults ES/EN, editor local Drift v7, outbox y API/SQL de plantillas; tests de owner y Unicode. Sin OAuth/envío/opt-out operativos: no cerrar; f2-04/05, f4-04/12 |
+| `PLT-*`, `SAL-*` | E-08 | ADR-006/007; D-09 y D-14–D-20 resueltas | FL-019 local: renderer/editor, Drift v8, follow-up e intent outbox, OAuth state+PKCE, Gmail/Graph provider boundary, KMS ciphertext, attachments D-19, opt-out y API/SQL 004+005. Pendiente configuración externa, deploy y QA física; no cerrar; f2-04/05, f4-04/12 |
 | `NAV-*` | E-12 | ADR-001 | drawer/theme/l10n; f1-15/25/26 |
 | `MON-*` | E-11 | D-01–D-04/D-11 | sin implementación; f3-01–08 |
 | `INF-*`, `RC-*` | E-09/E-12/E-13 | ADR-001/002/003/005/006/007; D-10/D-13 | backend AWS FL-014 y S3 privado/presigned/confirmación FL-016; FL-019 implementa egreso seguro y opt-out técnico; compliance postal sigue pendiente |
@@ -86,8 +86,8 @@ interna sea reutilizable.
 | f2-01 | P | ContentScreen y ContentFile demo, filtro visual | FL-009/012.1; sin repositorio durable |
 | f2-02 | P | PdfPickerService, empty state y assignment sheet | FL-012.1; no persiste/sube |
 | f2-03 | P | UI edita eventos/elimina en memoria | FL-009; falta persistencia/S3 |
-| f2-04 | P | FL-019: EmailScreen Event/Direct ES/EN persiste en Drift v7 y sincroniza al endpoint owner-scoped; preview usa Lead real; renderer backend con whitelist | Faltan flujo completo de follow-up, firma/preview de entrega y validación física |
-| f2-05 | F | TODOs y estados demo; no cola/envío | FL-019, D-14–D-20 resueltas |
+| f2-04 | I | FL-019: EmailScreen Event/Direct ES/EN persiste en Drift v8; preview usa Lead real y el snapshot revisado queda congelado en la outbox; renderer backend conserva whitelist y agrega footer fijo | Configuración externa, deploy y validación física pendientes |
+| f2-05 | I | Follow-up e intención owner-scoped, confirmación explícita, Gmail/Graph, D-19, reintento seguro, estado ambiguo y reenvío manual implementados localmente | FL-019, ADR-006/007; deploy y QA física pendientes |
 | f2-06 | I | XLSX real por evento, columnas/filename ES/EN y share sheet | FL-017; `records_export_service_test.dart` |
 | f2-07 | I | CSV BOM UTF-8, RFC 4180, Unicode y share sheet | FL-017; `records_export_service_test.dart` |
 

@@ -73,6 +73,9 @@ parcial, no una resolución de Diseño.
   aceptación de proveedor no significa entrega final. Rebotes posteriores,
   si el proveedor los notifica, no se inventan como confirmación en V1.
 - `D-19`: ausencia o tamaño de PDF requiere elección explícita del vendedor;
-  límite de email depende del proveedor y del MIME, no de CON-10.
+  límite de email depende del proveedor y del MIME, no de CON-10. Microsoft
+  V1 usa `Mail.Send` + `offline_access`; `Mail.Read`/`Mail.ReadWrite` no están
+  aprobados y un adjunto que los requiera se omite solo con confirmación para
+  esa intención o se cancela.
 - `D-20`: conectar/reconectar sin pérdida; cambio de identidad exige
   confirmación para pendientes; historial conserva remitente original.

@@ -658,6 +658,32 @@ class SyncStore {
           uploaded: operation.entityType == SyncEntityType.contentBinary.name,
         );
         await _advanceQueuedContentMutations(operation, leadRevision);
+      } else if (operation.entityType == SyncEntityType.emailSendIntent.name) {
+        final intent = remoteData?['intent'];
+        final mapped = intent is Map
+            ? intent.cast<String, Object?>()
+            : remoteData ?? const <String, Object?>{};
+        final incompatible = remoteData?['incompatibleAttachmentIds'];
+        final incompatibleIds = incompatible is List
+            ? incompatible.whereType<String>().toList()
+            : const <String>[];
+        final requiresDecision =
+            remoteData?['requiresAttachmentDecision'] == true;
+        await database.emailDeliveryDao.updateIntentState(
+          operation.ownerUserId,
+          operation.entityId,
+          requiresDecision
+              ? 'pending'
+              : mapped['status'] as String? ?? 'pending',
+          mapped['attemptCount'] as int? ?? operation.attemptCount + 1,
+          requiresDecision
+              ? 'attachment_decision:${jsonEncode(incompatibleIds)}'
+              : mapped['errorCode'] as String?,
+          DateTime.now().toUtc(),
+          omittedContentIds: (mapped['omittedContentIds'] as List?)
+              ?.whereType<String>()
+              .toList(),
+        );
       } else {
         await _markEntity(operation, 'synced');
       }
@@ -866,6 +892,26 @@ class SyncStore {
           );
         }
         return;
+      case SyncEntityType.emailFollowUp:
+        if (state == 'synced') {
+          await database.emailDeliveryDao.markFollowUpSynced(
+            operation.ownerUserId,
+            operation.entityId,
+          );
+        }
+        return;
+      case SyncEntityType.emailSendIntent:
+        if (state == 'failed' || state == 'retryable') {
+          await database.emailDeliveryDao.updateIntentState(
+            operation.ownerUserId,
+            operation.entityId,
+            state == 'failed' ? 'error' : 'pending',
+            operation.attemptCount,
+            operation.lastError,
+            DateTime.now().toUtc(),
+          );
+        }
+        return;
       case SyncEntityType.event:
         if (state == 'synced') {
           await database.eventDao.markSynced(
@@ -1005,6 +1051,100 @@ class SyncStore {
           signature: signature,
           updatedAt: DateTime.now().toUtc(),
           syncState: const Value('synced'),
+        ),
+      );
+    }
+  }
+
+  /// Reconciles immutable follow-ups and their latest delivery state.
+  Future<void> applyRemoteEmailFollowUps(
+    String ownerSub,
+    List<Map<String, Object?>> followUps,
+  ) async {
+    for (final value in followUps) {
+      final id = value['id'];
+      final leadId = value['leadId'];
+      final recipient = value['recipientAddress'];
+      final subject = value['subject'];
+      final plainBody = value['plainBody'];
+      final htmlBody = value['htmlBody'];
+      final language = value['language'];
+      if (id is! String ||
+          leadId is! String ||
+          recipient is! String ||
+          subject is! String ||
+          plainBody is! String ||
+          htmlBody is! String ||
+          language is! String ||
+          await database.leadDao.byId(ownerSub, leadId) == null) {
+        continue;
+      }
+      if (!await hasPending(ownerSub, SyncEntityType.emailFollowUp, id)) {
+        await database.emailDeliveryDao.saveFollowUp(
+          LocalEmailFollowUpsCompanion.insert(
+            localId: id,
+            ownerUserId: ownerSub,
+            leadLocalId: leadId,
+            recipientAddress: recipient,
+            subject: subject,
+            plainBody: plainBody,
+            htmlBody: htmlBody,
+            contentFileIdsJson: Value(
+              jsonEncode(
+                (value['contentFileIds'] as List?)
+                        ?.whereType<String>()
+                        .toList() ??
+                    const <String>[],
+              ),
+            ),
+            contentNamesJson: Value(
+              jsonEncode(
+                (value['contentNames'] as List?)
+                        ?.whereType<String>()
+                        .toList() ??
+                    const <String>[],
+              ),
+            ),
+            languageCode: language,
+            preparedAt: _date(value['preparedAt']) ?? DateTime.now().toUtc(),
+            syncState: const Value('synced'),
+          ),
+        );
+      }
+      final intentId = value['intentId'];
+      final status = value['status'];
+      if (intentId is! String ||
+          status is! String ||
+          await hasPending(
+            ownerSub,
+            SyncEntityType.emailSendIntent,
+            intentId,
+          )) {
+        continue;
+      }
+      final createdAt =
+          _date(value['intentCreatedAt']) ?? DateTime.now().toUtc();
+      await database.emailDeliveryDao.saveIntent(
+        LocalEmailSendIntentsCompanion.insert(
+          localId: intentId,
+          ownerUserId: ownerSub,
+          followUpLocalId: id,
+          connectionId: Value(value['connectionId'] as String?),
+          senderAddress: Value(value['senderAddress'] as String?),
+          status: Value(status),
+          omittedContentIdsJson: Value(
+            jsonEncode(
+              (value['omittedContentIds'] as List?)
+                      ?.whereType<String>()
+                      .toList() ??
+                  const <String>[],
+            ),
+          ),
+          parentIntentId: Value(value['parentIntentId'] as String?),
+          attemptCount: Value(value['attemptCount'] as int? ?? 0),
+          errorCode: Value(value['errorCode'] as String?),
+          createdAt: createdAt,
+          updatedAt: _date(value['intentUpdatedAt']) ?? createdAt,
         ),
       );
     }

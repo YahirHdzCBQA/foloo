@@ -137,6 +137,246 @@ class EmailTemplateRepository {
   }
 }
 
+/// Persists immutable local follow-ups and explicit send intentions (SAL-*).
+class EmailDeliveryRepository {
+  EmailDeliveryRepository(this._database, {SyncStore? syncStore})
+    : _syncStore = syncStore ?? SyncStore(_database);
+
+  final AppDatabase _database;
+  final SyncStore _syncStore;
+
+  Future<List<StoredEmailFollowUp>> list(String owner) =>
+      _database.emailDeliveryDao.followUps(owner);
+
+  Future<List<StoredEmailSendIntent>> intents(String owner) =>
+      _database.emailDeliveryDao.intents(owner);
+
+  Future<void> saveConnection({
+    required String owner,
+    required String connectionId,
+    required String provider,
+    required String senderAddress,
+    required String status,
+  }) => _database.emailDeliveryDao.saveConnection(
+    LocalEmailConnectionsCompanion.insert(
+      ownerUserId: owner,
+      connectionId: connectionId,
+      provider: provider,
+      senderAddress: senderAddress,
+      status: status,
+      updatedAt: DateTime.now().toUtc(),
+    ),
+  );
+
+  Future<void> prepareForLead({
+    required String owner,
+    required String leadId,
+    required LeadDraft lead,
+    required DemoProfile seller,
+    required String language,
+  }) async {
+    if (lead.email.trim().isEmpty) return;
+    final templates = await _database.emailTemplateDao.listForOwner(owner);
+    final origin = lead.originKind.name;
+    final stored = templates.where(
+      (item) => item.originKind == origin && item.languageCode == language,
+    );
+    final isEnglish = language == 'en';
+    final subjectTemplate = stored.isNotEmpty
+        ? stored.first.subject
+        : (isEnglish
+              ? 'Nice meeting you, {nombre}'
+              : 'Un gusto conocerte, {nombre}');
+    final bodyTemplate = stored.isNotEmpty
+        ? stored.first.body
+        : (isEnglish
+              ? 'Hi {nombre},\n\nIt was great meeting you at ${origin == 'event' ? '{evento}' : '{lugar}'} and having the opportunity to talk.\n\nI\'m sharing {contenido} as a follow-up to our conversation.\n\nFeel free to reach out if you have any questions. I hope we can stay in touch.'
+              : 'Hola {nombre},\n\nFue un gusto conocerte en ${origin == 'event' ? '{evento}' : '{lugar}'} y poder platicar contigo.\n\nTe comparto {contenido}, como seguimiento a nuestra conversación.\n\nQuedo pendiente y espero que podamos seguir en contacto.');
+    final signatureTemplate = stored.isNotEmpty
+        ? stored.first.signature
+        : (isEnglish
+              ? 'Best,\n{nombreVendedor}\n{empresaVendedor}'
+              : 'Saludos,\n{nombreVendedor}\n{empresaVendedor}');
+    String render(String source) => source
+        .replaceAll('{nombre}', lead.name)
+        .replaceAll('{apellido}', lead.lastName)
+        .replaceAll('{empresa}', lead.company)
+        .replaceAll('{puesto}', lead.role)
+        .replaceAll('{evento}', lead.eventName ?? '')
+        .replaceAll('{lugar}', lead.place ?? '')
+        .replaceAll('{contenido}', lead.contentNames.join(', '))
+        .replaceAll('{nombreVendedor}', seller.name)
+        .replaceAll('{empresaVendedor}', seller.company);
+    var renderedBody = render(bodyTemplate);
+    final context = lead.originKind == LeadOriginKind.event
+        ? lead.eventName
+        : lead.place;
+    if (context?.trim().isEmpty ?? true) {
+      renderedBody = renderedBody
+          .split('\n')
+          .where(
+            (line) => isEnglish
+                ? !line.startsWith('It was great meeting you at ')
+                : !line.startsWith('Fue un gusto conocerte en '),
+          )
+          .join('\n');
+    }
+    if (lead.contentNames.isEmpty) {
+      renderedBody = renderedBody
+          .split('\n')
+          .where(
+            (line) => isEnglish
+                ? !line.startsWith("I'm sharing ")
+                : !line.startsWith('Te comparto '),
+          )
+          .join('\n');
+    }
+    final renderedSubject = render(subjectTemplate)
+        .replaceAll(RegExp(r'[\r\n]+'), ' ')
+        .replaceFirst(RegExp(r',\s*$'), '')
+        .trim();
+    final id = _defaultLocalId();
+    final now = DateTime.now().toUtc();
+    final plain =
+        '${renderedBody.trim()}\n\n${render(signatureTemplate).trim()}';
+    await _database.transaction(() async {
+      await _database.emailDeliveryDao.saveFollowUp(
+        LocalEmailFollowUpsCompanion.insert(
+          localId: id,
+          ownerUserId: owner,
+          leadLocalId: leadId,
+          recipientAddress: lead.email.trim(),
+          subject: renderedSubject,
+          plainBody: plain,
+          htmlBody: plain
+              .split('\n')
+              .map(
+                (line) => line.isEmpty
+                    ? '<br>'
+                    : '<p>${const HtmlEscape().convert(line)}</p>',
+              )
+              .join(),
+          contentFileIdsJson: Value(jsonEncode(lead.contentFileIds)),
+          contentNamesJson: Value(jsonEncode(lead.contentNames)),
+          languageCode: language,
+          preparedAt: now,
+        ),
+      );
+      await _syncStore.enqueue(
+        ownerSub: owner,
+        entityType: SyncEntityType.emailFollowUp,
+        entityId: id,
+        action: 'create',
+        payload: {
+          'id': id,
+          'leadId': leadId,
+          'language': language,
+          'subject': renderedSubject,
+          'plainBody': plain,
+          'htmlBody': plain
+              .split('\n')
+              .map(
+                (line) => line.isEmpty
+                    ? '<br>'
+                    : '<p>${const HtmlEscape().convert(line)}</p>',
+              )
+              .join(),
+        },
+        now: now,
+      );
+    });
+  }
+
+  Future<String> confirm({
+    required String owner,
+    required String followUpId,
+    List<String> omittedContentIds = const [],
+    String? parentIntentId,
+    String? intentId,
+  }) async {
+    final id = intentId ?? _defaultLocalId();
+    final now = DateTime.now().toUtc();
+    final connection = await _database.emailDeliveryDao.connectionForOwner(
+      owner,
+    );
+    await _database.transaction(() async {
+      await _database.emailDeliveryDao.saveIntent(
+        LocalEmailSendIntentsCompanion.insert(
+          localId: id,
+          ownerUserId: owner,
+          followUpLocalId: followUpId,
+          connectionId: Value(connection?.connectionId),
+          senderAddress: Value(connection?.senderAddress),
+          omittedContentIdsJson: Value(jsonEncode(omittedContentIds)),
+          parentIntentId: Value(parentIntentId),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+      await _syncStore.enqueue(
+        ownerSub: owner,
+        entityType: SyncEntityType.emailSendIntent,
+        entityId: id,
+        action: parentIntentId == null ? 'confirm' : 'resend',
+        payload: {
+          'intentId': id,
+          'followUpId': followUpId,
+          'omittedContentIds': omittedContentIds,
+          'parentIntentId': ?parentIntentId,
+        },
+        now: now,
+      );
+    });
+    return id;
+  }
+
+  Future<void> retry({
+    required String owner,
+    required StoredEmailSendIntent intent,
+  }) async {
+    final now = DateTime.now().toUtc();
+    await _database.emailDeliveryDao.updateIntentState(
+      owner,
+      intent.localId,
+      'pending',
+      intent.attemptCount,
+      null,
+      now,
+    );
+    await _syncStore.enqueue(
+      ownerSub: owner,
+      entityType: SyncEntityType.emailSendIntent,
+      entityId: intent.localId,
+      action: 'retry',
+      payload: {'intentId': intent.localId},
+      now: now,
+    );
+  }
+
+  Future<void> cancelAttachmentDecision({
+    required String owner,
+    required StoredEmailSendIntent intent,
+  }) async {
+    final now = DateTime.now().toUtc();
+    await _database.emailDeliveryDao.updateIntentState(
+      owner,
+      intent.localId,
+      'pending',
+      intent.attemptCount,
+      'cancellation_pending',
+      now,
+    );
+    await _syncStore.enqueue(
+      ownerSub: owner,
+      entityType: SyncEntityType.emailSendIntent,
+      entityId: intent.localId,
+      action: 'cancel',
+      payload: {'intentId': intent.localId},
+      now: now,
+    );
+  }
+}
+
 /// Device-global values used only before a user-scoped repository is known.
 class GlobalPreferencesRepository {
   const GlobalPreferencesRepository(this._database);
@@ -1032,6 +1272,7 @@ class LocalPersistence {
   }) : profiles = ProfileRepository(database),
        preferences = PreferencesRepository(database),
        templates = EmailTemplateRepository(database),
+       emailDelivery = EmailDeliveryRepository(database),
        globalPreferences = GlobalPreferencesRepository(database),
        events = EventRepository(database),
        content = ContentRepository(database, mediaStorage),
@@ -1044,6 +1285,7 @@ class LocalPersistence {
   final ProfileRepository profiles;
   final PreferencesRepository preferences;
   final EmailTemplateRepository templates;
+  final EmailDeliveryRepository emailDelivery;
   final GlobalPreferencesRepository globalPreferences;
   final EventRepository events;
   final ContentRepository content;

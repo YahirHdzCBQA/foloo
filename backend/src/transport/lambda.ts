@@ -10,6 +10,10 @@ import { errorResponse, safeValidationDiagnostics } from "./error_response.js";
 import { logEvent } from "./logging.js";
 import { createRouter } from "./router.js";
 import { S3MediaStorage } from "../storage/media_storage.js";
+import { EmailApplication } from "../email/email_application.js";
+import { PostgresEmailRepository } from "../email/postgres_email_repository.js";
+import { LambdaEmailProviderBoundary } from "../email/provider_invoker.js";
+import { loadEnvironment } from "../config/environment.js";
 
 let routerPromise: ReturnType<typeof initialize> | undefined;
 
@@ -17,10 +21,17 @@ async function initialize() {
   const pool = await databasePool();
   const bucketName = process.env.MEDIA_BUCKET_NAME;
   if (!bucketName) throw new Error("MEDIA_BUCKET_NAME is required");
+  const environment = loadEnvironment();
+  const repository = new PostgresFolooRepository(pool);
+  const media = new S3MediaStorage(bucketName);
   return createRouter(
-    new FolooApplication(
-      new PostgresFolooRepository(pool),
-      new S3MediaStorage(bucketName),
+    new FolooApplication(repository, media),
+    new EmailApplication(
+      repository,
+      new PostgresEmailRepository(pool),
+      new LambdaEmailProviderBoundary(environment.EMAIL_PROVIDER_FUNCTION_NAME),
+      media,
+      environment.PUBLIC_API_BASE_URL,
     ),
   );
 }

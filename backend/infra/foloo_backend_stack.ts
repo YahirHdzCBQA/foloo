@@ -14,6 +14,7 @@ import * as rds from "aws-cdk-lib/aws-rds";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
+import * as kms from "aws-cdk-lib/aws-kms";
 import type { Construct } from "constructs";
 
 import type { EnvironmentConfig } from "./config.js";
@@ -93,6 +94,42 @@ export class FolooBackendStack extends cdk.Stack {
       autoDeleteObjects: false,
     });
 
+    const emailTokenKey = new kms.Key(this, "EmailTokenKey", {
+      description:
+        "Encrypts Foloo email OAuth credentials at the provider boundary",
+      enableKeyRotation: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+    const emailProviderSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      "EmailProviderSecret",
+      `foloo/${config.name}/email-providers`,
+    );
+    const providerLogGroup = new logs.LogGroup(this, "EmailProviderLogGroup", {
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+    const providerFunction = new lambdaNode.NodejsFunction(
+      this,
+      "EmailProviderFunction",
+      {
+        entry: join(import.meta.dirname, "../src/email/provider_lambda.ts"),
+        handler: "handler",
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        memorySize: 1024,
+        timeout: cdk.Duration.seconds(45),
+        logGroup: providerLogGroup,
+        environment: {
+          EMAIL_PROVIDER_SECRET_ARN: emailProviderSecret.secretArn,
+          EMAIL_TOKEN_KEY_ARN: emailTokenKey.keyArn,
+        },
+        bundling: { minify: true, sourceMap: true },
+      },
+    );
+    emailProviderSecret.grantRead(providerFunction);
+    emailTokenKey.grantEncryptDecrypt(providerFunction);
+
     const database = new rds.DatabaseInstance(this, "Database", {
       engine: rds.DatabaseInstanceEngine.postgres({
         version: rds.PostgresEngineVersion.VER_16,
@@ -157,8 +194,31 @@ export class FolooBackendStack extends cdk.Stack {
         ...commonEnvironment,
         DB_POOL_MAX: "2",
         MEDIA_BUCKET_NAME: mediaBucket.bucketName,
+        EMAIL_PROVIDER_FUNCTION_NAME: providerFunction.functionName,
+        PUBLIC_API_BASE_URL: "https://placeholder.invalid",
       },
       bundling: { minify: true, sourceMap: true },
+    });
+    providerFunction.grantInvoke(apiFunction);
+    const lambdaEndpointSg = new ec2.SecurityGroup(
+      this,
+      "LambdaEndpointSecurityGroup",
+      {
+        vpc,
+        allowAllOutbound: false,
+      },
+    );
+    lambdaEndpointSg.addIngressRule(
+      lambdaSg,
+      ec2.Port.tcp(443),
+      "API invokes email provider boundary",
+    );
+    vpc.addInterfaceEndpoint("LambdaEndpoint", {
+      service: ec2.InterfaceVpcEndpointAwsService.LAMBDA,
+      subnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+      securityGroups: [lambdaEndpointSg],
+      privateDnsEnabled: true,
+      open: false,
     });
     appSecret.grantRead(apiFunction);
     apiFunction.addToRolePolicy(
@@ -219,6 +279,7 @@ export class FolooBackendStack extends cdk.Stack {
       apiName: `foloo-${config.name}`,
       createDefaultStage: true,
     });
+    apiFunction.addEnvironment("PUBLIC_API_BASE_URL", api.apiEndpoint);
     const integration = new integrations.HttpLambdaIntegration(
       "ApiIntegration",
       apiFunction,
@@ -231,6 +292,16 @@ export class FolooBackendStack extends cdk.Stack {
         authorizer,
       });
     }
+    for (const path of [
+      "/v1/email/oauth/callback/{provider}",
+      "/v1/email/unsubscribe",
+    ]) {
+      api.addRoutes({
+        path,
+        methods: [apigateway.HttpMethod.GET],
+        integration,
+      });
+    }
 
     new cdk.CfnOutput(this, "ApiUrl", { value: api.apiEndpoint });
     new cdk.CfnOutput(this, "MigrationFunctionName", {
@@ -238,6 +309,12 @@ export class FolooBackendStack extends cdk.Stack {
     });
     new cdk.CfnOutput(this, "MediaBucketName", {
       value: mediaBucket.bucketName,
+    });
+    new cdk.CfnOutput(this, "EmailOAuthRedirectGoogle", {
+      value: `${api.apiEndpoint}/v1/email/oauth/callback/google`,
+    });
+    new cdk.CfnOutput(this, "EmailOAuthRedirectMicrosoft", {
+      value: `${api.apiEndpoint}/v1/email/oauth/callback/microsoft`,
     });
   }
 }

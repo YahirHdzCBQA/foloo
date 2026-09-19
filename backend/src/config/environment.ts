@@ -10,6 +10,8 @@ const environmentSchema = z.object({
   DB_NAME: z.string().min(1),
   DB_POOL_MAX: z.coerce.number().int().min(1).max(5).default(2),
   MEDIA_BUCKET_NAME: z.string().min(3),
+  EMAIL_PROVIDER_FUNCTION_NAME: z.string().min(1),
+  PUBLIC_API_BASE_URL: z.string().url(),
 });
 
 export type BackendEnvironment = z.infer<typeof environmentSchema>;

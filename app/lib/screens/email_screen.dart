@@ -4,6 +4,8 @@
 /// separate, explicitly confirmed follow-up flow (PLT-*, SAL-01).
 library;
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../models/app_destination.dart';
@@ -18,6 +20,8 @@ import '../l10n/l10n.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/module_header.dart';
 import '../widgets/segmented_bubble.dart';
+import '../services/email_connection_service.dart';
+import '../data/local/app_database.dart';
 
 enum _TemplateKind { event, direct }
 
@@ -33,6 +37,9 @@ class EmailScreen extends StatefulWidget {
     this.templateRepository,
     this.ownerSub,
     this.onTemplateSaved,
+    this.deliveryRepository,
+    this.connectionService,
+    this.onSendQueued,
     required this.contentCount,
     required this.records,
     required this.contentFiles,
@@ -47,6 +54,9 @@ class EmailScreen extends StatefulWidget {
   final EmailTemplateRepository? templateRepository;
   final String? ownerSub;
   final VoidCallback? onTemplateSaved;
+  final EmailDeliveryRepository? deliveryRepository;
+  final EmailConnectionService? connectionService;
+  final VoidCallback? onSendQueued;
   final int contentCount;
   final List<SessionLead> records;
   final List<ContentFile> contentFiles;
@@ -67,6 +77,10 @@ class _EmailScreenState extends State<EmailScreen> {
   _TemplateKind _kind = _TemplateKind.event;
   String? _error;
   String? _languageCode;
+  EmailConnectionView? _connection;
+  List<StoredEmailFollowUp> _followUps = const [];
+  List<StoredEmailSendIntent> _intents = const [];
+  bool _connectionBusy = false;
 
   TextEditingController get _subject =>
       _kind == _TemplateKind.event ? _eventSubject : _directSubject;
@@ -90,6 +104,7 @@ class _EmailScreenState extends State<EmailScreen> {
   void initState() {
     super.initState();
     _loadTemplates();
+    _loadDelivery();
   }
 
   @override
@@ -98,6 +113,7 @@ class _EmailScreenState extends State<EmailScreen> {
     if (oldWidget.ownerSub != widget.ownerSub) {
       _stored.clear();
       _loadTemplates();
+      _loadDelivery();
     }
   }
 
@@ -113,6 +129,393 @@ class _EmailScreenState extends State<EmailScreen> {
         ..addEntries(loaded.map((item) => MapEntry(item.key, item)));
       _applyLanguage(context.l10n);
     });
+  }
+
+  Future<void> _loadDelivery() async {
+    final owner = widget.ownerSub;
+    if (owner == null) return;
+    final followUps = await widget.deliveryRepository?.list(owner) ?? const [];
+    final intents = await widget.deliveryRepository?.intents(owner) ?? const [];
+    EmailConnectionView? connection;
+    try {
+      connection = await widget.connectionService?.status(owner);
+      if (connection != null) {
+        await widget.deliveryRepository?.saveConnection(
+          owner: owner,
+          connectionId: connection.id,
+          provider: connection.provider,
+          senderAddress: connection.senderAddress,
+          status: connection.status,
+        );
+      }
+    } on Object {
+      connection = null;
+    }
+    if (!mounted || owner != widget.ownerSub) return;
+    setState(() {
+      _followUps = followUps;
+      _intents = intents;
+      _connection = connection;
+      _connectionBusy = false;
+    });
+  }
+
+  bool get _english => (_languageCode ?? 'es') == 'en';
+
+  Future<void> _connect(String provider) async {
+    final owner = widget.ownerSub;
+    final service = widget.connectionService;
+    if (owner == null || service == null) return;
+    setState(() => _connectionBusy = true);
+    try {
+      await service.connect(owner, provider);
+    } finally {
+      if (mounted) setState(() => _connectionBusy = false);
+    }
+  }
+
+  Future<void> _disconnect() async {
+    final owner = widget.ownerSub;
+    if (owner == null) return;
+    setState(() => _connectionBusy = true);
+    await widget.connectionService?.disconnect(owner);
+    final connection = _connection;
+    if (connection != null) {
+      await widget.deliveryRepository?.saveConnection(
+        owner: owner,
+        connectionId: connection.id,
+        provider: connection.provider,
+        senderAddress: connection.senderAddress,
+        status: 'disconnected',
+      );
+    }
+    await _loadDelivery();
+  }
+
+  Future<void> _queueSend(StoredEmailFollowUp followUp) async {
+    final owner = widget.ownerSub;
+    if (owner == null || widget.deliveryRepository == null) return;
+    await widget.deliveryRepository!.confirm(
+      owner: owner,
+      followUpId: followUp.localId,
+    );
+    widget.onSendQueued?.call();
+    await _loadDelivery();
+  }
+
+  List<String> _attachmentDecisionIds(StoredEmailSendIntent intent) {
+    const prefix = 'attachment_decision:';
+    final value = intent.errorCode;
+    if (value == null || !value.startsWith(prefix)) return const [];
+    try {
+      return (jsonDecode(value.substring(prefix.length)) as List)
+          .whereType<String>()
+          .toList();
+    } on Object {
+      return const [];
+    }
+  }
+
+  Future<void> _resolveAttachmentDecision(
+    StoredEmailFollowUp followUp,
+    StoredEmailSendIntent intent,
+  ) async {
+    final ids = _attachmentDecisionIds(intent);
+    final contentIds = (jsonDecode(followUp.contentFileIdsJson) as List)
+        .whereType<String>()
+        .toList();
+    final contentNames = (jsonDecode(followUp.contentNamesJson) as List)
+        .whereType<String>()
+        .toList();
+    final names = <String>[
+      for (var index = 0; index < contentIds.length; index++)
+        if (ids.contains(contentIds[index]))
+          index < contentNames.length ? contentNames[index] : contentIds[index],
+    ];
+    final omit = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          _english ? 'Attachment cannot be sent' : 'No se puede adjuntar',
+        ),
+        content: Text(
+          _english
+              ? '${names.join(', ')} is unavailable or exceeds the provider limit. Send without it?'
+              : '${names.join(', ')} no está disponible o supera el límite del proveedor. ¿Enviar sin adjuntarlo?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(_english ? 'Cancel' : 'Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(_english ? 'Send without it' : 'Enviar sin adjunto'),
+          ),
+        ],
+      ),
+    );
+    final owner = widget.ownerSub;
+    final repository = widget.deliveryRepository;
+    if (owner == null || repository == null) return;
+    if (omit == true) {
+      await repository.confirm(
+        owner: owner,
+        followUpId: followUp.localId,
+        omittedContentIds: {
+          ...ids,
+          ...jsonDecode(intent.omittedContentIdsJson),
+        }.whereType<String>().toList(),
+        intentId: intent.localId,
+      );
+      widget.onSendQueued?.call();
+    } else {
+      await repository.cancelAttachmentDecision(owner: owner, intent: intent);
+    }
+    await _loadDelivery();
+  }
+
+  Future<void> _retry(StoredEmailSendIntent intent) async {
+    final owner = widget.ownerSub;
+    if (owner == null) return;
+    await widget.deliveryRepository?.retry(owner: owner, intent: intent);
+    widget.onSendQueued?.call();
+    await _loadDelivery();
+  }
+
+  Future<void> _manualResend(
+    StoredEmailFollowUp followUp,
+    StoredEmailSendIntent previous,
+  ) async {
+    final owner = widget.ownerSub;
+    final repository = widget.deliveryRepository;
+    if (owner == null || repository == null) return;
+    final currentSender = _connection?.senderAddress;
+    final changed =
+        previous.senderAddress != null &&
+        currentSender != null &&
+        previous.senderAddress != currentSender;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(_english ? 'Send again?' : '¿Enviar nuevamente?'),
+        content: Text(
+          changed
+              ? (_english
+                    ? 'The connected sender changed to $currentSender. Confirm this new sender before resending.'
+                    : 'El remitente conectado cambió a $currentSender. Confirma este nuevo remitente antes de reenviar.')
+              : (_english
+                    ? 'The previous result may be unknown. This creates a new manual send and could deliver a duplicate.'
+                    : 'El resultado anterior puede ser desconocido. Esto crea un envío manual nuevo y podría entregar un duplicado.'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(_english ? 'Cancel' : 'Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(_english ? 'Confirm resend' : 'Confirmar reenvío'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await repository.confirm(
+      owner: owner,
+      followUpId: followUp.localId,
+      parentIntentId: previous.localId,
+    );
+    widget.onSendQueued?.call();
+    await _loadDelivery();
+  }
+
+  StoredEmailSendIntent? _intentFor(String followUpId) {
+    for (final intent in _intents) {
+      if (intent.followUpLocalId == followUpId) return intent;
+    }
+    return null;
+  }
+
+  Future<void> _previewFollowUp(StoredEmailFollowUp followUp) =>
+      showDialog<void>(
+        context: context,
+        builder: (context) {
+          final names = (jsonDecode(followUp.contentNamesJson) as List)
+              .whereType<String>()
+              .toList();
+          return AlertDialog(
+            title: Text(followUp.subject),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(followUp.plainBody),
+                  if (names.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      _english ? 'PDF attachments' : 'PDF adjuntos',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 6),
+                    ...names.map((name) => Text('• $name')),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(_english ? 'Close' : 'Cerrar'),
+              ),
+            ],
+          );
+        },
+      );
+
+  Widget _connectionCard() {
+    final palette = FolooPalette.of(context);
+    final connected = _connection?.status == 'connected';
+    return Container(
+      key: const Key('emailConnectionCard'),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: palette.paper,
+        borderRadius: BorderRadius.circular(FolooRadii.md),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            connected
+                ? (_english ? 'Connected sender' : 'Remitente conectado')
+                : (_english ? 'Connect your email' : 'Conecta tu correo'),
+            style: const TextStyle(fontWeight: FontWeight.w900),
+          ),
+          if (_connection != null) ...[
+            const SizedBox(height: 4),
+            Text('${_connection!.provider} · ${_connection!.senderAddress}'),
+          ],
+          const SizedBox(height: 10),
+          if (connected)
+            Row(
+              children: [
+                TextButton(
+                  onPressed: _connectionBusy ? null : _disconnect,
+                  child: Text(_english ? 'Disconnect' : 'Desconectar'),
+                ),
+                const Spacer(),
+                IconButton(
+                  tooltip: _english ? 'Refresh status' : 'Actualizar estado',
+                  onPressed: _connectionBusy ? null : _loadDelivery,
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _connectionBusy
+                        ? null
+                        : () => _connect('google'),
+                    child: const Text('Google'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _connectionBusy
+                        ? null
+                        : () => _connect('microsoft'),
+                    child: const Text('Microsoft'),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _followUpList() {
+    if (_followUps.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 20),
+        Text(
+          _english ? 'Follow-ups' : 'Seguimientos',
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 8),
+        ..._followUps.map((followUp) {
+          final intent = _intentFor(followUp.localId);
+          final status = intent?.status ?? 'ready';
+          final attachmentDecision =
+              intent != null && _attachmentDecisionIds(intent).isNotEmpty;
+          final label = attachmentDecision
+              ? (_english
+                    ? 'Attachment decision required'
+                    : 'Decisión de adjunto requerida')
+              : intent?.errorCode == 'cancelled_by_seller'
+              ? (_english ? 'Cancelled' : 'Cancelado')
+              : switch (status) {
+                  'pending' => _english ? 'Pending' : 'Pendiente',
+                  'sending' => _english ? 'Sending' : 'Enviando',
+                  'sent' => _english ? 'Sent' : 'Enviado',
+                  'error' => 'Error',
+                  'confirmation_required' =>
+                    _english ? 'Confirmation required' : 'Estado por confirmar',
+                  _ => _english ? 'Ready to review' : 'Listo para revisar',
+                };
+          return Card(
+            child: ListTile(
+              onTap: () => _previewFollowUp(followUp),
+              title: Text(followUp.recipientAddress),
+              subtitle: Text('${followUp.subject}\n$label'),
+              isThreeLine: true,
+              trailing: attachmentDecision
+                  ? IconButton(
+                      tooltip: _english
+                          ? 'Resolve attachment'
+                          : 'Resolver adjunto',
+                      onPressed: () =>
+                          _resolveAttachmentDecision(followUp, intent),
+                      icon: const Icon(Icons.attachment_outlined),
+                    )
+                  : status == 'ready'
+                  ? IconButton(
+                      tooltip: _english ? 'Confirm send' : 'Confirmar envío',
+                      onPressed: _connection?.status == 'connected'
+                          ? () => _queueSend(followUp)
+                          : null,
+                      icon: const Icon(Icons.send_outlined),
+                    )
+                  : status == 'error' &&
+                        intent?.errorCode != 'cancelled_by_seller'
+                  ? IconButton(
+                      tooltip: _english ? 'Retry safely' : 'Reintentar',
+                      onPressed: _connection?.status == 'connected'
+                          ? () => _retry(intent!)
+                          : null,
+                      icon: const Icon(Icons.refresh),
+                    )
+                  : status == 'confirmation_required' || status == 'sent'
+                  ? IconButton(
+                      tooltip: _english ? 'Resend manually' : 'Reenviar',
+                      onPressed: _connection?.status == 'connected'
+                          ? () => _manualResend(followUp, intent!)
+                          : null,
+                      icon: const Icon(Icons.forward_to_inbox_outlined),
+                    )
+                  : null,
+            ),
+          );
+        }),
+      ],
+    );
   }
 
   void _applyLanguage(AppLocalizations l10n) {
@@ -323,6 +726,8 @@ class _EmailScreenState extends State<EmailScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 14),
+                  _connectionCard(),
                   const SizedBox(height: 18),
                   Text(
                     context.l10n.subject,
@@ -458,6 +863,7 @@ class _EmailScreenState extends State<EmailScreen> {
                       ],
                     ),
                   ),
+                  _followUpList(),
                 ],
               ),
             ),

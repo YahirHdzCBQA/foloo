@@ -64,10 +64,9 @@ export class PostgresFolooRepository implements FolooRepository {
           `INSERT INTO email_templates
          (workspace_id, owner_user_id, origin, language, subject, body, signature)
        VALUES ($1,$2,$3,$4,$5,$6,$7)
-       ON CONFLICT (workspace_id, origin, language) DO UPDATE SET
+       ON CONFLICT (workspace_id, owner_user_id, origin, language) DO UPDATE SET
          subject = EXCLUDED.subject, body = EXCLUDED.body,
          signature = EXCLUDED.signature
-       WHERE email_templates.owner_user_id = $2
        RETURNING origin, language, subject, body, signature`,
           [
             principal.workspaceId,
