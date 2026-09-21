@@ -792,6 +792,19 @@ class AppLocalizationsEn extends AppLocalizations {
       'The lead remains saved. You can retry from Email.';
 
   @override
+  String get emailRecipientOptedOutTitle => 'Email not sent';
+
+  @override
+  String get emailRecipientOptedOutDetail =>
+      'The lead remains saved, but the email was not sent because the address is recorded as opted out.';
+
+  @override
+  String get emailRecipientOptedOutStatus => 'Not sent · Recipient opted out';
+
+  @override
+  String get emailNotRetryableStatus => 'Not sent · Retry not allowed';
+
+  @override
   String get localSaveError =>
       'The lead could not be saved on this device. Check available space and try again.';
 

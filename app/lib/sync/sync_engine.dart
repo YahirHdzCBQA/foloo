@@ -75,6 +75,17 @@ class SyncEngine extends ChangeNotifier {
   }
 
   Future<void> _synchronizeOnce(String ownerSub, SyncTrigger trigger) async {
+    final repairedEmailFailures = await _store.reconcileTerminalEmailFailures(
+      ownerSub,
+    );
+    if (repairedEmailFailures > 0) {
+      logger({
+        'scope': 'sync_repair',
+        'entityType': SyncEntityType.emailSendIntent.name,
+        'result': 'terminal_state_restored',
+        'count': repairedEmailFailures,
+      });
+    }
     if (trigger == SyncTrigger.manual) {
       final leadRepairs = await _store.repairFailedLeadContracts(ownerSub);
       for (final repair in leadRepairs) {

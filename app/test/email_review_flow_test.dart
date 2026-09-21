@@ -104,6 +104,25 @@ void main() {
     expect(find.byKey(const Key('emailReviewMessage')), findsOneWidget);
   });
 
+  testWidgets('opted-out recipient is terminal while the lead stays saved', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      harness(onConfirm: (_) async => EmailReviewOutcome.recipientOptedOut),
+    );
+
+    await tester.tap(find.byKey(const Key('confirmFollowUpButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Guardado en el dispositivo'), findsOneWidget);
+    expect(find.text('Correo no enviado'), findsOneWidget);
+    expect(
+      find.textContaining('la dirección aparece dada de baja'),
+      findsOneWidget,
+    );
+    expect(find.text('Correo pendiente'), findsNothing);
+  });
+
   testWidgets(
     'keyboard inset keeps CTA reachable and dismiss preserves a long edit',
     (tester) async {

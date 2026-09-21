@@ -93,6 +93,9 @@ física sobre la misma instalación de iPhone. No cerrar todavía.
 - Corrección local 2026-09-20: Guardar → Revisar → `foloo`, snapshot concreto
   antes de outbox, confirmación online/offline veraz, asunto renderizado en
   backend y aceptación Graph `202` sin cuerpo. Pendiente deploy y QA física.
+- Corrección local 2026-09-21: la baja requiere GET de confirmación sin efecto
+  lateral y POST explícito; opt-out/retry prohibido quedan terminales en app y
+  outbox. Pendiente redeploy y QA física.
 
 ## FL-020 — Trial & Subscription Foundation
 

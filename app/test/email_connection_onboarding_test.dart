@@ -1,12 +1,15 @@
+import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/app.dart';
 import 'package:foloo/data/repositories/local_repositories.dart';
+import 'package:foloo/data/local/app_database.dart';
 import 'package:foloo/l10n/app_localizations.dart';
 import 'package:foloo/l10n/l10n.dart';
 import 'package:foloo/models/app_destination.dart';
 import 'package:foloo/models/app_event.dart';
+import 'package:foloo/models/lead_draft.dart';
 import 'package:foloo/screens/email_screen.dart';
 import 'package:foloo/screens/email_onboarding_screen.dart';
 import 'package:foloo/services/email_connection_service.dart';
@@ -276,5 +279,87 @@ void main() {
     expect(find.text('Necesita reconexión'), findsOneWidget);
     expect(find.text('Google'), findsOneWidget);
     expect(find.text('Microsoft'), findsWidgets);
+  });
+
+  testWidgets('opted-out history is terminal and exposes no Retry action', (
+    tester,
+  ) async {
+    final persistence = LocalPersistence.inMemory();
+    await persistence.initialize();
+    addTearDown(persistence.close);
+    final now = DateTime.utc(2026, 9, 21, 19, 4);
+    final lead = await persistence.leads.saveDraft(
+      'seller-a',
+      LeadDraft(
+        name: 'Mariana',
+        lastName: '',
+        role: '',
+        company: 'Lácteos Norte',
+        email: 'lead@example.com',
+        phone: '',
+        type: LeadType.customer,
+        interest: InterestLevel.high,
+        note: '',
+        originKind: LeadOriginKind.direct,
+        audioSeconds: 0,
+        place: 'Monterrey',
+      ),
+      capturedBy: const DemoProfile(name: 'Seller', company: 'Foloo'),
+    );
+    await persistence.database.emailDeliveryDao.saveFollowUp(
+      LocalEmailFollowUpsCompanion.insert(
+        localId: 'follow-up-a',
+        ownerUserId: 'seller-a',
+        leadLocalId: lead.localId,
+        recipientAddress: 'lead@example.com',
+        subject: 'Damos seguimiento, Mariana',
+        plainBody: 'Hola Mariana',
+        htmlBody: '<p>Hola Mariana</p>',
+        languageCode: 'es',
+        preparedAt: now,
+      ),
+    );
+    await persistence.database.emailDeliveryDao.saveIntent(
+      LocalEmailSendIntentsCompanion.insert(
+        localId: 'intent-a',
+        ownerUserId: 'seller-a',
+        followUpLocalId: 'follow-up-a',
+        status: const Value('error'),
+        errorCode: const Value('recipient_opted_out'),
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+
+    await tester.pumpWidget(
+      _localized(
+        EmailScreen(
+          recordsCount: 1,
+          contentCount: 0,
+          records: const [],
+          contentFiles: const [],
+          profile: const DemoProfile(name: 'Seller', company: 'Foloo'),
+          darkMode: false,
+          ownerSub: 'seller-a',
+          templateRepository: persistence.templates,
+          deliveryRepository: persistence.emailDelivery,
+          active: true,
+          onDestinationSelected: (AppDestination _) {},
+          onAppearanceChanged: (_) {},
+          onLogout: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.textContaining('No enviado · Destinatario dado de baja'),
+    );
+
+    expect(
+      find.textContaining('No enviado · Destinatario dado de baja'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('emailRetry-intent-a')), findsNothing);
+    expect(find.textContaining('Pendiente'), findsNothing);
   });
 }

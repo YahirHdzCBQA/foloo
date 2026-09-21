@@ -115,8 +115,21 @@ paths:
   /email/unsubscribe:
     security: []
     get:
-      operationId: unsubscribeEmailRecipient
-      description: Public, opaque and idempotent workspace-scoped opt-out.
+      operationId: reviewEmailUnsubscribe
+      description: Validates the opaque token and renders confirmation without changing opt-out state.
+      parameters:
+        - {
+            name: token,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 32 },
+          }
+      responses:
+        "200": { description: Confirmation page; no opt-out side effect. }
+        "400": { description: Invalid token. }
+    post:
+      operationId: confirmEmailUnsubscribe
+      description: Explicit, public and idempotent workspace/seller-scoped opt-out confirmation.
       parameters:
         - {
             name: token,

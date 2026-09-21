@@ -48,9 +48,12 @@ como retry seguro aun si Foloo deduplica la operación API.
    no una respuesta perdida ni un motivo para `confirmation_required`.
    Historial conserva la identidad efectiva original aun al cambiar cuenta.
 5. La baja usa token opaco de alta entropía, almacenado como hash y vinculado a
-   workspace/destinatario; el endpoint público es idempotente, no revela
-   IDs internos y bloquea futuros envíos de ese scope. El token no se expone a
-   logs. El enlace es de duración prolongada para que correos históricos
+   workspace/vendedor/destinatario. GET valida el token y muestra una landing
+   mínima, pero no modifica estado; esto evita que scanners, previews o prefetch
+   creen bajas. Solo el POST de la acción explícita inserta el opt-out de forma
+   idempotente. El endpoint no revela IDs internos, el token no se expone a
+   logs y futuros envíos de ese scope quedan bloqueados como error terminal sin
+   retry. El enlace es de duración prolongada para que correos históricos
    mantengan una vía de baja; la rotación/revocación sigue siendo posible.
 6. Con el scope delegado Microsoft `Mail.Send` aprobado no se pide
    `Mail.ReadWrite`. El flujo documentado por Microsoft para adjuntos Graph de

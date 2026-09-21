@@ -66,7 +66,9 @@ parcial, no una resolución de Diseño.
   asunto/cuerpo/firma editables. El asunto inicial aprobado es
   `Damos seguimiento, {nombre}` / `Following up, {nombre}`; aplica solo cuando
   no existe una plantilla persistida y no reescribe snapshots históricos.
-- `D-16`: footer fijo con enlace Foloo de opt-out owner/workspace-scoped.
+- `D-16`: footer fijo con enlace Foloo de opt-out owner/workspace-scoped. GET
+  valida y muestra landing sin efecto lateral; solo POST tras confirmación
+  explícita persiste la baja idempotente. El bloqueo posterior es terminal.
   La dirección postal/responsable legal exacto sigue pendiente de compliance;
   no se inventa ni bloquea el mecanismo técnico de baja.
 - `D-17`: Lead guardado abre la revisión concreta; solo el CTA `foloo` congela

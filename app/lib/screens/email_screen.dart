@@ -15,6 +15,7 @@ import '../models/lead_draft.dart';
 import '../models/content_file.dart';
 import '../models/session_lead.dart';
 import '../models/email_template.dart';
+import '../models/email_delivery_error.dart';
 import '../data/repositories/local_repositories.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
@@ -506,12 +507,20 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
           final status = intent?.status ?? 'ready';
           final attachmentDecision =
               intent != null && _attachmentDecisionIds(intent).isNotEmpty;
+          final recipientOptedOut = isRecipientOptedOutError(intent?.errorCode);
+          final terminalFailure = isTerminalEmailDeliveryError(
+            intent?.errorCode,
+          );
           final label = attachmentDecision
               ? (_english
                     ? 'Attachment decision required'
                     : 'Decisión de adjunto requerida')
               : intent?.errorCode == 'cancelled_by_seller'
               ? (_english ? 'Cancelled' : 'Cancelado')
+              : recipientOptedOut
+              ? context.l10n.emailRecipientOptedOutStatus
+              : terminalFailure
+              ? context.l10n.emailNotRetryableStatus
               : switch (status) {
                   'pending' => _english ? 'Pending' : 'Pendiente',
                   'sending' => _english ? 'Sending' : 'Enviando',
@@ -545,11 +554,13 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                       icon: const Icon(Icons.send_outlined),
                     )
                   : status == 'error' &&
-                        intent?.errorCode != 'cancelled_by_seller'
+                        intent?.errorCode != 'cancelled_by_seller' &&
+                        !terminalFailure
                   ? IconButton(
+                      key: ValueKey('emailRetry-${intent!.localId}'),
                       tooltip: _english ? 'Retry safely' : 'Reintentar',
                       onPressed: _connection?.status == 'connected'
-                          ? () => _retry(intent!)
+                          ? () => _retry(intent)
                           : null,
                       icon: const Icon(Icons.refresh),
                     )

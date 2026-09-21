@@ -22,6 +22,7 @@ import 'models/app_event.dart';
 import 'models/lead_draft.dart';
 import 'models/content_file.dart';
 import 'models/email_review.dart';
+import 'models/email_delivery_error.dart';
 import 'models/session_lead.dart';
 import 'screens/event_screen.dart';
 import 'screens/account_access_screen.dart';
@@ -421,6 +422,8 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       'sent' => EmailReviewOutcome.sent,
       'sending' => EmailReviewOutcome.sending,
       'confirmation_required' => EmailReviewOutcome.confirmationRequired,
+      'error' when isRecipientOptedOutError(intent?.errorCode) =>
+        EmailReviewOutcome.recipientOptedOut,
       'error' => EmailReviewOutcome.error,
       _ => EmailReviewOutcome.pending,
     };

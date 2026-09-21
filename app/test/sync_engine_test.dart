@@ -871,6 +871,45 @@ void main() {
     },
   );
 
+  test('SAL-07 opted-out intent stays failed across startup and connectivity triggers', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final store = SyncStore(database);
+    await store.enqueue(
+      ownerSub: owner,
+      entityType: SyncEntityType.emailSendIntent,
+      entityId: '61616161-6161-4161-8161-616161616161',
+      action: 'confirm',
+      payload: {
+        'intentId': '61616161-6161-4161-8161-616161616161',
+        'followUpId': '62626262-6262-4262-8262-626262626262',
+        'omittedContentIds': <String>[],
+      },
+    );
+    final api = _Api()
+      ..failures.add(
+        const SyncHttpException(409, errorCode: 'recipient_opted_out'),
+      );
+    final engine = SyncEngine(store, api, _Session('token'));
+
+    await engine.synchronize(owner);
+    await engine.synchronize(owner);
+    await engine.synchronize(owner, trigger: SyncTrigger.connectivityRestored);
+    await engine.synchronize(owner, trigger: SyncTrigger.manual);
+
+    final operation = (await store.all(owner)).single;
+    expect(operation.status, 'failed');
+    expect(operation.lastError, 'http_409_recipient_opted_out');
+    expect(
+      api.calls.where(
+        (call) =>
+            call.request.method == 'POST' &&
+            call.request.path.endsWith('/confirm'),
+      ),
+      hasLength(1),
+    );
+  });
+
   test(
     'REG-07 revision conflict preserves local edit and manual retry rebases',
     () async {

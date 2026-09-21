@@ -15,6 +15,7 @@ import 'package:path/path.dart' as p;
 import '../../models/app_event.dart';
 import '../../models/content_file.dart';
 import '../../models/email_template.dart';
+import '../../models/email_delivery_error.dart';
 import '../../models/lead_draft.dart';
 import '../../models/session_lead.dart';
 import '../../sync/sync_models.dart';
@@ -362,6 +363,7 @@ class EmailDeliveryRepository {
     required String owner,
     required StoredEmailSendIntent intent,
   }) async {
+    if (isTerminalEmailDeliveryError(intent.errorCode)) return;
     final now = DateTime.now().toUtc();
     await _database.emailDeliveryDao.updateIntentState(
       owner,

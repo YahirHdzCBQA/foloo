@@ -262,6 +262,13 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
           EmailReviewOutcome.confirmationRequired,
         ));
         break;
+      case EmailReviewOutcome.recipientOptedOut:
+        rows.add((
+          context.l10n.emailRecipientOptedOutTitle,
+          context.l10n.emailRecipientOptedOutDetail,
+          EmailReviewOutcome.recipientOptedOut,
+        ));
+        break;
       case EmailReviewOutcome.error:
         rows.add((
           context.l10n.emailSendError,

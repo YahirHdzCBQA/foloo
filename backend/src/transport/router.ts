@@ -152,22 +152,36 @@ export function createRouter(
         body: "<!doctype html><meta charset=utf-8><title>Foloo</title><p>Correo conectado. Puedes regresar a Foloo.</p><p>Email connected. You can return to Foloo.</p>",
       };
     }
-    if (
-      method === "GET" &&
-      path === "/v1/email/unsubscribe" &&
-      emailApplication
-    ) {
+    if (path === "/v1/email/unsubscribe" && emailApplication) {
       const token = event.queryStringParameters?.token ?? "";
-      const accepted = await emailApplication.unsubscribe(token);
+      const accepted =
+        method === "GET"
+          ? await emailApplication.validateUnsubscribe(token)
+          : method === "POST"
+            ? await emailApplication.unsubscribe(token)
+            : false;
+      const safeToken = encodeURIComponent(token);
+      const headers = {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "content-security-policy":
+          "default-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+        "x-content-type-options": "nosniff",
+      };
+      if (method === "GET" && accepted) {
+        return {
+          statusCode: 200,
+          headers,
+          body: `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Foloo</title><body><main><h1>Confirmar baja</h1><p>Confirma que ya no deseas recibir seguimientos de este remitente.</p><p>Confirm that you no longer want follow-up emails from this sender.</p><form method="post" action="/v1/email/unsubscribe?token=${safeToken}"><button type="submit">Darme de baja / Unsubscribe</button></form></main></body></html>`,
+        };
+      }
       return {
-        statusCode: accepted ? 200 : 400,
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-          "cache-control": "no-store",
-        },
-        body: accepted
-          ? "<!doctype html><meta charset=utf-8><title>Foloo</title><p>La baja quedó registrada.</p><p>You have been unsubscribed.</p>"
-          : "<!doctype html><meta charset=utf-8><title>Foloo</title><p>Este enlace de baja no es válido.</p><p>This unsubscribe link is invalid.</p>",
+        statusCode: method === "POST" && accepted ? 200 : 400,
+        headers,
+        body:
+          method === "POST" && accepted
+            ? "<!doctype html><meta charset=utf-8><title>Foloo</title><p>La baja quedó registrada.</p><p>You have been unsubscribed.</p>"
+            : "<!doctype html><meta charset=utf-8><title>Foloo</title><p>Este enlace de baja no es válido.</p><p>This unsubscribe link is invalid.</p>",
       };
     }
 

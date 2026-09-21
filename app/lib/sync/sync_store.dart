@@ -13,6 +13,7 @@ import 'package:uuid/uuid.dart';
 
 import '../data/local/app_database.dart';
 import '../data/local/private_media_storage.dart';
+import '../models/email_delivery_error.dart';
 import 'sync_models.dart';
 
 class LegacyMediaRepairResult {
@@ -107,6 +108,39 @@ class SyncStore {
 
   Future<List<StoredSyncOperation>> all(String ownerSub) =>
       database.syncDao.allForOwner(ownerSub);
+
+  /// Repairs the visible intent state left by pre-fix terminal 409 handling.
+  ///
+  /// The failed outbox row is not reactivated or deleted; only its stable
+  /// diagnostic is copied to the matching local intent for truthful UI.
+  Future<int> reconcileTerminalEmailFailures(String ownerSub) async {
+    var repaired = 0;
+    final intents = await database.emailDeliveryDao.intents(ownerSub);
+    final byId = {for (final intent in intents) intent.localId: intent};
+    for (final operation in await all(ownerSub)) {
+      if (operation.entityType != SyncEntityType.emailSendIntent.name ||
+          operation.status != SyncOperationStatus.failed.name ||
+          !isTerminalEmailDeliveryError(operation.lastError)) {
+        continue;
+      }
+      final intent = byId[operation.entityId];
+      if (intent == null ||
+          emailDeliveryErrorCode(intent.errorCode) ==
+              emailDeliveryErrorCode(operation.lastError)) {
+        continue;
+      }
+      await database.emailDeliveryDao.updateIntentState(
+        ownerSub,
+        intent.localId,
+        'error',
+        operation.attemptCount,
+        operation.lastError,
+        operation.updatedAt,
+      );
+      repaired++;
+    }
+    return repaired;
+  }
 
   /// Repairs only a failed Lead whose locally owned legacy event identifier is
   /// the proven reason its otherwise-valid snapshot cannot satisfy FL-014.
@@ -777,7 +811,12 @@ class SyncStore {
         error,
         now.toUtc(),
       );
-      await _markEntity(operation, 'retryable');
+      await _markEntity(
+        operation,
+        'retryable',
+        error: error,
+        attemptCount: operation.attemptCount + 1,
+      );
     });
   }
 
@@ -793,7 +832,12 @@ class SyncStore {
         error,
         now.toUtc(),
       );
-      await _markEntity(operation, 'failed');
+      await _markEntity(
+        operation,
+        'failed',
+        error: error,
+        attemptCount: operation.attemptCount + 1,
+      );
     });
   }
 
@@ -873,7 +917,12 @@ class SyncStore {
     return repaired;
   }
 
-  Future<void> _markEntity(StoredSyncOperation operation, String state) async {
+  Future<void> _markEntity(
+    StoredSyncOperation operation,
+    String state, {
+    String? error,
+    int? attemptCount,
+  }) async {
     switch (SyncEntityType.values.byName(operation.entityType)) {
       case SyncEntityType.profile:
         if (state == 'synced') {
@@ -906,8 +955,8 @@ class SyncStore {
             operation.ownerUserId,
             operation.entityId,
             state == 'failed' ? 'error' : 'pending',
-            operation.attemptCount,
-            operation.lastError,
+            attemptCount ?? operation.attemptCount,
+            error ?? operation.lastError,
             DateTime.now().toUtc(),
           );
         }

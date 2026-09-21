@@ -1520,6 +1520,30 @@ abstract class AppLocalizations {
   /// **'El lead permanece guardado. Puedes reintentar desde Correo.'**
   String get emailErrorDetail;
 
+  /// No description provided for @emailRecipientOptedOutTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Correo no enviado'**
+  String get emailRecipientOptedOutTitle;
+
+  /// No description provided for @emailRecipientOptedOutDetail.
+  ///
+  /// In es, this message translates to:
+  /// **'El lead permanece guardado, pero el correo no se envió porque la dirección aparece dada de baja.'**
+  String get emailRecipientOptedOutDetail;
+
+  /// No description provided for @emailRecipientOptedOutStatus.
+  ///
+  /// In es, this message translates to:
+  /// **'No enviado · Destinatario dado de baja'**
+  String get emailRecipientOptedOutStatus;
+
+  /// No description provided for @emailNotRetryableStatus.
+  ///
+  /// In es, this message translates to:
+  /// **'No enviado · No se puede reintentar'**
+  String get emailNotRetryableStatus;
+
   /// No description provided for @localSaveError.
   ///
   /// In es, this message translates to:

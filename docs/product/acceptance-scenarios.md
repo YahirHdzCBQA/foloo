@@ -123,8 +123,11 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   literales, `null`, `undefined` ni información inventada. `{contenido}` usa
   el snapshot histórico del Lead y representa varios PDF con nombres humanos.
 - Footer fijo ES/EN de Evento o Directo incluye enlace de baja operativo y no
-  editable. Baja repetida es idempotente; token inválido no cambia datos; otro
-  workspace no se ve afectado; Lead e historial se preservan.
+  editable. GET, preview o prefetch solo muestran confirmación y no cambian
+  datos; POST explícito registra la baja y repetirlo es idempotente. Token
+  inválido no cambia datos; otro workspace no se ve afectado; Lead e historial
+  se preservan. Una baja real bloquea envíos futuros como estado terminal sin
+  retry; sin baja, la misma dirección admite múltiples follow-ups legítimos.
 - Guardar Lead confirma primero la persistencia local y abre “Revisar” con
   destinatario inmutable, texto concreto sin tokens y adjuntos congelados. La
   edición ahí no muta la plantilla global; solo `foloo` crea la intención.

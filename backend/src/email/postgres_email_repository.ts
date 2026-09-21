@@ -355,7 +355,7 @@ export class PostgresEmailRepository implements EmailRepository {
          recipient_address AS "recipientAddress",subject,plain_body AS "plainBody",
          html_body AS "htmlBody",attached_content_ids AS "attachedContentIds",
          omitted_content_ids AS "omittedContentIds",status,attempt_count AS "attemptCount",
-         NULL::text AS "encryptedCredentials"`,
+         error_code AS "errorCode",NULL::text AS "encryptedCredentials"`,
       [
         input.id,
         principal.workspaceId,
@@ -393,7 +393,7 @@ export class PostgresEmailRepository implements EmailRepository {
         i.recipient_address AS "recipientAddress",i.subject,i.plain_body AS "plainBody",
         i.html_body AS "htmlBody",i.attached_content_ids AS "attachedContentIds",
         i.omitted_content_ids AS "omittedContentIds",i.status,
-        i.attempt_count AS "attemptCount",
+        i.error_code AS "errorCode",i.attempt_count AS "attemptCount",
         encode(c.encrypted_credentials,'base64') AS "encryptedCredentials"
        FROM email_send_intents i JOIN email_follow_ups f
         ON f.workspace_id=i.workspace_id AND f.id=i.follow_up_id
@@ -497,6 +497,15 @@ export class PostgresEmailRepository implements EmailRepository {
       [principal.workspaceId, intent.followUpId, intent.attachedContentIds],
     );
     return result.rows;
+  }
+
+  async isUnsubscribeTokenValid(tokenHash: string) {
+    const result = await this.pool.query(
+      `SELECT 1 FROM email_unsubscribe_tokens
+       WHERE token_hash=$1 AND revoked_at IS NULL AND owner_user_id IS NOT NULL`,
+      [tokenHash],
+    );
+    return Boolean(result.rows[0]);
   }
 
   async optOut(tokenHash: string) {

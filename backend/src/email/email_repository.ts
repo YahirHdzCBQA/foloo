@@ -47,6 +47,7 @@ export type StoredSendIntent = {
   attachedContentIds: string[];
   omittedContentIds: string[];
   status: EmailSendState;
+  errorCode: string | null;
   attemptCount: number;
   encryptedCredentials: string | null;
 };
@@ -123,5 +124,6 @@ export interface EmailRepository {
     principal: Principal,
     intent: StoredSendIntent,
   ): Promise<HistoricalAttachment[]>;
+  isUnsubscribeTokenValid(tokenHash: string): Promise<boolean>;
   optOut(tokenHash: string): Promise<boolean>;
 }

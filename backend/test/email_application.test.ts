@@ -28,6 +28,7 @@ function intent(overrides: Partial<StoredSendIntent> = {}): StoredSendIntent {
     attachedContentIds: ["33333333-3333-4333-8333-333333333333"],
     omittedContentIds: [],
     status: "pending",
+    errorCode: null,
     attemptCount: 0,
     encryptedCredentials: "ciphertext",
     ...overrides,
@@ -37,6 +38,7 @@ function intent(overrides: Partial<StoredSendIntent> = {}): StoredSendIntent {
 function harness(options: {
   remoteMissing?: boolean;
   outcome?: "accepted" | "safe_retry" | "ambiguous";
+  optedOut?: boolean;
 }) {
   let current = intent();
   let providerCalls = 0;
@@ -50,7 +52,7 @@ function harness(options: {
     }),
     createIntent: async () => current,
     intent: async () => current,
-    isOptedOut: async () => false,
+    isOptedOut: async () => options.optedOut ?? false,
     intentAttachments: async () => [
       {
         id: "33333333-3333-4333-8333-333333333333",
@@ -98,6 +100,7 @@ function harness(options: {
       "https://api.invalid",
     ),
     providerCalls: () => providerCalls,
+    intent: () => current,
   };
 }
 
@@ -160,6 +163,52 @@ test("provider acceptance is persisted as sent", async () => {
   );
   assert.equal(result.intent.status, "sent");
   assert.equal(value.providerCalls(), 1);
+});
+
+test("two legitimate follow-ups to one address send without an unsubscribe", async () => {
+  const first = harness({ outcome: "accepted" });
+  const second = harness({ outcome: "accepted" });
+
+  assert.equal(
+    (
+      await first.application.confirm(principal.userId, intent().followUpId, {
+        intentId: intent().id,
+      })
+    ).intent.status,
+    "sent",
+  );
+  assert.equal(
+    (
+      await second.application.confirm(principal.userId, intent().followUpId, {
+        intentId: "44444444-4444-4444-8444-444444444444",
+      })
+    ).intent.status,
+    "sent",
+  );
+  assert.equal(first.providerCalls() + second.providerCalls(), 2);
+});
+
+test("recipient opt-out is persisted terminal and cannot be retried", async () => {
+  const value = harness({ optedOut: true });
+
+  await assert.rejects(
+    () =>
+      value.application.confirm(principal.userId, intent().followUpId, {
+        intentId: intent().id,
+      }),
+    (error: unknown) =>
+      error instanceof ApplicationError && error.code === "recipient_opted_out",
+  );
+  assert.equal(value.intent().status, "error");
+  assert.equal(value.intent().errorCode, "recipient_opted_out");
+  assert.equal(value.providerCalls(), 0);
+  await assert.rejects(
+    () => value.application.retry(principal.userId, intent().id),
+    (error: unknown) =>
+      error instanceof ApplicationError &&
+      error.code === "email_retry_not_allowed",
+  );
+  assert.equal(value.providerCalls(), 0);
 });
 
 test("attachment cancellation persists without calling a provider", async () => {

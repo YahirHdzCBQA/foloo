@@ -795,6 +795,20 @@ class AppLocalizationsEs extends AppLocalizations {
       'El lead permanece guardado. Puedes reintentar desde Correo.';
 
   @override
+  String get emailRecipientOptedOutTitle => 'Correo no enviado';
+
+  @override
+  String get emailRecipientOptedOutDetail =>
+      'El lead permanece guardado, pero el correo no se envió porque la dirección aparece dada de baja.';
+
+  @override
+  String get emailRecipientOptedOutStatus =>
+      'No enviado · Destinatario dado de baja';
+
+  @override
+  String get emailNotRetryableStatus => 'No enviado · No se puede reintentar';
+
+  @override
   String get localSaveError =>
       'No se pudo guardar en el dispositivo. Revisa el espacio disponible e inténtalo de nuevo.';
 

@@ -90,14 +90,19 @@ test("FL-019 isolates provider egress and exposes only callback and opt-out publ
   const routes = Object.values(
     template.findResources("AWS::ApiGatewayV2::Route"),
   ) as Array<{ Properties: Record<string, unknown> }>;
-  for (const suffix of [
-    "/v1/email/oauth/callback/{provider}",
-    "/v1/email/unsubscribe",
-  ]) {
-    const route = routes.find((item) =>
-      String(item.Properties.RouteKey).endsWith(suffix),
+  const callback = routes.find((item) =>
+    String(item.Properties.RouteKey).endsWith(
+      "/v1/email/oauth/callback/{provider}",
+    ),
+  );
+  assert.ok(callback);
+  assert.equal(callback.Properties.AuthorizationType, "NONE");
+  for (const method of ["GET", "POST"]) {
+    const route = routes.find(
+      (item) =>
+        String(item.Properties.RouteKey) === `${method} /v1/email/unsubscribe`,
     );
-    assert.ok(route, suffix);
+    assert.ok(route, `${method} unsubscribe`);
     assert.equal(route.Properties.AuthorizationType, "NONE");
   }
   const protectedRoute = routes.find((item) =>
