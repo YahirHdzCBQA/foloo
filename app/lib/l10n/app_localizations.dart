@@ -428,6 +428,90 @@ abstract class AppLocalizations {
   /// **'Nombre completo'**
   String get profileFullName;
 
+  /// No description provided for @emailOnboardingTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Envía seguimientos\ndesde tu correo'**
+  String get emailOnboardingTitle;
+
+  /// No description provided for @emailOnboardingHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Conecta la cuenta desde la que quieres enviar correos a tus leads. Puede ser distinta a tu cuenta Foloo.'**
+  String get emailOnboardingHelp;
+
+  /// No description provided for @emailOnboardingGoogle.
+  ///
+  /// In es, this message translates to:
+  /// **'Continuar con Google'**
+  String get emailOnboardingGoogle;
+
+  /// No description provided for @emailOnboardingMicrosoft.
+  ///
+  /// In es, this message translates to:
+  /// **'Continuar con Microsoft'**
+  String get emailOnboardingMicrosoft;
+
+  /// No description provided for @emailOnboardingLater.
+  ///
+  /// In es, this message translates to:
+  /// **'Configurar después'**
+  String get emailOnboardingLater;
+
+  /// No description provided for @emailOnboardingContinue.
+  ///
+  /// In es, this message translates to:
+  /// **'Continuar a Foloo'**
+  String get emailOnboardingContinue;
+
+  /// No description provided for @emailOnboardingWaiting.
+  ///
+  /// In es, this message translates to:
+  /// **'Completa la autorización en el navegador. Al volver, Foloo comprobará la conexión.'**
+  String get emailOnboardingWaiting;
+
+  /// No description provided for @emailSendingAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta de envío'**
+  String get emailSendingAccount;
+
+  /// No description provided for @emailNoSendingAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'No has conectado una cuenta'**
+  String get emailNoSendingAccount;
+
+  /// No description provided for @emailConnectionConnected.
+  ///
+  /// In es, this message translates to:
+  /// **'Conectada'**
+  String get emailConnectionConnected;
+
+  /// No description provided for @emailConnectionReconnect.
+  ///
+  /// In es, this message translates to:
+  /// **'Necesita reconexión'**
+  String get emailConnectionReconnect;
+
+  /// No description provided for @emailConnectionRefresh.
+  ///
+  /// In es, this message translates to:
+  /// **'Actualizar estado'**
+  String get emailConnectionRefresh;
+
+  /// No description provided for @emailConnectionDisconnect.
+  ///
+  /// In es, this message translates to:
+  /// **'Desconectar'**
+  String get emailConnectionDisconnect;
+
+  /// No description provided for @emailConnectionUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo comprobar la cuenta. Intenta actualizar cuando tengas conexión.'**
+  String get emailConnectionUnavailable;
+
   /// No description provided for @company.
   ///
   /// In es, this message translates to:
@@ -1340,6 +1424,102 @@ abstract class AppLocalizations {
   /// **'El lead y sus archivos disponibles quedaron guardados localmente.'**
   String get savedOnDeviceDetail;
 
+  /// No description provided for @emailReviewTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Revisar'**
+  String get emailReviewTitle;
+
+  /// No description provided for @emailReviewTo.
+  ///
+  /// In es, this message translates to:
+  /// **'Para'**
+  String get emailReviewTo;
+
+  /// No description provided for @emailReviewMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'Mensaje'**
+  String get emailReviewMessage;
+
+  /// No description provided for @emailReviewRequired.
+  ///
+  /// In es, this message translates to:
+  /// **'Completa el asunto y el mensaje antes de continuar.'**
+  String get emailReviewRequired;
+
+  /// No description provided for @emailAttachmentCount.
+  ///
+  /// In es, this message translates to:
+  /// **'{count, plural, =0{Sin archivos adjuntos} =1{Se adjunta 1 archivo} other{Se adjuntan {count} archivos}}'**
+  String emailAttachmentCount(int count);
+
+  /// No description provided for @emailConnectionRequiredTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Conecta tu correo'**
+  String get emailConnectionRequiredTitle;
+
+  /// No description provided for @emailConnectionRequiredBody.
+  ///
+  /// In es, this message translates to:
+  /// **'El lead ya está guardado. Conecta Google o Microsoft para confirmar el envío sin perder este seguimiento.'**
+  String get emailConnectionRequiredBody;
+
+  /// No description provided for @emailConnectAction.
+  ///
+  /// In es, this message translates to:
+  /// **'Conectar'**
+  String get emailConnectAction;
+
+  /// No description provided for @emailSentToLead.
+  ///
+  /// In es, this message translates to:
+  /// **'Correo aceptado por el proveedor'**
+  String get emailSentToLead;
+
+  /// No description provided for @emailPendingForLead.
+  ///
+  /// In es, this message translates to:
+  /// **'Correo pendiente'**
+  String get emailPendingForLead;
+
+  /// No description provided for @emailConfirmationRequired.
+  ///
+  /// In es, this message translates to:
+  /// **'Estado por confirmar'**
+  String get emailConfirmationRequired;
+
+  /// No description provided for @emailSendError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo enviar el correo'**
+  String get emailSendError;
+
+  /// No description provided for @emailWillSendOnline.
+  ///
+  /// In es, this message translates to:
+  /// **'Se enviará automáticamente cuando recuperes conexión.'**
+  String get emailWillSendOnline;
+
+  /// No description provided for @emailAcceptedDetail.
+  ///
+  /// In es, this message translates to:
+  /// **'El proveedor aceptó el correo para envío.'**
+  String get emailAcceptedDetail;
+
+  /// No description provided for @emailAmbiguousDetail.
+  ///
+  /// In es, this message translates to:
+  /// **'El correo pudo haber sido aceptado. No se reintentará automáticamente.'**
+  String get emailAmbiguousDetail;
+
+  /// No description provided for @emailErrorDetail.
+  ///
+  /// In es, this message translates to:
+  /// **'El lead permanece guardado. Puedes reintentar desde Correo.'**
+  String get emailErrorDetail;
+
   /// No description provided for @localSaveError.
   ///
   /// In es, this message translates to:
@@ -1792,7 +1972,7 @@ abstract class AppLocalizations {
   /// No description provided for @emailDefaultSubjectV1.
   ///
   /// In es, this message translates to:
-  /// **'Un gusto conocerte, {name}'**
+  /// **'Damos seguimiento, {name}'**
   String emailDefaultSubjectV1(Object name);
 
   /// No description provided for @emailDefaultBodyEventV1.

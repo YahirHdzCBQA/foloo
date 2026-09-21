@@ -63,7 +63,7 @@ export function defaultEmailTemplate(
     return {
       origin,
       language,
-      subject: "Un gusto conocerte, {nombre}",
+      subject: "Damos seguimiento, {nombre}",
       body: [
         "Hola {nombre},",
         "",
@@ -79,7 +79,7 @@ export function defaultEmailTemplate(
   return {
     origin,
     language,
-    subject: "Nice meeting you, {nombre}",
+    subject: "Following up, {nombre}",
     body: [
       "Hi {nombre},",
       "",
@@ -122,7 +122,8 @@ function escapedHtml(value: string): string {
   });
 }
 
-function renderPart(part: string, values: EmailValues): string {
+/** Defensively resolves approved variables in one historical template part. */
+export function renderEmailPart(part: string, values: EmailValues): string {
   return part.replace(tokenPattern, (_, key: EmailVariable) => {
     const value = values[key]?.trim() ?? "";
     return value === "null" || value === "undefined" ? "" : value;
@@ -182,11 +183,11 @@ export function renderEmailPreview(
   if (url.protocol !== "https:") throw new Error("invalid_unsubscribe_url");
   const context =
     template.origin === "event" ? values.evento?.trim() : values.lugar?.trim();
-  const subject = renderPart(template.subject, values)
+  const subject = renderEmailPart(template.subject, values)
     .replace(/[\r\n]+/g, " ")
     .replace(/,\s*$/, "")
     .trim();
-  let body = renderPart(template.body, values);
+  let body = renderEmailPart(template.body, values);
   if (!context) {
     body = body
       .split("\n")
@@ -207,7 +208,7 @@ export function renderEmailPreview(
       )
       .join("\n");
   }
-  const signature = renderPart(template.signature, values);
+  const signature = renderEmailPart(template.signature, values);
   const message = `${body.trim()}\n\n${signature.trim()}`.trim();
   const fixed = footer(template.language, context ?? "", unsubscribeUrl);
   const plainText = `${message}\n\n${fixed.plain}`;

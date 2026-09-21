@@ -24,6 +24,13 @@ Future<void> finishOnboarding(WidgetTester tester) async {
     await tester.tap(find.byKey(const Key('profileContinueButton')));
     await tester.pumpAndSettle();
   }
+  if (find
+      .byKey(const Key('emailOnboardingSkipButton'))
+      .evaluate()
+      .isNotEmpty) {
+    await tester.tap(find.byKey(const Key('emailOnboardingSkipButton')));
+    await tester.pumpAndSettle();
+  }
   await tester.tap(find.byKey(const Key('originContinueButton')));
   await tester.pumpAndSettle();
 }

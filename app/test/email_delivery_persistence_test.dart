@@ -63,19 +63,30 @@ void main() {
       expect(await repository.list('seller-b'), isEmpty);
       final followUp = (await repository.list('seller-a')).single;
       expect(followUp.plainBody, contains('Renée'));
+      expect(followUp.subject, 'Damos seguimiento, Renée');
+      expect(followUp.subject, isNot(contains('{nombre}')));
       expect(
         (await db.syncDao.allForOwner('seller-a')).map((row) => row.entityType),
-        contains('emailFollowUp'),
+        isNot(contains('emailFollowUp')),
       );
       final intentId = await repository.confirm(
         owner: 'seller-a',
         followUpId: followUp.localId,
+        subject: 'Seguimiento concreto',
+        plainBody: 'Hola Renée,\n\nMensaje revisado.\n\nAna',
       );
+      final frozen = (await repository.list('seller-a')).single;
+      expect(frozen.subject, 'Seguimiento concreto');
+      expect(frozen.plainBody, contains('Mensaje revisado'));
       expect((await repository.intents('seller-a')).single.localId, intentId);
       expect(await repository.intents('seller-b'), isEmpty);
       expect(
         (await db.syncDao.allForOwner('seller-a')).map((row) => row.entityType),
         contains('emailSendIntent'),
+      );
+      expect(
+        (await db.syncDao.allForOwner('seller-a')).map((row) => row.entityType),
+        contains('emailFollowUp'),
       );
       final operation = (await db.syncDao.allForOwner('seller-a')).firstWhere(
         (row) => row.entityId == intentId && row.action == 'confirm',
@@ -107,6 +118,39 @@ void main() {
           .where((row) => row.entityId == intentId)
           .map((row) => row.action);
       expect(actions, containsAll(<String>['confirm', 'retry']));
+    },
+  );
+
+  test(
+    'lead without email is preserved without follow-up or send intent',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final repository = EmailDeliveryRepository(db);
+      final prepared = await repository.prepareForLead(
+        owner: 'seller-a',
+        leadId: 'lead-without-email',
+        lead: LeadDraft(
+          name: 'Solo Teléfono',
+          lastName: '',
+          role: '',
+          company: 'Empresa',
+          email: '',
+          phone: '+52 81 0000 0000',
+          type: LeadType.customer,
+          interest: InterestLevel.medium,
+          note: '',
+          originKind: LeadOriginKind.direct,
+          audioSeconds: 0,
+          place: 'Monterrey',
+        ),
+        seller: const DemoProfile(name: 'Ana', company: 'Foloo'),
+        language: 'es',
+      );
+
+      expect(prepared, null);
+      expect(await repository.list('seller-a'), isEmpty);
+      expect(await repository.intents('seller-a'), isEmpty);
     },
   );
 }

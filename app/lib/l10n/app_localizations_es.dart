@@ -186,6 +186,51 @@ class AppLocalizationsEs extends AppLocalizations {
   String get profileFullName => 'Nombre completo';
 
   @override
+  String get emailOnboardingTitle => 'Envía seguimientos\ndesde tu correo';
+
+  @override
+  String get emailOnboardingHelp =>
+      'Conecta la cuenta desde la que quieres enviar correos a tus leads. Puede ser distinta a tu cuenta Foloo.';
+
+  @override
+  String get emailOnboardingGoogle => 'Continuar con Google';
+
+  @override
+  String get emailOnboardingMicrosoft => 'Continuar con Microsoft';
+
+  @override
+  String get emailOnboardingLater => 'Configurar después';
+
+  @override
+  String get emailOnboardingContinue => 'Continuar a Foloo';
+
+  @override
+  String get emailOnboardingWaiting =>
+      'Completa la autorización en el navegador. Al volver, Foloo comprobará la conexión.';
+
+  @override
+  String get emailSendingAccount => 'Cuenta de envío';
+
+  @override
+  String get emailNoSendingAccount => 'No has conectado una cuenta';
+
+  @override
+  String get emailConnectionConnected => 'Conectada';
+
+  @override
+  String get emailConnectionReconnect => 'Necesita reconexión';
+
+  @override
+  String get emailConnectionRefresh => 'Actualizar estado';
+
+  @override
+  String get emailConnectionDisconnect => 'Desconectar';
+
+  @override
+  String get emailConnectionUnavailable =>
+      'No se pudo comprobar la cuenta. Intenta actualizar cuando tengas conexión.';
+
+  @override
   String get company => 'Empresa';
 
   @override
@@ -688,6 +733,68 @@ class AppLocalizationsEs extends AppLocalizations {
       'El lead y sus archivos disponibles quedaron guardados localmente.';
 
   @override
+  String get emailReviewTitle => 'Revisar';
+
+  @override
+  String get emailReviewTo => 'Para';
+
+  @override
+  String get emailReviewMessage => 'Mensaje';
+
+  @override
+  String get emailReviewRequired =>
+      'Completa el asunto y el mensaje antes de continuar.';
+
+  @override
+  String emailAttachmentCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Se adjuntan $count archivos',
+      one: 'Se adjunta 1 archivo',
+      zero: 'Sin archivos adjuntos',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get emailConnectionRequiredTitle => 'Conecta tu correo';
+
+  @override
+  String get emailConnectionRequiredBody =>
+      'El lead ya está guardado. Conecta Google o Microsoft para confirmar el envío sin perder este seguimiento.';
+
+  @override
+  String get emailConnectAction => 'Conectar';
+
+  @override
+  String get emailSentToLead => 'Correo aceptado por el proveedor';
+
+  @override
+  String get emailPendingForLead => 'Correo pendiente';
+
+  @override
+  String get emailConfirmationRequired => 'Estado por confirmar';
+
+  @override
+  String get emailSendError => 'No se pudo enviar el correo';
+
+  @override
+  String get emailWillSendOnline =>
+      'Se enviará automáticamente cuando recuperes conexión.';
+
+  @override
+  String get emailAcceptedDetail => 'El proveedor aceptó el correo para envío.';
+
+  @override
+  String get emailAmbiguousDetail =>
+      'El correo pudo haber sido aceptado. No se reintentará automáticamente.';
+
+  @override
+  String get emailErrorDetail =>
+      'El lead permanece guardado. Puedes reintentar desde Correo.';
+
+  @override
   String get localSaveError =>
       'No se pudo guardar en el dispositivo. Revisa el espacio disponible e inténtalo de nuevo.';
 
@@ -995,7 +1102,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String emailDefaultSubjectV1(Object name) {
-    return 'Un gusto conocerte, $name';
+    return 'Damos seguimiento, $name';
   }
 
   @override

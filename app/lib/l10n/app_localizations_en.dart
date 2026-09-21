@@ -183,6 +183,51 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileFullName => 'Full name';
 
   @override
+  String get emailOnboardingTitle => 'Send follow-ups\nfrom your email';
+
+  @override
+  String get emailOnboardingHelp =>
+      'Connect the account you want to use to email your leads. It can be different from your Foloo account.';
+
+  @override
+  String get emailOnboardingGoogle => 'Continue with Google';
+
+  @override
+  String get emailOnboardingMicrosoft => 'Continue with Microsoft';
+
+  @override
+  String get emailOnboardingLater => 'Set up later';
+
+  @override
+  String get emailOnboardingContinue => 'Continue to Foloo';
+
+  @override
+  String get emailOnboardingWaiting =>
+      'Complete authorization in the browser. When you return, Foloo will check the connection.';
+
+  @override
+  String get emailSendingAccount => 'Sending account';
+
+  @override
+  String get emailNoSendingAccount => 'You have not connected an account';
+
+  @override
+  String get emailConnectionConnected => 'Connected';
+
+  @override
+  String get emailConnectionReconnect => 'Reconnect required';
+
+  @override
+  String get emailConnectionRefresh => 'Refresh status';
+
+  @override
+  String get emailConnectionDisconnect => 'Disconnect';
+
+  @override
+  String get emailConnectionUnavailable =>
+      'The account could not be checked. Try refreshing when you are online.';
+
+  @override
   String get company => 'Company';
 
   @override
@@ -684,6 +729,69 @@ class AppLocalizationsEn extends AppLocalizations {
       'The lead and its available files were saved locally.';
 
   @override
+  String get emailReviewTitle => 'Review';
+
+  @override
+  String get emailReviewTo => 'To';
+
+  @override
+  String get emailReviewMessage => 'Message';
+
+  @override
+  String get emailReviewRequired =>
+      'Complete the subject and message before continuing.';
+
+  @override
+  String emailAttachmentCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files will be attached',
+      one: '1 file will be attached',
+      zero: 'No attachments',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get emailConnectionRequiredTitle => 'Connect your email';
+
+  @override
+  String get emailConnectionRequiredBody =>
+      'The lead is already saved. Connect Google or Microsoft to confirm sending without losing this follow-up.';
+
+  @override
+  String get emailConnectAction => 'Connect';
+
+  @override
+  String get emailSentToLead => 'Email accepted by provider';
+
+  @override
+  String get emailPendingForLead => 'Email pending';
+
+  @override
+  String get emailConfirmationRequired => 'Confirmation required';
+
+  @override
+  String get emailSendError => 'Email could not be sent';
+
+  @override
+  String get emailWillSendOnline =>
+      'It will be sent automatically when you are back online.';
+
+  @override
+  String get emailAcceptedDetail =>
+      'The provider accepted the email for sending.';
+
+  @override
+  String get emailAmbiguousDetail =>
+      'The email may have been accepted. It will not retry automatically.';
+
+  @override
+  String get emailErrorDetail =>
+      'The lead remains saved. You can retry from Email.';
+
+  @override
   String get localSaveError =>
       'The lead could not be saved on this device. Check available space and try again.';
 
@@ -990,7 +1098,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String emailDefaultSubjectV1(Object name) {
-    return 'Nice meeting you, $name';
+    return 'Following up, $name';
   }
 
   @override

@@ -28,6 +28,12 @@ for (const language of ["es", "en"] as const) {
         url,
       );
       assert.match(rendered.subject, /Ana/);
+      assert.equal(
+        template.subject,
+        language === "es"
+          ? "Damos seguimiento, {nombre}"
+          : "Following up, {nombre}",
+      );
       assert.match(
         rendered.plainText,
         origin === "event" ? /Expo Norte/ : /Café Centro/,

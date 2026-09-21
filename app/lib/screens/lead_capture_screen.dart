@@ -15,6 +15,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
 import '../models/content_file.dart';
+import '../models/email_review.dart';
 import '../models/lead_draft.dart';
 import '../models/session_lead.dart';
 import '../models/voice_note_state.dart';
@@ -31,6 +32,7 @@ import '../widgets/progress_header.dart';
 import '../widgets/section_card.dart';
 import '../widgets/segmented_bubble.dart';
 import 'lead_confirmation_screen.dart';
+import 'email_review_screen.dart';
 import 'multi_photo_capture_screen.dart';
 
 /// Reports an origin change without coupling capture to root application state.
@@ -59,6 +61,8 @@ class LeadCaptureScreen extends StatefulWidget {
     this.voiceNoteService,
     this.isOnline = false,
     this.contactImagePickerService,
+    this.onEmailReviewRequested,
+    this.onEmailReviewConfirmed,
     super.key,
   });
 
@@ -70,6 +74,10 @@ class LeadCaptureScreen extends StatefulWidget {
   final int recordsCount;
   final bool darkMode;
   final FutureOr<SessionLead> Function(LeadDraft lead) onLeadSaved;
+  final FutureOr<EmailReviewDraft?> Function(SessionLead record)?
+  onEmailReviewRequested;
+  final Future<EmailReviewOutcome> Function(EmailReviewDraft draft)?
+  onEmailReviewConfirmed;
   final ValueChanged<AppDestination> onDestinationSelected;
   final ValueChanged<bool> onAppearanceChanged;
   final VoidCallback onLogout;
@@ -796,6 +804,29 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
           .showSnackBar(SnackBar(content: Text(context.l10n.mediaSaveWarning)));
     }
 
+    final review = await Future<EmailReviewDraft?>.sync(
+      () => widget.onEmailReviewRequested?.call(record),
+    );
+    if (!mounted) return;
+    if (review != null && widget.onEmailReviewConfirmed != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => EmailReviewScreen(
+            record: record,
+            draft: review,
+            onConfirm: widget.onEmailReviewConfirmed!,
+            onConnectionRequired: () {
+              widget.onDestinationSelected(AppDestination.email);
+            },
+            onCaptureAnother: () {
+              Navigator.of(context).pop();
+              _reset();
+            },
+          ),
+        ),
+      );
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => LeadConfirmationScreen(

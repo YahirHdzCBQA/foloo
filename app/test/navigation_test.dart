@@ -22,6 +22,8 @@ Future<void> enterCapture(WidgetTester tester) async {
   expect(find.byKey(const ValueKey('profileScreen')), findsOneWidget);
   await tester.tap(find.byKey(const Key('profileContinueButton')));
   await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('emailOnboardingSkipButton')));
+  await tester.pumpAndSettle();
   expect(find.byKey(const ValueKey('originScreen')), findsOneWidget);
   await tester.tap(find.byKey(const Key('originContinueButton')));
   await tester.pumpAndSettle();
@@ -220,6 +222,10 @@ void main() {
     await tester.pumpWidget(const FolooApp());
     await enterCapture(tester);
     await completeRequiredLead(tester);
+    expect(find.byKey(const Key('emailReviewSubject')), findsOneWidget);
+    expect(find.textContaining('{nombre}'), findsNothing);
+    await tester.tap(find.byKey(const Key('confirmFollowUpButton')));
+    await tester.pumpAndSettle();
     expect(find.text('Lead guardado'), findsOneWidget);
     await tester.tap(find.byKey(const Key('captureAnotherButton')));
     await tester.pumpAndSettle();

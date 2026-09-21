@@ -63,12 +63,14 @@ parcial, no una resolución de Diseño.
 
 - `D-14`: whitelist de nueve variables y render defensivo.
 - `D-15`: defaults Event/Direct ES/EN, mensaje personal HTML ligero y plain text,
-  asunto/cuerpo/firma editables.
+  asunto/cuerpo/firma editables. El asunto inicial aprobado es
+  `Damos seguimiento, {nombre}` / `Following up, {nombre}`; aplica solo cuando
+  no existe una plantilla persistida y no reescribe snapshots históricos.
 - `D-16`: footer fijo con enlace Foloo de opt-out owner/workspace-scoped.
   La dirección postal/responsable legal exacto sigue pendiente de compliance;
   no se inventa ni bloquea el mecanismo técnico de baja.
-- `D-17`: Lead guardado crea seguimiento listo; solo confirmación envía o
-  encola; sin email no crea envío; reenvío manual es nueva intención.
+- `D-17`: Lead guardado abre la revisión concreta; solo el CTA `foloo` congela
+  y envía o encola; sin email no crea envío; reenvío manual es nueva intención.
 - `D-18`: cinco estados visibles y no retry automático tras aceptación ambigua;
   aceptación de proveedor no significa entrega final. Rebotes posteriores,
   si el proveedor los notifica, no se inventan como confirmación en V1.

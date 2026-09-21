@@ -86,6 +86,13 @@ física sobre la misma instalación de iPhone. No cerrar todavía.
   Gmail/Graph, adjuntos, opt-out, KMS y Lambda de egreso separada. Microsoft
   conserva `Mail.Send` y nunca eleva a `Mail.ReadWrite`; sigue pendiente la
   configuración externa, deploy y validación física.
+- QA Google 2026-09-19 confirmó autorización/callback real. El ajuste vigente
+  añade cuenta de envío opcional después del perfil, grandfathering de perfiles
+  existentes y refresh backend-authoritative al volver de OAuth/Correo; no
+  confunde la cuenta Cognito con el remitente ni condiciona captura.
+- Corrección local 2026-09-20: Guardar → Revisar → `foloo`, snapshot concreto
+  antes de outbox, confirmación online/offline veraz, asunto renderizado en
+  backend y aceptación Graph `202` sin cuerpo. Pendiente deploy y QA física.
 
 ## FL-020 — Trial & Subscription Foundation
 

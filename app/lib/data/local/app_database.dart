@@ -306,8 +306,39 @@ class EmailDeliveryDao extends DatabaseAccessor<AppDatabase>
             ..orderBy([(row) => OrderingTerm.desc(row.preparedAt)]))
           .get();
 
+  Future<StoredEmailFollowUp?> followUpForLead(String owner, String leadId) =>
+      (select(localEmailFollowUps)..where(
+            (row) =>
+                row.ownerUserId.equals(owner) & row.leadLocalId.equals(leadId),
+          ))
+          .getSingleOrNull();
+
+  Future<StoredEmailFollowUp?> followUpById(String owner, String id) =>
+      (select(localEmailFollowUps)..where(
+            (row) => row.ownerUserId.equals(owner) & row.localId.equals(id),
+          ))
+          .getSingleOrNull();
+
   Future<void> saveFollowUp(LocalEmailFollowUpsCompanion value) =>
       into(localEmailFollowUps).insertOnConflictUpdate(value);
+
+  Future<void> updatePreparedFollowUp(
+    String owner,
+    String id, {
+    required String subject,
+    required String plainBody,
+    required String htmlBody,
+  }) =>
+      (update(localEmailFollowUps)..where(
+            (row) => row.ownerUserId.equals(owner) & row.localId.equals(id),
+          ))
+          .write(
+            LocalEmailFollowUpsCompanion(
+              subject: Value(subject),
+              plainBody: Value(plainBody),
+              htmlBody: Value(htmlBody),
+            ),
+          );
 
   Future<void> markFollowUpSynced(String owner, String id) =>
       (update(localEmailFollowUps)..where(

@@ -20,6 +20,8 @@ Future<void> _login(WidgetTester tester, String username) async {
 Future<void> _completeProfile(WidgetTester tester) async {
   await tester.tap(find.byKey(const Key('profileContinueButton')));
   await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('emailOnboardingSkipButton')));
+  await tester.pumpAndSettle();
 }
 
 Future<void> _createEvent(WidgetTester tester, String name) async {
@@ -70,6 +72,8 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('leadType-partner')));
     await tester.tap(find.byKey(const Key('saveLeadButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirmFollowUpButton')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('captureAnotherButton')));
     await tester.pumpAndSettle();

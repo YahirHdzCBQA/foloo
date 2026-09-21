@@ -326,10 +326,7 @@ async function send(
         errorCode: `provider_${response.status}`,
         encryptedCredentials: current.encryptedCredentials,
       };
-    const payload =
-      response.status === 204
-        ? {}
-        : ((await response.json()) as { id?: string });
+    const payload = await acceptedProviderPayload(response);
     return {
       outcome: "accepted",
       providerMessageId: payload.id,
@@ -342,6 +339,15 @@ async function send(
       encryptedCredentials: current.encryptedCredentials,
     };
   }
+}
+
+/** Graph sendMail succeeds with HTTP 202 and intentionally has no body. */
+export async function acceptedProviderPayload(
+  response: Pick<Response, "status" | "text">,
+): Promise<{ id?: string }> {
+  if (response.status === 202 || response.status === 204) return {};
+  const body = await response.text();
+  return body.trim().length === 0 ? {} : (JSON.parse(body) as { id?: string });
 }
 
 export async function handler(command: ProviderCommand) {

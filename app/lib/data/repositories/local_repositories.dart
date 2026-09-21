@@ -168,14 +168,14 @@ class EmailDeliveryRepository {
     ),
   );
 
-  Future<void> prepareForLead({
+  Future<StoredEmailFollowUp?> prepareForLead({
     required String owner,
     required String leadId,
     required LeadDraft lead,
     required DemoProfile seller,
     required String language,
   }) async {
-    if (lead.email.trim().isEmpty) return;
+    if (lead.email.trim().isEmpty) return null;
     final templates = await _database.emailTemplateDao.listForOwner(owner);
     final origin = lead.originKind.name;
     final stored = templates.where(
@@ -185,8 +185,8 @@ class EmailDeliveryRepository {
     final subjectTemplate = stored.isNotEmpty
         ? stored.first.subject
         : (isEnglish
-              ? 'Nice meeting you, {nombre}'
-              : 'Un gusto conocerte, {nombre}');
+              ? 'Following up, {nombre}'
+              : 'Damos seguimiento, {nombre}');
     final bodyTemplate = stored.isNotEmpty
         ? stored.first.body
         : (isEnglish
@@ -262,30 +262,12 @@ class EmailDeliveryRepository {
           preparedAt: now,
         ),
       );
-      await _syncStore.enqueue(
-        ownerSub: owner,
-        entityType: SyncEntityType.emailFollowUp,
-        entityId: id,
-        action: 'create',
-        payload: {
-          'id': id,
-          'leadId': leadId,
-          'language': language,
-          'subject': renderedSubject,
-          'plainBody': plain,
-          'htmlBody': plain
-              .split('\n')
-              .map(
-                (line) => line.isEmpty
-                    ? '<br>'
-                    : '<p>${const HtmlEscape().convert(line)}</p>',
-              )
-              .join(),
-        },
-        now: now,
-      );
     });
+    return _database.emailDeliveryDao.followUpById(owner, id);
   }
+
+  Future<StoredEmailFollowUp?> forLead(String owner, String leadId) =>
+      _database.emailDeliveryDao.followUpForLead(owner, leadId);
 
   Future<String> confirm({
     required String owner,
@@ -293,13 +275,59 @@ class EmailDeliveryRepository {
     List<String> omittedContentIds = const [],
     String? parentIntentId,
     String? intentId,
+    String? subject,
+    String? plainBody,
   }) async {
     final id = intentId ?? _defaultLocalId();
     final now = DateTime.now().toUtc();
     final connection = await _database.emailDeliveryDao.connectionForOwner(
       owner,
     );
+    final followUp = await _database.emailDeliveryDao.followUpById(
+      owner,
+      followUpId,
+    );
+    if (followUp == null) throw StateError('Email follow-up not found.');
+    final finalSubject = (subject ?? followUp.subject).trim();
+    final finalPlainBody = (plainBody ?? followUp.plainBody).trim();
+    final finalHtmlBody = finalPlainBody
+        .split('\n')
+        .map(
+          (line) => line.isEmpty
+              ? '<br>'
+              : '<p>${const HtmlEscape().convert(line)}</p>',
+        )
+        .join();
     await _database.transaction(() async {
+      await _database.emailDeliveryDao.updatePreparedFollowUp(
+        owner,
+        followUpId,
+        subject: finalSubject,
+        plainBody: finalPlainBody,
+        htmlBody: finalHtmlBody,
+      );
+      if (followUp.syncState != 'synced' &&
+          !await _syncStore.hasPending(
+            owner,
+            SyncEntityType.emailFollowUp,
+            followUpId,
+          )) {
+        await _syncStore.enqueue(
+          ownerSub: owner,
+          entityType: SyncEntityType.emailFollowUp,
+          entityId: followUpId,
+          action: 'create',
+          payload: {
+            'id': followUpId,
+            'leadId': followUp.leadLocalId,
+            'language': followUp.languageCode,
+            'subject': finalSubject,
+            'plainBody': finalPlainBody,
+            'htmlBody': finalHtmlBody,
+          },
+          now: now,
+        );
+      }
       await _database.emailDeliveryDao.saveIntent(
         LocalEmailSendIntentsCompanion.insert(
           localId: id,

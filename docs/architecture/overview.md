@@ -57,6 +57,13 @@ renovables con KMS, pero no tiene acceso a PostgreSQL. Callback OAuth y opt-out
 son las únicas rutas públicas sin JWT y usan respectivamente state+PKCE de un
 solo uso y token opaco.
 
+La cuenta Cognito autentica Foloo; la cuenta Google/Microsoft solo autoriza el
+envío y puede ser distinta. Tras perfil, un paso opcional guarda por `sub`
+únicamente si fue completado/omitido; no guarda ni concede conexión. El estado
+OAuth real se consulta al backend al entrar a Correo y al reanudar desde el
+navegador. La respuesta móvil se limita a provider, identidad enmascarada y
+estado; los tokens permanecen cifrados server-side.
+
 ### Boundary de identidad y tenancy
 
 API Gateway valida issuer/audience/tiempo del JWT. La Lambda obtiene `sub` solo
@@ -127,8 +134,10 @@ No forman parte de V1 Google Sheets, Transcribe/IA, QR, Teams o HQ dashboard.
 5. El contador remoto autoriza la nueva captura o conserva el borrador y abre
    paywall al sexto Lead.
 6. La futura sync envía operaciones idempotentes y medios por colas separadas.
-7. Guardar prepara un follow-up local, pero solo la confirmación del vendedor
-   crea intención de envío. El snapshot revisado queda congelado antes de sync;
+7. Guardar prepara un follow-up local y abre “Revisar”; no sincroniza todavía
+   ese follow-up ni crea intención. El CTA `foloo` congela la edición concreta,
+   encola follow-up + intención en orden y dispara sync cuando hay conectividad.
+   El snapshot revisado queda congelado antes de sync;
    destinatario, adjuntos y footer de baja se resuelven server-side. El backend
    envía con Google/Microsoft autorizada;
    los estados regresan al dispositivo. Una aceptación ambigua no se reintenta

@@ -28,6 +28,10 @@ como retry seguro aun si Foloo deduplica la operación API.
    puede descifrarlas; la API privada registra/reemplaza ciphertext y nunca
    entrega tokens a Flutter. No crear versiones de Secrets Manager en cada
    refresh.
+   El endpoint autenticado de estado devuelve únicamente provider, dirección
+   enmascarada y estado. Flutter lo vuelve a consultar al abrir Correo y al
+   reanudar desde el navegador; una marca local de onboarding nunca acredita
+   conexión OAuth.
 3. Una intención explícita usa UUID/idempotency key única y snapshot de
    destinatario, identidad remitente, template y adjuntos. Al iniciar una
    llamada potencialmente aceptable, persistir intento `sending`. Si se
@@ -35,8 +39,13 @@ como retry seguro aun si Foloo deduplica la operación API.
    `confirmation_required`; prohibir retry automático. Solo fallos
    inequívocamente previos a la petición, 429/5xx explícitos y auth renovable
    pueden reintentarse con la misma intención. Un reenvío manual usa UUID nuevo.
+   La preparación local no entra a la outbox hasta que el vendedor confirma la
+   pantalla “Revisar”; así una edición concreta nunca compite con una versión
+   temprana ya creada en servidor.
 4. La aceptación de Gmail/Graph se registra como `sent` con ID/fecha del
    proveedor cuando exista, pero no se presenta como entrega final al buzón.
+   Graph `sendMail` responde `202` sin body; ese contrato es aceptación válida,
+   no una respuesta perdida ni un motivo para `confirmation_required`.
    Historial conserva la identidad efectiva original aun al cambiar cuenta.
 5. La baja usa token opaco de alta entropía, almacenado como hash y vinculado a
    workspace/destinatario; el endpoint público es idempotente, no revela

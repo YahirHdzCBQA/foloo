@@ -110,6 +110,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `AUT-11` | Logout Cognito limpia sesión sensible y vuelve a Login sin borrar datos del producto. |
 | `AUT-12` | Filas históricas sin owner o de FakeAuth se preservan y no se reasignan silenciosamente. |
 | `AUT-13` | MFA de usuario, passwordless, social login y UI de recuperación quedan fuera; account recovery permanece habilitado en Cognito para una FL futura. |
+| `AUT-14` | Después de completar un perfil nuevo, el onboarding ofrece conectar opcionalmente la cuenta Google/Microsoft desde la que se enviarán seguimientos o “Configurar después”. Omitir no bloquea captura ni reaparece en cada inicio; la disposición del paso se guarda localmente por `sub`, sin confundirse con el estado OAuth autoritativo. Perfiles existentes anteriores al paso continúan sin reiniciar onboarding. |
 
 ### 4.2 Eventos y origen
 
@@ -221,7 +222,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | ID | Requerimiento de plantilla |
 |---|---|
 | `PLT-01` | Hay plantillas editables separadas para origen Evento y Directo, elegidas por el origen estructurado del Lead, no por texto visible. |
-| `PLT-02` | Cada variante ES/EN conserva asunto, cuerpo y firma editables por cuenta; el default es un mensaje personal sin diseño de marketing. Evento menciona `{evento}` y Directo `{lugar}`. Se genera HTML ligero y plain text compatible. |
+| `PLT-02` | Cada variante ES/EN conserva asunto, cuerpo y firma editables por cuenta; el default es un mensaje personal sin diseño de marketing. El asunto inicial es `Damos seguimiento, {nombre}` en ES y `Following up, {nombre}` en EN. Evento menciona `{evento}` y Directo `{lugar}`. Se genera HTML ligero y plain text compatible. Cambiar defaults no sobrescribe plantillas persistidas ni snapshots históricos. |
 | `PLT-03` | La whitelist única V1 es `{nombre}`, `{apellido}`, `{empresa}`, `{puesto}`, `{evento}`, `{lugar}`, `{contenido}`, `{nombreVendedor}` y `{empresaVendedor}`. `{contenido}` representa los nombres congelados en el Lead, no IDs ni el estado actual de la biblioteca. |
 | `PLT-04` | Variables desconocidas o llaves abiertas bloquean guardar. El render defensivo de datos históricos omite valores ausentes y nunca envía tokens sin resolver, `null` ni `undefined`. No ejecuta expresiones. |
 | `PLT-05` | Todo follow-up incorpora un footer de privacidad/baja no editable, específico de Evento/Directo y ES/EN, con enlace Foloo operativo para opt-out dentro del scope del vendedor/workspace. |
@@ -230,15 +231,15 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 
 | ID | Requerimiento de salida |
 |---|---|
-| `SAL-01` | Guardar Lead genera follow-up listo para revisión con origen y adjuntos congelados; solo una confirmación explícita del vendedor crea la intención de envío. Sin email no crea un envío imposible. |
+| `SAL-01` | Guardar Lead confirma primero la escritura local y abre automáticamente “Revisar” para ese Lead, con destinatario inmutable, asunto/cuerpo ya renderizados y adjuntos congelados. Editar ese mensaje concreto no cambia la plantilla global; solo el CTA explícito `foloo` congela el snapshot y crea la intención de envío. Sin email no crea un envío imposible ni pone en riesgo el Lead guardado. |
 | `SAL-02` | El Lead nunca depende del correo. Una confirmación offline persiste intención owner-scoped en la outbox existente y se procesa al recuperar señal; retry técnico conserva identidad, reenvío manual crea una intención nueva. |
-| `SAL-03` | Estados visibles ES/EN: Pendiente, Enviando, Enviado, Error y Estado por confirmar. Enviado significa aceptación confirmada por Gmail/Graph, no entrega final. Si pudo haber aceptación antes de un timeout, no hay retry automático: el vendedor ve advertencia y decide. |
+| `SAL-03` | La confirmación posterior a “Revisar” representa el estado real con texto ES/EN: Pendiente, Enviando, Enviado, Error y Estado por confirmar. Enviado significa aceptación confirmada por Gmail/Graph, no entrega final. Si pudo haber aceptación antes de un timeout, no hay retry automático: el vendedor ve advertencia y decide. |
 | `SAL-04` | El servidor ejecuta envío, sustitución y adjuntos; no hay credenciales ni cliente de correo del proveedor en Flutter. |
 | `SAL-05` | La identidad/dominio de envío autorizado cumple la autenticación de correo aplicable; rebotes y reputación se gestionan sin afirmar entrega por mera aceptación del proveedor. |
 | `SAL-06` | El follow-up sale de la cuenta de correo autorizada del vendedor: Gmail/Google Workspace mediante OAuth 2.0 + Gmail API, u Outlook/Microsoft 365 mediante OAuth 2.0 + Microsoft Graph. Una abstracción de proveedor aísla la lógica Foloo. No se usa SMTP manual, SES ni remitente general Foloo para estos follow-ups. |
 | `SAL-07` | Opt-out por enlace público opaco e idempotente se guarda server-side por vendedor/workspace y bloquea futuros envíos a esa dirección sin borrar Lead, Content ni historial. Errores definitivos se separan de reintentos seguros; attachments no disponibles o grandes requieren decisión explícita de omitir o cancelar, sin alterar el snapshot histórico. Microsoft V1 conserva únicamente `Mail.Send`: no solicita `Mail.Read`/`Mail.ReadWrite`; cualquier adjunto que requiera esos permisos aplica D-19. |
-| `SAL-08` | La conexión OAuth del correo se vincula en backend al Cognito `sub`/workspace; el remitente efectivo deriva de la identidad autorizada por el proveedor, nunca de un `From` arbitrario enviado por Flutter. Tokens, secretos y credenciales del proveedor no se guardan en Flutter, Drift, SharedPreferences ni Git. El usuario puede identificar el proveedor/cuenta conectada, reconectar y desconectar sin ocultar follow-ups históricos. |
-| `SAL-09` | Sin cuenta conectada se puede seguir usando Foloo pero enviar pide conectar Google/Microsoft. Una autorización revocada pide reconectar sin pérdida. Un pendiente creado bajo otra identidad no se envía desde la nueva sin confirmación explícita; el historial conserva proveedor, remitente, destinatario, fecha, estado e intención originales sin secretos. |
+| `SAL-08` | La conexión OAuth del correo se vincula en backend al Cognito `sub`/workspace; el remitente efectivo deriva de la identidad autorizada por el proveedor, nunca de un `From` arbitrario enviado por Flutter. La cuenta Foloo/Cognito y la cuenta de envío son conceptos independientes y pueden ser distintas. Tokens, secretos y credenciales del proveedor no se guardan en Flutter, Drift, SharedPreferences ni Git. Flutter obtiene del backend solo proveedor, identidad enmascarada segura y estado, y refresca esa autoridad al abrir Correo y al regresar de OAuth. El usuario puede identificar la cuenta conectada, reconectar y desconectar sin ocultar follow-ups históricos. |
+| `SAL-09` | Sin cuenta conectada se puede omitir el paso inicial y seguir usando Foloo/capturando Leads; solo enviar pide conectar Google/Microsoft. Una autorización revocada pide reconectar sin pérdida. Un pendiente creado bajo otra identidad no se envía desde la nueva sin confirmación explícita; el historial conserva proveedor, remitente, destinatario, fecha, estado e intención originales sin secretos. |
 
 ### 4.8 Navegación, apariencia e idioma
 

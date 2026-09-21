@@ -4,6 +4,7 @@
 /// separate, explicitly confirmed follow-up flow (PLT-*, SAL-01).
 library;
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -43,6 +44,7 @@ class EmailScreen extends StatefulWidget {
     required this.contentCount,
     required this.records,
     required this.contentFiles,
+    this.active = true,
     super.key,
   });
   final int recordsCount;
@@ -60,12 +62,13 @@ class EmailScreen extends StatefulWidget {
   final int contentCount;
   final List<SessionLead> records;
   final List<ContentFile> contentFiles;
+  final bool active;
 
   @override
   State<EmailScreen> createState() => _EmailScreenState();
 }
 
-class _EmailScreenState extends State<EmailScreen> {
+class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _eventSubject = TextEditingController();
   final _directSubject = TextEditingController();
@@ -81,6 +84,8 @@ class _EmailScreenState extends State<EmailScreen> {
   List<StoredEmailFollowUp> _followUps = const [];
   List<StoredEmailSendIntent> _intents = const [];
   bool _connectionBusy = false;
+  bool _connectionUnavailable = false;
+  int _deliveryRequestGeneration = 0;
 
   TextEditingController get _subject =>
       _kind == _TemplateKind.event ? _eventSubject : _directSubject;
@@ -103,6 +108,7 @@ class _EmailScreenState extends State<EmailScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadTemplates();
     _loadDelivery();
   }
@@ -112,8 +118,18 @@ class _EmailScreenState extends State<EmailScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.ownerSub != widget.ownerSub) {
       _stored.clear();
+      _connection = null;
       _loadTemplates();
       _loadDelivery();
+    } else if (!oldWidget.active && widget.active) {
+      unawaited(_loadDelivery());
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && widget.active) {
+      unawaited(_loadDelivery());
     }
   }
 
@@ -134,9 +150,12 @@ class _EmailScreenState extends State<EmailScreen> {
   Future<void> _loadDelivery() async {
     final owner = widget.ownerSub;
     if (owner == null) return;
+    final generation = ++_deliveryRequestGeneration;
+    if (mounted) setState(() => _connectionBusy = true);
     final followUps = await widget.deliveryRepository?.list(owner) ?? const [];
     final intents = await widget.deliveryRepository?.intents(owner) ?? const [];
     EmailConnectionView? connection;
+    var unavailable = false;
     try {
       connection = await widget.connectionService?.status(owner);
       if (connection != null) {
@@ -150,12 +169,18 @@ class _EmailScreenState extends State<EmailScreen> {
       }
     } on Object {
       connection = null;
+      unavailable = widget.connectionService != null;
     }
-    if (!mounted || owner != widget.ownerSub) return;
+    if (!mounted ||
+        owner != widget.ownerSub ||
+        generation != _deliveryRequestGeneration) {
+      return;
+    }
     setState(() {
       _followUps = followUps;
       _intents = intents;
       _connection = connection;
+      _connectionUnavailable = unavailable;
       _connectionBusy = false;
     });
   }
@@ -387,14 +412,40 @@ class _EmailScreenState extends State<EmailScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            connected
-                ? (_english ? 'Connected sender' : 'Remitente conectado')
-                : (_english ? 'Connect your email' : 'Conecta tu correo'),
+            context.l10n.emailSendingAccount,
             style: const TextStyle(fontWeight: FontWeight.w900),
           ),
-          if (_connection != null) ...[
+          if (_connection == null) ...[
             const SizedBox(height: 4),
-            Text('${_connection!.provider} · ${_connection!.senderAddress}'),
+            Text(context.l10n.emailNoSendingAccount),
+          ] else ...[
+            const SizedBox(height: 4),
+            Text(
+              '${_connection!.provider == 'microsoft' ? 'Microsoft' : 'Google'} · ${_connection!.senderAddress}',
+            ),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Icon(
+                  connected ? Icons.check_circle_outline : Icons.sync_problem,
+                  size: 15,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  connected
+                      ? context.l10n.emailConnectionConnected
+                      : context.l10n.emailConnectionReconnect,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ],
+          if (_connectionUnavailable) ...[
+            const SizedBox(height: 6),
+            Text(
+              context.l10n.emailConnectionUnavailable,
+              style: TextStyle(color: palette.inkSecondary, fontSize: 12),
+            ),
           ],
           const SizedBox(height: 10),
           if (connected)
@@ -402,11 +453,11 @@ class _EmailScreenState extends State<EmailScreen> {
               children: [
                 TextButton(
                   onPressed: _connectionBusy ? null : _disconnect,
-                  child: Text(_english ? 'Disconnect' : 'Desconectar'),
+                  child: Text(context.l10n.emailConnectionDisconnect),
                 ),
                 const Spacer(),
                 IconButton(
-                  tooltip: _english ? 'Refresh status' : 'Actualizar estado',
+                  tooltip: context.l10n.emailConnectionRefresh,
                   onPressed: _connectionBusy ? null : _loadDelivery,
                   icon: const Icon(Icons.refresh),
                 ),
@@ -556,6 +607,8 @@ class _EmailScreenState extends State<EmailScreen> {
 
   @override
   void dispose() {
+    _deliveryRequestGeneration++;
+    WidgetsBinding.instance.removeObserver(this);
     for (final controller in [
       _eventSubject,
       _directSubject,

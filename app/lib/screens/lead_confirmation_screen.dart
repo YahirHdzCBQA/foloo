@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/session_lead.dart';
+import '../models/email_review.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 
@@ -14,11 +15,15 @@ class LeadConfirmationScreen extends StatefulWidget {
   const LeadConfirmationScreen({
     required this.record,
     required this.onCaptureAnother,
+    this.emailOutcome,
+    this.attachmentNames = const [],
     super.key,
   });
 
   final SessionLead record;
   final VoidCallback onCaptureAnother;
+  final EmailReviewOutcome? emailOutcome;
+  final List<String> attachmentNames;
 
   @override
   State<LeadConfirmationScreen> createState() => _LeadConfirmationScreenState();
@@ -133,11 +138,14 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Row(
                           children: [
-                            const CircleAvatar(
+                            CircleAvatar(
                               radius: 10,
-                              backgroundColor: FolooColors.success,
+                              backgroundColor: _statusColor(
+                                statuses[index].$3,
+                                palette,
+                              ),
                               child: Icon(
-                                Icons.check,
+                                _statusIcon(statuses[index].$3),
                                 color: FolooColors.white,
                                 size: 13,
                               ),
@@ -227,7 +235,69 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
   static String _time(DateTime date) =>
       '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:${date.second.toString().padLeft(2, '0')}';
 
-  List<(String, String)> _statusRows() {
-    return [(context.l10n.savedOnDevice, context.l10n.savedOnDeviceDetail)];
+  List<(String, String, EmailReviewOutcome?)> _statusRows() {
+    final rows = <(String, String, EmailReviewOutcome?)>[
+      (context.l10n.savedOnDevice, context.l10n.savedOnDeviceDetail, null),
+    ];
+    switch (widget.emailOutcome) {
+      case EmailReviewOutcome.sent:
+        rows.add((
+          context.l10n.emailSentToLead,
+          context.l10n.emailAcceptedDetail,
+          EmailReviewOutcome.sent,
+        ));
+        break;
+      case EmailReviewOutcome.pending:
+      case EmailReviewOutcome.sending:
+        rows.add((
+          context.l10n.emailPendingForLead,
+          context.l10n.emailWillSendOnline,
+          EmailReviewOutcome.pending,
+        ));
+        break;
+      case EmailReviewOutcome.confirmationRequired:
+        rows.add((
+          context.l10n.emailConfirmationRequired,
+          context.l10n.emailAmbiguousDetail,
+          EmailReviewOutcome.confirmationRequired,
+        ));
+        break;
+      case EmailReviewOutcome.error:
+        rows.add((
+          context.l10n.emailSendError,
+          context.l10n.emailErrorDetail,
+          EmailReviewOutcome.error,
+        ));
+        break;
+      case EmailReviewOutcome.connectionRequired:
+      case null:
+        break;
+    }
+    if (widget.attachmentNames.isNotEmpty) {
+      rows.add((
+        context.l10n.emailAttachmentCount(widget.attachmentNames.length),
+        widget.attachmentNames.join(' · '),
+        widget.emailOutcome,
+      ));
+    }
+    return rows;
   }
+
+  static Color _statusColor(
+    EmailReviewOutcome? outcome,
+    FolooPalette palette,
+  ) => switch (outcome) {
+    EmailReviewOutcome.error => palette.error,
+    EmailReviewOutcome.pending ||
+    EmailReviewOutcome.sending ||
+    EmailReviewOutcome.confirmationRequired => palette.pending,
+    _ => palette.success,
+  };
+
+  static IconData _statusIcon(EmailReviewOutcome? outcome) => switch (outcome) {
+    EmailReviewOutcome.error => Icons.close,
+    EmailReviewOutcome.pending || EmailReviewOutcome.sending => Icons.schedule,
+    EmailReviewOutcome.confirmationRequired => Icons.help_outline,
+    _ => Icons.check,
+  };
 }

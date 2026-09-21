@@ -57,6 +57,8 @@ Future<void> login(
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(const Key('profileContinueButton')));
   await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('emailOnboardingSkipButton')));
+  await tester.pumpAndSettle();
   if (direct) {
     await tester.tap(find.byKey(const Key('originDirectTab')));
     await tester.pump();
@@ -94,6 +96,8 @@ void main() {
     await tester.tap(find.byKey(const Key('loginButton')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('profileContinueButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('emailOnboardingSkipButton')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('originManageEventsButton')));
     await tester.pumpAndSettle();
@@ -460,7 +464,7 @@ void main() {
           .widget<TextField>(find.byKey(const ValueKey('emailSubject-direct')))
           .controller
           ?.text,
-      'Un gusto conocerte, {nombre}',
+      'Damos seguimiento, {nombre}',
     );
     await tester.enterText(
       find.byKey(const ValueKey('emailSubject-direct')),
@@ -497,6 +501,10 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('leadType-partner')));
     await tester.tap(find.byKey(const Key('saveLeadButton')));
+    await tester.pumpAndSettle();
+    expect(find.text('Revisar'), findsOneWidget);
+    expect(find.textContaining('{nombre}'), findsNothing);
+    await tester.tap(find.byKey(const Key('confirmFollowUpButton')));
     await tester.pumpAndSettle();
     expect(find.text('Guardado en el dispositivo'), findsOneWidget);
     expect(find.text('Correo al lead'), findsNothing);

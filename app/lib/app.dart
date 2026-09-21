@@ -21,11 +21,13 @@ import 'models/app_destination.dart';
 import 'models/app_event.dart';
 import 'models/lead_draft.dart';
 import 'models/content_file.dart';
+import 'models/email_review.dart';
 import 'models/session_lead.dart';
 import 'screens/event_screen.dart';
 import 'screens/account_access_screen.dart';
 import 'screens/content_screen.dart';
 import 'screens/email_screen.dart';
+import 'screens/email_onboarding_screen.dart';
 import 'screens/lead_capture_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/origin_selection_screen.dart';
@@ -41,7 +43,7 @@ import 'sync/media_binary_transfer.dart';
 import 'sync/sync_models.dart';
 import 'theme/foloo_theme.dart';
 
-enum _AuthenticatedStage { profile, origin, shell }
+enum _AuthenticatedStage { profile, email, origin, shell }
 
 enum _AccessStage { login, signUp, confirmation }
 
@@ -83,6 +85,7 @@ class FolooApp extends StatefulWidget {
 }
 
 class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
+  static const _emailOnboardingPreference = 'emailOnboardingStatus';
   // Session orchestration and local fixtures.
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   _AuthenticatedStage _stage = _AuthenticatedStage.profile;
@@ -113,6 +116,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   DateTime? _scheduledSyncAt;
   String? _eventSelectionMode;
   SyncEngine? _syncEngine;
+  EmailConnectionService? _emailConnectionService;
 
   DateTime get _now => widget.nowProvider?.call() ?? DateTime.now();
 
@@ -161,6 +165,10 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     _authRepository.addListener(_onAuthStateChanged);
     _connectivity = widget.connectivityService ?? DeviceConnectivityService();
     if (widget.syncApi != null) {
+      _emailConnectionService = EmailConnectionService(
+        widget.syncApi!,
+        widget.syncSessionProvider ?? const NoSyncSessionProvider(),
+      );
       _syncEngine = SyncEngine(
         _persistence.syncStore,
         widget.syncApi!,
@@ -276,6 +284,20 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       userId,
       'eventSelectionMode',
     );
+    var emailOnboardingStatus = await _persistence.preferences.read(
+      userId,
+      _emailOnboardingPreference,
+    );
+    // Profiles created before this optional step are grandfathered so an app
+    // update never restarts onboarding or blocks access to existing data.
+    if (storedProfile != null && emailOnboardingStatus == null) {
+      emailOnboardingStatus = 'legacy';
+      await _persistence.preferences.write(
+        userId,
+        _emailOnboardingPreference,
+        emailOnboardingStatus,
+      );
+    }
     final hasActive = storedEvents.any((event) => event.active);
     final shouldChooseAutomatically =
         storedEventSelectionMode != 'manual' || !hasActive;
@@ -319,9 +341,11 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
         ..addAll(storedLeads);
       _origin = null;
       _destination = AppDestination.home;
-      _stage = _profileCompleted
-          ? _AuthenticatedStage.origin
-          : _AuthenticatedStage.profile;
+      _stage = !_profileCompleted
+          ? _AuthenticatedStage.profile
+          : emailOnboardingStatus == 'pending'
+          ? _AuthenticatedStage.email
+          : _AuthenticatedStage.origin;
       _themeMode = storedTheme == 'dark' ? ThemeMode.dark : ThemeMode.light;
       _locale =
           storedLocale != null &&
@@ -352,6 +376,54 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     if (mounted) setState(() => _sessionLeads.insert(0, record));
     unawaited(_synchronize(trigger: SyncTrigger.postSave));
     return record;
+  }
+
+  Future<EmailReviewDraft?> _emailReviewForLead(SessionLead record) async {
+    final followUp = await _persistence.emailDelivery.forLead(
+      _userId,
+      record.localId,
+    );
+    if (followUp == null) return null;
+    return EmailReviewDraft(
+      followUpId: followUp.localId,
+      leadName: record.lead.fullName,
+      recipientAddress: followUp.recipientAddress,
+      subject: followUp.subject,
+      message: followUp.plainBody,
+      attachmentNames: record.lead.contentNames,
+    );
+  }
+
+  Future<EmailReviewOutcome> _confirmEmailReview(EmailReviewDraft draft) async {
+    if (_isOnline && _emailConnectionService != null) {
+      try {
+        final connection = await _emailConnectionService!.status(_userId);
+        if (connection == null || connection.status != 'connected') {
+          return EmailReviewOutcome.connectionRequired;
+        }
+      } on Object {
+        // Transport/session can disappear after the visual connectivity
+        // signal. The durable intent below remains pending for the outbox.
+      }
+    }
+    final intentId = await _persistence.emailDelivery.confirm(
+      owner: _userId,
+      followUpId: draft.followUpId,
+      subject: draft.subject,
+      plainBody: draft.message,
+    );
+    if (!_isOnline) return EmailReviewOutcome.pending;
+    await _synchronize(trigger: SyncTrigger.postSave);
+    final intents = await _persistence.emailDelivery.intents(_userId);
+    final matches = intents.where((item) => item.localId == intentId);
+    final intent = matches.isEmpty ? null : matches.first;
+    return switch (intent?.status) {
+      'sent' => EmailReviewOutcome.sent,
+      'sending' => EmailReviewOutcome.sending,
+      'confirmation_required' => EmailReviewOutcome.confirmationRequired,
+      'error' => EmailReviewOutcome.error,
+      _ => EmailReviewOutcome.pending,
+    };
   }
 
   Future<void> _updateLead(SessionLead record, LeadDraft updated) async {
@@ -427,6 +499,11 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
 
   Future<void> _completeProfile(DemoProfile profile) async {
     try {
+      await _persistence.preferences.write(
+        _userId,
+        _emailOnboardingPreference,
+        'pending',
+      );
       await _persistence.profiles.save(_userId, profile);
     } catch (_) {
       if (mounted) _showPersistenceError();
@@ -436,9 +513,23 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     setState(() {
       _profile = profile;
       _profileCompleted = true;
-      _stage = _AuthenticatedStage.origin;
+      _stage = _AuthenticatedStage.email;
     });
     unawaited(_synchronize(trigger: SyncTrigger.postSave));
+  }
+
+  Future<void> _completeEmailOnboarding(bool skipped) async {
+    try {
+      await _persistence.preferences.write(
+        _userId,
+        _emailOnboardingPreference,
+        skipped ? 'skipped' : 'completed',
+      );
+    } catch (_) {
+      if (mounted) _showPersistenceError();
+      return;
+    }
+    if (mounted) setState(() => _stage = _AuthenticatedStage.origin);
   }
 
   void _selectOrigin(OriginSelection selection) {
@@ -897,6 +988,12 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
                 key: const ValueKey('profileScreen'),
                 onContinue: _completeProfile,
               ),
+              _AuthenticatedStage.email => EmailOnboardingScreen(
+                key: const ValueKey('emailOnboardingStage'),
+                ownerSub: _userId,
+                connectionService: _emailConnectionService,
+                onComplete: _completeEmailOnboarding,
+              ),
               _AuthenticatedStage.origin => OriginSelectionScreen(
                 key: const ValueKey('originScreen'),
                 events: List.unmodifiable(_eventsWithCounts),
@@ -931,6 +1028,8 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           recordsCount: _sessionLeads.length,
           darkMode: darkMode,
           onLeadSaved: _saveLead,
+          onEmailReviewRequested: _emailReviewForLead,
+          onEmailReviewConfirmed: _confirmEmailReview,
           onOriginChanged: _changeCaptureOrigin,
           onCreateEvent: _createEvent,
           onContentAdded: _addContentFile,
@@ -1001,10 +1100,8 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           deliveryRepository: _persistence.emailDelivery,
           connectionService: widget.syncApi == null
               ? null
-              : EmailConnectionService(
-                  widget.syncApi!,
-                  widget.syncSessionProvider ?? const NoSyncSessionProvider(),
-                ),
+              : _emailConnectionService,
+          active: _destination == AppDestination.email,
           onSendQueued: () =>
               unawaited(_synchronize(trigger: SyncTrigger.postSave)),
           recordsCount: _sessionLeads.length,

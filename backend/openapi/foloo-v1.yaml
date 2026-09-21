@@ -14,7 +14,7 @@ paths:
   /email/connection:
     get:
       operationId: getEmailConnection
-      description: Returns safe provider/sender/status metadata and never OAuth tokens.
+      description: Returns backend-authoritative provider, masked sender and status metadata; never OAuth tokens.
       responses:
         "200": { $ref: "#/components/responses/DataResponse" }
     delete:

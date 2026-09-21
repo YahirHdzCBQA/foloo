@@ -4,7 +4,7 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 ## E-01 · Alta, confirmación, sesión y perfil
 
-**Trazas:** `AUT-01`–`AUT-13`, `SYN-09`.
+**Trazas:** `AUT-01`–`AUT-14`, `SYN-09`, `SAL-08`, `SAL-09`.
 
 - Dado un email nuevo, al registrarse con contraseña, entonces Cognito envía un
   código y la app solicita confirmación sin pedir datos de perfil.
@@ -12,6 +12,10 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   se expresan en ES/EN sin texto AWS crudo.
 - Login válido restaura el `sub`; perfil incompleto abre Tu perfil y perfil
   completo abre Inicio.
+- Al completar un perfil nuevo se ofrece una cuenta de envío Google/Microsoft
+  distinta de la cuenta Foloo. Conectar u omitir permite continuar; omitir no
+  bloquea Leads ni reaparece cada inicio. Usuarios con perfil previo no repiten
+  onboarding y la disposición local de este paso nunca suplanta el estado OAuth.
 - Cerrar/reabrir restaura sesión válida. Logout vuelve a Login y conserva datos.
 - Dos `sub` no ven perfil, eventos, leads o preferencias del otro; filas
   históricas no se reclaman.
@@ -111,6 +115,9 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 - Event/Direct ES/EN eligen por origen estructurado; asunto, cuerpo y firma
   editados sobreviven reinicio y cambio de cuenta. Preview del Lead real no envía.
+- Sin plantilla persistida, el asunto inicial es `Damos seguimiento, {nombre}`
+  en ES y `Following up, {nombre}` en EN, renderizado con el nombre real. Una
+  plantilla personalizada o un follow-up histórico congelado no se reescriben.
 - Solo los nueve tokens `PLT-03` se guardan; tokens desconocidos o llaves
   incompletas se rechazan. Datos históricos ausentes nunca producen tokens
   literales, `null`, `undefined` ni información inventada. `{contenido}` usa
@@ -118,9 +125,14 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Footer fijo ES/EN de Evento o Directo incluye enlace de baja operativo y no
   editable. Baja repetida es idempotente; token inválido no cambia datos; otro
   workspace no se ve afectado; Lead e historial se preservan.
-- Guardar Lead crea seguimiento listo pero no envía. Falta de email se muestra
-  sin crear envío imposible. Confirmación online envía; offline persiste la
-  intención y la outbox la reanuda al recuperar señal, incluso tras reinicio.
+- Guardar Lead confirma primero la persistencia local y abre “Revisar” con
+  destinatario inmutable, texto concreto sin tokens y adjuntos congelados. La
+  edición ahí no muta la plantilla global; solo `foloo` crea la intención.
+  Con teclado visible, la revisión sigue siendo desplazable, conserva la
+  edición y mantiene el CTA accesible; tap fuera o drag descartan el teclado.
+  Falta de email se muestra sin crear envío imposible. Confirmación online
+  refleja la respuesta real del proveedor; offline persiste la intención y la
+  outbox la reanuda al recuperar señal, incluso tras reinicio.
 - Pendiente/Enviando/Enviado/Error/Estado por confirmar se muestran con texto,
   sin equiparar aceptación a entrega. Timeout ambiguo tras posible aceptación
   jamás reintenta solo; nuevo intento exige advertencia/decisión. Un reenvío
@@ -133,6 +145,12 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   pendiente de identidad anterior requiere confirmar el nuevo remitente. Los
   envíos históricos mantienen su remitente efectivo y ninguna cuenta B accede
   a conexión, plantilla, follow-up u opt-out de A.
+- Correo consulta el backend al abrirse y al volver del navegador. Con conexión
+  muestra proveedor, dirección enmascarada y estado; jamás infiere conexión por
+  haber tocado OAuth ni reutiliza el estado visual de otro `sub`.
+- Microsoft Graph `202 Accepted` sin cuerpo se registra como Enviado/aceptado,
+  no como respuesta perdida. El historial nunca vuelve a mostrar variables de
+  plantilla crudas después de reconciliar con backend.
 
 ## E-09 · Offline total y sincronización
 

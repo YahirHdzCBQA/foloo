@@ -7,11 +7,13 @@ import {
   appendFixedEmailFooter,
   contentNamesForEmail,
   defaultEmailTemplate,
+  renderEmailPart,
   renderEmailPreview,
   type EmailLanguage,
 } from "../domain/email_templates.js";
 import {
   incompatibleAttachments,
+  maskedAddress,
   normalizedRecipient,
   opaqueToken,
   tokenHash,
@@ -35,7 +37,15 @@ export class EmailApplication {
   }
 
   async connection(subject: string) {
-    return this.repository.connection(await this.principal(subject));
+    const connection = await this.repository.connection(
+      await this.principal(subject),
+    );
+    return connection
+      ? {
+          ...connection,
+          senderAddress: maskedAddress(connection.senderAddress),
+        }
+      : null;
   }
 
   async beginConnection(subject: string, provider: EmailProviderName) {
@@ -129,7 +139,7 @@ export class EmailApplication {
       id,
       context,
       language,
-      subject: template.subject,
+      subject: rendered.subject,
       body: template.body,
       signature: template.signature,
       footer: footerStart >= 0 ? rendered.plainText.slice(footerStart + 2) : "",
@@ -146,7 +156,34 @@ export class EmailApplication {
   }
 
   async list(subject: string) {
-    return this.repository.listFollowUps(await this.principal(subject));
+    const principal = await this.principal(subject);
+    const rows = (await this.repository.listFollowUps(principal)) as Array<
+      Record<string, unknown>
+    >;
+    return Promise.all(
+      rows.map(async (row) => {
+        const leadId = row.leadId;
+        const rawSubject = row.subject;
+        if (
+          typeof leadId !== "string" ||
+          typeof rawSubject !== "string" ||
+          !rawSubject.includes("{")
+        )
+          return row;
+        const context = await this.repository.followUpContext(
+          principal,
+          leadId,
+        );
+        context.values.contenido = context.contentNames.join(", ");
+        return {
+          ...row,
+          subject: renderEmailPart(rawSubject, context.values)
+            .replace(/[\r\n]+/g, " ")
+            .replace(/,\s*$/, "")
+            .trim(),
+        };
+      }),
+    );
   }
 
   async confirm(

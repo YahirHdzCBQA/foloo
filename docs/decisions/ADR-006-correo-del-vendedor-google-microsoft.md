@@ -21,6 +21,13 @@ no demuestra control del buzón externo.
   Google/Microsoft en widgets ni de un `From` suministrado por Flutter.
 - Backend vincula la identidad externa autorizada al Cognito `sub`/workspace y
   deriva de ella el remitente efectivo.
+- La cuenta Cognito/Foloo y la cuenta externa de envío son identidades distintas
+  que pueden usar direcciones diferentes. Después del perfil, Foloo ofrece la
+  conexión como onboarding opcional; “Configurar después” no limita captura y
+  no equivale a tener OAuth conectado.
+- Backend es la autoridad del estado de conexión. Flutter refresca al abrir
+  Correo y al volver del navegador y solo recibe provider, dirección enmascarada
+  y estado; tocar Google/Microsoft nunca produce por sí mismo `connected`.
 - No se emplean SMTP manual, passwords de correo, SES ni una cuenta general
   Foloo para estos follow-ups.
 - Tokens y secretos del proveedor permanecen fuera de Flutter, Drift,
@@ -36,6 +43,9 @@ no demuestra control del buzón externo.
   los mecanismos de correo aplicables a su propio dominio/proveedor.
 - OAuth de Google/Microsoft es una conexión de correo adicional, no sustituye
   Cognito como identidad Foloo ni introduce Social Login.
+- Usuarios con perfil anterior a este paso conservan acceso sin repetir
+  onboarding. La marca local owner-scoped registra solo visto/omitido; no es un
+  cache autoritativo de OAuth.
 - Aceptación por Gmail API o Microsoft Graph no prueba entrega al destinatario
   ni garantiza exactamente una vez tras un timeout ambiguo. `D-18` exige
   Estado por confirmar y prohíbe retry automático en ese caso.
