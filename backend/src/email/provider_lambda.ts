@@ -85,6 +85,13 @@ function endpoints(provider: EmailProviderName, config: ProviderSecrets) {
   };
 }
 
+/** Forces an explicit identity choice without expanding provider scopes. */
+export function authorizationPrompt(provider: EmailProviderName): string {
+  // Google keeps explicit consent so a renewable refresh token is returned;
+  // both providers show the account chooser on connect/change-account.
+  return provider === "google" ? "select_account consent" : "select_account";
+}
+
 async function encryptValue(value: unknown, workspaceId: string) {
   const keyId = process.env.EMAIL_TOKEN_KEY_ARN;
   if (!keyId) throw new Error("EMAIL_TOKEN_KEY_ARN is required");
@@ -370,7 +377,7 @@ export async function handler(command: ProviderCommand) {
         code_challenge: codeChallenge,
         code_challenge_method: "S256",
         access_type: "offline",
-        prompt: "consent",
+        prompt: authorizationPrompt(command.provider),
       }).toString();
       result = {
         authorizationUrl: url.toString(),

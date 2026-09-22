@@ -60,6 +60,9 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Una sesión de cámara acepta una, dos o tres imágenes y finaliza con ✓; si ya
   existen dos solo agrega una. Galería respeta el mismo máximo.
 - Guardar y reabrir conserva voz e imágenes. V1 no muestra transcripción.
+- Una voz detenida pero todavía no guardada sobrevive navegación temporal a
+  otra sección o al navegador OAuth y reaparece al volver; cancelar/descartar
+  sí elimina explícitamente ese borrador privado.
 
 ## E-05 · Guardado local y acuse
 
@@ -122,6 +125,9 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   incompletas se rechazan. Datos históricos ausentes nunca producen tokens
   literales, `null`, `undefined` ni información inventada. `{contenido}` usa
   el snapshot histórico del Lead y representa varios PDF con nombres humanos.
+- Tocar un token lo inserta en la selección/caret del asunto o cuerpo que tenga
+  el foco (y en el último campo activo si el teclado perdió foco), sin borrar
+  texto adyacente ni moverlo siempre al final.
 - Footer fijo ES/EN de Evento o Directo incluye enlace de baja operativo y no
   editable. GET, preview o prefetch solo muestran confirmación y no cambian
   datos; POST explícito registra la baja y repetirlo es idempotente. Token
@@ -140,6 +146,9 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   sin equiparar aceptación a entrega. Timeout ambiguo tras posible aceptación
   jamás reintenta solo; nuevo intento exige advertencia/decisión. Un reenvío
   manual posterior es una intención distinta del retry técnico.
+- Seguimientos se ordena por fecha descendente y cada renglón identifica Lead,
+  destinatario, Evento/Lugar, fecha, asunto y estado mediante texto e icono;
+  el color es apoyo visual y nunca el único indicador.
 - Adjuntos congelados se validan en backend. PDF borrado/no disponible o exceso
   de tamaño no se omite en silencio: el vendedor decide omitirlo para esa
   intención o cancelar. El Lead y su snapshot no cambian.
@@ -151,6 +160,9 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Correo consulta el backend al abrirse y al volver del navegador. Con conexión
   muestra proveedor, dirección enmascarada y estado; jamás infiere conexión por
   haber tocado OAuth ni reutiliza el estado visual de otro `sub`.
+- Conectar o cambiar la cuenta de envío abre el selector de cuentas del
+  proveedor; cambiar identidad conserva el historial y exige la confirmación
+  prevista por `SAL-09` antes de usarla para un pendiente previo.
 - Microsoft Graph `202 Accepted` sin cuerpo se registra como Enviado/aceptado,
   no como respuesta perdida. El historial nunca vuelve a mostrar variables de
   plantilla crudas después de reconciliar con backend.

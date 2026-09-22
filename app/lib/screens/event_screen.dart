@@ -454,6 +454,9 @@ class _EventScreenState extends State<EventScreen> {
                   TextField(
                     key: const Key('editEventNameField'),
                     controller: _editingName,
+                    textInputAction: TextInputAction.done,
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: palette.paper,
@@ -539,27 +542,33 @@ class _EventScreenState extends State<EventScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          color: palette.card,
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
-          child: FilledButton(
-            key: const Key('saveEventButton'),
-            onPressed: () {
-              final value = _editingName.text.trim();
-              if (value.isNotEmpty) {
-                widget.onUpdate(
-                  event.copyWith(
-                    name: value,
-                    startsOn: _editingStartsOn,
-                    endsOn: _editingEndsOn,
-                  ),
-                );
-              }
-              setState(() => _editing = null);
-            },
-            child: Text(context.l10n.saveChanges),
+      bottomNavigationBar: AnimatedPadding(
+        duration: const Duration(milliseconds: 160),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: SafeArea(
+          top: false,
+          child: Container(
+            color: palette.card,
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+            child: FilledButton(
+              key: const Key('saveEventButton'),
+              onPressed: () {
+                final value = _editingName.text.trim();
+                if (value.isNotEmpty) {
+                  widget.onUpdate(
+                    event.copyWith(
+                      name: value,
+                      startsOn: _editingStartsOn,
+                      endsOn: _editingEndsOn,
+                    ),
+                  );
+                }
+                setState(() => _editing = null);
+              },
+              child: Text(context.l10n.saveChanges),
+            ),
           ),
         ),
       ),

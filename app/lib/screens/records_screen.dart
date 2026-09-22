@@ -1340,13 +1340,19 @@ class ConnectionDetailScreen extends StatelessWidget {
                 ),
               ),
             ],
-            if (lead.contentNames.isNotEmpty) ...[
-              const SizedBox(height: 18),
+            const SizedBox(height: 18),
+            Text(
+              context.l10n.sentContentDemo,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 8),
+            if (lead.contentNames.isEmpty)
               Text(
-                context.l10n.sentContentDemo,
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 8),
+                context.l10n.noContentAttached,
+                key: const Key('detailNoAttachedContent'),
+                style: TextStyle(color: palette.inkSecondary),
+              )
+            else ...[
               ...lead.contentNames.map(
                 (name) => ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -1595,13 +1601,17 @@ class _LeadEditScreenState extends State<_LeadEditScreen> {
         ],
       ),
     ),
-    bottomNavigationBar: SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-        child: FilledButton(
-          key: const Key('saveLeadEditButton'),
-          onPressed: _saving ? null : _save,
-          child: Text(context.l10n.saveChanges),
+    bottomNavigationBar: AnimatedPadding(
+      duration: const Duration(milliseconds: 160),
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+          child: FilledButton(
+            key: const Key('saveLeadEditButton'),
+            onPressed: _saving ? null : _save,
+            child: Text(context.l10n.saveChanges),
+          ),
         ),
       ),
     ),
@@ -1618,6 +1628,10 @@ class _LeadEditScreenState extends State<_LeadEditScreen> {
     child: TextFormField(
       controller: controller,
       maxLines: lines,
+      textInputAction: lines > 1
+          ? TextInputAction.newline
+          : TextInputAction.next,
+      onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
       keyboardType: email ? TextInputType.emailAddress : null,
       decoration: InputDecoration(labelText: label),
       validator: (value) {

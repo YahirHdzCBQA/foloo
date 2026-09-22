@@ -129,7 +129,9 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          '${widget.pickedPdf?.name ?? 'documento-demo.pdf'} · PDF · ${widget.pickedPdf?.sizeLabel ?? '1.2 MB'}',
+                          widget.pickedPdf == null
+                              ? 'PDF'
+                              : '${widget.pickedPdf!.name} · PDF · ${widget.pickedPdf!.sizeLabel}',
                         ),
                       ),
                     ],
@@ -203,56 +205,62 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
               const SizedBox(height: 16),
             ],
           ),
-          bottomNavigationBar: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: FolooPalette.of(context).paper,
-                        foregroundColor: FolooPalette.of(context).ink,
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(context.l10n.cancel),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(
-                      key: const Key('confirmContentButton'),
-                      onPressed: () {
-                        final displayName = _name.text.trim();
-                        if (displayName.isEmpty) return;
-                        Navigator.pop(
-                          context,
-                          (widget.file ??
-                                  ContentFile(
-                                    id: const Uuid().v4(),
-                                    displayName: displayName,
-                                    fileName:
-                                        widget.pickedPdf?.name ??
-                                        'documento-demo.pdf',
-                                    sizeLabel:
-                                        widget.pickedPdf?.sizeLabel ?? '1.2 MB',
-                                    byteSize: widget.pickedPdf?.byteSize ?? 0,
-                                    localPath: widget.pickedPdf?.localPath,
-                                  ))
-                              .copyWith(
-                                displayName: displayName,
-                                allEvents: _all,
-                                eventIds: {..._selected},
-                              ),
-                        );
-                      },
-                      child: Text(
-                        editing ? context.l10n.save : context.l10n.upload,
+          bottomNavigationBar: AnimatedPadding(
+            duration: const Duration(milliseconds: 160),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(context).bottom,
+            ),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: FolooPalette.of(context).paper,
+                          foregroundColor: FolooPalette.of(context).ink,
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(context.l10n.cancel),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        key: const Key('confirmContentButton'),
+                        onPressed: () {
+                          final displayName = _name.text.trim();
+                          if (displayName.isEmpty) return;
+                          Navigator.pop(
+                            context,
+                            (widget.file ??
+                                    ContentFile(
+                                      id: const Uuid().v4(),
+                                      displayName: displayName,
+                                      fileName:
+                                          widget.pickedPdf?.name ??
+                                          '$displayName.pdf',
+                                      sizeLabel:
+                                          widget.pickedPdf?.sizeLabel ?? '',
+                                      byteSize: widget.pickedPdf?.byteSize ?? 0,
+                                      localPath: widget.pickedPdf?.localPath,
+                                    ))
+                                .copyWith(
+                                  displayName: displayName,
+                                  allEvents: _all,
+                                  eventIds: {..._selected},
+                                ),
+                          );
+                        },
+                        child: Text(
+                          editing ? context.l10n.save : context.l10n.upload,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

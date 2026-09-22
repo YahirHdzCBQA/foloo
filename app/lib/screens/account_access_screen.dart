@@ -277,19 +277,25 @@ class _AuthFrame extends StatelessWidget {
           ),
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 12, 28, 16),
-          child: FilledButton(
-            key: primaryKey,
-            onPressed: onPrimary,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(56),
-              backgroundColor: FolooBrand.lime,
-              foregroundColor: FolooBrand.ink,
+      bottomNavigationBar: AnimatedPadding(
+        duration: const Duration(milliseconds: 160),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(28, 12, 28, 16),
+            child: FilledButton(
+              key: primaryKey,
+              onPressed: onPrimary,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(56),
+                backgroundColor: FolooBrand.lime,
+                foregroundColor: FolooBrand.ink,
+              ),
+              child: Text(primaryLabel),
             ),
-            child: Text(primaryLabel),
           ),
         ),
       ),

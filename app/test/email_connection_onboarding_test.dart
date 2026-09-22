@@ -319,6 +319,19 @@ void main() {
         preparedAt: now,
       ),
     );
+    await persistence.database.emailDeliveryDao.saveFollowUp(
+      LocalEmailFollowUpsCompanion.insert(
+        localId: 'follow-up-b',
+        ownerUserId: 'seller-a',
+        leadLocalId: lead.localId,
+        recipientAddress: 'lead@example.com',
+        subject: 'Seguimiento más reciente',
+        plainBody: 'Hola Mariana',
+        htmlBody: '<p>Hola Mariana</p>',
+        languageCode: 'es',
+        preparedAt: now.add(const Duration(minutes: 1)),
+      ),
+    );
     await persistence.database.emailDeliveryDao.saveIntent(
       LocalEmailSendIntentsCompanion.insert(
         localId: 'intent-a',
@@ -336,7 +349,7 @@ void main() {
         EmailScreen(
           recordsCount: 1,
           contentCount: 0,
-          records: const [],
+          records: [lead],
           contentFiles: const [],
           profile: const DemoProfile(name: 'Seller', company: 'Foloo'),
           darkMode: false,
@@ -358,6 +371,21 @@ void main() {
     expect(
       find.textContaining('No enviado · Destinatario dado de baja'),
       findsOneWidget,
+    );
+    expect(find.text('Mariana'), findsNWidgets(2));
+    expect(find.text('lead@example.com'), findsNWidgets(2));
+    expect(find.text('Lead directo · Monterrey'), findsNWidgets(2));
+    expect(find.text('Damos seguimiento, Mariana'), findsOneWidget);
+    expect(find.byIcon(Icons.error_outline), findsOneWidget);
+    expect(
+      tester
+          .getTopLeft(find.byKey(const ValueKey('emailFollowUp-follow-up-b')))
+          .dy,
+      lessThan(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('emailFollowUp-follow-up-a')))
+            .dy,
+      ),
     );
     expect(find.byKey(const ValueKey('emailRetry-intent-a')), findsNothing);
     expect(find.textContaining('Pendiente'), findsNothing);

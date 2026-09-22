@@ -166,6 +166,16 @@ void main() {
     expect(find.byKey(const Key('addReferenceImageButton')), findsNothing);
     expect(find.text('3 de 3'), findsOneWidget);
 
+    final preview = find.descendant(
+      of: find.byKey(const Key('referenceImage-0')),
+      matching: find.byType(Image),
+    );
+    final before = tester.widget<Image>(preview).image as MemoryImage;
+    await tester.enterText(find.byKey(const Key('noteField')), 'Nota estable');
+    await tester.pump();
+    final after = tester.widget<Image>(preview).image as MemoryImage;
+    expect(after.bytes, same(before.bytes));
+
     await tester.tap(find.byTooltip('Quitar imagen de referencia').first);
     await tester.pump();
     expect(find.text('2 de 3'), findsOneWidget);
@@ -457,6 +467,29 @@ void main() {
     );
     final eventSubject = find.byKey(const ValueKey('emailSubject-event'));
     await tester.enterText(eventSubject, 'Evento especial {evento}');
+    final subjectController = tester
+        .widget<TextField>(eventSubject)
+        .controller!;
+    await tester.tap(eventSubject);
+    subjectController.selection = const TextSelection.collapsed(offset: 7);
+    await tester.ensureVisible(find.byKey(const Key('variable-{nombre}')));
+    await tester.tap(find.byKey(const Key('variable-{nombre}')));
+    await tester.pump();
+    expect(subjectController.text, 'Evento {nombre}especial {evento}');
+
+    final eventBody = find.byKey(const ValueKey('emailBody-event'));
+    await tester.ensureVisible(eventBody);
+    final bodyController = tester.widget<TextField>(eventBody).controller!;
+    await tester.tap(eventBody);
+    bodyController.selection = const TextSelection(
+      baseOffset: 0,
+      extentOffset: 4,
+    );
+    await tester.ensureVisible(find.byKey(const Key('variable-{empresa}')));
+    await tester.tap(find.byKey(const Key('variable-{empresa}')));
+    await tester.pump();
+    expect(bodyController.text, startsWith('{empresa}'));
+    await tester.ensureVisible(find.text('Lead directo'));
     await tester.tap(find.text('Lead directo'));
     await tester.pump();
     expect(

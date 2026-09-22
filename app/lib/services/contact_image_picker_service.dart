@@ -4,13 +4,18 @@
 /// image_picker platform channel.
 library;
 
+import 'dart:typed_data';
+
 import 'package:image_picker/image_picker.dart';
 
 class PickedContactImage {
-  const PickedContactImage({required this.path, required this.bytes});
+  PickedContactImage({required this.path, required List<int> bytes})
+    : bytes = bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
 
   final String path;
-  final List<int> bytes;
+
+  /// Stable in-memory preview bytes retained for the capture session.
+  final Uint8List bytes;
 }
 
 abstract interface class ContactImagePickerService {

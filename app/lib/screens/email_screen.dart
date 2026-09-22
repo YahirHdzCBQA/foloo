@@ -8,6 +8,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
@@ -26,6 +27,8 @@ import '../services/email_connection_service.dart';
 import '../data/local/app_database.dart';
 
 enum _TemplateKind { event, direct }
+
+enum _TemplateField { subject, body }
 
 /// Edits the Event or Direct template without initiating a send.
 class EmailScreen extends StatefulWidget {
@@ -77,6 +80,8 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
   final _directBody = TextEditingController();
   final _eventSignature = TextEditingController();
   final _directSignature = TextEditingController();
+  final _subjectFocus = FocusNode();
+  final _bodyFocus = FocusNode();
   final Map<String, EmailTemplateData> _stored = {};
   _TemplateKind _kind = _TemplateKind.event;
   String? _error;
@@ -87,6 +92,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
   bool _connectionBusy = false;
   bool _connectionUnavailable = false;
   int _deliveryRequestGeneration = 0;
+  _TemplateField _lastTemplateField = _TemplateField.body;
 
   TextEditingController get _subject =>
       _kind == _TemplateKind.event ? _eventSubject : _directSubject;
@@ -456,6 +462,13 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                   onPressed: _connectionBusy ? null : _disconnect,
                   child: Text(context.l10n.emailConnectionDisconnect),
                 ),
+                TextButton(
+                  key: const Key('emailChangeAccountButton'),
+                  onPressed: _connectionBusy
+                      ? null
+                      : () => _connect(_connection!.provider),
+                  child: Text(context.l10n.emailChangeAccount),
+                ),
                 const Spacer(),
                 IconButton(
                   tooltip: context.l10n.emailConnectionRefresh,
@@ -498,7 +511,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
       children: [
         const SizedBox(height: 20),
         Text(
-          _english ? 'Follow-ups' : 'Seguimientos',
+          context.l10n.emailFollowUps,
           style: const TextStyle(fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 8),
@@ -512,67 +525,147 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
             intent?.errorCode,
           );
           final label = attachmentDecision
-              ? (_english
-                    ? 'Attachment decision required'
-                    : 'Decisión de adjunto requerida')
+              ? context.l10n.emailFollowUpAttachmentDecision
               : intent?.errorCode == 'cancelled_by_seller'
-              ? (_english ? 'Cancelled' : 'Cancelado')
+              ? context.l10n.emailFollowUpCancelled
               : recipientOptedOut
               ? context.l10n.emailRecipientOptedOutStatus
               : terminalFailure
               ? context.l10n.emailNotRetryableStatus
               : switch (status) {
-                  'pending' => _english ? 'Pending' : 'Pendiente',
-                  'sending' => _english ? 'Sending' : 'Enviando',
-                  'sent' => _english ? 'Sent' : 'Enviado',
-                  'error' => 'Error',
+                  'pending' => context.l10n.emailFollowUpPending,
+                  'sending' => context.l10n.emailFollowUpSending,
+                  'sent' => context.l10n.emailFollowUpSent,
+                  'error' => context.l10n.emailFollowUpError,
                   'confirmation_required' =>
-                    _english ? 'Confirmation required' : 'Estado por confirmar',
-                  _ => _english ? 'Ready to review' : 'Listo para revisar',
+                    context.l10n.emailFollowUpConfirmation,
+                  _ => context.l10n.emailFollowUpReady,
                 };
+          final visual = _followUpVisual(
+            status,
+            attachmentDecision: attachmentDecision,
+            terminalFailure: terminalFailure,
+          );
+          final record = _recordForFollowUp(followUp.leadLocalId);
+          final lead = record?.lead;
+          final leadName = lead?.fullName.trim();
+          final contextLabel = lead == null
+              ? null
+              : lead.originKind == LeadOriginKind.event
+              ? lead.eventName?.trim().isNotEmpty == true
+                    ? context.l10n.emailFollowUpEventContext(
+                        lead.eventName!.trim(),
+                      )
+                    : context.l10n.event
+              : lead.place?.trim().isNotEmpty == true
+              ? context.l10n.emailFollowUpDirectContext(lead.place!.trim())
+              : context.l10n.directLead;
           return Card(
-            child: ListTile(
+            key: ValueKey('emailFollowUp-${followUp.localId}'),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
               onTap: () => _previewFollowUp(followUp),
-              title: Text(followUp.recipientAddress),
-              subtitle: Text('${followUp.subject}\n$label'),
-              isThreeLine: true,
-              trailing: attachmentDecision
-                  ? IconButton(
-                      tooltip: _english
-                          ? 'Resolve attachment'
-                          : 'Resolver adjunto',
-                      onPressed: () =>
-                          _resolveAttachmentDecision(followUp, intent),
-                      icon: const Icon(Icons.attachment_outlined),
-                    )
-                  : status == 'ready'
-                  ? IconButton(
-                      tooltip: _english ? 'Confirm send' : 'Confirmar envío',
-                      onPressed: _connection?.status == 'connected'
-                          ? () => _queueSend(followUp)
-                          : null,
-                      icon: const Icon(Icons.send_outlined),
-                    )
-                  : status == 'error' &&
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(visual.$1, color: visual.$2, semanticLabel: label),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            leadName?.isNotEmpty == true
+                                ? leadName!
+                                : followUp.recipientAddress,
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          Text(
+                            followUp.recipientAddress,
+                            style: TextStyle(
+                              color: FolooPalette.of(context).inkSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          if (contextLabel != null) Text(contextLabel),
+                          Text(
+                            DateFormat.yMMMd(
+                              Localizations.localeOf(context).toLanguageTag(),
+                            ).add_Hm().format(followUp.preparedAt.toLocal()),
+                            style: TextStyle(
+                              color: FolooPalette.of(context).inkSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(followUp.subject),
+                          const SizedBox(height: 7),
+                          Semantics(
+                            label: label,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 9,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: visual.$2.withValues(alpha: .14),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                label,
+                                style: TextStyle(
+                                  color: visual.$2,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (attachmentDecision)
+                      IconButton(
+                        tooltip: _english
+                            ? 'Resolve attachment'
+                            : 'Resolver adjunto',
+                        onPressed: () =>
+                            _resolveAttachmentDecision(followUp, intent),
+                        icon: const Icon(Icons.attachment_outlined),
+                      )
+                    else if (status == 'ready')
+                      IconButton(
+                        tooltip: _english ? 'Confirm send' : 'Confirmar envío',
+                        onPressed: _connection?.status == 'connected'
+                            ? () => _queueSend(followUp)
+                            : null,
+                        icon: const Icon(Icons.send_outlined),
+                      )
+                    else if (status == 'error' &&
                         intent?.errorCode != 'cancelled_by_seller' &&
-                        !terminalFailure
-                  ? IconButton(
-                      key: ValueKey('emailRetry-${intent!.localId}'),
-                      tooltip: _english ? 'Retry safely' : 'Reintentar',
-                      onPressed: _connection?.status == 'connected'
-                          ? () => _retry(intent)
-                          : null,
-                      icon: const Icon(Icons.refresh),
-                    )
-                  : status == 'confirmation_required' || status == 'sent'
-                  ? IconButton(
-                      tooltip: _english ? 'Resend manually' : 'Reenviar',
-                      onPressed: _connection?.status == 'connected'
-                          ? () => _manualResend(followUp, intent!)
-                          : null,
-                      icon: const Icon(Icons.forward_to_inbox_outlined),
-                    )
-                  : null,
+                        !terminalFailure)
+                      IconButton(
+                        key: ValueKey('emailRetry-${intent!.localId}'),
+                        tooltip: _english ? 'Retry safely' : 'Reintentar',
+                        onPressed: _connection?.status == 'connected'
+                            ? () => _retry(intent)
+                            : null,
+                        icon: const Icon(Icons.refresh),
+                      )
+                    else if (status == 'confirmation_required' ||
+                        status == 'sent')
+                      IconButton(
+                        tooltip: _english ? 'Resend manually' : 'Reenviar',
+                        onPressed: _connection?.status == 'connected'
+                            ? () => _manualResend(followUp, intent!)
+                            : null,
+                        icon: const Icon(Icons.forward_to_inbox_outlined),
+                      ),
+                  ],
+                ),
+              ),
             ),
           );
         }),
@@ -630,20 +723,62 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
     ]) {
       controller.dispose();
     }
+    _subjectFocus.dispose();
+    _bodyFocus.dispose();
     super.dispose();
   }
 
   /// Inserts a supported token at the current caret without changing its name.
   void _insert(String variable) {
-    final selection = _body.selection;
-    final offset = selection.isValid ? selection.start : _body.text.length;
-    _body.text = _body.text.replaceRange(
+    final target = _subjectFocus.hasFocus
+        ? _TemplateField.subject
+        : _bodyFocus.hasFocus
+        ? _TemplateField.body
+        : _lastTemplateField;
+    final controller = target == _TemplateField.subject ? _subject : _body;
+    final focusNode = target == _TemplateField.subject
+        ? _subjectFocus
+        : _bodyFocus;
+    final selection = controller.selection;
+    final offset = selection.isValid ? selection.start : controller.text.length;
+    controller.text = controller.text.replaceRange(
       offset,
       selection.isValid ? selection.end : offset,
       variable,
     );
-    _body.selection = TextSelection.collapsed(offset: offset + variable.length);
+    controller.selection = TextSelection.collapsed(
+      offset: offset + variable.length,
+    );
+    _lastTemplateField = target;
+    focusNode.requestFocus();
     setState(() {});
+  }
+
+  SessionLead? _recordForFollowUp(String localId) {
+    for (final record in widget.records) {
+      if (record.localId == localId) return record;
+    }
+    return null;
+  }
+
+  (IconData, Color) _followUpVisual(
+    String status, {
+    required bool attachmentDecision,
+    required bool terminalFailure,
+  }) {
+    final palette = FolooPalette.of(context);
+    if (attachmentDecision) return (Icons.attach_file, Colors.orange.shade800);
+    if (status == 'sent') return (Icons.check_circle, Colors.green.shade700);
+    if (status == 'error' || terminalFailure) {
+      return (Icons.error_outline, palette.error);
+    }
+    if (status == 'pending' || status == 'sending') {
+      return (Icons.schedule, Colors.orange.shade800);
+    }
+    if (status == 'confirmation_required') {
+      return (Icons.help_outline, palette.inkSecondary);
+    }
+    return (Icons.drafts_outlined, palette.inkSecondary);
   }
 
   Future<void> _save() async {
@@ -801,6 +936,8 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                   TextField(
                     key: ValueKey('emailSubject-${_kind.name}'),
                     controller: _subject,
+                    focusNode: _subjectFocus,
+                    onTap: () => _lastTemplateField = _TemplateField.subject,
                     decoration: const InputDecoration(
                       border: FolooBorders.borderlessField,
                       enabledBorder: FolooBorders.borderlessField,
@@ -814,6 +951,8 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                   TextField(
                     key: ValueKey('emailBody-${_kind.name}'),
                     controller: _body,
+                    focusNode: _bodyFocus,
+                    onTap: () => _lastTemplateField = _TemplateField.body,
                     minLines: 8,
                     maxLines: 12,
                     decoration: const InputDecoration(
@@ -934,20 +1073,26 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          decoration: BoxDecoration(
-            color: FolooPalette.of(context).card,
-            border: Border(
-              top: BorderSide(color: FolooPalette.of(context).line),
+      bottomNavigationBar: AnimatedPadding(
+        duration: const Duration(milliseconds: 160),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: SafeArea(
+          top: false,
+          child: Container(
+            decoration: BoxDecoration(
+              color: FolooPalette.of(context).card,
+              border: Border(
+                top: BorderSide(color: FolooPalette.of(context).line),
+              ),
             ),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-          child: FilledButton(
-            key: const Key('saveEmailTemplateButton'),
-            onPressed: _save,
-            child: Text(context.l10n.saveTemplate),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+            child: FilledButton(
+              key: const Key('saveEmailTemplateButton'),
+              onPressed: _save,
+              child: Text(context.l10n.saveTemplate),
+            ),
           ),
         ),
       ),

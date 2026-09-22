@@ -159,6 +159,11 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
                     TextField(
                       key: const Key('originPlaceField'),
                       controller: _place,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
                         labelText: context.l10n.place,
@@ -268,28 +273,34 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          color: palette.card,
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
-          child: FilledButton(
-            key: const Key('originContinueButton'),
-            onPressed:
-                (direct && _place.text.trim().isNotEmpty) ||
-                    (!direct && _event != null)
-                ? () => widget.onContinue(
-                    OriginSelection(
-                      kind: _kind,
-                      event: direct ? null : _event,
-                      place: direct ? _place.text.trim() : null,
-                    ),
-                  )
-                : null,
-            child: Text(
-              direct
-                  ? context.l10n.captureConnection
-                  : context.l10n.startCapture,
+      bottomNavigationBar: AnimatedPadding(
+        duration: const Duration(milliseconds: 160),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: SafeArea(
+          top: false,
+          child: Container(
+            color: palette.card,
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+            child: FilledButton(
+              key: const Key('originContinueButton'),
+              onPressed:
+                  (direct && _place.text.trim().isNotEmpty) ||
+                      (!direct && _event != null)
+                  ? () => widget.onContinue(
+                      OriginSelection(
+                        kind: _kind,
+                        event: direct ? null : _event,
+                        place: direct ? _place.text.trim() : null,
+                      ),
+                    )
+                  : null,
+              child: Text(
+                direct
+                    ? context.l10n.captureConnection
+                    : context.l10n.startCapture,
+              ),
             ),
           ),
         ),

@@ -78,6 +78,8 @@ void main() {
 
     expect(find.textContaining('mariana@example.com'), findsOneWidget);
     expect(find.textContaining('{nombre}'), findsNothing);
+    expect(find.byKey(const Key('emailReviewAdvanceIcon')), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_forward), findsOneWidget);
     await tester.enterText(
       find.byKey(const Key('emailReviewMessage')),
       'Mensaje editado solo para este lead.',

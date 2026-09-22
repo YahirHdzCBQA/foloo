@@ -534,9 +534,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get templateSavedDemo => 'Template saved in this demo only.';
-
-  @override
   String get audioPlaybackError => 'This local voice note could not be played.';
 
   @override
@@ -598,7 +595,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get contentAssignmentHelp =>
-      'You can assign it now or later. Without content, the demo email is still sent, only without attachments.';
+      'You can assign it now or later. Without content, the follow-up is prepared without attachments.';
 
   @override
   String get localFilesHelp =>
@@ -614,7 +611,50 @@ class AppLocalizationsEn extends AppLocalizations {
   String get voiceNote => 'Voice note';
 
   @override
-  String get sentContentDemo => 'Content sent · demo';
+  String get sentContentDemo => 'Attached content';
+
+  @override
+  String get noContentAttached => 'No content attached';
+
+  @override
+  String get emailChangeAccount => 'Change account';
+
+  @override
+  String get emailFollowUps => 'Follow-ups';
+
+  @override
+  String get emailFollowUpReady => 'Ready to review';
+
+  @override
+  String get emailFollowUpPending => 'Pending';
+
+  @override
+  String get emailFollowUpSending => 'Sending';
+
+  @override
+  String get emailFollowUpSent => 'Sent';
+
+  @override
+  String get emailFollowUpError => 'Error';
+
+  @override
+  String get emailFollowUpConfirmation => 'Status to confirm';
+
+  @override
+  String get emailFollowUpCancelled => 'Cancelled';
+
+  @override
+  String get emailFollowUpAttachmentDecision => 'Attachment decision required';
+
+  @override
+  String emailFollowUpDirectContext(Object place) {
+    return 'Direct lead · $place';
+  }
+
+  @override
+  String emailFollowUpEventContext(Object event) {
+    return 'Event · $event';
+  }
 
   @override
   String get editFileEvents => 'Edit file events';
@@ -649,14 +689,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'The image could not be opened. You can continue entering the details manually.';
 
   @override
-  String get cardReadSuccess => 'Demo scan complete. Review the details.';
+  String get cardReadSuccess => 'Scan complete. Review the details.';
 
   @override
   String get cardReading => 'Reading card…';
 
   @override
   String get cardReadIncomplete =>
-      'Demo scan complete. Complete the missing details manually.';
+      'Scan complete. Complete the missing details manually.';
 
   @override
   String get cardReadError =>
@@ -714,9 +754,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get placeRequired => 'Enter where the conversation took place';
 
   @override
-  String directPlaceHelp(Object lugar) {
-    return 'Where the conversation took place. Replaces $lugar in the demo email.';
-  }
+  String get directPlaceHelp =>
+      'Where the conversation took place. This location can be used in the follow-up.';
 
   @override
   String get savedLead => 'Lead saved';
@@ -901,9 +940,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get demoFixture => 'Demo fixture';
-
-  @override
   String get latestLeadData => 'Using the latest captured lead';
 
   @override
@@ -987,9 +1023,6 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
-
-  @override
-  String get syncDemoMessage => 'Demo sync: no data was sent.';
 
   @override
   String get pauseVoiceNote => 'Pause voice note';
@@ -1166,14 +1199,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get demoAttachments =>
-      '• Scanley IMS · Technical sheet · 1.2 MB\n• Vision AI · Use cases · 940 KB';
-
-  @override
   String get noAttachments => 'No attachments';
-
-  @override
-  String get demoOffice => 'Grupo Lácteo offices';
 
   @override
   String leadCount(num count) {

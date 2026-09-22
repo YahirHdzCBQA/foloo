@@ -213,7 +213,27 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
                       dimension: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('foloo'),
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(context.l10n.continueAction),
+                        const SizedBox(width: 12),
+                        Container(
+                          key: const Key('emailReviewAdvanceIcon'),
+                          width: 34,
+                          height: 34,
+                          decoration: const BoxDecoration(
+                            color: FolooColors.lime,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.arrow_forward,
+                            color: FolooColors.ink,
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
         ),

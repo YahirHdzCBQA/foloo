@@ -8,6 +8,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 /// Signals that capture must fall back to a written note after permission denial.
@@ -30,12 +31,28 @@ abstract interface class VoiceNoteService {
   Future<void> dispose();
 }
 
+/// Creates the durable private directory used by pre-save voice-note drafts.
+Future<Directory> prepareVoiceNoteDraftDirectory(
+  Future<Directory> Function() supportDirectory,
+) async {
+  final support = await supportDirectory();
+  final directory = Directory(
+    '${support.path}${Platform.pathSeparator}foloo_media'
+    '${Platform.pathSeparator}drafts${Platform.pathSeparator}voice_notes',
+  );
+  await directory.create(recursive: true);
+  return directory;
+}
+
 /// Device-backed implementation using one recorder and one audio player.
 ///
 /// TODO(PRODUCTION): Define media format, duration and retention through the
 /// unresolved OQ-A18/D-11 contracts before treating files as durable assets.
 class DeviceVoiceNoteService implements VoiceNoteService {
-  DeviceVoiceNoteService();
+  DeviceVoiceNoteService({Future<Directory> Function()? supportDirectory})
+    : _supportDirectory = supportDirectory ?? getApplicationSupportDirectory;
+
+  final Future<Directory> Function() _supportDirectory;
 
   AudioRecorder? _recorderInstance;
   AudioPlayer? _playerInstance;
@@ -63,14 +80,12 @@ class DeviceVoiceNoteService implements VoiceNoteService {
       throw const VoiceNotePermissionDeniedException();
     }
 
-    final directory = Directory(
-      '${Directory.systemTemp.path}${Platform.pathSeparator}foloo_voice_notes',
-    );
-    await directory.create(recursive: true);
+    final directory = await prepareVoiceNoteDraftDirectory(_supportDirectory);
     final path =
         '${directory.path}${Platform.pathSeparator}voice_${DateTime.now().microsecondsSinceEpoch}.m4a';
 
-    // Proposed local format. OQ-A18 must define the production media contract.
+    // VOZ-04: keep the unsaved draft in app-private storage across temporary
+    // navigation. Submission promotes it; cancel/discard deletes it explicitly.
     await _recorder.start(
       const RecordConfig(
         encoder: AudioEncoder.aacLc,

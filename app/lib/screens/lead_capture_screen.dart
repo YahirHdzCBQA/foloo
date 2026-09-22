@@ -1082,7 +1082,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  context.l10n.directPlaceHelp('{lugar}'),
+                  context.l10n.directPlaceHelp,
                   style: TextStyle(color: palette.inkSecondary, fontSize: 11),
                 ),
               ],
@@ -1729,7 +1729,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                 Expanded(
                   child: _ReferenceImageTile(
                     key: Key('referenceImage-$index'),
-                    bytes: Uint8List.fromList(_referenceImages[index].bytes),
+                    bytes: _referenceImages[index].bytes,
                     removeTooltip: context.l10n.removeReferenceImage,
                     onRemove: () =>
                         setState(() => _referenceImages.removeAt(index)),

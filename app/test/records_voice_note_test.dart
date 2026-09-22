@@ -421,6 +421,11 @@ void main() {
   testWidgets('REG-07 detail edits structured data and leaves media out', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
     LeadDraft? updated;
     final current = SessionLead(
       localId: 'lead-edit',
@@ -437,10 +442,16 @@ void main() {
     );
     await tester.tap(find.text('Mariana Sandoval Ruiz'));
     await tester.pumpAndSettle();
+    expect(find.text('Sin contenido adjunto'), findsOneWidget);
+    expect(find.textContaining('demo', findRichText: true), findsNothing);
     await tester.tap(find.byKey(const Key('editLeadButton')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField).first, 'María José');
-    await tester.tap(find.byKey(const Key('saveLeadEditButton')));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 240);
+    await tester.pumpAndSettle();
+    final save = find.byKey(const Key('saveLeadEditButton'));
+    expect(tester.getRect(save).bottom, lessThanOrEqualTo(568 - 240));
+    await tester.tap(save);
     await tester.pumpAndSettle();
     expect(updated?.name, 'María José');
     expect(updated?.cardImageLocalPath, '/private/card.jpg');

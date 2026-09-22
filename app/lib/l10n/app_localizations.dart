@@ -1070,12 +1070,6 @@ abstract class AppLocalizations {
   /// **'{count, plural, =0{0 archivos} =1{1 archivo} other{{count} archivos}}'**
   String fileCount(num count);
 
-  /// No description provided for @templateSavedDemo.
-  ///
-  /// In es, this message translates to:
-  /// **'Plantilla guardada solo en esta demo.'**
-  String get templateSavedDemo;
-
   /// No description provided for @audioPlaybackError.
   ///
   /// In es, this message translates to:
@@ -1193,7 +1187,7 @@ abstract class AppLocalizations {
   /// No description provided for @contentAssignmentHelp.
   ///
   /// In es, this message translates to:
-  /// **'Puedes asignarlo ahora o más tarde. Sin contenido el correo demo sale igual, solo sin adjuntos.'**
+  /// **'Puedes asignarlo ahora o más tarde. Sin contenido, el seguimiento se prepara sin adjuntos.'**
   String get contentAssignmentHelp;
 
   /// No description provided for @localFilesHelp.
@@ -1223,8 +1217,86 @@ abstract class AppLocalizations {
   /// No description provided for @sentContentDemo.
   ///
   /// In es, this message translates to:
-  /// **'Contenido enviado · demo'**
+  /// **'Contenido adjunto'**
   String get sentContentDemo;
+
+  /// No description provided for @noContentAttached.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin contenido adjunto'**
+  String get noContentAttached;
+
+  /// No description provided for @emailChangeAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar cuenta'**
+  String get emailChangeAccount;
+
+  /// No description provided for @emailFollowUps.
+  ///
+  /// In es, this message translates to:
+  /// **'Seguimientos'**
+  String get emailFollowUps;
+
+  /// No description provided for @emailFollowUpReady.
+  ///
+  /// In es, this message translates to:
+  /// **'Listo para revisar'**
+  String get emailFollowUpReady;
+
+  /// No description provided for @emailFollowUpPending.
+  ///
+  /// In es, this message translates to:
+  /// **'Pendiente'**
+  String get emailFollowUpPending;
+
+  /// No description provided for @emailFollowUpSending.
+  ///
+  /// In es, this message translates to:
+  /// **'Enviando'**
+  String get emailFollowUpSending;
+
+  /// No description provided for @emailFollowUpSent.
+  ///
+  /// In es, this message translates to:
+  /// **'Enviado'**
+  String get emailFollowUpSent;
+
+  /// No description provided for @emailFollowUpError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error'**
+  String get emailFollowUpError;
+
+  /// No description provided for @emailFollowUpConfirmation.
+  ///
+  /// In es, this message translates to:
+  /// **'Estado por confirmar'**
+  String get emailFollowUpConfirmation;
+
+  /// No description provided for @emailFollowUpCancelled.
+  ///
+  /// In es, this message translates to:
+  /// **'Cancelado'**
+  String get emailFollowUpCancelled;
+
+  /// No description provided for @emailFollowUpAttachmentDecision.
+  ///
+  /// In es, this message translates to:
+  /// **'Decisión de adjunto requerida'**
+  String get emailFollowUpAttachmentDecision;
+
+  /// No description provided for @emailFollowUpDirectContext.
+  ///
+  /// In es, this message translates to:
+  /// **'Lead directo · {place}'**
+  String emailFollowUpDirectContext(Object place);
+
+  /// No description provided for @emailFollowUpEventContext.
+  ///
+  /// In es, this message translates to:
+  /// **'Evento · {event}'**
+  String emailFollowUpEventContext(Object event);
 
   /// No description provided for @editFileEvents.
   ///
@@ -1289,7 +1361,7 @@ abstract class AppLocalizations {
   /// No description provided for @cardReadSuccess.
   ///
   /// In es, this message translates to:
-  /// **'Lectura demo completada. Revisa los datos.'**
+  /// **'Lectura completada. Revisa los datos.'**
   String get cardReadSuccess;
 
   /// No description provided for @cardReading.
@@ -1301,7 +1373,7 @@ abstract class AppLocalizations {
   /// No description provided for @cardReadIncomplete.
   ///
   /// In es, this message translates to:
-  /// **'Lectura demo completada. Completa los datos faltantes manualmente.'**
+  /// **'Lectura completada. Completa los datos faltantes manualmente.'**
   String get cardReadIncomplete;
 
   /// No description provided for @cardReadError.
@@ -1403,8 +1475,8 @@ abstract class AppLocalizations {
   /// No description provided for @directPlaceHelp.
   ///
   /// In es, this message translates to:
-  /// **'Dónde surgió la conversación. Sustituye {lugar} en el correo demo.'**
-  String directPlaceHelp(Object lugar);
+  /// **'Dónde surgió la conversación. Este lugar puede usarse en el seguimiento.'**
+  String get directPlaceHelp;
 
   /// No description provided for @savedLead.
   ///
@@ -1706,12 +1778,6 @@ abstract class AppLocalizations {
   /// **'Para: {name}'**
   String previewTo(Object name);
 
-  /// No description provided for @demoFixture.
-  ///
-  /// In es, this message translates to:
-  /// **'Fixture demo'**
-  String get demoFixture;
-
   /// No description provided for @latestLeadData.
   ///
   /// In es, this message translates to:
@@ -1843,12 +1909,6 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'{count, plural, =0{0 registros esperan señal} =1{1 registro espera señal} other{{count} registros esperan señal}}'**
   String waitingForSignal(num count);
-
-  /// No description provided for @syncDemoMessage.
-  ///
-  /// In es, this message translates to:
-  /// **'Sincronización demo: no se enviaron datos.'**
-  String get syncDemoMessage;
 
   /// No description provided for @pauseVoiceNote.
   ///
@@ -2071,23 +2131,11 @@ abstract class AppLocalizations {
   /// **'Variable no válida: {variables}'**
   String invalidVariable(Object variables);
 
-  /// No description provided for @demoAttachments.
-  ///
-  /// In es, this message translates to:
-  /// **'• Scanley IMS · Ficha técnica · 1.2 MB\n• Vision AI · Casos de uso · 940 KB'**
-  String get demoAttachments;
-
   /// No description provided for @noAttachments.
   ///
   /// In es, this message translates to:
   /// **'Sin archivos adjuntos'**
   String get noAttachments;
-
-  /// No description provided for @demoOffice.
-  ///
-  /// In es, this message translates to:
-  /// **'Oficinas de Grupo Lácteo'**
-  String get demoOffice;
 
   /// No description provided for @leadCount.
   ///

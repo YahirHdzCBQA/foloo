@@ -32,6 +32,52 @@ Widget voiceNoteApp(
   ),
 );
 
+class _VoiceNavigationHost extends StatefulWidget {
+  const _VoiceNavigationHost(this.service);
+
+  final FakeVoiceNoteService service;
+
+  @override
+  State<_VoiceNavigationHost> createState() => _VoiceNavigationHostState();
+}
+
+class _VoiceNavigationHostState extends State<_VoiceNavigationHost> {
+  var _outsideCapture = false;
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+    theme: FolooTheme.light,
+    home: Scaffold(
+      body: IndexedStack(
+        index: _outsideCapture ? 1 : 0,
+        children: [
+          LeadCaptureScreen(
+            originKind: LeadOriginKind.event,
+            eventName: DemoEventData.eventName,
+            events: DemoAppData.events,
+            recordsCount: 0,
+            darkMode: false,
+            voiceNoteService: widget.service,
+            onLeadSaved: (lead) =>
+                DemoEventData.createSessionLead(lead: lead, sequence: 1),
+            onOriginChanged: (_, _) {},
+            onCreateEvent: (_) {},
+            onDestinationSelected: (_) {},
+            onAppearanceChanged: (_) {},
+            onLogout: () {},
+          ),
+          const Center(child: Text('Provider connection placeholder')),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        key: const Key('temporaryProviderNavigation'),
+        onPressed: () => setState(() => _outsideCapture = !_outsideCapture),
+        child: const Icon(Icons.swap_horiz),
+      ),
+    ),
+  );
+}
+
 Future<void> showRecorder(WidgetTester tester) async {
   await tester.scrollUntilVisible(
     find.byKey(const Key('recordButton')),
@@ -69,6 +115,28 @@ Future<void> completeRequiredFields(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets(
+    'VOZ-04 stopped voice survives temporary provider navigation and remains playable',
+    (tester) async {
+      final service = FakeVoiceNoteService();
+      await tester.pumpWidget(_VoiceNavigationHost(service));
+      await createVoiceNote(tester);
+
+      await tester.tap(find.byKey(const Key('temporaryProviderNavigation')));
+      await tester.pumpAndSettle();
+      expect(find.text('Provider connection placeholder'), findsOneWidget);
+      expect(service.deletedPaths, isEmpty);
+
+      await tester.tap(find.byKey(const Key('temporaryProviderNavigation')));
+      await tester.pumpAndSettle();
+      await showRecorder(tester);
+      expect(find.byKey(const Key('playPauseButton')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('playPauseButton')));
+      await tester.pump();
+      expect(service.playCount, 1);
+    },
+  );
+
   testWidgets(
     'records plays pauses rerecords and deletes one local voice note',
     (tester) async {
