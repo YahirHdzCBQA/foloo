@@ -77,6 +77,7 @@ export type LeadUpdateInput = {
   interest: "low" | "medium" | "high";
   writtenNote?: string | null;
   place?: string | null;
+  contentFileIds?: string[];
 };
 
 export type LeadMediaInput = {

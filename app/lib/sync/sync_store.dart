@@ -941,6 +941,18 @@ class SyncStore {
           );
         }
         return;
+      case SyncEntityType.eventEmailTemplate:
+        final parts = operation.entityId.split(':');
+        if (state == 'synced' &&
+            parts.length == 2 &&
+            operation.action != 'delete') {
+          await database.eventEmailTemplateDao.markSynced(
+            operation.ownerUserId,
+            parts[0],
+            parts[1],
+          );
+        }
+        return;
       case SyncEntityType.emailFollowUp:
         if (state == 'synced') {
           await database.emailDeliveryDao.markFollowUpSynced(
@@ -1094,6 +1106,47 @@ class SyncStore {
         LocalEmailTemplatesCompanion.insert(
           ownerUserId: ownerSub,
           originKind: origin,
+          languageCode: language,
+          subject: subject,
+          body: body,
+          signature: signature,
+          updatedAt: DateTime.now().toUtc(),
+          syncState: const Value('synced'),
+        ),
+      );
+    }
+  }
+
+  /// Pulls Event overrides without replacing pending local edits/removals.
+  Future<void> applyRemoteEventEmailTemplates(
+    String ownerSub,
+    List<Map<String, Object?>> templates,
+  ) async {
+    for (final template in templates) {
+      final eventId = template['eventId'];
+      final language = template['language'];
+      final subject = template['subject'];
+      final body = template['body'];
+      final signature = template['signature'];
+      if (eventId is! String ||
+          language is! String ||
+          subject is! String ||
+          body is! String ||
+          signature is! String ||
+          !['es', 'en'].contains(language)) {
+        continue;
+      }
+      if (await hasPending(
+        ownerSub,
+        SyncEntityType.eventEmailTemplate,
+        '$eventId:$language',
+      )) {
+        continue;
+      }
+      await database.eventEmailTemplateDao.upsert(
+        LocalEventEmailTemplatesCompanion.insert(
+          ownerUserId: ownerSub,
+          eventLocalId: eventId,
           languageCode: language,
           subject: subject,
           body: body,

@@ -82,6 +82,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
   final _directSignature = TextEditingController();
   final _subjectFocus = FocusNode();
   final _bodyFocus = FocusNode();
+  final _signatureFocus = FocusNode();
   final Map<String, EmailTemplateData> _stored = {};
   _TemplateKind _kind = _TemplateKind.event;
   String? _error;
@@ -93,6 +94,8 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
   bool _connectionUnavailable = false;
   int _deliveryRequestGeneration = 0;
   _TemplateField _lastTemplateField = _TemplateField.body;
+  StreamSubscription<List<StoredEmailFollowUp>>? _followUpsSubscription;
+  StreamSubscription<List<StoredEmailSendIntent>>? _intentsSubscription;
 
   TextEditingController get _subject =>
       _kind == _TemplateKind.event ? _eventSubject : _directSubject;
@@ -117,6 +120,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadTemplates();
+    _watchDelivery();
     _loadDelivery();
   }
 
@@ -127,6 +131,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
       _stored.clear();
       _connection = null;
       _loadTemplates();
+      _watchDelivery();
       _loadDelivery();
     } else if (!oldWidget.active && widget.active) {
       unawaited(_loadDelivery());
@@ -184,11 +189,31 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
       return;
     }
     setState(() {
-      _followUps = followUps;
-      _intents = intents;
+      if (widget.deliveryRepository == null) {
+        _followUps = followUps;
+        _intents = intents;
+      }
       _connection = connection;
       _connectionUnavailable = unavailable;
       _connectionBusy = false;
+    });
+  }
+
+  void _watchDelivery() {
+    unawaited(_followUpsSubscription?.cancel());
+    unawaited(_intentsSubscription?.cancel());
+    final owner = widget.ownerSub;
+    final repository = widget.deliveryRepository;
+    if (owner == null || repository == null) return;
+    _followUpsSubscription = repository.watchFollowUps(owner).listen((value) {
+      if (mounted && owner == widget.ownerSub) {
+        setState(() => _followUps = value);
+      }
+    });
+    _intentsSubscription = repository.watchIntents(owner).listen((value) {
+      if (mounted && owner == widget.ownerSub) {
+        setState(() => _intents = value);
+      }
     });
   }
 
@@ -505,7 +530,17 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
   }
 
   Widget _followUpList() {
-    if (_followUps.isEmpty) return const SizedBox.shrink();
+    final visible = <StoredEmailFollowUp>[];
+    final preparedLeadIds = <String>{};
+    for (final followUp in _followUps) {
+      final hasIntent = _intents.any(
+        (intent) => intent.followUpLocalId == followUp.localId,
+      );
+      if (hasIntent || preparedLeadIds.add(followUp.leadLocalId)) {
+        visible.add(followUp);
+      }
+    }
+    if (visible.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -515,7 +550,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
           style: const TextStyle(fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 8),
-        ..._followUps.map((followUp) {
+        ...visible.map((followUp) {
           final intent = _intentFor(followUp.localId);
           final status = intent?.status ?? 'ready';
           final attachmentDecision =
@@ -681,23 +716,10 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
       final subject = origin == 'event' ? _eventSubject : _directSubject;
       final body = origin == 'event' ? _eventBody : _directBody;
       final signature = origin == 'event' ? _eventSignature : _directSignature;
-      subject.text = stored?.subject ?? l10n.emailDefaultSubjectV1('{nombre}');
-      body.text =
-          stored?.body ??
-          (origin == 'event'
-              ? l10n.emailDefaultBodyEventV1(
-                  '{contenido}',
-                  '{evento}',
-                  '{nombre}',
-                )
-              : l10n.emailDefaultBodyDirectV1(
-                  '{contenido}',
-                  '{lugar}',
-                  '{nombre}',
-                ));
-      signature.text =
-          stored?.signature ??
-          l10n.emailDefaultSignatureV1('{empresaVendedor}', '{nombreVendedor}');
+      final official = FolooEmailDefaults.forContext(origin, language);
+      subject.text = stored?.subject ?? official.subject;
+      body.text = stored?.body ?? official.body;
+      signature.text = stored?.signature ?? official.signature;
     }
   }
 
@@ -712,6 +734,8 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     _deliveryRequestGeneration++;
+    unawaited(_followUpsSubscription?.cancel());
+    unawaited(_intentsSubscription?.cancel());
     WidgetsBinding.instance.removeObserver(this);
     for (final controller in [
       _eventSubject,
@@ -725,6 +749,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
     }
     _subjectFocus.dispose();
     _bodyFocus.dispose();
+    _signatureFocus.dispose();
     super.dispose();
   }
 
@@ -820,6 +845,37 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _restoreOfficialDefault() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(dialogContext.l10n.restoreDefaultTemplateQuestion),
+        content: Text(dialogContext.l10n.restoreDefaultTemplateHelp),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(dialogContext.l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(dialogContext.l10n.restore),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final official = FolooEmailDefaults.forContext(
+      _kind.name,
+      _languageCode ?? 'es',
+    );
+    setState(() {
+      _subject.text = official.subject;
+      _body.text = official.body;
+      _signature.text = official.signature;
+      _error = null;
+    });
+  }
+
   SessionLead? get _previewRecord {
     final origin = _kind == _TemplateKind.event
         ? LeadOriginKind.event
@@ -882,196 +938,244 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: FolooPalette.of(context).card,
-      body: Column(
-        children: [
-          ModuleHeader(
-            title: context.l10n.emailTitle,
-            subtitle: _kind == _TemplateKind.event
-                ? context.l10n.eventTemplate
-                : context.l10n.directTemplate,
-            onBack: () => widget.onDestinationSelected(AppDestination.home),
-          ),
-          Divider(height: 1, color: FolooPalette.of(context).line),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SegmentedBubble<_TemplateKind>(
-                    key: const Key('emailTemplateBubble'),
-                    selected: _kind,
-                    onSelected: (value) => setState(() {
-                      _kind = value;
-                      _error = null;
-                    }),
-                    selectedHorizontalPadding: 8,
-                    options: [
-                      SegmentedBubbleOption(
-                        value: _TemplateKind.event,
-                        label: context.l10n.event,
-                        leading: const Icon(
-                          Icons.calendar_today_outlined,
-                          size: 15,
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: Column(
+          children: [
+            ModuleHeader(
+              title: context.l10n.emailTitle,
+              subtitle: _kind == _TemplateKind.event
+                  ? context.l10n.eventTemplate
+                  : context.l10n.directTemplate,
+              onBack: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+                _applyLanguage(context.l10n);
+                widget.onDestinationSelected(AppDestination.home);
+              },
+            ),
+            Divider(height: 1, color: FolooPalette.of(context).line),
+            Expanded(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SegmentedBubble<_TemplateKind>(
+                      key: const Key('emailTemplateBubble'),
+                      selected: _kind,
+                      onSelected: (value) => setState(() {
+                        _kind = value;
+                        _error = null;
+                      }),
+                      selectedHorizontalPadding: 8,
+                      options: [
+                        SegmentedBubbleOption(
+                          value: _TemplateKind.event,
+                          label: context.l10n.event,
+                          leading: const Icon(
+                            Icons.calendar_today_outlined,
+                            size: 15,
+                          ),
                         ),
-                      ),
-                      SegmentedBubbleOption(
-                        value: _TemplateKind.direct,
-                        label: context.l10n.directLead,
-                        leading: const Icon(
-                          Icons.person_add_alt_1_outlined,
-                          size: 16,
+                        SegmentedBubbleOption(
+                          value: _TemplateKind.direct,
+                          label: context.l10n.directLead,
+                          leading: const Icon(
+                            Icons.person_add_alt_1_outlined,
+                            size: 16,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  _connectionCard(),
-                  const SizedBox(height: 18),
-                  Text(
-                    context.l10n.subject,
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  const SizedBox(height: 7),
-                  TextField(
-                    key: ValueKey('emailSubject-${_kind.name}'),
-                    controller: _subject,
-                    focusNode: _subjectFocus,
-                    onTap: () => _lastTemplateField = _TemplateField.subject,
-                    decoration: const InputDecoration(
-                      border: FolooBorders.borderlessField,
-                      enabledBorder: FolooBorders.borderlessField,
-                      focusedBorder: FolooBorders.borderlessField,
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(context.l10n.body, style: const TextStyle(fontSize: 11)),
-                  const SizedBox(height: 7),
-                  TextField(
-                    key: ValueKey('emailBody-${_kind.name}'),
-                    controller: _body,
-                    focusNode: _bodyFocus,
-                    onTap: () => _lastTemplateField = _TemplateField.body,
-                    minLines: 8,
-                    maxLines: 12,
-                    decoration: const InputDecoration(
-                      border: FolooBorders.borderlessField,
-                      enabledBorder: FolooBorders.borderlessField,
-                      focusedBorder: FolooBorders.borderlessField,
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    context.l10n.emailSignatureV1,
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  const SizedBox(height: 7),
-                  TextField(
-                    key: ValueKey('emailSignature-${_kind.name}'),
-                    controller: _signature,
-                    minLines: 2,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      border: FolooBorders.borderlessField,
-                      enabledBorder: FolooBorders.borderlessField,
-                      focusedBorder: FolooBorders.borderlessField,
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        _error!,
-                        key: const Key('emailVariableError'),
-                        style: TextStyle(color: FolooPalette.of(context).error),
-                      ),
-                    ),
-                  const SizedBox(height: 14),
-                  Text(
-                    context.l10n.variables,
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 7,
-                    runSpacing: 7,
-                    children: _variables
-                        .map(
-                          (value) => ActionChip(
-                            key: Key('variable-$value'),
-                            label: Text(value),
-                            onPressed: () => _insert(value),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    context.l10n.preview,
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    key: const Key('emailPreview'),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: FolooPalette.of(context).paper,
-                      borderRadius: BorderRadius.circular(FolooRadii.md),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (_previewRecord != null) ...[
-                          Text(
-                            context.l10n.previewTo(
-                              _previewRecord!.lead.fullName,
-                            ),
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            _preview(_subject.text),
-                            style: const TextStyle(fontWeight: FontWeight.w900),
-                          ),
-                          const Divider(height: 24),
-                          Text(_preview(_body.text)),
-                          const SizedBox(height: 12),
-                          Text(_preview(_signature.text)),
-                          const SizedBox(height: 12),
-                          Text(
-                            (_kind == _TemplateKind.event
-                                            ? _previewRecord!.lead.eventName
-                                            : _previewRecord!.lead.place)
-                                        ?.trim()
-                                        .isNotEmpty ==
-                                    true
-                                ? (_kind == _TemplateKind.event
-                                      ? context.l10n.emailFooterEventV1(
-                                          _previewRecord!.lead.eventName!,
-                                        )
-                                      : context.l10n.emailFooterDirectV1(
-                                          _previewRecord!.lead.place!,
-                                        ))
-                                : context.l10n.emailFooterGenericV1,
-                          ),
-                          Text(context.l10n.emailUnsubscribeV1),
-                        ] else
-                          Text(
-                            context.l10n.emailNoLeadPreviewV1,
-                            style: const TextStyle(fontSize: 11),
-                          ),
                       ],
                     ),
-                  ),
-                  _followUpList(),
-                ],
+                    const SizedBox(height: 14),
+                    _connectionCard(),
+                    const SizedBox(height: 18),
+                    Text(
+                      context.l10n.sellerTemplateHelp,
+                      style: TextStyle(
+                        color: FolooPalette.of(context).inkSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      context.l10n.subject,
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    const SizedBox(height: 7),
+                    TextField(
+                      key: ValueKey('emailSubject-${_kind.name}'),
+                      controller: _subject,
+                      focusNode: _subjectFocus,
+                      textInputAction: TextInputAction.next,
+                      onSubmitted: (_) => _bodyFocus.requestFocus(),
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
+                      onTap: () => _lastTemplateField = _TemplateField.subject,
+                      decoration: const InputDecoration(
+                        border: FolooBorders.borderlessField,
+                        enabledBorder: FolooBorders.borderlessField,
+                        focusedBorder: FolooBorders.borderlessField,
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      context.l10n.body,
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    const SizedBox(height: 7),
+                    TextField(
+                      key: ValueKey('emailBody-${_kind.name}'),
+                      controller: _body,
+                      focusNode: _bodyFocus,
+                      textInputAction: TextInputAction.newline,
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
+                      onTap: () => _lastTemplateField = _TemplateField.body,
+                      minLines: 8,
+                      maxLines: 12,
+                      decoration: const InputDecoration(
+                        border: FolooBorders.borderlessField,
+                        enabledBorder: FolooBorders.borderlessField,
+                        focusedBorder: FolooBorders.borderlessField,
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      context.l10n.emailSignatureV1,
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    const SizedBox(height: 7),
+                    TextField(
+                      key: ValueKey('emailSignature-${_kind.name}'),
+                      controller: _signature,
+                      focusNode: _signatureFocus,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        border: FolooBorders.borderlessField,
+                        enabledBorder: FolooBorders.borderlessField,
+                        focusedBorder: FolooBorders.borderlessField,
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          _error!,
+                          key: const Key('emailVariableError'),
+                          style: TextStyle(
+                            color: FolooPalette.of(context).error,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 14),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        key: const Key('restoreFolooTemplateButton'),
+                        onPressed: _restoreOfficialDefault,
+                        icon: const Icon(Icons.restore),
+                        label: Text(context.l10n.restoreDefaultTemplate),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      context.l10n.variables,
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 7,
+                      runSpacing: 7,
+                      children: _variables
+                          .map(
+                            (value) => ActionChip(
+                              key: Key('variable-$value'),
+                              label: Text(value),
+                              onPressed: () => _insert(value),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      context.l10n.preview,
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      key: const Key('emailPreview'),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: FolooPalette.of(context).paper,
+                        borderRadius: BorderRadius.circular(FolooRadii.md),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (_previewRecord != null) ...[
+                            Text(
+                              context.l10n.previewTo(
+                                _previewRecord!.lead.fullName,
+                              ),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              _preview(_subject.text),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const Divider(height: 24),
+                            Text(_preview(_body.text)),
+                            const SizedBox(height: 12),
+                            Text(_preview(_signature.text)),
+                            const SizedBox(height: 12),
+                            Text(
+                              (_kind == _TemplateKind.event
+                                              ? _previewRecord!.lead.eventName
+                                              : _previewRecord!.lead.place)
+                                          ?.trim()
+                                          .isNotEmpty ==
+                                      true
+                                  ? (_kind == _TemplateKind.event
+                                        ? context.l10n.emailFooterEventV1(
+                                            _previewRecord!.lead.eventName!,
+                                          )
+                                        : context.l10n.emailFooterDirectV1(
+                                            _previewRecord!.lead.place!,
+                                          ))
+                                  : context.l10n.emailFooterGenericV1,
+                            ),
+                            Text(context.l10n.emailUnsubscribeV1),
+                          ] else
+                            Text(
+                              context.l10n.emailNoLeadPreviewV1,
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                        ],
+                      ),
+                    ),
+                    _followUpList(),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       bottomNavigationBar: AnimatedPadding(
         duration: const Duration(milliseconds: 160),

@@ -1,7 +1,8 @@
 /// Lead-scoped review step between durable capture and explicit email intent.
 ///
-/// Recipient and frozen attachments remain immutable; the seller may adjust
-/// only this concrete subject/message without mutating global templates.
+/// Recipient and attachments reflect the current Lead until explicit confirm;
+/// the seller may adjust this concrete subject/message without mutating global
+/// templates. Confirmation is the immutable send-intent boundary (SAL-01).
 library;
 
 import 'package:flutter/material.dart';
@@ -20,6 +21,7 @@ class EmailReviewScreen extends StatefulWidget {
     required this.onConfirm,
     required this.onConnectionRequired,
     required this.onCaptureAnother,
+    this.onDraftSaved,
     super.key,
   });
 
@@ -28,6 +30,7 @@ class EmailReviewScreen extends StatefulWidget {
   final Future<EmailReviewOutcome> Function(EmailReviewDraft draft) onConfirm;
   final VoidCallback onConnectionRequired;
   final VoidCallback onCaptureAnother;
+  final Future<void> Function(EmailReviewDraft draft)? onDraftSaved;
 
   @override
   State<EmailReviewScreen> createState() => _EmailReviewScreenState();
@@ -112,6 +115,16 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
     );
   }
 
+  Future<void> _back() async {
+    final subject = _subject.text.trim();
+    final message = _message.text.trim();
+    final save = widget.onDraftSaved;
+    if (save != null) {
+      await save(widget.draft.copyWith(subject: subject, message: message));
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = FolooPalette.of(context);
@@ -121,7 +134,7 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
       appBar: AppBar(
         leading: IconButton(
           key: const Key('emailReviewBack'),
-          onPressed: () => Navigator.pop(context),
+          onPressed: _back,
           icon: const Icon(Icons.arrow_back),
         ),
         title: Column(

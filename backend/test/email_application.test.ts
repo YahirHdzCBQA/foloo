@@ -9,6 +9,7 @@ import type {
   StoredSendIntent,
 } from "../src/email/email_repository.js";
 import type { EmailProviderBoundary } from "../src/email/provider_invoker.js";
+import type { ProviderCommand } from "../src/email/provider_contract.js";
 import type { MediaStorage } from "../src/storage/media_storage.js";
 
 const principal = { userId: "seller-a", workspaceId: "workspace-a" };
@@ -39,9 +40,15 @@ function harness(options: {
   remoteMissing?: boolean;
   outcome?: "accepted" | "safe_retry" | "ambiguous";
   optedOut?: boolean;
+  attachmentCount?: 1 | 2;
 }) {
   let current = intent();
   let providerCalls = 0;
+  let providerCommand: ProviderCommand | undefined;
+  const attachmentIds = [
+    "33333333-3333-4333-8333-333333333333",
+    "44444444-4444-4444-8444-444444444444",
+  ].slice(0, options.attachmentCount ?? 1);
   const repository = {
     connection: async () => ({
       id: "connection-a",
@@ -53,16 +60,15 @@ function harness(options: {
     createIntent: async () => current,
     intent: async () => current,
     isOptedOut: async () => options.optedOut ?? false,
-    intentAttachments: async () => [
-      {
-        id: "33333333-3333-4333-8333-333333333333",
-        name: "Ficha técnica.pdf",
+    intentAttachments: async () =>
+      attachmentIds.map((id, index) => ({
+        id,
+        name: index === 0 ? "Ficha técnica.pdf" : "Catálogo técnico.pdf",
         byteSize: 512,
         contentType: "application/pdf" as const,
         available: true,
-        storageObjectKey: "private/content.pdf",
-      },
-    ],
+        storageObjectKey: `private/content-${index + 1}.pdf`,
+      })),
     markSending: async () => {
       current = intent({ status: "sending", attemptCount: 1 });
       return current;
@@ -73,8 +79,9 @@ function harness(options: {
     },
   } as unknown as EmailRepository;
   const providers = {
-    invoke: async () => {
+    invoke: async (command: ProviderCommand) => {
       providerCalls += 1;
+      providerCommand = command;
       return { outcome: options.outcome ?? "accepted" };
     },
   } as EmailProviderBoundary;
@@ -100,6 +107,7 @@ function harness(options: {
       "https://api.invalid",
     ),
     providerCalls: () => providerCalls,
+    providerCommand: () => providerCommand,
     intent: () => current,
   };
 }
@@ -165,6 +173,25 @@ test("provider acceptance is persisted as sent", async () => {
   assert.equal(value.providerCalls(), 1);
 });
 
+test("two available PDFs reach the provider payload without truncation", async () => {
+  const value = harness({ outcome: "accepted", attachmentCount: 2 });
+  const result = await value.application.confirm(
+    principal.userId,
+    intent().followUpId,
+    { intentId: intent().id },
+  );
+  assert.equal(result.intent.status, "sent");
+  const command = value.providerCommand();
+  assert.ok(command && command.action === "send");
+  assert.deepEqual(
+    command.attachments.map((attachment) => attachment.id),
+    [
+      "33333333-3333-4333-8333-333333333333",
+      "44444444-4444-4444-8444-444444444444",
+    ],
+  );
+});
+
 test("two legitimate follow-ups to one address send without an unsubscribe", async () => {
   const first = harness({ outcome: "accepted" });
   const second = harness({ outcome: "accepted" });
@@ -223,6 +250,7 @@ test("prepared follow-up persists the rendered subject instead of template token
   const core = {
     resolvePrincipal: async () => principal,
     listEmailTemplates: async () => [],
+    listEventEmailTemplates: async () => [],
   } as unknown as FolooRepository;
   const repository = {
     followUpContext: async () => ({

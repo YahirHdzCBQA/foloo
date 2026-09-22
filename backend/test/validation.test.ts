@@ -32,6 +32,7 @@ test("REG-07 accepts only the approved structured edit contract", () => {
     leadType: "partner",
     interest: "medium",
     writtenNote: "Seguimiento",
+    contentFileIds: ["57d8ce9a-dcc4-4b78-8fd9-552c216a62a1"],
     ownerId: "must-be-ignored",
     eventId: "must-be-ignored",
   };
@@ -39,6 +40,9 @@ test("REG-07 accepts only the approved structured edit contract", () => {
   assert.equal(parsed.revision, 2);
   assert.equal("ownerId" in parsed, false);
   assert.equal("eventId" in parsed, false);
+  assert.deepEqual(parsed.contentFileIds, [
+    "57d8ce9a-dcc4-4b78-8fd9-552c216a62a1",
+  ]);
   assert.equal(
     leadUpdateSchema.safeParse({ ...update, revision: 0 }).success,
     false,

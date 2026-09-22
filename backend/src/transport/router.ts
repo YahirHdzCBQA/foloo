@@ -24,6 +24,8 @@ import {
   mediaSchema,
   profileSchema,
   emailTemplateSchema,
+  eventEmailTemplateSchema,
+  eventEmailTemplateDeleteSchema,
 } from "./schemas.js";
 
 const idempotencyKeySchema = z.string().min(8).max(128);
@@ -204,6 +206,39 @@ export function createRouter(
         { data: result.value },
         result.replayed ? { "idempotency-replayed": "true" } : {},
       );
+    }
+    if (method === "GET" && path === "/v1/email/event-templates") {
+      return json(200, {
+        data: await application.eventEmailTemplates(subject),
+      });
+    }
+    const eventTemplateMatch = /^\/v1\/events\/([^/]+)\/email-template$/.exec(
+      path,
+    );
+    if (method === "PUT" && eventTemplateMatch?.[1]) {
+      const eventId = uuidSchema.parse(eventTemplateMatch[1]);
+      const payload = eventEmailTemplateSchema.parse(
+        Object.assign({}, body(event), { eventId }),
+      );
+      const result = await application.saveEventEmailTemplate(
+        subject,
+        payload,
+        idempotencyKey(event),
+        requestHash(payload),
+      );
+      return json(200, { data: result.value });
+    }
+    if (method === "DELETE" && eventTemplateMatch?.[1]) {
+      const eventId = uuidSchema.parse(eventTemplateMatch[1]);
+      const payload = eventEmailTemplateDeleteSchema.parse(body(event));
+      const result = await application.deleteEventEmailTemplate(
+        subject,
+        eventId,
+        payload.language,
+        idempotencyKey(event),
+        requestHash({ eventId, ...payload }),
+      );
+      return json(200, { data: result.value });
     }
     if (emailApplication && method === "GET" && path === "/v1/email/connection")
       return json(200, { data: await emailApplication.connection(subject) });

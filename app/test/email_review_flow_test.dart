@@ -43,6 +43,7 @@ Widget harness({
   required Future<EmailReviewOutcome> Function(EmailReviewDraft) onConfirm,
   VoidCallback? onConnectionRequired,
   EmailReviewDraft reviewDraft = draft,
+  Future<void> Function(EmailReviewDraft)? onDraftSaved,
 }) => MaterialApp(
   locale: const Locale('es'),
   theme: FolooTheme.light,
@@ -59,6 +60,7 @@ Widget harness({
     onConfirm: onConfirm,
     onConnectionRequired: onConnectionRequired ?? () {},
     onCaptureAnother: () {},
+    onDraftSaved: onDraftSaved,
   ),
 );
 
@@ -93,6 +95,28 @@ void main() {
     expect(find.text('Correo pendiente'), findsOneWidget);
   });
 
+  testWidgets('Review renders every selected Content attachment', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      harness(
+        reviewDraft: const EmailReviewDraft(
+          followUpId: 'follow-up-1',
+          leadName: 'Mariana Sandoval',
+          recipientAddress: 'mariana@example.com',
+          subject: 'Seguimiento',
+          message: 'Mensaje concreto',
+          attachmentNames: ['Ficha A.pdf', 'Ficha B.pdf'],
+        ),
+        onConfirm: (_) async => EmailReviewOutcome.pending,
+      ),
+    );
+
+    expect(find.text('Ficha A.pdf'), findsOneWidget);
+    expect(find.text('Ficha B.pdf'), findsOneWidget);
+    expect(find.text('Se adjuntan 2 archivos'), findsOneWidget);
+  });
+
   testWidgets('missing provider asks for connection without losing review', (
     tester,
   ) async {
@@ -104,6 +128,33 @@ void main() {
 
     expect(find.text('Conecta tu correo'), findsOneWidget);
     expect(find.byKey(const Key('emailReviewMessage')), findsOneWidget);
+  });
+
+  testWidgets('Back persists concrete Review edits and marks them manual', (
+    tester,
+  ) async {
+    EmailReviewDraft? saved;
+    await tester.pumpWidget(
+      harness(
+        onConfirm: (_) async => EmailReviewOutcome.pending,
+        onDraftSaved: (value) async {
+          saved = value;
+        },
+      ),
+    );
+    await tester.enterText(
+      find.byKey(const Key('emailReviewSubject')),
+      'Asunto manual',
+    );
+    await tester.enterText(
+      find.byKey(const Key('emailReviewMessage')),
+      'Mensaje manual específico',
+    );
+    await tester.tap(find.byKey(const Key('emailReviewBack')));
+    await tester.pumpAndSettle();
+
+    expect(saved?.subject, 'Asunto manual');
+    expect(saved?.message, 'Mensaje manual específico');
   });
 
   testWidgets('opted-out recipient is terminal while the lead stays saved', (

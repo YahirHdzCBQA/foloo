@@ -26,6 +26,14 @@ export interface EmailTemplate {
   signature: string;
 }
 
+export interface EventEmailTemplate extends Omit<EmailTemplate, "origin"> {
+  eventId: string;
+}
+
+export function validateEventEmailTemplate(template: EventEmailTemplate): void {
+  validateEmailTemplate({ ...template, origin: "event" });
+}
+
 export interface EmailPreview {
   subject: string;
   plainText: string;

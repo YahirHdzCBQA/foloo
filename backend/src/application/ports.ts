@@ -16,9 +16,26 @@ import type {
   Principal,
   SellerProfileInput,
 } from "../domain/models.js";
-import type { EmailTemplate } from "../domain/email_templates.js";
+import type {
+  EmailTemplate,
+  EventEmailTemplate,
+} from "../domain/email_templates.js";
 
 export interface FolooRepository {
+  listEventEmailTemplates(principal: Principal): Promise<EventEmailTemplate[]>;
+  saveEventEmailTemplate(
+    principal: Principal,
+    template: EventEmailTemplate,
+    idempotencyKey: string,
+    requestHash: string,
+  ): Promise<IdempotentResult<EventEmailTemplate>>;
+  deleteEventEmailTemplate(
+    principal: Principal,
+    eventId: string,
+    language: "es" | "en",
+    idempotencyKey: string,
+    requestHash: string,
+  ): Promise<IdempotentResult<{ deleted: true }>>;
   listEmailTemplates(principal: Principal): Promise<EmailTemplate[]>;
   saveEmailTemplate(
     principal: Principal,

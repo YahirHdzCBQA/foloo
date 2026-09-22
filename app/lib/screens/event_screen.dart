@@ -4,12 +4,16 @@
 /// associated Leads and is confirmed before changing local state.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
 import '../models/content_file.dart';
+import '../models/email_template.dart';
+import '../data/repositories/local_repositories.dart';
 import '../services/event_selection_policy.dart';
 import '../services/pdf_picker_service.dart';
 import '../theme/foloo_theme.dart';
@@ -35,6 +39,9 @@ class EventScreen extends StatefulWidget {
     this.contentFiles = const [],
     this.pdfPickerService,
     this.nowProvider,
+    this.ownerSub,
+    this.templateRepository,
+    this.eventEmailTemplateRepository,
     this.profile = DemoAppData.profile,
     super.key,
   });
@@ -54,6 +61,9 @@ class EventScreen extends StatefulWidget {
   final List<ContentFile> contentFiles;
   final PdfPickerService? pdfPickerService;
   final DateTime Function()? nowProvider;
+  final String? ownerSub;
+  final EmailTemplateRepository? templateRepository;
+  final EventEmailTemplateRepository? eventEmailTemplateRepository;
 
   @override
   State<EventScreen> createState() => _EventScreenState();
@@ -143,6 +153,116 @@ class _EventScreenState extends State<EventScreen> {
     if (confirmed != true || !mounted) return;
     widget.onDelete(event);
     setState(() => _editing = null);
+  }
+
+  Future<void> _editEmailOverride(AppEvent event) async {
+    final owner = widget.ownerSub;
+    final repository = widget.eventEmailTemplateRepository;
+    if (owner == null || repository == null) return;
+    final language = Localizations.localeOf(context).languageCode == 'en'
+        ? 'en'
+        : 'es';
+    final existing = await repository.get(owner, event.id, language);
+    final sellerTemplates = await widget.templateRepository?.list(owner) ?? [];
+    final seller = sellerTemplates
+        .where((item) => item.origin == 'event' && item.language == language)
+        .firstOrNull;
+    final inherited =
+        seller ?? FolooEmailDefaults.forContext('event', language);
+    if (!mounted) return;
+    final subject = TextEditingController(
+      text: existing?.subject ?? inherited.subject,
+    );
+    final body = TextEditingController(text: existing?.body ?? inherited.body);
+    final signature = TextEditingController(
+      text: existing?.signature ?? inherited.signature,
+    );
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom + 20,
+        ),
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                sheetContext.l10n.customizeEventEmail,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                key: const Key('eventEmailSubjectField'),
+                controller: subject,
+                textInputAction: TextInputAction.next,
+                onTapOutside: (_) =>
+                    FocusManager.instance.primaryFocus?.unfocus(),
+                decoration: InputDecoration(
+                  labelText: sheetContext.l10n.subject,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('eventEmailBodyField'),
+                controller: body,
+                minLines: 7,
+                maxLines: 12,
+                decoration: InputDecoration(labelText: sheetContext.l10n.body),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('eventEmailSignatureField'),
+                controller: signature,
+                textInputAction: TextInputAction.done,
+                decoration: InputDecoration(
+                  labelText: sheetContext.l10n.emailSignatureV1,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (existing != null)
+                TextButton(
+                  key: const Key('useDefaultEventTemplateButton'),
+                  onPressed: () => Navigator.pop(sheetContext, 'default'),
+                  child: Text(sheetContext.l10n.useDefaultTemplate),
+                ),
+              FilledButton(
+                key: const Key('saveEventEmailTemplateButton'),
+                onPressed: () => Navigator.pop(sheetContext, 'save'),
+                child: Text(sheetContext.l10n.saveChanges),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (action == 'default') {
+      await repository.remove(owner, event.id, language);
+    } else if (action == 'save') {
+      await repository.save(
+        owner,
+        EventEmailTemplateData(
+          eventId: event.id,
+          language: language,
+          subject: subject.text,
+          body: body.text,
+          signature: signature.text,
+        ),
+      );
+    }
+    subject.dispose();
+    body.dispose();
+    signature.dispose();
+    if (mounted) setState(() {});
   }
 
   @override
@@ -516,6 +636,39 @@ class _EventScreenState extends State<EventScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
+                  if (widget.ownerSub != null &&
+                      widget.eventEmailTemplateRepository != null) ...[
+                    FutureBuilder<EventEmailTemplateData?>(
+                      future: widget.eventEmailTemplateRepository!.get(
+                        widget.ownerSub!,
+                        event.id,
+                        Localizations.localeOf(context).languageCode == 'en'
+                            ? 'en'
+                            : 'es',
+                      ),
+                      builder: (context, snapshot) => ListTile(
+                        key: const Key('eventEmailTemplateTile'),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 4,
+                        ),
+                        tileColor: palette.paper,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(FolooRadii.md),
+                        ),
+                        leading: const Icon(Icons.mail_outline),
+                        title: Text(context.l10n.customizeEventEmail),
+                        subtitle: Text(
+                          snapshot.data == null
+                              ? context.l10n.usingDefaultTemplate
+                              : context.l10n.customEventTemplate,
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => _editEmailOverride(event),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   FilledButton.icon(
                     key: const Key('deleteEventButton'),
                     onPressed: () => _confirmDelete(event),

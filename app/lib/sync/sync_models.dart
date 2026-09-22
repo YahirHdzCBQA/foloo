@@ -12,6 +12,7 @@ enum SyncEntityType {
   leadMedia,
   contentBinary,
   emailTemplate,
+  eventEmailTemplate,
   emailFollowUp,
   emailSendIntent,
 }

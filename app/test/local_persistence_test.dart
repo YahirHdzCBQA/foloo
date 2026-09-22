@@ -26,6 +26,8 @@ LeadDraft draft({
   String? eventId = 'event-1',
   String? cardPath,
   String? audioPath,
+  List<String> contentIds = const [],
+  List<String> contentNames = const [],
   List<String> referencePaths = const [],
   DateTime? ignoredCapturedAt,
 }) => LeadDraft(
@@ -44,6 +46,8 @@ LeadDraft draft({
   cardImageLocalPath: cardPath,
   audioLocalPath: audioPath,
   audioSeconds: audioPath == null ? 0 : 18,
+  contentFileIds: contentIds,
+  contentNames: contentNames,
   referenceImageLocalPaths: referencePaths,
 );
 
@@ -136,13 +140,22 @@ void main() {
       );
       final saved = await leads.saveDraft(
         userId,
-        draft(),
+        draft(
+          contentIds: const ['content-a', 'content-b'],
+          contentNames: const ['Ficha A', 'Ficha B'],
+        ),
         capturedBy: const DemoProfile(name: 'Yahir', company: 'CBQA'),
       );
+      expect(saved.lead.contentFileIds, ['content-a', 'content-b']);
+      expect(saved.lead.contentNames, ['Ficha A', 'Ficha B']);
       await leads.updateDraft(
         userId,
         saved,
-        saved.lead.copyWith(phone: '+52 55 1111 2222'),
+        saved.lead.copyWith(
+          phone: '+52 55 1111 2222',
+          contentFileIds: const ['content-a'],
+          contentNames: const ['Ficha A'],
+        ),
       );
       var operations = await database.syncDao.forEntity(
         userId,
@@ -154,6 +167,12 @@ void main() {
         jsonDecode(operations.single.payloadJson)['phone'],
         '+52 55 1111 2222',
       );
+      expect(jsonDecode(operations.single.payloadJson)['contentFileIds'], [
+        'content-a',
+      ]);
+      var current = (await leads.listAll(userId)).single;
+      expect(current.lead.contentFileIds, ['content-a']);
+      expect(current.lead.contentNames, ['Ficha A']);
 
       await database.syncDao.completeCreatesForEntity(
         userId,
@@ -176,7 +195,10 @@ void main() {
       expect(update.action, 'update');
       expect(jsonDecode(update.payloadJson)['revision'], 7);
       expect(jsonDecode(update.payloadJson)['writtenNote'], 'Nota corregida');
-      expect((await leads.listAll(userId)).single.lead.note, 'Nota corregida');
+      expect(jsonDecode(update.payloadJson)['contentFileIds'], ['content-a']);
+      current = (await leads.listAll(userId)).single;
+      expect(current.lead.note, 'Nota corregida');
+      expect(current.lead.contentFileIds, ['content-a']);
       await database.close();
     },
   );
@@ -282,6 +304,80 @@ void main() {
       expect(await managedOrphan.exists(), isFalse);
       expect(await sourceCard.exists(), isTrue);
       await database.close();
+    },
+  );
+
+  test(
+    'VOZ-04 Review revisions reuse, replace and delete one durable voice file',
+    () async {
+      final firstSource = File('${temporary.path}/voice-first.m4a');
+      final replacementSource = File('${temporary.path}/voice-replacement.m4a');
+      await firstSource.writeAsBytes([0, 0, 0, 8, 0x66, 0x74, 0x79, 0x70, 1]);
+      await replacementSource.writeAsBytes([
+        0,
+        0,
+        0,
+        9,
+        0x66,
+        0x74,
+        0x79,
+        0x70,
+        2,
+      ]);
+      final database = openDatabase();
+      addTearDown(database.close);
+      await EventRepository(database).save(userId, event(), makeActive: true);
+      final leads = LeadRepository(
+        database,
+        PrivateMediaStorage(mediaRoot),
+        idFactory: () => 'lead-review-voice',
+      );
+
+      final saved = await leads.saveDraft(
+        userId,
+        draft(audioPath: firstSource.path),
+        capturedBy: const DemoProfile(name: 'Yahir', company: 'CBQA'),
+      );
+      final originalMedia = (await database.leadDao.mediaFor(saved.localId))
+          .single;
+      final durablePath = originalMedia.localPath;
+
+      await leads.updatePreparationVoice(
+        userId,
+        saved,
+        draft(audioPath: replacementSource.path),
+      );
+
+      final replaced = await database.leadDao.mediaFor(saved.localId);
+      expect(replaced, hasLength(1));
+      expect(replaced.single.localId, originalMedia.localId);
+      expect(replaced.single.localPath, durablePath);
+      expect((await File(durablePath).readAsBytes()).last, 2);
+      expect(
+        await database.syncDao.forEntity(
+          userId,
+          SyncEntityType.leadMedia.name,
+          originalMedia.localId,
+        ),
+        hasLength(1),
+      );
+
+      await leads.updatePreparationVoice(
+        userId,
+        saved,
+        draft().copyWith(clearAudio: true),
+      );
+
+      expect(await database.leadDao.mediaFor(saved.localId), isEmpty);
+      expect(await File(durablePath).exists(), isFalse);
+      expect(
+        await database.syncDao.forEntity(
+          userId,
+          SyncEntityType.leadMedia.name,
+          originalMedia.localId,
+        ),
+        isEmpty,
+      );
     },
   );
 
@@ -484,16 +580,16 @@ void main() {
 
   test('schema version is explicit and stable across reopen', () async {
     var database = openDatabase();
-    expect(database.schemaVersion, 8);
+    expect(database.schemaVersion, 10);
     var version = await database
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 8);
+    expect(version.read<int>('user_version'), 10);
     await database.close();
 
     database = openDatabase();
     version = await database.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 8);
+    expect(version.read<int>('user_version'), 10);
     await database.close();
   });
 

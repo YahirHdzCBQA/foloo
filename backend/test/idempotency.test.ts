@@ -110,14 +110,38 @@ test("rejects reuse of an idempotency key with another payload", async () => {
 class LeadUpdateClient extends IdempotencyClient {
   updateCount = 0;
   conflictRevision = false;
+  updatedValues: unknown[] = [];
 
   override async query<
     Row extends Record<string, unknown> = Record<string, unknown>,
   >(sql: string, values: unknown[] = []) {
-    if (sql.includes("SELECT origin FROM leads"))
-      return { rows: [{ origin: "direct" } as unknown as Row], rowCount: 1 };
+    if (sql.includes("SELECT origin,content_file_ids,content_names FROM leads"))
+      return {
+        rows: [
+          {
+            origin: "direct",
+            content_file_ids: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
+            content_names: ["Anterior.pdf"],
+          } as unknown as Row,
+        ],
+        rowCount: 1,
+      };
+    if (sql.includes("SELECT id,display_name FROM content_files")) {
+      const ids = values[1] as string[];
+      return {
+        rows: ids.map(
+          (id, index) =>
+            ({
+              id,
+              display_name: `Documento ${index + 1}.pdf`,
+            }) as unknown as Row,
+        ),
+        rowCount: ids.length,
+      };
+    }
     if (sql.includes("UPDATE leads SET")) {
       this.updateCount += 1;
+      this.updatedValues = values;
       return {
         rows: this.conflictRevision
           ? []
@@ -261,6 +285,27 @@ const leadUpdate = {
   interest: "high" as const,
   place: "Monterrey",
 };
+
+test("REG-07 refreshes the complete ordered Content selection", async () => {
+  const client = new LeadUpdateClient();
+  const contentIds = [
+    "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+  ];
+  const update = { ...leadUpdate, contentFileIds: contentIds };
+  await repository(client).updateLead(
+    principal,
+    "57d8ce9a-dcc4-4b78-8fd9-552c216a62a1",
+    update,
+    "content-update-key",
+    requestHash(update),
+  );
+  assert.deepEqual(client.updatedValues[13], contentIds);
+  assert.deepEqual(client.updatedValues[14], [
+    "Documento 1.pdf",
+    "Documento 2.pdf",
+  ]);
+});
 
 test("REG-07 replays an optimistic lead update without a second write", async () => {
   const client = new LeadUpdateClient();

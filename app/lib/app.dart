@@ -429,6 +429,16 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     };
   }
 
+  Future<void> _saveEmailReviewDraft(EmailReviewDraft draft, LeadDraft lead) =>
+      _persistence.emailDelivery.updatePreparation(
+        owner: _userId,
+        followUpId: draft.followUpId,
+        subject: draft.subject,
+        plainBody: draft.message,
+        lead: lead,
+        seller: _profile,
+      );
+
   Future<void> _updateLead(SessionLead record, LeadDraft updated) async {
     await _persistence.leads.updateDraft(_userId, record, updated);
     final leads = await _persistence.leads.listAll(_userId);
@@ -441,6 +451,50 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     if (_isOnline) {
       unawaited(_synchronize(trigger: SyncTrigger.postSave));
     }
+  }
+
+  /// Reuses the locally persisted Lead while Capture and Review are revisited.
+  Future<SessionLead> _reviseLeadPreparation(
+    SessionLead record,
+    LeadDraft updated,
+  ) async {
+    await _persistence.emailDelivery.prepareForLead(
+      owner: _userId,
+      leadId: record.localId,
+      lead: record.lead,
+      seller: _profile,
+      language: _locale.languageCode == 'en' ? 'en' : 'es',
+      reconcileExisting: true,
+    );
+    await _persistence.leads.updatePreparationVoice(_userId, record, updated);
+    await _persistence.leads.updateDraft(_userId, record, updated);
+    final leads = await _persistence.leads.listAll(_userId);
+    final refreshed = leads.firstWhere(
+      (item) => item.localId == record.localId,
+    );
+    final preparationLead = updated.copyWith(
+      cardImageLocalPath: refreshed.lead.cardImageLocalPath,
+      audioLocalPath: refreshed.lead.audioLocalPath,
+      clearCardImage: refreshed.lead.cardImageLocalPath == null,
+      clearAudio: refreshed.lead.audioLocalPath == null,
+      referenceImageLocalPaths: refreshed.lead.referenceImageLocalPaths,
+    );
+    await _persistence.emailDelivery.prepareForLead(
+      owner: _userId,
+      leadId: refreshed.localId,
+      lead: preparationLead,
+      seller: _profile,
+      language: _locale.languageCode == 'en' ? 'en' : 'es',
+      reconcileExisting: true,
+    );
+    if (mounted) {
+      setState(() {
+        _sessionLeads
+          ..clear()
+          ..addAll(leads);
+      });
+    }
+    return refreshed;
   }
 
   Future<bool> _authenticate(String username, String password) async {
@@ -1031,8 +1085,10 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           recordsCount: _sessionLeads.length,
           darkMode: darkMode,
           onLeadSaved: _saveLead,
+          onLeadRevised: _reviseLeadPreparation,
           onEmailReviewRequested: _emailReviewForLead,
           onEmailReviewConfirmed: _confirmEmailReview,
+          onEmailReviewUpdated: _saveEmailReviewDraft,
           onOriginChanged: _changeCaptureOrigin,
           onCreateEvent: _createEvent,
           onContentAdded: _addContentFile,
@@ -1073,6 +1129,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           onContentAdded: _addContentFile,
           pdfPickerService: widget.pdfPickerService,
           onUpdate: _updateEvent,
+          ownerSub: _userId,
+          templateRepository: _persistence.templates,
+          eventEmailTemplateRepository: _persistence.eventEmailTemplates,
           onDelete: _deleteEvent,
           onBack: _backFromEvents,
           contentFiles: List.unmodifiable(_contentFiles),

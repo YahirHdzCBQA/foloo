@@ -114,13 +114,17 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 ## E-08 · Plantillas y correo
 
-**Trazas:** `PLT-01`–`PLT-07`, `SAL-01`–`SAL-09`, `RC-01`, ADR-006/007.
+**Trazas:** `PLT-01`–`PLT-10`, `SAL-01`–`SAL-10`, `RC-01`, ADR-006/007.
 
 - Event/Direct ES/EN eligen por origen estructurado; asunto, cuerpo y firma
   editados sobreviven reinicio y cambio de cuenta. Preview del Lead real no envía.
 - Sin plantilla persistida, el asunto inicial es `Damos seguimiento, {nombre}`
   en ES y `Following up, {nombre}` en EN, renderizado con el nombre real. Una
   plantilla personalizada o un follow-up histórico congelado no se reescriben.
+- Evento resuelve override propio → predeterminada del vendedor → default Foloo;
+  Directo omite el nivel Evento. Restaurar Foloo solo cambia el editor hasta
+  Guardar; “Usar plantilla predeterminada” elimina el override y recupera
+  herencia viva. Ninguna edición de plantilla crea preparación o envío.
 - Solo los nueve tokens `PLT-03` se guardan; tokens desconocidos o llaves
   incompletas se rechazan. Datos históricos ausentes nunca producen tokens
   literales, `null`, `undefined` ni información inventada. `{contenido}` usa
@@ -135,8 +139,17 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   se preservan. Una baja real bloquea envíos futuros como estado terminal sin
   retry; sin baja, la misma dirección admite múltiples follow-ups legítimos.
 - Guardar Lead confirma primero la persistencia local y abre “Revisar” con
-  destinatario inmutable, texto concreto sin tokens y adjuntos congelados. La
-  edición ahí no muta la plantilla global; solo `foloo` crea la intención.
+  destinatario no editable, texto concreto sin tokens y todos los adjuntos
+  seleccionados. Antes de `foloo`, Back → editar Lead → Guardar actualiza la
+  misma preparación: A+B puede pasar a A o volver a A+B, Records refleja esa
+  selección y nombre/apellido/empresa/puesto/evento/lugar rerenderizan asunto y
+  cuerpo. Asunto y cuerpo detectan edición manual por separado. Un literal
+  agregado (por ejemplo `❤️`) se conserva, pero los segmentos procedentes de
+  los nueve tokens se actualizan con el Lead vigente; otra aparición literal
+  coincidente con el valor anterior no se reemplaza globalmente. Destinatario y
+  adjuntos también se reconcilian, incluso offline y tras reabrir la app. No se
+  duplica Lead ni preparación; solo `foloo` congela el follow-up y crea la
+  intención.
   Con teclado visible, la revisión sigue siendo desplazable, conserva la
   edición y mantiene el CTA accesible; tap fuera o drag descartan el teclado.
   Falta de email se muestra sin crear envío imposible. Confirmación online
@@ -149,6 +162,14 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Seguimientos se ordena por fecha descendente y cada renglón identifica Lead,
   destinatario, Evento/Lugar, fecha, asunto y estado mediante texto e icono;
   el color es apoyo visual y nunca el único indicador.
+- Cinco ciclos Capture → Revisar → Back conservan un único Lead y una única
+  preparación activa. Back conserva los literales editados manualmente y la
+  semántica durable de las variables por campo, reconcilia los demás datos
+  fuente y la Voice Note usa su path definitivo reproducible.
+  La intención nace solo al pulsar `foloo`; desde ahí cambios posteriores de
+  Lead, Content o plantilla no reescriben el snapshot histórico.
+- Mientras Correo permanece visible, cambios persistidos en Drift actualizan
+  todos los estados de seguimiento sin salir/reingresar y sin polling.
 - Adjuntos congelados se validan en backend. PDF borrado/no disponible o exceso
   de tamaño no se omite en silencio: el vendedor decide omitirlo para esa
   intención o cancelar. El Lead y su snapshot no cambian.

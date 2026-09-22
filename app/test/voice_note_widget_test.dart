@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/models/app_event.dart';
 import 'package:foloo/models/lead_draft.dart';
 import 'package:foloo/models/session_lead.dart';
+import 'package:foloo/models/email_review.dart';
 import 'package:foloo/screens/lead_capture_screen.dart';
 import 'package:foloo/theme/foloo_theme.dart';
 
@@ -115,6 +116,85 @@ Future<void> completeRequiredFields(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets(
+    'Save Review Back adopts definitive voice path and reuses the same Lead',
+    (tester) async {
+      final service = FakeVoiceNoteService();
+      var saves = 0;
+      var revisions = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: FolooTheme.light,
+          home: LeadCaptureScreen(
+            originKind: LeadOriginKind.event,
+            eventName: DemoEventData.eventName,
+            events: DemoAppData.events,
+            recordsCount: 0,
+            darkMode: false,
+            voiceNoteService: service,
+            onLeadSaved: (lead) {
+              saves++;
+              return SessionLead(
+                localId: 'lead-one',
+                folio: null,
+                capturedAt: DateTime(2026, 9, 21),
+                lead: lead.copyWith(audioLocalPath: '/support/lead-one.m4a'),
+              );
+            },
+            onLeadRevised: (record, lead) {
+              revisions++;
+              return record;
+            },
+            onEmailReviewRequested: (record) => const EmailReviewDraft(
+              followUpId: 'follow-up-one',
+              leadName: 'Ana López',
+              recipientAddress: 'ana@example.com',
+              subject: 'Seguimiento',
+              message: 'Hola Ana',
+              attachmentNames: [],
+            ),
+            onEmailReviewConfirmed: (_) async => EmailReviewOutcome.pending,
+            onOriginChanged: (_, _) {},
+            onCreateEvent: (_) {},
+            onDestinationSelected: (_) {},
+            onAppearanceChanged: (_) {},
+            onLogout: () {},
+          ),
+        ),
+      );
+      await completeRequiredFields(tester);
+      await createVoiceNote(tester);
+      await tester.tap(find.byKey(const Key('saveLeadButton')));
+      await tester.pumpAndSettle();
+      expect(find.text('Revisar'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('emailReviewBack')));
+      await tester.pumpAndSettle();
+      await showRecorder(tester);
+      expect(find.byKey(const Key('playPauseButton')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('playPauseButton')));
+      await tester.pump();
+      expect(service.playedPaths.last, '/support/lead-one.m4a');
+      await tester.tap(find.byKey(const Key('playPauseButton')));
+      await tester.pump();
+      for (var visit = 0; visit < 5; visit++) {
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('saveLeadButton')),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.tap(find.byKey(const Key('saveLeadButton')));
+        await tester.pumpAndSettle();
+        expect(find.text('Revisar'), findsOneWidget);
+        if (visit < 4) {
+          await tester.tap(find.byKey(const Key('emailReviewBack')));
+          await tester.pumpAndSettle();
+        }
+      }
+      expect(saves, 1);
+      expect(revisions, 5);
+    },
+  );
+
   testWidgets(
     'VOZ-04 stopped voice survives temporary provider navigation and remains playable',
     (tester) async {

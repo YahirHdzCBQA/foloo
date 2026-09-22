@@ -40,3 +40,18 @@ test("delivery migration preserves ambiguous and manual resend history", async (
   );
   assert.doesNotMatch(sql, /\bDROP\s+(TABLE|COLUMN)\b/i);
 });
+
+test("event template override is isolated and absence preserves inheritance", async () => {
+  const sql = await readFile(
+    join(import.meta.dirname, "../migrations/006_event_email_templates.sql"),
+    "utf8",
+  );
+  assert.match(sql, /CREATE TABLE event_email_templates/);
+  assert.match(
+    sql,
+    /PRIMARY KEY \(workspace_id, owner_user_id, event_id, language\)/,
+  );
+  assert.match(sql, /FOREIGN KEY \(workspace_id, event_id\)/);
+  assert.doesNotMatch(sql, /DEFAULT.*subject|DEFAULT.*body/i);
+  assert.doesNotMatch(sql, /\bDROP\s+(TABLE|COLUMN)\b/i);
+});

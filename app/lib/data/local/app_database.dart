@@ -86,6 +86,25 @@ class LocalEmailTemplates extends Table {
   Set<Column<Object>> get primaryKey => {ownerUserId, originKind, languageCode};
 }
 
+@DataClassName('StoredEventEmailTemplate')
+class LocalEventEmailTemplates extends Table {
+  TextColumn get ownerUserId => text()();
+  TextColumn get eventLocalId => text().references(LocalEvents, #localId)();
+  TextColumn get languageCode => text()();
+  TextColumn get subject => text()();
+  TextColumn get body => text()();
+  TextColumn get signature => text()();
+  DateTimeColumn get updatedAt => dateTime()();
+  TextColumn get syncState => text().withDefault(const Constant('local'))();
+
+  @override
+  Set<Column<Object>> get primaryKey => {
+    ownerUserId,
+    eventLocalId,
+    languageCode,
+  };
+}
+
 @DataClassName('StoredEmailConnection')
 class LocalEmailConnections extends Table {
   TextColumn get ownerUserId => text()();
@@ -117,6 +136,12 @@ class LocalEmailFollowUps extends Table {
   TextColumn get contentNamesJson => text().withDefault(const Constant('[]'))();
   TextColumn get languageCode => text()();
   DateTimeColumn get preparedAt => dateTime()();
+  TextColumn get subjectSemanticJson => text().nullable()();
+  TextColumn get bodySemanticJson => text().nullable()();
+  BoolColumn get subjectManuallyEdited =>
+      boolean().withDefault(const Constant(false))();
+  BoolColumn get bodyManuallyEdited =>
+      boolean().withDefault(const Constant(false))();
   TextColumn get syncState => text().withDefault(const Constant('local'))();
 
   @override
@@ -286,6 +311,52 @@ class EmailTemplateDao extends DatabaseAccessor<AppDatabase>
           );
 }
 
+@DriftAccessor(tables: [LocalEventEmailTemplates])
+class EventEmailTemplateDao extends DatabaseAccessor<AppDatabase>
+    with _$EventEmailTemplateDaoMixin {
+  EventEmailTemplateDao(super.db);
+
+  Future<List<StoredEventEmailTemplate>> listForOwner(String owner) => (select(
+    localEventEmailTemplates,
+  )..where((row) => row.ownerUserId.equals(owner))).get();
+
+  Future<StoredEventEmailTemplate?> forEvent(
+    String owner,
+    String eventId,
+    String language,
+  ) =>
+      (select(localEventEmailTemplates)..where(
+            (row) =>
+                row.ownerUserId.equals(owner) &
+                row.eventLocalId.equals(eventId) &
+                row.languageCode.equals(language),
+          ))
+          .getSingleOrNull();
+
+  Future<void> upsert(LocalEventEmailTemplatesCompanion value) =>
+      into(localEventEmailTemplates).insertOnConflictUpdate(value);
+
+  Future<void> remove(String owner, String eventId, String language) =>
+      (delete(localEventEmailTemplates)..where(
+            (row) =>
+                row.ownerUserId.equals(owner) &
+                row.eventLocalId.equals(eventId) &
+                row.languageCode.equals(language),
+          ))
+          .go();
+
+  Future<void> markSynced(String owner, String eventId, String language) =>
+      (update(localEventEmailTemplates)..where(
+            (row) =>
+                row.ownerUserId.equals(owner) &
+                row.eventLocalId.equals(eventId) &
+                row.languageCode.equals(language),
+          ))
+          .write(
+            const LocalEventEmailTemplatesCompanion(syncState: Value('synced')),
+          );
+}
+
 @DriftAccessor(
   tables: [LocalEmailConnections, LocalEmailFollowUps, LocalEmailSendIntents],
 )
@@ -306,11 +377,21 @@ class EmailDeliveryDao extends DatabaseAccessor<AppDatabase>
             ..orderBy([(row) => OrderingTerm.desc(row.preparedAt)]))
           .get();
 
+  Stream<List<StoredEmailFollowUp>> watchFollowUps(String owner) =>
+      (select(localEmailFollowUps)
+            ..where((row) => row.ownerUserId.equals(owner))
+            ..orderBy([(row) => OrderingTerm.desc(row.preparedAt)]))
+          .watch();
+
   Future<StoredEmailFollowUp?> followUpForLead(String owner, String leadId) =>
-      (select(localEmailFollowUps)..where(
-            (row) =>
-                row.ownerUserId.equals(owner) & row.leadLocalId.equals(leadId),
-          ))
+      (select(localEmailFollowUps)
+            ..where(
+              (row) =>
+                  row.ownerUserId.equals(owner) &
+                  row.leadLocalId.equals(leadId),
+            )
+            ..orderBy([(row) => OrderingTerm.desc(row.preparedAt)])
+            ..limit(1))
           .getSingleOrNull();
 
   Future<StoredEmailFollowUp?> followUpById(String owner, String id) =>
@@ -340,6 +421,68 @@ class EmailDeliveryDao extends DatabaseAccessor<AppDatabase>
             ),
           );
 
+  Future<void> updateReviewPreparation(
+    String owner,
+    String id, {
+    required String subject,
+    required String plainBody,
+    required String htmlBody,
+    required String subjectSemanticJson,
+    required String bodySemanticJson,
+    required bool subjectManuallyEdited,
+    required bool bodyManuallyEdited,
+  }) =>
+      (update(localEmailFollowUps)..where(
+            (row) => row.ownerUserId.equals(owner) & row.localId.equals(id),
+          ))
+          .write(
+            LocalEmailFollowUpsCompanion(
+              subject: Value(subject),
+              plainBody: Value(plainBody),
+              htmlBody: Value(htmlBody),
+              subjectSemanticJson: Value(subjectSemanticJson),
+              bodySemanticJson: Value(bodySemanticJson),
+              subjectManuallyEdited: Value(subjectManuallyEdited),
+              bodyManuallyEdited: Value(bodyManuallyEdited),
+            ),
+          );
+
+  Future<void> replacePreparation(
+    String owner,
+    String id, {
+    required String recipientAddress,
+    required String subject,
+    required String plainBody,
+    required String htmlBody,
+    required String contentFileIdsJson,
+    required String contentNamesJson,
+    required String languageCode,
+    required DateTime preparedAt,
+    required String subjectSemanticJson,
+    required String bodySemanticJson,
+    required bool subjectManuallyEdited,
+    required bool bodyManuallyEdited,
+  }) =>
+      (update(localEmailFollowUps)..where(
+            (row) => row.ownerUserId.equals(owner) & row.localId.equals(id),
+          ))
+          .write(
+            LocalEmailFollowUpsCompanion(
+              recipientAddress: Value(recipientAddress),
+              subject: Value(subject),
+              plainBody: Value(plainBody),
+              htmlBody: Value(htmlBody),
+              contentFileIdsJson: Value(contentFileIdsJson),
+              contentNamesJson: Value(contentNamesJson),
+              languageCode: Value(languageCode),
+              preparedAt: Value(preparedAt),
+              subjectSemanticJson: Value(subjectSemanticJson),
+              bodySemanticJson: Value(bodySemanticJson),
+              subjectManuallyEdited: Value(subjectManuallyEdited),
+              bodyManuallyEdited: Value(bodyManuallyEdited),
+            ),
+          );
+
   Future<void> markFollowUpSynced(String owner, String id) =>
       (update(localEmailFollowUps)..where(
             (row) => row.ownerUserId.equals(owner) & row.localId.equals(id),
@@ -353,6 +496,12 @@ class EmailDeliveryDao extends DatabaseAccessor<AppDatabase>
             ..where((row) => row.ownerUserId.equals(owner))
             ..orderBy([(row) => OrderingTerm.desc(row.createdAt)]))
           .get();
+
+  Stream<List<StoredEmailSendIntent>> watchIntents(String owner) =>
+      (select(localEmailSendIntents)
+            ..where((row) => row.ownerUserId.equals(owner))
+            ..orderBy([(row) => OrderingTerm.desc(row.createdAt)]))
+          .watch();
 
   Future<void> saveIntent(LocalEmailSendIntentsCompanion value) =>
       into(localEmailSendIntents).insertOnConflictUpdate(value);
@@ -666,6 +815,18 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
   Future<void> deleteMediaMetadata(String id) =>
       (delete(localLeadMedia)..where((row) => row.localId.equals(id))).go();
 
+  Future<void> updateVoiceMedia(
+    String id, {
+    required String path,
+    required int durationSeconds,
+  }) => (update(localLeadMedia)..where((row) => row.localId.equals(id))).write(
+    LocalLeadMediaCompanion(
+      localPath: Value(path),
+      durationSeconds: Value(durationSeconds),
+      uploadState: const Value('local'),
+    ),
+  );
+
   Future<void> markLeadSyncState(String userId, String id, String state) =>
       (update(localLeads)..where(
             (row) => row.ownerUserId.equals(userId) & row.localId.equals(id),
@@ -739,6 +900,19 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
                 row.entityId.equals(entityId),
           ))
           .get();
+
+  Future<void> deleteForEntity(
+    String ownerUserId,
+    String entityType,
+    String entityId,
+  ) =>
+      (delete(syncOperations)..where(
+            (row) =>
+                row.ownerUserId.equals(ownerUserId) &
+                row.entityType.equals(entityType) &
+                row.entityId.equals(entityId),
+          ))
+          .go();
 
   Future<void> completeCreatesForEntity(
     String ownerUserId,
@@ -867,6 +1041,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
     LocalEvents,
     LocalContentFiles,
     LocalEmailTemplates,
+    LocalEventEmailTemplates,
     LocalEmailConnections,
     LocalEmailFollowUps,
     LocalEmailSendIntents,
@@ -881,6 +1056,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
     EventDao,
     ContentDao,
     EmailTemplateDao,
+    EventEmailTemplateDao,
     EmailDeliveryDao,
     LeadDao,
     SyncDao,
@@ -899,7 +1075,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -948,6 +1124,29 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createTable(localEmailConnections);
         await migrator.createTable(localEmailFollowUps);
         await migrator.createTable(localEmailSendIntents);
+      }
+      if (from < 9) {
+        await migrator.createTable(localEventEmailTemplates);
+      }
+      // Databases from before v8 create the current follow-up table above, so
+      // only existing v8/v9 tables need the additive semantic-edit columns.
+      if (from >= 8 && from < 10) {
+        await migrator.addColumn(
+          localEmailFollowUps,
+          localEmailFollowUps.subjectSemanticJson,
+        );
+        await migrator.addColumn(
+          localEmailFollowUps,
+          localEmailFollowUps.bodySemanticJson,
+        );
+        await migrator.addColumn(
+          localEmailFollowUps,
+          localEmailFollowUps.subjectManuallyEdited,
+        );
+        await migrator.addColumn(
+          localEmailFollowUps,
+          localEmailFollowUps.bodyManuallyEdited,
+        );
       }
     },
     beforeOpen: (details) async {

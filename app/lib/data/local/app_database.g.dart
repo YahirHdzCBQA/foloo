@@ -19,6 +19,26 @@ class EmailTemplateDaoManager {
       );
 }
 
+mixin _$EventEmailTemplateDaoMixin on DatabaseAccessor<AppDatabase> {
+  $LocalEventsTable get localEvents => attachedDatabase.localEvents;
+  $LocalEventEmailTemplatesTable get localEventEmailTemplates =>
+      attachedDatabase.localEventEmailTemplates;
+  EventEmailTemplateDaoManager get managers =>
+      EventEmailTemplateDaoManager(this);
+}
+
+class EventEmailTemplateDaoManager {
+  final _$EventEmailTemplateDaoMixin _db;
+  EventEmailTemplateDaoManager(this._db);
+  $$LocalEventsTableTableManager get localEvents =>
+      $$LocalEventsTableTableManager(_db.attachedDatabase, _db.localEvents);
+  $$LocalEventEmailTemplatesTableTableManager get localEventEmailTemplates =>
+      $$LocalEventEmailTemplatesTableTableManager(
+        _db.attachedDatabase,
+        _db.localEventEmailTemplates,
+      );
+}
+
 mixin _$EmailDeliveryDaoMixin on DatabaseAccessor<AppDatabase> {
   $LocalEmailConnectionsTable get localEmailConnections =>
       attachedDatabase.localEmailConnections;
@@ -2758,6 +2778,548 @@ class LocalEmailTemplatesCompanion
   }
 }
 
+class $LocalEventEmailTemplatesTable extends LocalEventEmailTemplates
+    with TableInfo<$LocalEventEmailTemplatesTable, StoredEventEmailTemplate> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalEventEmailTemplatesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerUserIdMeta = const VerificationMeta(
+    'ownerUserId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerUserId = GeneratedColumn<String>(
+    'owner_user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _eventLocalIdMeta = const VerificationMeta(
+    'eventLocalId',
+  );
+  @override
+  late final GeneratedColumn<String> eventLocalId = GeneratedColumn<String>(
+    'event_local_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES local_events (local_id)',
+    ),
+  );
+  static const VerificationMeta _languageCodeMeta = const VerificationMeta(
+    'languageCode',
+  );
+  @override
+  late final GeneratedColumn<String> languageCode = GeneratedColumn<String>(
+    'language_code',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _subjectMeta = const VerificationMeta(
+    'subject',
+  );
+  @override
+  late final GeneratedColumn<String> subject = GeneratedColumn<String>(
+    'subject',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyMeta = const VerificationMeta('body');
+  @override
+  late final GeneratedColumn<String> body = GeneratedColumn<String>(
+    'body',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _signatureMeta = const VerificationMeta(
+    'signature',
+  );
+  @override
+  late final GeneratedColumn<String> signature = GeneratedColumn<String>(
+    'signature',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _syncStateMeta = const VerificationMeta(
+    'syncState',
+  );
+  @override
+  late final GeneratedColumn<String> syncState = GeneratedColumn<String>(
+    'sync_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('local'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerUserId,
+    eventLocalId,
+    languageCode,
+    subject,
+    body,
+    signature,
+    updatedAt,
+    syncState,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_event_email_templates';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StoredEventEmailTemplate> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_user_id')) {
+      context.handle(
+        _ownerUserIdMeta,
+        ownerUserId.isAcceptableOrUnknown(
+          data['owner_user_id']!,
+          _ownerUserIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerUserIdMeta);
+    }
+    if (data.containsKey('event_local_id')) {
+      context.handle(
+        _eventLocalIdMeta,
+        eventLocalId.isAcceptableOrUnknown(
+          data['event_local_id']!,
+          _eventLocalIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_eventLocalIdMeta);
+    }
+    if (data.containsKey('language_code')) {
+      context.handle(
+        _languageCodeMeta,
+        languageCode.isAcceptableOrUnknown(
+          data['language_code']!,
+          _languageCodeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_languageCodeMeta);
+    }
+    if (data.containsKey('subject')) {
+      context.handle(
+        _subjectMeta,
+        subject.isAcceptableOrUnknown(data['subject']!, _subjectMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_subjectMeta);
+    }
+    if (data.containsKey('body')) {
+      context.handle(
+        _bodyMeta,
+        body.isAcceptableOrUnknown(data['body']!, _bodyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyMeta);
+    }
+    if (data.containsKey('signature')) {
+      context.handle(
+        _signatureMeta,
+        signature.isAcceptableOrUnknown(data['signature']!, _signatureMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_signatureMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('sync_state')) {
+      context.handle(
+        _syncStateMeta,
+        syncState.isAcceptableOrUnknown(data['sync_state']!, _syncStateMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {
+    ownerUserId,
+    eventLocalId,
+    languageCode,
+  };
+  @override
+  StoredEventEmailTemplate map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StoredEventEmailTemplate(
+      ownerUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_user_id'],
+      )!,
+      eventLocalId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_local_id'],
+      )!,
+      languageCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}language_code'],
+      )!,
+      subject: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subject'],
+      )!,
+      body: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body'],
+      )!,
+      signature: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}signature'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      syncState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_state'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalEventEmailTemplatesTable createAlias(String alias) {
+    return $LocalEventEmailTemplatesTable(attachedDatabase, alias);
+  }
+}
+
+class StoredEventEmailTemplate extends DataClass
+    implements Insertable<StoredEventEmailTemplate> {
+  final String ownerUserId;
+  final String eventLocalId;
+  final String languageCode;
+  final String subject;
+  final String body;
+  final String signature;
+  final DateTime updatedAt;
+  final String syncState;
+  const StoredEventEmailTemplate({
+    required this.ownerUserId,
+    required this.eventLocalId,
+    required this.languageCode,
+    required this.subject,
+    required this.body,
+    required this.signature,
+    required this.updatedAt,
+    required this.syncState,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_user_id'] = Variable<String>(ownerUserId);
+    map['event_local_id'] = Variable<String>(eventLocalId);
+    map['language_code'] = Variable<String>(languageCode);
+    map['subject'] = Variable<String>(subject);
+    map['body'] = Variable<String>(body);
+    map['signature'] = Variable<String>(signature);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['sync_state'] = Variable<String>(syncState);
+    return map;
+  }
+
+  LocalEventEmailTemplatesCompanion toCompanion(bool nullToAbsent) {
+    return LocalEventEmailTemplatesCompanion(
+      ownerUserId: Value(ownerUserId),
+      eventLocalId: Value(eventLocalId),
+      languageCode: Value(languageCode),
+      subject: Value(subject),
+      body: Value(body),
+      signature: Value(signature),
+      updatedAt: Value(updatedAt),
+      syncState: Value(syncState),
+    );
+  }
+
+  factory StoredEventEmailTemplate.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StoredEventEmailTemplate(
+      ownerUserId: serializer.fromJson<String>(json['ownerUserId']),
+      eventLocalId: serializer.fromJson<String>(json['eventLocalId']),
+      languageCode: serializer.fromJson<String>(json['languageCode']),
+      subject: serializer.fromJson<String>(json['subject']),
+      body: serializer.fromJson<String>(json['body']),
+      signature: serializer.fromJson<String>(json['signature']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      syncState: serializer.fromJson<String>(json['syncState']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerUserId': serializer.toJson<String>(ownerUserId),
+      'eventLocalId': serializer.toJson<String>(eventLocalId),
+      'languageCode': serializer.toJson<String>(languageCode),
+      'subject': serializer.toJson<String>(subject),
+      'body': serializer.toJson<String>(body),
+      'signature': serializer.toJson<String>(signature),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'syncState': serializer.toJson<String>(syncState),
+    };
+  }
+
+  StoredEventEmailTemplate copyWith({
+    String? ownerUserId,
+    String? eventLocalId,
+    String? languageCode,
+    String? subject,
+    String? body,
+    String? signature,
+    DateTime? updatedAt,
+    String? syncState,
+  }) => StoredEventEmailTemplate(
+    ownerUserId: ownerUserId ?? this.ownerUserId,
+    eventLocalId: eventLocalId ?? this.eventLocalId,
+    languageCode: languageCode ?? this.languageCode,
+    subject: subject ?? this.subject,
+    body: body ?? this.body,
+    signature: signature ?? this.signature,
+    updatedAt: updatedAt ?? this.updatedAt,
+    syncState: syncState ?? this.syncState,
+  );
+  StoredEventEmailTemplate copyWithCompanion(
+    LocalEventEmailTemplatesCompanion data,
+  ) {
+    return StoredEventEmailTemplate(
+      ownerUserId: data.ownerUserId.present
+          ? data.ownerUserId.value
+          : this.ownerUserId,
+      eventLocalId: data.eventLocalId.present
+          ? data.eventLocalId.value
+          : this.eventLocalId,
+      languageCode: data.languageCode.present
+          ? data.languageCode.value
+          : this.languageCode,
+      subject: data.subject.present ? data.subject.value : this.subject,
+      body: data.body.present ? data.body.value : this.body,
+      signature: data.signature.present ? data.signature.value : this.signature,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      syncState: data.syncState.present ? data.syncState.value : this.syncState,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredEventEmailTemplate(')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('eventLocalId: $eventLocalId, ')
+          ..write('languageCode: $languageCode, ')
+          ..write('subject: $subject, ')
+          ..write('body: $body, ')
+          ..write('signature: $signature, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('syncState: $syncState')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    ownerUserId,
+    eventLocalId,
+    languageCode,
+    subject,
+    body,
+    signature,
+    updatedAt,
+    syncState,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StoredEventEmailTemplate &&
+          other.ownerUserId == this.ownerUserId &&
+          other.eventLocalId == this.eventLocalId &&
+          other.languageCode == this.languageCode &&
+          other.subject == this.subject &&
+          other.body == this.body &&
+          other.signature == this.signature &&
+          other.updatedAt == this.updatedAt &&
+          other.syncState == this.syncState);
+}
+
+class LocalEventEmailTemplatesCompanion
+    extends UpdateCompanion<StoredEventEmailTemplate> {
+  final Value<String> ownerUserId;
+  final Value<String> eventLocalId;
+  final Value<String> languageCode;
+  final Value<String> subject;
+  final Value<String> body;
+  final Value<String> signature;
+  final Value<DateTime> updatedAt;
+  final Value<String> syncState;
+  final Value<int> rowid;
+  const LocalEventEmailTemplatesCompanion({
+    this.ownerUserId = const Value.absent(),
+    this.eventLocalId = const Value.absent(),
+    this.languageCode = const Value.absent(),
+    this.subject = const Value.absent(),
+    this.body = const Value.absent(),
+    this.signature = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.syncState = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalEventEmailTemplatesCompanion.insert({
+    required String ownerUserId,
+    required String eventLocalId,
+    required String languageCode,
+    required String subject,
+    required String body,
+    required String signature,
+    required DateTime updatedAt,
+    this.syncState = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : ownerUserId = Value(ownerUserId),
+       eventLocalId = Value(eventLocalId),
+       languageCode = Value(languageCode),
+       subject = Value(subject),
+       body = Value(body),
+       signature = Value(signature),
+       updatedAt = Value(updatedAt);
+  static Insertable<StoredEventEmailTemplate> custom({
+    Expression<String>? ownerUserId,
+    Expression<String>? eventLocalId,
+    Expression<String>? languageCode,
+    Expression<String>? subject,
+    Expression<String>? body,
+    Expression<String>? signature,
+    Expression<DateTime>? updatedAt,
+    Expression<String>? syncState,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerUserId != null) 'owner_user_id': ownerUserId,
+      if (eventLocalId != null) 'event_local_id': eventLocalId,
+      if (languageCode != null) 'language_code': languageCode,
+      if (subject != null) 'subject': subject,
+      if (body != null) 'body': body,
+      if (signature != null) 'signature': signature,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (syncState != null) 'sync_state': syncState,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalEventEmailTemplatesCompanion copyWith({
+    Value<String>? ownerUserId,
+    Value<String>? eventLocalId,
+    Value<String>? languageCode,
+    Value<String>? subject,
+    Value<String>? body,
+    Value<String>? signature,
+    Value<DateTime>? updatedAt,
+    Value<String>? syncState,
+    Value<int>? rowid,
+  }) {
+    return LocalEventEmailTemplatesCompanion(
+      ownerUserId: ownerUserId ?? this.ownerUserId,
+      eventLocalId: eventLocalId ?? this.eventLocalId,
+      languageCode: languageCode ?? this.languageCode,
+      subject: subject ?? this.subject,
+      body: body ?? this.body,
+      signature: signature ?? this.signature,
+      updatedAt: updatedAt ?? this.updatedAt,
+      syncState: syncState ?? this.syncState,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerUserId.present) {
+      map['owner_user_id'] = Variable<String>(ownerUserId.value);
+    }
+    if (eventLocalId.present) {
+      map['event_local_id'] = Variable<String>(eventLocalId.value);
+    }
+    if (languageCode.present) {
+      map['language_code'] = Variable<String>(languageCode.value);
+    }
+    if (subject.present) {
+      map['subject'] = Variable<String>(subject.value);
+    }
+    if (body.present) {
+      map['body'] = Variable<String>(body.value);
+    }
+    if (signature.present) {
+      map['signature'] = Variable<String>(signature.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (syncState.present) {
+      map['sync_state'] = Variable<String>(syncState.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalEventEmailTemplatesCompanion(')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('eventLocalId: $eventLocalId, ')
+          ..write('languageCode: $languageCode, ')
+          ..write('subject: $subject, ')
+          ..write('body: $body, ')
+          ..write('signature: $signature, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('syncState: $syncState, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $LocalEmailConnectionsTable extends LocalEmailConnections
     with TableInfo<$LocalEmailConnectionsTable, StoredEmailConnection> {
   @override
@@ -4716,6 +5278,57 @@ class $LocalEmailFollowUpsTable extends LocalEmailFollowUps
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _subjectSemanticJsonMeta =
+      const VerificationMeta('subjectSemanticJson');
+  @override
+  late final GeneratedColumn<String> subjectSemanticJson =
+      GeneratedColumn<String>(
+        'subject_semantic_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _bodySemanticJsonMeta = const VerificationMeta(
+    'bodySemanticJson',
+  );
+  @override
+  late final GeneratedColumn<String> bodySemanticJson = GeneratedColumn<String>(
+    'body_semantic_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _subjectManuallyEditedMeta =
+      const VerificationMeta('subjectManuallyEdited');
+  @override
+  late final GeneratedColumn<bool> subjectManuallyEdited =
+      GeneratedColumn<bool>(
+        'subject_manually_edited',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("subject_manually_edited" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _bodyManuallyEditedMeta =
+      const VerificationMeta('bodyManuallyEdited');
+  @override
+  late final GeneratedColumn<bool> bodyManuallyEdited = GeneratedColumn<bool>(
+    'body_manually_edited',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("body_manually_edited" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _syncStateMeta = const VerificationMeta(
     'syncState',
   );
@@ -4741,6 +5354,10 @@ class $LocalEmailFollowUpsTable extends LocalEmailFollowUps
     contentNamesJson,
     languageCode,
     preparedAt,
+    subjectSemanticJson,
+    bodySemanticJson,
+    subjectManuallyEdited,
+    bodyManuallyEdited,
     syncState,
   ];
   @override
@@ -4857,6 +5474,42 @@ class $LocalEmailFollowUpsTable extends LocalEmailFollowUps
     } else if (isInserting) {
       context.missing(_preparedAtMeta);
     }
+    if (data.containsKey('subject_semantic_json')) {
+      context.handle(
+        _subjectSemanticJsonMeta,
+        subjectSemanticJson.isAcceptableOrUnknown(
+          data['subject_semantic_json']!,
+          _subjectSemanticJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('body_semantic_json')) {
+      context.handle(
+        _bodySemanticJsonMeta,
+        bodySemanticJson.isAcceptableOrUnknown(
+          data['body_semantic_json']!,
+          _bodySemanticJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('subject_manually_edited')) {
+      context.handle(
+        _subjectManuallyEditedMeta,
+        subjectManuallyEdited.isAcceptableOrUnknown(
+          data['subject_manually_edited']!,
+          _subjectManuallyEditedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('body_manually_edited')) {
+      context.handle(
+        _bodyManuallyEditedMeta,
+        bodyManuallyEdited.isAcceptableOrUnknown(
+          data['body_manually_edited']!,
+          _bodyManuallyEditedMeta,
+        ),
+      );
+    }
     if (data.containsKey('sync_state')) {
       context.handle(
         _syncStateMeta,
@@ -4916,6 +5569,22 @@ class $LocalEmailFollowUpsTable extends LocalEmailFollowUps
         DriftSqlType.dateTime,
         data['${effectivePrefix}prepared_at'],
       )!,
+      subjectSemanticJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subject_semantic_json'],
+      ),
+      bodySemanticJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body_semantic_json'],
+      ),
+      subjectManuallyEdited: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}subject_manually_edited'],
+      )!,
+      bodyManuallyEdited: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}body_manually_edited'],
+      )!,
       syncState: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}sync_state'],
@@ -4942,6 +5611,10 @@ class StoredEmailFollowUp extends DataClass
   final String contentNamesJson;
   final String languageCode;
   final DateTime preparedAt;
+  final String? subjectSemanticJson;
+  final String? bodySemanticJson;
+  final bool subjectManuallyEdited;
+  final bool bodyManuallyEdited;
   final String syncState;
   const StoredEmailFollowUp({
     required this.localId,
@@ -4955,6 +5628,10 @@ class StoredEmailFollowUp extends DataClass
     required this.contentNamesJson,
     required this.languageCode,
     required this.preparedAt,
+    this.subjectSemanticJson,
+    this.bodySemanticJson,
+    required this.subjectManuallyEdited,
+    required this.bodyManuallyEdited,
     required this.syncState,
   });
   @override
@@ -4971,6 +5648,14 @@ class StoredEmailFollowUp extends DataClass
     map['content_names_json'] = Variable<String>(contentNamesJson);
     map['language_code'] = Variable<String>(languageCode);
     map['prepared_at'] = Variable<DateTime>(preparedAt);
+    if (!nullToAbsent || subjectSemanticJson != null) {
+      map['subject_semantic_json'] = Variable<String>(subjectSemanticJson);
+    }
+    if (!nullToAbsent || bodySemanticJson != null) {
+      map['body_semantic_json'] = Variable<String>(bodySemanticJson);
+    }
+    map['subject_manually_edited'] = Variable<bool>(subjectManuallyEdited);
+    map['body_manually_edited'] = Variable<bool>(bodyManuallyEdited);
     map['sync_state'] = Variable<String>(syncState);
     return map;
   }
@@ -4988,6 +5673,14 @@ class StoredEmailFollowUp extends DataClass
       contentNamesJson: Value(contentNamesJson),
       languageCode: Value(languageCode),
       preparedAt: Value(preparedAt),
+      subjectSemanticJson: subjectSemanticJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(subjectSemanticJson),
+      bodySemanticJson: bodySemanticJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bodySemanticJson),
+      subjectManuallyEdited: Value(subjectManuallyEdited),
+      bodyManuallyEdited: Value(bodyManuallyEdited),
       syncState: Value(syncState),
     );
   }
@@ -5011,6 +5704,14 @@ class StoredEmailFollowUp extends DataClass
       contentNamesJson: serializer.fromJson<String>(json['contentNamesJson']),
       languageCode: serializer.fromJson<String>(json['languageCode']),
       preparedAt: serializer.fromJson<DateTime>(json['preparedAt']),
+      subjectSemanticJson: serializer.fromJson<String?>(
+        json['subjectSemanticJson'],
+      ),
+      bodySemanticJson: serializer.fromJson<String?>(json['bodySemanticJson']),
+      subjectManuallyEdited: serializer.fromJson<bool>(
+        json['subjectManuallyEdited'],
+      ),
+      bodyManuallyEdited: serializer.fromJson<bool>(json['bodyManuallyEdited']),
       syncState: serializer.fromJson<String>(json['syncState']),
     );
   }
@@ -5029,6 +5730,10 @@ class StoredEmailFollowUp extends DataClass
       'contentNamesJson': serializer.toJson<String>(contentNamesJson),
       'languageCode': serializer.toJson<String>(languageCode),
       'preparedAt': serializer.toJson<DateTime>(preparedAt),
+      'subjectSemanticJson': serializer.toJson<String?>(subjectSemanticJson),
+      'bodySemanticJson': serializer.toJson<String?>(bodySemanticJson),
+      'subjectManuallyEdited': serializer.toJson<bool>(subjectManuallyEdited),
+      'bodyManuallyEdited': serializer.toJson<bool>(bodyManuallyEdited),
       'syncState': serializer.toJson<String>(syncState),
     };
   }
@@ -5045,6 +5750,10 @@ class StoredEmailFollowUp extends DataClass
     String? contentNamesJson,
     String? languageCode,
     DateTime? preparedAt,
+    Value<String?> subjectSemanticJson = const Value.absent(),
+    Value<String?> bodySemanticJson = const Value.absent(),
+    bool? subjectManuallyEdited,
+    bool? bodyManuallyEdited,
     String? syncState,
   }) => StoredEmailFollowUp(
     localId: localId ?? this.localId,
@@ -5058,6 +5767,14 @@ class StoredEmailFollowUp extends DataClass
     contentNamesJson: contentNamesJson ?? this.contentNamesJson,
     languageCode: languageCode ?? this.languageCode,
     preparedAt: preparedAt ?? this.preparedAt,
+    subjectSemanticJson: subjectSemanticJson.present
+        ? subjectSemanticJson.value
+        : this.subjectSemanticJson,
+    bodySemanticJson: bodySemanticJson.present
+        ? bodySemanticJson.value
+        : this.bodySemanticJson,
+    subjectManuallyEdited: subjectManuallyEdited ?? this.subjectManuallyEdited,
+    bodyManuallyEdited: bodyManuallyEdited ?? this.bodyManuallyEdited,
     syncState: syncState ?? this.syncState,
   );
   StoredEmailFollowUp copyWithCompanion(LocalEmailFollowUpsCompanion data) {
@@ -5087,6 +5804,18 @@ class StoredEmailFollowUp extends DataClass
       preparedAt: data.preparedAt.present
           ? data.preparedAt.value
           : this.preparedAt,
+      subjectSemanticJson: data.subjectSemanticJson.present
+          ? data.subjectSemanticJson.value
+          : this.subjectSemanticJson,
+      bodySemanticJson: data.bodySemanticJson.present
+          ? data.bodySemanticJson.value
+          : this.bodySemanticJson,
+      subjectManuallyEdited: data.subjectManuallyEdited.present
+          ? data.subjectManuallyEdited.value
+          : this.subjectManuallyEdited,
+      bodyManuallyEdited: data.bodyManuallyEdited.present
+          ? data.bodyManuallyEdited.value
+          : this.bodyManuallyEdited,
       syncState: data.syncState.present ? data.syncState.value : this.syncState,
     );
   }
@@ -5105,6 +5834,10 @@ class StoredEmailFollowUp extends DataClass
           ..write('contentNamesJson: $contentNamesJson, ')
           ..write('languageCode: $languageCode, ')
           ..write('preparedAt: $preparedAt, ')
+          ..write('subjectSemanticJson: $subjectSemanticJson, ')
+          ..write('bodySemanticJson: $bodySemanticJson, ')
+          ..write('subjectManuallyEdited: $subjectManuallyEdited, ')
+          ..write('bodyManuallyEdited: $bodyManuallyEdited, ')
           ..write('syncState: $syncState')
           ..write(')'))
         .toString();
@@ -5123,6 +5856,10 @@ class StoredEmailFollowUp extends DataClass
     contentNamesJson,
     languageCode,
     preparedAt,
+    subjectSemanticJson,
+    bodySemanticJson,
+    subjectManuallyEdited,
+    bodyManuallyEdited,
     syncState,
   );
   @override
@@ -5140,6 +5877,10 @@ class StoredEmailFollowUp extends DataClass
           other.contentNamesJson == this.contentNamesJson &&
           other.languageCode == this.languageCode &&
           other.preparedAt == this.preparedAt &&
+          other.subjectSemanticJson == this.subjectSemanticJson &&
+          other.bodySemanticJson == this.bodySemanticJson &&
+          other.subjectManuallyEdited == this.subjectManuallyEdited &&
+          other.bodyManuallyEdited == this.bodyManuallyEdited &&
           other.syncState == this.syncState);
 }
 
@@ -5156,6 +5897,10 @@ class LocalEmailFollowUpsCompanion
   final Value<String> contentNamesJson;
   final Value<String> languageCode;
   final Value<DateTime> preparedAt;
+  final Value<String?> subjectSemanticJson;
+  final Value<String?> bodySemanticJson;
+  final Value<bool> subjectManuallyEdited;
+  final Value<bool> bodyManuallyEdited;
   final Value<String> syncState;
   final Value<int> rowid;
   const LocalEmailFollowUpsCompanion({
@@ -5170,6 +5915,10 @@ class LocalEmailFollowUpsCompanion
     this.contentNamesJson = const Value.absent(),
     this.languageCode = const Value.absent(),
     this.preparedAt = const Value.absent(),
+    this.subjectSemanticJson = const Value.absent(),
+    this.bodySemanticJson = const Value.absent(),
+    this.subjectManuallyEdited = const Value.absent(),
+    this.bodyManuallyEdited = const Value.absent(),
     this.syncState = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -5185,6 +5934,10 @@ class LocalEmailFollowUpsCompanion
     this.contentNamesJson = const Value.absent(),
     required String languageCode,
     required DateTime preparedAt,
+    this.subjectSemanticJson = const Value.absent(),
+    this.bodySemanticJson = const Value.absent(),
+    this.subjectManuallyEdited = const Value.absent(),
+    this.bodyManuallyEdited = const Value.absent(),
     this.syncState = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : localId = Value(localId),
@@ -5208,6 +5961,10 @@ class LocalEmailFollowUpsCompanion
     Expression<String>? contentNamesJson,
     Expression<String>? languageCode,
     Expression<DateTime>? preparedAt,
+    Expression<String>? subjectSemanticJson,
+    Expression<String>? bodySemanticJson,
+    Expression<bool>? subjectManuallyEdited,
+    Expression<bool>? bodyManuallyEdited,
     Expression<String>? syncState,
     Expression<int>? rowid,
   }) {
@@ -5224,6 +5981,13 @@ class LocalEmailFollowUpsCompanion
       if (contentNamesJson != null) 'content_names_json': contentNamesJson,
       if (languageCode != null) 'language_code': languageCode,
       if (preparedAt != null) 'prepared_at': preparedAt,
+      if (subjectSemanticJson != null)
+        'subject_semantic_json': subjectSemanticJson,
+      if (bodySemanticJson != null) 'body_semantic_json': bodySemanticJson,
+      if (subjectManuallyEdited != null)
+        'subject_manually_edited': subjectManuallyEdited,
+      if (bodyManuallyEdited != null)
+        'body_manually_edited': bodyManuallyEdited,
       if (syncState != null) 'sync_state': syncState,
       if (rowid != null) 'rowid': rowid,
     });
@@ -5241,6 +6005,10 @@ class LocalEmailFollowUpsCompanion
     Value<String>? contentNamesJson,
     Value<String>? languageCode,
     Value<DateTime>? preparedAt,
+    Value<String?>? subjectSemanticJson,
+    Value<String?>? bodySemanticJson,
+    Value<bool>? subjectManuallyEdited,
+    Value<bool>? bodyManuallyEdited,
     Value<String>? syncState,
     Value<int>? rowid,
   }) {
@@ -5256,6 +6024,11 @@ class LocalEmailFollowUpsCompanion
       contentNamesJson: contentNamesJson ?? this.contentNamesJson,
       languageCode: languageCode ?? this.languageCode,
       preparedAt: preparedAt ?? this.preparedAt,
+      subjectSemanticJson: subjectSemanticJson ?? this.subjectSemanticJson,
+      bodySemanticJson: bodySemanticJson ?? this.bodySemanticJson,
+      subjectManuallyEdited:
+          subjectManuallyEdited ?? this.subjectManuallyEdited,
+      bodyManuallyEdited: bodyManuallyEdited ?? this.bodyManuallyEdited,
       syncState: syncState ?? this.syncState,
       rowid: rowid ?? this.rowid,
     );
@@ -5297,6 +6070,22 @@ class LocalEmailFollowUpsCompanion
     if (preparedAt.present) {
       map['prepared_at'] = Variable<DateTime>(preparedAt.value);
     }
+    if (subjectSemanticJson.present) {
+      map['subject_semantic_json'] = Variable<String>(
+        subjectSemanticJson.value,
+      );
+    }
+    if (bodySemanticJson.present) {
+      map['body_semantic_json'] = Variable<String>(bodySemanticJson.value);
+    }
+    if (subjectManuallyEdited.present) {
+      map['subject_manually_edited'] = Variable<bool>(
+        subjectManuallyEdited.value,
+      );
+    }
+    if (bodyManuallyEdited.present) {
+      map['body_manually_edited'] = Variable<bool>(bodyManuallyEdited.value);
+    }
     if (syncState.present) {
       map['sync_state'] = Variable<String>(syncState.value);
     }
@@ -5320,6 +6109,10 @@ class LocalEmailFollowUpsCompanion
           ..write('contentNamesJson: $contentNamesJson, ')
           ..write('languageCode: $languageCode, ')
           ..write('preparedAt: $preparedAt, ')
+          ..write('subjectSemanticJson: $subjectSemanticJson, ')
+          ..write('bodySemanticJson: $bodySemanticJson, ')
+          ..write('subjectManuallyEdited: $subjectManuallyEdited, ')
+          ..write('bodyManuallyEdited: $bodyManuallyEdited, ')
           ..write('syncState: $syncState, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -7951,6 +8744,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $LocalContentFilesTable(this);
   late final $LocalEmailTemplatesTable localEmailTemplates =
       $LocalEmailTemplatesTable(this);
+  late final $LocalEventEmailTemplatesTable localEventEmailTemplates =
+      $LocalEventEmailTemplatesTable(this);
   late final $LocalEmailConnectionsTable localEmailConnections =
       $LocalEmailConnectionsTable(this);
   late final $LocalLeadsTable localLeads = $LocalLeadsTable(this);
@@ -8012,6 +8807,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final EmailTemplateDao emailTemplateDao = EmailTemplateDao(
     this as AppDatabase,
   );
+  late final EventEmailTemplateDao eventEmailTemplateDao =
+      EventEmailTemplateDao(this as AppDatabase);
   late final EmailDeliveryDao emailDeliveryDao = EmailDeliveryDao(
     this as AppDatabase,
   );
@@ -8026,6 +8823,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localEvents,
     localContentFiles,
     localEmailTemplates,
+    localEventEmailTemplates,
     localEmailConnections,
     localLeads,
     localEmailFollowUps,
@@ -8352,6 +9150,38 @@ final class $$LocalEventsTableReferences
     extends BaseReferences<_$AppDatabase, $LocalEventsTable, StoredEvent> {
   $$LocalEventsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
+  static MultiTypedResultKey<
+    $LocalEventEmailTemplatesTable,
+    List<StoredEventEmailTemplate>
+  >
+  _localEventEmailTemplatesRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.localEventEmailTemplates,
+    aliasName:
+        'local_events__local_id__local_event_email_templates__event_local_id',
+  );
+
+  $$LocalEventEmailTemplatesTableProcessedTableManager
+  get localEventEmailTemplatesRefs {
+    final manager =
+        $$LocalEventEmailTemplatesTableTableManager(
+          $_db,
+          $_db.localEventEmailTemplates,
+        ).filter(
+          (f) => f.eventLocalId.localId.sqlEquals(
+            $_itemColumn<String>('local_id')!,
+          ),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _localEventEmailTemplatesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<$LocalLeadsTable, List<StoredLead>>
   _localLeadsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.localLeads,
@@ -8444,6 +9274,33 @@ class $$LocalEventsTableFilterComposer
     column: $table.remoteRevision,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> localEventEmailTemplatesRefs(
+    Expression<bool> Function($$LocalEventEmailTemplatesTableFilterComposer f)
+    f,
+  ) {
+    final $$LocalEventEmailTemplatesTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.localId,
+          referencedTable: $db.localEventEmailTemplates,
+          getReferencedColumn: (t) => t.eventLocalId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$LocalEventEmailTemplatesTableFilterComposer(
+                $db: $db,
+                $table: $db.localEventEmailTemplates,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 
   Expression<bool> localLeadsRefs(
     Expression<bool> Function($$LocalLeadsTableFilterComposer f) f,
@@ -8602,6 +9459,33 @@ class $$LocalEventsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  Expression<T> localEventEmailTemplatesRefs<T extends Object>(
+    Expression<T> Function($$LocalEventEmailTemplatesTableAnnotationComposer a)
+    f,
+  ) {
+    final $$LocalEventEmailTemplatesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.localId,
+          referencedTable: $db.localEventEmailTemplates,
+          getReferencedColumn: (t) => t.eventLocalId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$LocalEventEmailTemplatesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.localEventEmailTemplates,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
   Expression<T> localLeadsRefs<T extends Object>(
     Expression<T> Function($$LocalLeadsTableAnnotationComposer a) f,
   ) {
@@ -8641,7 +9525,10 @@ class $$LocalEventsTableTableManager
           $$LocalEventsTableUpdateCompanionBuilder,
           (StoredEvent, $$LocalEventsTableReferences),
           StoredEvent,
-          PrefetchHooks Function({bool localLeadsRefs})
+          PrefetchHooks Function({
+            bool localEventEmailTemplatesRefs,
+            bool localLeadsRefs,
+          })
         > {
   $$LocalEventsTableTableManager(_$AppDatabase db, $LocalEventsTable table)
     : super(
@@ -8726,38 +9613,64 @@ class $$LocalEventsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({localLeadsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (localLeadsRefs) db.localLeads],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (localLeadsRefs)
-                    await $_getPrefetchedData<
-                      StoredEvent,
-                      $LocalEventsTable,
-                      StoredLead
-                    >(
-                      currentTable: table,
-                      referencedTable: $$LocalEventsTableReferences
-                          ._localLeadsRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$LocalEventsTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).localLeadsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where(
-                            (e) => e.eventLocalId == item.localId,
-                          ),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({localEventEmailTemplatesRefs = false, localLeadsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (localEventEmailTemplatesRefs)
+                      db.localEventEmailTemplates,
+                    if (localLeadsRefs) db.localLeads,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (localEventEmailTemplatesRefs)
+                        await $_getPrefetchedData<
+                          StoredEvent,
+                          $LocalEventsTable,
+                          StoredEventEmailTemplate
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalEventsTableReferences
+                              ._localEventEmailTemplatesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalEventsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).localEventEmailTemplatesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.eventLocalId == item.localId,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (localLeadsRefs)
+                        await $_getPrefetchedData<
+                          StoredEvent,
+                          $LocalEventsTable,
+                          StoredLead
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalEventsTableReferences
+                              ._localLeadsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalEventsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).localLeadsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.eventLocalId == item.localId,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -8774,7 +9687,10 @@ typedef $$LocalEventsTableProcessedTableManager =
       $$LocalEventsTableUpdateCompanionBuilder,
       (StoredEvent, $$LocalEventsTableReferences),
       StoredEvent,
-      PrefetchHooks Function({bool localLeadsRefs})
+      PrefetchHooks Function({
+        bool localEventEmailTemplatesRefs,
+        bool localLeadsRefs,
+      })
     >;
 typedef $$LocalContentFilesTableCreateCompanionBuilder =
     LocalContentFilesCompanion Function({
@@ -9470,6 +10386,409 @@ typedef $$LocalEmailTemplatesTableProcessedTableManager =
       ),
       StoredEmailTemplate,
       PrefetchHooks Function()
+    >;
+typedef $$LocalEventEmailTemplatesTableCreateCompanionBuilder =
+    LocalEventEmailTemplatesCompanion Function({
+      required String ownerUserId,
+      required String eventLocalId,
+      required String languageCode,
+      required String subject,
+      required String body,
+      required String signature,
+      required DateTime updatedAt,
+      Value<String> syncState,
+      Value<int> rowid,
+    });
+typedef $$LocalEventEmailTemplatesTableUpdateCompanionBuilder =
+    LocalEventEmailTemplatesCompanion Function({
+      Value<String> ownerUserId,
+      Value<String> eventLocalId,
+      Value<String> languageCode,
+      Value<String> subject,
+      Value<String> body,
+      Value<String> signature,
+      Value<DateTime> updatedAt,
+      Value<String> syncState,
+      Value<int> rowid,
+    });
+
+final class $$LocalEventEmailTemplatesTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $LocalEventEmailTemplatesTable,
+          StoredEventEmailTemplate
+        > {
+  $$LocalEventEmailTemplatesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LocalEventsTable _eventLocalIdTable(_$AppDatabase db) =>
+      db.localEvents.createAlias(
+        'local_event_email_templates__event_local_id__local_events__local_id',
+      );
+
+  $$LocalEventsTableProcessedTableManager get eventLocalId {
+    final $_column = $_itemColumn<String>('event_local_id')!;
+
+    final manager = $$LocalEventsTableTableManager(
+      $_db,
+      $_db.localEvents,
+    ).filter((f) => f.localId.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_eventLocalIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$LocalEventEmailTemplatesTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalEventEmailTemplatesTable> {
+  $$LocalEventEmailTemplatesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get signature => $composableBuilder(
+    column: $table.signature,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocalEventsTableFilterComposer get eventLocalId {
+    final $$LocalEventsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.eventLocalId,
+      referencedTable: $db.localEvents,
+      getReferencedColumn: (t) => t.localId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalEventsTableFilterComposer(
+            $db: $db,
+            $table: $db.localEvents,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LocalEventEmailTemplatesTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalEventEmailTemplatesTable> {
+  $$LocalEventEmailTemplatesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get signature => $composableBuilder(
+    column: $table.signature,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocalEventsTableOrderingComposer get eventLocalId {
+    final $$LocalEventsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.eventLocalId,
+      referencedTable: $db.localEvents,
+      getReferencedColumn: (t) => t.localId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalEventsTableOrderingComposer(
+            $db: $db,
+            $table: $db.localEvents,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LocalEventEmailTemplatesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalEventEmailTemplatesTable> {
+  $$LocalEventEmailTemplatesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get languageCode => $composableBuilder(
+    column: $table.languageCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get subject =>
+      $composableBuilder(column: $table.subject, builder: (column) => column);
+
+  GeneratedColumn<String> get body =>
+      $composableBuilder(column: $table.body, builder: (column) => column);
+
+  GeneratedColumn<String> get signature =>
+      $composableBuilder(column: $table.signature, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncState =>
+      $composableBuilder(column: $table.syncState, builder: (column) => column);
+
+  $$LocalEventsTableAnnotationComposer get eventLocalId {
+    final $$LocalEventsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.eventLocalId,
+      referencedTable: $db.localEvents,
+      getReferencedColumn: (t) => t.localId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalEventsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.localEvents,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LocalEventEmailTemplatesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalEventEmailTemplatesTable,
+          StoredEventEmailTemplate,
+          $$LocalEventEmailTemplatesTableFilterComposer,
+          $$LocalEventEmailTemplatesTableOrderingComposer,
+          $$LocalEventEmailTemplatesTableAnnotationComposer,
+          $$LocalEventEmailTemplatesTableCreateCompanionBuilder,
+          $$LocalEventEmailTemplatesTableUpdateCompanionBuilder,
+          (StoredEventEmailTemplate, $$LocalEventEmailTemplatesTableReferences),
+          StoredEventEmailTemplate,
+          PrefetchHooks Function({bool eventLocalId})
+        > {
+  $$LocalEventEmailTemplatesTableTableManager(
+    _$AppDatabase db,
+    $LocalEventEmailTemplatesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalEventEmailTemplatesTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$LocalEventEmailTemplatesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$LocalEventEmailTemplatesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerUserId = const Value.absent(),
+                Value<String> eventLocalId = const Value.absent(),
+                Value<String> languageCode = const Value.absent(),
+                Value<String> subject = const Value.absent(),
+                Value<String> body = const Value.absent(),
+                Value<String> signature = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<String> syncState = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalEventEmailTemplatesCompanion(
+                ownerUserId: ownerUserId,
+                eventLocalId: eventLocalId,
+                languageCode: languageCode,
+                subject: subject,
+                body: body,
+                signature: signature,
+                updatedAt: updatedAt,
+                syncState: syncState,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerUserId,
+                required String eventLocalId,
+                required String languageCode,
+                required String subject,
+                required String body,
+                required String signature,
+                required DateTime updatedAt,
+                Value<String> syncState = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalEventEmailTemplatesCompanion.insert(
+                ownerUserId: ownerUserId,
+                eventLocalId: eventLocalId,
+                languageCode: languageCode,
+                subject: subject,
+                body: body,
+                signature: signature,
+                updatedAt: updatedAt,
+                syncState: syncState,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $LocalEventEmailTemplatesTable,
+                    StoredEventEmailTemplate
+                  >(table),
+                  $$LocalEventEmailTemplatesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({eventLocalId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (eventLocalId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.eventLocalId,
+                        referencedTable:
+                            $$LocalEventEmailTemplatesTableReferences
+                                ._eventLocalIdTable(db),
+                        referencedColumn:
+                            $$LocalEventEmailTemplatesTableReferences
+                                ._eventLocalIdTable(db)
+                                .localId,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$LocalEventEmailTemplatesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalEventEmailTemplatesTable,
+      StoredEventEmailTemplate,
+      $$LocalEventEmailTemplatesTableFilterComposer,
+      $$LocalEventEmailTemplatesTableOrderingComposer,
+      $$LocalEventEmailTemplatesTableAnnotationComposer,
+      $$LocalEventEmailTemplatesTableCreateCompanionBuilder,
+      $$LocalEventEmailTemplatesTableUpdateCompanionBuilder,
+      (StoredEventEmailTemplate, $$LocalEventEmailTemplatesTableReferences),
+      StoredEventEmailTemplate,
+      PrefetchHooks Function({bool eventLocalId})
     >;
 typedef $$LocalEmailConnectionsTableCreateCompanionBuilder =
     LocalEmailConnectionsCompanion Function({
@@ -10666,6 +11985,10 @@ typedef $$LocalEmailFollowUpsTableCreateCompanionBuilder =
       Value<String> contentNamesJson,
       required String languageCode,
       required DateTime preparedAt,
+      Value<String?> subjectSemanticJson,
+      Value<String?> bodySemanticJson,
+      Value<bool> subjectManuallyEdited,
+      Value<bool> bodyManuallyEdited,
       Value<String> syncState,
       Value<int> rowid,
     });
@@ -10682,6 +12005,10 @@ typedef $$LocalEmailFollowUpsTableUpdateCompanionBuilder =
       Value<String> contentNamesJson,
       Value<String> languageCode,
       Value<DateTime> preparedAt,
+      Value<String?> subjectSemanticJson,
+      Value<String?> bodySemanticJson,
+      Value<bool> subjectManuallyEdited,
+      Value<bool> bodyManuallyEdited,
       Value<String> syncState,
       Value<int> rowid,
     });
@@ -10808,6 +12135,26 @@ class $$LocalEmailFollowUpsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get subjectSemanticJson => $composableBuilder(
+    column: $table.subjectSemanticJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bodySemanticJson => $composableBuilder(
+    column: $table.bodySemanticJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get subjectManuallyEdited => $composableBuilder(
+    column: $table.subjectManuallyEdited,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get bodyManuallyEdited => $composableBuilder(
+    column: $table.bodyManuallyEdited,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get syncState => $composableBuilder(
     column: $table.syncState,
     builder: (column) => ColumnFilters(column),
@@ -10922,6 +12269,26 @@ class $$LocalEmailFollowUpsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get subjectSemanticJson => $composableBuilder(
+    column: $table.subjectSemanticJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bodySemanticJson => $composableBuilder(
+    column: $table.bodySemanticJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get subjectManuallyEdited => $composableBuilder(
+    column: $table.subjectManuallyEdited,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get bodyManuallyEdited => $composableBuilder(
+    column: $table.bodyManuallyEdited,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get syncState => $composableBuilder(
     column: $table.syncState,
     builder: (column) => ColumnOrderings(column),
@@ -10999,6 +12366,26 @@ class $$LocalEmailFollowUpsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get preparedAt => $composableBuilder(
     column: $table.preparedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get subjectSemanticJson => $composableBuilder(
+    column: $table.subjectSemanticJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get bodySemanticJson => $composableBuilder(
+    column: $table.bodySemanticJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get subjectManuallyEdited => $composableBuilder(
+    column: $table.subjectManuallyEdited,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get bodyManuallyEdited => $composableBuilder(
+    column: $table.bodyManuallyEdited,
     builder: (column) => column,
   );
 
@@ -11105,6 +12492,10 @@ class $$LocalEmailFollowUpsTableTableManager
                 Value<String> contentNamesJson = const Value.absent(),
                 Value<String> languageCode = const Value.absent(),
                 Value<DateTime> preparedAt = const Value.absent(),
+                Value<String?> subjectSemanticJson = const Value.absent(),
+                Value<String?> bodySemanticJson = const Value.absent(),
+                Value<bool> subjectManuallyEdited = const Value.absent(),
+                Value<bool> bodyManuallyEdited = const Value.absent(),
                 Value<String> syncState = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalEmailFollowUpsCompanion(
@@ -11119,6 +12510,10 @@ class $$LocalEmailFollowUpsTableTableManager
                 contentNamesJson: contentNamesJson,
                 languageCode: languageCode,
                 preparedAt: preparedAt,
+                subjectSemanticJson: subjectSemanticJson,
+                bodySemanticJson: bodySemanticJson,
+                subjectManuallyEdited: subjectManuallyEdited,
+                bodyManuallyEdited: bodyManuallyEdited,
                 syncState: syncState,
                 rowid: rowid,
               ),
@@ -11135,6 +12530,10 @@ class $$LocalEmailFollowUpsTableTableManager
                 Value<String> contentNamesJson = const Value.absent(),
                 required String languageCode,
                 required DateTime preparedAt,
+                Value<String?> subjectSemanticJson = const Value.absent(),
+                Value<String?> bodySemanticJson = const Value.absent(),
+                Value<bool> subjectManuallyEdited = const Value.absent(),
+                Value<bool> bodyManuallyEdited = const Value.absent(),
                 Value<String> syncState = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalEmailFollowUpsCompanion.insert(
@@ -11149,6 +12548,10 @@ class $$LocalEmailFollowUpsTableTableManager
                 contentNamesJson: contentNamesJson,
                 languageCode: languageCode,
                 preparedAt: preparedAt,
+                subjectSemanticJson: subjectSemanticJson,
+                bodySemanticJson: bodySemanticJson,
+                subjectManuallyEdited: subjectManuallyEdited,
+                bodyManuallyEdited: bodyManuallyEdited,
                 syncState: syncState,
                 rowid: rowid,
               ),
@@ -12881,6 +14284,11 @@ class $AppDatabaseManager {
       $$LocalContentFilesTableTableManager(_db, _db.localContentFiles);
   $$LocalEmailTemplatesTableTableManager get localEmailTemplates =>
       $$LocalEmailTemplatesTableTableManager(_db, _db.localEmailTemplates);
+  $$LocalEventEmailTemplatesTableTableManager get localEventEmailTemplates =>
+      $$LocalEventEmailTemplatesTableTableManager(
+        _db,
+        _db.localEventEmailTemplates,
+      );
   $$LocalEmailConnectionsTableTableManager get localEmailConnections =>
       $$LocalEmailConnectionsTableTableManager(_db, _db.localEmailConnections);
   $$LocalLeadsTableTableManager get localLeads =>

@@ -1189,7 +1189,40 @@ class AppLocalizationsEs extends AppLocalizations {
   String get emailSignatureV1 => 'Firma';
 
   @override
-  String get templateSavedV1 => 'Plantilla guardada en este dispositivo.';
+  String get templateSavedV1 => 'Plantilla guardada';
+
+  @override
+  String get folooDefaultTemplate => 'Plantilla predeterminada de Foloo';
+
+  @override
+  String get sellerTemplateHelp =>
+      'Esta plantilla se usará como base para futuros seguimientos.';
+
+  @override
+  String get restoreDefaultTemplate => 'Restaurar plantilla predeterminada';
+
+  @override
+  String get restoreDefaultTemplateQuestion =>
+      '¿Restaurar plantilla predeterminada?';
+
+  @override
+  String get restoreDefaultTemplateHelp =>
+      'Se reemplazarán los cambios realizados en esta plantilla. Esto no modificará correos ya preparados o enviados.';
+
+  @override
+  String get restore => 'Restaurar';
+
+  @override
+  String get customizeEventEmail => 'Personalizar correo para este evento';
+
+  @override
+  String get usingDefaultTemplate => 'Usando plantilla predeterminada';
+
+  @override
+  String get customEventTemplate => 'Plantilla personalizada para este evento';
+
+  @override
+  String get useDefaultTemplate => 'Usar plantilla predeterminada';
 
   @override
   String get emailNoLeadPreviewV1 =>

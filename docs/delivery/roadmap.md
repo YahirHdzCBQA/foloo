@@ -96,6 +96,19 @@ física sobre la misma instalación de iPhone. No cerrar todavía.
 - Corrección local 2026-09-21: la baja requiere GET de confirmación sin efecto
   lateral y POST explícito; opt-out/retry prohibido quedan terminales en app y
   outbox. Pendiente redeploy y QA física.
+- Corrección local 2026-09-21: jerarquía Foloo→seller→override de Evento,
+  restauración no destructiva, preparación única por Lead, Voice Note estable
+  al volver de Review y estados reactivos desde Drift. FL-019 permanece abierta
+  hasta QA física y aplicación de la migración 006 en un futuro deploy.
+- Corrección local 2026-09-22: la preparación única se reconcilia antes de
+  `foloo` con campos y selección Content actuales del Lead, conserva texto
+  editado manualmente en Review y congela exactamente ese estado al confirmar.
+  FL-019 permanece abierta hasta QA física de esta consistencia final.
+- Corrección local 2026-09-22: asunto y cuerpo ahora conservan en Drift v10
+  segmentos literales/tokens y dirty state independientes. Los literales de
+  Review sobreviven Back/offline/restart, los tokens D-14 reflejan el Lead
+  vigente sin reemplazo global y `foloo` sigue siendo el punto de freeze.
+  FL-019 permanece abierta hasta QA física del caso Juan→Pedro→Carlos.
 
 ## FL-020 — Trial & Subscription Foundation
 

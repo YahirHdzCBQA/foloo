@@ -16,7 +16,9 @@ import type {
 import type { MediaStorage } from "../storage/media_storage.js";
 import {
   validateEmailTemplate,
+  validateEventEmailTemplate,
   type EmailTemplate,
+  type EventEmailTemplate,
 } from "../domain/email_templates.js";
 
 export class FolooApplication {
@@ -28,6 +30,44 @@ export class FolooApplication {
   async emailTemplates(subject: string) {
     const principal = await this.repository.resolvePrincipal(subject);
     return this.repository.listEmailTemplates(principal);
+  }
+
+  async eventEmailTemplates(subject: string) {
+    const principal = await this.repository.resolvePrincipal(subject);
+    return this.repository.listEventEmailTemplates(principal);
+  }
+
+  async saveEventEmailTemplate(
+    subject: string,
+    template: EventEmailTemplate,
+    key: string,
+    hash: string,
+  ) {
+    validateEventEmailTemplate(template);
+    const principal = await this.repository.resolvePrincipal(subject);
+    return this.repository.saveEventEmailTemplate(
+      principal,
+      template,
+      key,
+      hash,
+    );
+  }
+
+  async deleteEventEmailTemplate(
+    subject: string,
+    eventId: string,
+    language: "es" | "en",
+    key: string,
+    hash: string,
+  ) {
+    const principal = await this.repository.resolvePrincipal(subject);
+    return this.repository.deleteEventEmailTemplate(
+      principal,
+      eventId,
+      language,
+      key,
+      hash,
+    );
   }
 
   async saveEmailTemplate(

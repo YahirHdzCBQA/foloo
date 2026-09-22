@@ -16,6 +16,7 @@ import '../../models/app_event.dart';
 import '../../models/content_file.dart';
 import '../../models/email_template.dart';
 import '../../models/email_delivery_error.dart';
+import '../../models/email_semantic_document.dart';
 import '../../models/lead_draft.dart';
 import '../../models/session_lead.dart';
 import '../../sync/sync_models.dart';
@@ -26,6 +27,40 @@ import '../local/private_media_storage.dart';
 typedef LocalIdFactory = String Function();
 
 String _defaultLocalId() => const Uuid().v4();
+
+Map<String, String> _emailTemplateValues(LeadDraft lead, DemoProfile seller) =>
+    {
+      'nombre': lead.name,
+      'apellido': lead.lastName,
+      'empresa': lead.company,
+      'puesto': lead.role,
+      'evento': lead.eventName ?? '',
+      'lugar': lead.place ?? '',
+      'contenido': lead.contentNames.join(', '),
+      'nombreVendedor': seller.name,
+      'empresaVendedor': seller.company,
+    };
+
+EmailSemanticDocument _reconciledDocument({
+  required String? storedJson,
+  required bool wasManuallyEdited,
+  required EmailSemanticDocument generated,
+  required String previousConcrete,
+  required String generatedConcrete,
+  required Map<String, String> values,
+}) {
+  if (storedJson != null) {
+    return wasManuallyEdited
+        ? EmailSemanticDocument.fromJson(storedJson)
+        : generated;
+  }
+  if (previousConcrete.trim() == generatedConcrete.trim()) return generated;
+  return generated.captureEdit(
+    previousConcrete: generatedConcrete.trim(),
+    editedConcrete: previousConcrete.trim(),
+    values: values,
+  );
+}
 
 /// Persists and restores the local seller identity (AUT-05).
 class ProfileRepository {
@@ -138,6 +173,89 @@ class EmailTemplateRepository {
   }
 }
 
+/// Stores optional Event overrides; deleting a row restores live inheritance.
+class EventEmailTemplateRepository {
+  EventEmailTemplateRepository(this._database, {SyncStore? syncStore})
+    : _syncStore = syncStore ?? SyncStore(_database);
+
+  final AppDatabase _database;
+  final SyncStore _syncStore;
+
+  Future<EventEmailTemplateData?> get(
+    String owner,
+    String eventId,
+    String language,
+  ) async {
+    final row = await _database.eventEmailTemplateDao.forEvent(
+      owner,
+      eventId,
+      language,
+    );
+    return row == null
+        ? null
+        : EventEmailTemplateData(
+            eventId: row.eventLocalId,
+            language: row.languageCode,
+            subject: row.subject,
+            body: row.body,
+            signature: row.signature,
+          );
+  }
+
+  Future<List<EventEmailTemplateData>> list(String owner) async =>
+      (await _database.eventEmailTemplateDao.listForOwner(owner))
+          .map(
+            (row) => EventEmailTemplateData(
+              eventId: row.eventLocalId,
+              language: row.languageCode,
+              subject: row.subject,
+              body: row.body,
+              signature: row.signature,
+            ),
+          )
+          .toList();
+
+  Future<void> save(String owner, EventEmailTemplateData template) async {
+    final now = DateTime.now().toUtc();
+    await _database.transaction(() async {
+      await _database.eventEmailTemplateDao.upsert(
+        LocalEventEmailTemplatesCompanion.insert(
+          ownerUserId: owner,
+          eventLocalId: template.eventId,
+          languageCode: template.language,
+          subject: template.subject,
+          body: template.body,
+          signature: template.signature,
+          updatedAt: now,
+        ),
+      );
+      await _syncStore.enqueue(
+        ownerSub: owner,
+        entityType: SyncEntityType.eventEmailTemplate,
+        entityId: template.key,
+        action: 'upsert',
+        payload: template.toSyncPayload(),
+        now: now,
+      );
+    });
+  }
+
+  Future<void> remove(String owner, String eventId, String language) async {
+    final now = DateTime.now().toUtc();
+    await _database.transaction(() async {
+      await _database.eventEmailTemplateDao.remove(owner, eventId, language);
+      await _syncStore.enqueue(
+        ownerSub: owner,
+        entityType: SyncEntityType.eventEmailTemplate,
+        entityId: '$eventId:$language',
+        action: 'delete',
+        payload: {'eventId': eventId, 'language': language},
+        now: now,
+      );
+    });
+  }
+}
+
 /// Persists immutable local follow-ups and explicit send intentions (SAL-*).
 class EmailDeliveryRepository {
   EmailDeliveryRepository(this._database, {SyncStore? syncStore})
@@ -145,12 +263,29 @@ class EmailDeliveryRepository {
 
   final AppDatabase _database;
   final SyncStore _syncStore;
+  final Map<String, Stream<List<StoredEmailFollowUp>>> _followUpStreams = {};
+  final Map<String, Stream<List<StoredEmailSendIntent>>> _intentStreams = {};
 
   Future<List<StoredEmailFollowUp>> list(String owner) =>
       _database.emailDeliveryDao.followUps(owner);
 
   Future<List<StoredEmailSendIntent>> intents(String owner) =>
       _database.emailDeliveryDao.intents(owner);
+
+  Stream<List<StoredEmailFollowUp>> watchFollowUps(String owner) =>
+      _followUpStreams.putIfAbsent(
+        owner,
+        () => _database.emailDeliveryDao
+            .watchFollowUps(owner)
+            .asBroadcastStream(),
+      );
+
+  Stream<List<StoredEmailSendIntent>> watchIntents(String owner) =>
+      _intentStreams.putIfAbsent(
+        owner,
+        () =>
+            _database.emailDeliveryDao.watchIntents(owner).asBroadcastStream(),
+      );
 
   Future<void> saveConnection({
     required String owner,
@@ -175,6 +310,7 @@ class EmailDeliveryRepository {
     required LeadDraft lead,
     required DemoProfile seller,
     required String language,
+    bool reconcileExisting = false,
   }) async {
     if (lead.email.trim().isEmpty) return null;
     final templates = await _database.emailTemplateDao.listForOwner(owner);
@@ -182,38 +318,45 @@ class EmailDeliveryRepository {
     final stored = templates.where(
       (item) => item.originKind == origin && item.languageCode == language,
     );
+    final official = FolooEmailDefaults.forContext(origin, language);
+    final sellerTemplate = stored.isNotEmpty
+        ? EmailTemplateData(
+            origin: stored.first.originKind,
+            language: stored.first.languageCode,
+            subject: stored.first.subject,
+            body: stored.first.body,
+            signature: stored.first.signature,
+          )
+        : official;
+    EventEmailTemplateData? eventOverride;
+    if (lead.originKind == LeadOriginKind.event && lead.eventLocalId != null) {
+      final row = await _database.eventEmailTemplateDao.forEvent(
+        owner,
+        lead.eventLocalId!,
+        language,
+      );
+      if (row != null) {
+        eventOverride = EventEmailTemplateData(
+          eventId: row.eventLocalId,
+          language: row.languageCode,
+          subject: row.subject,
+          body: row.body,
+          signature: row.signature,
+        );
+      }
+    }
+    final subjectTemplate = eventOverride?.subject ?? sellerTemplate.subject;
+    final bodyTemplate = eventOverride?.body ?? sellerTemplate.body;
+    final signatureTemplate =
+        eventOverride?.signature ?? sellerTemplate.signature;
     final isEnglish = language == 'en';
-    final subjectTemplate = stored.isNotEmpty
-        ? stored.first.subject
-        : (isEnglish
-              ? 'Following up, {nombre}'
-              : 'Damos seguimiento, {nombre}');
-    final bodyTemplate = stored.isNotEmpty
-        ? stored.first.body
-        : (isEnglish
-              ? 'Hi {nombre},\n\nIt was great meeting you at ${origin == 'event' ? '{evento}' : '{lugar}'} and having the opportunity to talk.\n\nI\'m sharing {contenido} as a follow-up to our conversation.\n\nFeel free to reach out if you have any questions. I hope we can stay in touch.'
-              : 'Hola {nombre},\n\nFue un gusto conocerte en ${origin == 'event' ? '{evento}' : '{lugar}'} y poder platicar contigo.\n\nTe comparto {contenido}, como seguimiento a nuestra conversación.\n\nQuedo pendiente y espero que podamos seguir en contacto.');
-    final signatureTemplate = stored.isNotEmpty
-        ? stored.first.signature
-        : (isEnglish
-              ? 'Best,\n{nombreVendedor}\n{empresaVendedor}'
-              : 'Saludos,\n{nombreVendedor}\n{empresaVendedor}');
-    String render(String source) => source
-        .replaceAll('{nombre}', lead.name)
-        .replaceAll('{apellido}', lead.lastName)
-        .replaceAll('{empresa}', lead.company)
-        .replaceAll('{puesto}', lead.role)
-        .replaceAll('{evento}', lead.eventName ?? '')
-        .replaceAll('{lugar}', lead.place ?? '')
-        .replaceAll('{contenido}', lead.contentNames.join(', '))
-        .replaceAll('{nombreVendedor}', seller.name)
-        .replaceAll('{empresaVendedor}', seller.company);
-    var renderedBody = render(bodyTemplate);
+    final values = _emailTemplateValues(lead, seller);
+    var effectiveBodyTemplate = bodyTemplate;
     final context = lead.originKind == LeadOriginKind.event
         ? lead.eventName
         : lead.place;
     if (context?.trim().isEmpty ?? true) {
-      renderedBody = renderedBody
+      effectiveBodyTemplate = effectiveBodyTemplate
           .split('\n')
           .where(
             (line) => isEnglish
@@ -223,7 +366,7 @@ class EmailDeliveryRepository {
           .join('\n');
     }
     if (lead.contentNames.isEmpty) {
-      renderedBody = renderedBody
+      effectiveBodyTemplate = effectiveBodyTemplate
           .split('\n')
           .where(
             (line) => isEnglish
@@ -232,43 +375,170 @@ class EmailDeliveryRepository {
           )
           .join('\n');
     }
-    final renderedSubject = render(subjectTemplate)
+    final generatedSubjectDocument = EmailSemanticDocument.fromTemplate(
+      subjectTemplate.replaceAll(RegExp(r'[\r\n]+'), ' ').trim(),
+    );
+    final generatedBodyDocument = EmailSemanticDocument.fromTemplate(
+      '${effectiveBodyTemplate.trim()}\n\n${signatureTemplate.trim()}',
+    );
+    final renderedSubject = generatedSubjectDocument
+        .render(values)
         .replaceAll(RegExp(r'[\r\n]+'), ' ')
         .replaceFirst(RegExp(r',\s*$'), '')
         .trim();
-    final id = _defaultLocalId();
+    final renderedBody = generatedBodyDocument.render(values).trim();
+    final intents = await _database.emailDeliveryDao.intents(owner);
+    final existing = (await _database.emailDeliveryDao.followUps(owner))
+        .where(
+          (item) =>
+              item.leadLocalId == leadId &&
+              !intents.any((intent) => intent.followUpLocalId == item.localId),
+        )
+        .firstOrNull;
+    if (existing != null && !reconcileExisting) return existing;
+    final id = existing?.localId ?? _defaultLocalId();
     final now = DateTime.now().toUtc();
-    final plain =
-        '${renderedBody.trim()}\n\n${render(signatureTemplate).trim()}';
     await _database.transaction(() async {
-      await _database.emailDeliveryDao.saveFollowUp(
-        LocalEmailFollowUpsCompanion.insert(
-          localId: id,
-          ownerUserId: owner,
-          leadLocalId: leadId,
+      if (existing == null) {
+        await _database.emailDeliveryDao.saveFollowUp(
+          LocalEmailFollowUpsCompanion.insert(
+            localId: id,
+            ownerUserId: owner,
+            leadLocalId: leadId,
+            recipientAddress: lead.email.trim(),
+            subject: renderedSubject,
+            plainBody: renderedBody,
+            htmlBody: renderedBody
+                .split('\n')
+                .map(
+                  (line) => line.isEmpty
+                      ? '<br>'
+                      : '<p>${const HtmlEscape().convert(line)}</p>',
+                )
+                .join(),
+            contentFileIdsJson: Value(jsonEncode(lead.contentFileIds)),
+            contentNamesJson: Value(jsonEncode(lead.contentNames)),
+            languageCode: language,
+            preparedAt: now,
+            subjectSemanticJson: Value(generatedSubjectDocument.toJson()),
+            bodySemanticJson: Value(generatedBodyDocument.toJson()),
+          ),
+        );
+      } else {
+        final legacySubjectEdit =
+            existing.subjectSemanticJson == null &&
+            existing.subject.trim() != renderedSubject.trim();
+        final legacyBodyEdit =
+            existing.bodySemanticJson == null &&
+            existing.plainBody.trim() != renderedBody.trim();
+        final subjectDocument = _reconciledDocument(
+          storedJson: existing.subjectSemanticJson,
+          wasManuallyEdited: existing.subjectManuallyEdited,
+          generated: generatedSubjectDocument,
+          previousConcrete: existing.subject,
+          generatedConcrete: renderedSubject,
+          values: values,
+        );
+        final bodyDocument = _reconciledDocument(
+          storedJson: existing.bodySemanticJson,
+          wasManuallyEdited: existing.bodyManuallyEdited,
+          generated: generatedBodyDocument,
+          previousConcrete: existing.plainBody,
+          generatedConcrete: renderedBody,
+          values: values,
+        );
+        final concreteSubject = subjectDocument.render(values).trim();
+        final concretePlain = bodyDocument.render(values).trim();
+        final concreteHtml = concretePlain
+            .split('\n')
+            .map(
+              (line) => line.isEmpty
+                  ? '<br>'
+                  : '<p>${const HtmlEscape().convert(line)}</p>',
+            )
+            .join();
+        await _database.emailDeliveryDao.replacePreparation(
+          owner,
+          id,
           recipientAddress: lead.email.trim(),
-          subject: renderedSubject,
-          plainBody: plain,
-          htmlBody: plain
-              .split('\n')
-              .map(
-                (line) => line.isEmpty
-                    ? '<br>'
-                    : '<p>${const HtmlEscape().convert(line)}</p>',
-              )
-              .join(),
-          contentFileIdsJson: Value(jsonEncode(lead.contentFileIds)),
-          contentNamesJson: Value(jsonEncode(lead.contentNames)),
+          subject: concreteSubject,
+          plainBody: concretePlain,
+          htmlBody: concreteHtml,
+          contentFileIdsJson: jsonEncode(lead.contentFileIds),
+          contentNamesJson: jsonEncode(lead.contentNames),
           languageCode: language,
           preparedAt: now,
-        ),
-      );
+          subjectSemanticJson: subjectDocument.toJson(),
+          bodySemanticJson: bodyDocument.toJson(),
+          subjectManuallyEdited:
+              existing.subjectManuallyEdited || legacySubjectEdit,
+          bodyManuallyEdited: existing.bodyManuallyEdited || legacyBodyEdit,
+        );
+      }
     });
     return _database.emailDeliveryDao.followUpById(owner, id);
   }
 
   Future<StoredEmailFollowUp?> forLead(String owner, String leadId) =>
       _database.emailDeliveryDao.followUpForLead(owner, leadId);
+
+  Future<void> updatePreparation({
+    required String owner,
+    required String followUpId,
+    required String subject,
+    required String plainBody,
+    required LeadDraft lead,
+    required DemoProfile seller,
+  }) async {
+    final existing = await _database.emailDeliveryDao.followUpById(
+      owner,
+      followUpId,
+    );
+    if (existing == null) throw StateError('Email follow-up not found.');
+    final values = _emailTemplateValues(lead, seller);
+    final concreteSubject = subject.trim();
+    final concreteBody = plainBody.trim();
+    final previousSubjectDocument = existing.subjectSemanticJson == null
+        ? EmailSemanticDocument.fromTemplate(existing.subject)
+        : EmailSemanticDocument.fromJson(existing.subjectSemanticJson!);
+    final previousBodyDocument = existing.bodySemanticJson == null
+        ? EmailSemanticDocument.fromTemplate(existing.plainBody)
+        : EmailSemanticDocument.fromJson(existing.bodySemanticJson!);
+    final subjectChanged = concreteSubject != existing.subject.trim();
+    final bodyChanged = concreteBody != existing.plainBody.trim();
+    final subjectDocument = subjectChanged
+        ? previousSubjectDocument.captureEdit(
+            previousConcrete: existing.subject.trim(),
+            editedConcrete: concreteSubject,
+            values: values,
+          )
+        : previousSubjectDocument;
+    final bodyDocument = bodyChanged
+        ? previousBodyDocument.captureEdit(
+            previousConcrete: existing.plainBody.trim(),
+            editedConcrete: concreteBody,
+            values: values,
+          )
+        : previousBodyDocument;
+    await _database.emailDeliveryDao.updateReviewPreparation(
+      owner,
+      followUpId,
+      subject: concreteSubject,
+      plainBody: concreteBody,
+      htmlBody: concreteBody
+          .split('\n')
+          .map(
+            (line) => line.isEmpty
+                ? '<br>'
+                : '<p>${const HtmlEscape().convert(line)}</p>',
+          )
+          .join(),
+      subjectSemanticJson: subjectDocument.toJson(),
+      bodySemanticJson: bodyDocument.toJson(),
+      subjectManuallyEdited: existing.subjectManuallyEdited || subjectChanged,
+      bodyManuallyEdited: existing.bodyManuallyEdited || bodyChanged,
+    );
+  }
 
   Future<String> confirm({
     required String owner,
@@ -1130,6 +1400,7 @@ class LeadRepository {
       'place': stored.originKind == LeadOriginKind.direct.name
           ? draft.place
           : null,
+      'contentFileIds': draft.contentFileIds,
     };
     await _database.transaction(() async {
       await _database.leadDao.updateLead(
@@ -1143,6 +1414,8 @@ class LeadRepository {
           leadType: draft.type.name,
           interestLevel: draft.interest.name,
           note: draft.note,
+          contentFileIdsJson: jsonEncode(draft.contentFileIds),
+          contentNamesJson: jsonEncode(draft.contentNames),
           place: Value(
             stored.originKind == LeadOriginKind.direct.name
                 ? draft.place
@@ -1195,6 +1468,90 @@ class LeadRepository {
         now: now,
       );
     });
+  }
+
+  /// Applies Voice changes made while the same Capture/Review preparation is
+  /// still active, preserving the Lead and media UUID rather than duplicating.
+  Future<void> updatePreparationVoice(
+    String userId,
+    SessionLead session,
+    LeadDraft draft,
+  ) async {
+    final media = await _database.leadDao.mediaFor(session.localId);
+    final current = media
+        .where((item) => item.mediaType == LocalMediaType.voiceNote.name)
+        .firstOrNull;
+    final requested = draft.audioLocalPath;
+    if (requested == current?.localPath) return;
+    if (requested == null) {
+      if (current == null) return;
+      await _database.syncDao.deleteForEntity(
+        userId,
+        SyncEntityType.leadMedia.name,
+        current.localId,
+      );
+      await _database.leadDao.deleteMediaMetadata(current.localId);
+      await _mediaStorage.deleteIfManaged(current.localPath);
+      return;
+    }
+    final path = await _mediaStorage.persist(
+      sourcePath: requested,
+      leadLocalId: session.localId,
+      type: LocalMediaType.voiceNote,
+    );
+    if (path == null) return;
+    final now = DateTime.now().toUtc();
+    final id = current?.localId ?? _defaultLocalId();
+    if (current == null) {
+      await _insertMedia(
+        id: id,
+        leadId: session.localId,
+        type: LocalMediaType.voiceNote,
+        path: path,
+        durationSeconds: draft.audioSeconds,
+        now: now,
+      );
+    } else {
+      await _database.leadDao.updateVoiceMedia(
+        id,
+        path: path,
+        durationSeconds: draft.audioSeconds,
+      );
+    }
+    final bytes = await File(path).length();
+    final operations = await _database.syncDao.forEntity(
+      userId,
+      SyncEntityType.leadMedia.name,
+      id,
+    );
+    final payload = {
+      'leadId': session.localId,
+      'id': id,
+      'kind': 'voice_note',
+      'contentType': 'audio/m4a',
+      'byteSize': bytes,
+      'capturedAt': now.toIso8601String(),
+      'durationMs': draft.audioSeconds * 1000,
+    };
+    final replaceable = operations.where(
+      (item) => item.action == 'create' && item.status != 'syncing',
+    );
+    if (replaceable.isNotEmpty) {
+      await _database.syncDao.repairFailedPayload(
+        replaceable.first.operationId,
+        jsonEncode(payload),
+        now,
+      );
+    } else {
+      await _syncStore.enqueue(
+        ownerSub: userId,
+        entityType: SyncEntityType.leadMedia,
+        entityId: id,
+        action: 'create',
+        payload: payload,
+        now: now,
+      );
+    }
   }
 
   Future<void> reconcileMediaReferences() async {
@@ -1302,6 +1659,7 @@ class LocalPersistence {
   }) : profiles = ProfileRepository(database),
        preferences = PreferencesRepository(database),
        templates = EmailTemplateRepository(database),
+       eventEmailTemplates = EventEmailTemplateRepository(database),
        emailDelivery = EmailDeliveryRepository(database),
        globalPreferences = GlobalPreferencesRepository(database),
        events = EventRepository(database),
@@ -1315,6 +1673,7 @@ class LocalPersistence {
   final ProfileRepository profiles;
   final PreferencesRepository preferences;
   final EmailTemplateRepository templates;
+  final EventEmailTemplateRepository eventEmailTemplates;
   final EmailDeliveryRepository emailDelivery;
   final GlobalPreferencesRepository globalPreferences;
   final EventRepository events;

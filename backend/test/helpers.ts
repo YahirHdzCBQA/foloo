@@ -3,7 +3,10 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 
 import type { FolooRepository } from "../src/application/ports.js";
-import type { EmailTemplate } from "../src/domain/email_templates.js";
+import type {
+  EmailTemplate,
+  EventEmailTemplate,
+} from "../src/domain/email_templates.js";
 import type {
   EventInput,
   EventUpdateInput,
@@ -74,6 +77,7 @@ export function apiEvent(
 export class MemoryRepository implements FolooRepository {
   readonly seenSubjects: string[] = [];
   readonly templatesByWorkspace = new Map<string, EmailTemplate[]>();
+  readonly eventTemplatesByWorkspace = new Map<string, EventEmailTemplate[]>();
   readonly eventsByWorkspace = new Map<string, unknown[]>();
   readonly contentByWorkspace = new Map<string, ContentRecord[]>();
 
@@ -95,6 +99,45 @@ export class MemoryRepository implements FolooRepository {
     else templates.push(template);
     this.templatesByWorkspace.set(principal.workspaceId, templates);
     return { value: template, replayed: false };
+  }
+
+  async listEventEmailTemplates(
+    principal: Principal,
+  ): Promise<EventEmailTemplate[]> {
+    return this.eventTemplatesByWorkspace.get(principal.workspaceId) ?? [];
+  }
+
+  async saveEventEmailTemplate(
+    principal: Principal,
+    template: EventEmailTemplate,
+  ): Promise<IdempotentResult<EventEmailTemplate>> {
+    const templates =
+      this.eventTemplatesByWorkspace.get(principal.workspaceId) ?? [];
+    const existing = templates.findIndex(
+      (item) =>
+        item.eventId === template.eventId &&
+        item.language === template.language,
+    );
+    if (existing >= 0) templates[existing] = template;
+    else templates.push(template);
+    this.eventTemplatesByWorkspace.set(principal.workspaceId, templates);
+    return { value: template, replayed: false };
+  }
+
+  async deleteEventEmailTemplate(
+    principal: Principal,
+    eventId: string,
+    language: "es" | "en",
+  ): Promise<IdempotentResult<{ deleted: true }>> {
+    const templates =
+      this.eventTemplatesByWorkspace.get(principal.workspaceId) ?? [];
+    this.eventTemplatesByWorkspace.set(
+      principal.workspaceId,
+      templates.filter(
+        (item) => item.eventId !== eventId || item.language !== language,
+      ),
+    );
+    return { value: { deleted: true }, replayed: false };
   }
 
   async resolvePrincipal(subject: string): Promise<Principal> {

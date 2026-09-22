@@ -10,6 +10,14 @@ export const emailTemplateSchema = z.object({
   signature: z.string().max(2_000),
 });
 
+export const eventEmailTemplateSchema = emailTemplateSchema
+  .omit({ origin: true })
+  .extend({ eventId: z.uuid() });
+
+export const eventEmailTemplateDeleteSchema = z.object({
+  language: z.enum(["es", "en"]),
+});
+
 const nullableText = (max: number) =>
   z.string().trim().max(max).nullable().optional();
 
@@ -137,6 +145,7 @@ export const leadUpdateSchema = z
     interest: z.enum(["low", "medium", "high"]),
     writtenNote: nullableText(10_000),
     place: nullableText(240),
+    contentFileIds: z.array(z.uuid()).optional(),
   })
   .superRefine((value, context) => {
     if (!value.email && !value.phone) {

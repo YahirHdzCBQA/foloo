@@ -110,10 +110,21 @@ export class EmailApplication {
         "The lead has no email address.",
       );
     const templates = await this.core.listEmailTemplates(principal);
-    const template =
+    const eventTemplates = await this.core.listEventEmailTemplates(principal);
+    const sellerTemplate =
       templates.find(
         (item) => item.origin === context.origin && item.language === language,
       ) ?? defaultEmailTemplate(context.origin, language);
+    const eventOverride =
+      context.origin === "event" && context.eventId
+        ? eventTemplates.find(
+            (item) =>
+              item.eventId === context.eventId && item.language === language,
+          )
+        : undefined;
+    const template = eventOverride
+      ? { ...eventOverride, origin: "event" as const }
+      : sellerTemplate;
     context.values.contenido = contentNamesForEmail(
       context.contentNames,
       language,

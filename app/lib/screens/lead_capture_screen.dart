@@ -46,6 +46,7 @@ class LeadCaptureScreen extends StatefulWidget {
     required this.recordsCount,
     required this.darkMode,
     required this.onLeadSaved,
+    this.onLeadRevised,
     required this.onDestinationSelected,
     required this.onAppearanceChanged,
     required this.onLogout,
@@ -63,6 +64,7 @@ class LeadCaptureScreen extends StatefulWidget {
     this.contactImagePickerService,
     this.onEmailReviewRequested,
     this.onEmailReviewConfirmed,
+    this.onEmailReviewUpdated,
     super.key,
   });
 
@@ -74,10 +76,14 @@ class LeadCaptureScreen extends StatefulWidget {
   final int recordsCount;
   final bool darkMode;
   final FutureOr<SessionLead> Function(LeadDraft lead) onLeadSaved;
+  final FutureOr<SessionLead> Function(SessionLead record, LeadDraft lead)?
+  onLeadRevised;
   final FutureOr<EmailReviewDraft?> Function(SessionLead record)?
   onEmailReviewRequested;
   final Future<EmailReviewOutcome> Function(EmailReviewDraft draft)?
   onEmailReviewConfirmed;
+  final Future<void> Function(EmailReviewDraft draft, LeadDraft lead)?
+  onEmailReviewUpdated;
   final ValueChanged<AppDestination> onDestinationSelected;
   final ValueChanged<bool> onAppearanceChanged;
   final VoidCallback onLogout;
@@ -117,6 +123,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   final _emailFocus = FocusNode();
   final _phoneFocus = FocusNode();
   final _placeFocus = FocusNode();
+  final Map<TextEditingController, String> _observedControllerText = {};
   final _relationshipContentKey = GlobalKey();
   late final VoiceNoteService _voiceNoteService;
   late final ContactImagePickerService _contactImagePicker;
@@ -144,6 +151,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   late Set<String> _selectedContentIds;
   Timer? _recordingTimer;
   final List<PickedContactImage> _referenceImages = [];
+  SessionLead? _persistedRecord;
 
   @override
   void initState() {
@@ -164,13 +172,15 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     for (final controller in [
       _name,
       _lastName,
+      _role,
       _company,
       _email,
       _phone,
       _note,
       _place,
     ]) {
-      controller.addListener(_refreshProgress);
+      _observedControllerText[controller] = controller.text;
+      controller.addListener(() => _refreshProgress(controller));
     }
   }
 
@@ -252,7 +262,12 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     }
   }
 
-  void _refreshProgress() {
+  void _refreshProgress(TextEditingController controller) {
+    // TextEditingController also notifies for selection/composing changes.
+    // Rebuilding the complete Capture tree during an iOS double tap can race
+    // two native SystemContextMenu instances. Progress depends only on text.
+    if (_observedControllerText[controller] == controller.text) return;
+    _observedControllerText[controller] = controller.text;
     if (mounted) setState(() {});
   }
 
@@ -504,6 +519,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
 
   Future<void> _startRecording() async {
     final previous = _voiceNote;
+    final previousTransferred = _voiceNoteTransferred;
     setState(() {
       _voiceActionInProgress = true;
       _voiceNoteMessage = null;
@@ -528,7 +544,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
         _voiceNote = _voiceNote.startRecording(path);
         _voiceNoteTransferred = false;
       });
-      if (previous.localPath != null && previous.localPath != path) {
+      if (!previousTransferred &&
+          previous.localPath != null &&
+          previous.localPath != path) {
         try {
           await _voiceNoteService.deleteFile(previous.localPath!);
         } catch (_) {
@@ -641,7 +659,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
         await _voiceNoteService.cancelRecording();
       } else {
         await _voiceNoteService.stopPlayback();
-        await _voiceNoteService.deleteFile(path);
+        if (!_voiceNoteTransferred) {
+          await _voiceNoteService.deleteFile(path);
+        }
       }
       if (!mounted) return;
       setState(() {
@@ -783,7 +803,14 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     );
     late final SessionLead record;
     try {
-      record = await Future<SessionLead>.sync(() => widget.onLeadSaved(lead));
+      final persisted = _persistedRecord;
+      record = persisted == null
+          ? await Future<SessionLead>.sync(() => widget.onLeadSaved(lead))
+          : widget.onLeadRevised == null
+          ? persisted
+          : await Future<SessionLead>.sync(
+              () => widget.onLeadRevised!(persisted, lead),
+            );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -791,12 +818,22 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       return;
     }
     if (!mounted) return;
+    _persistedRecord = record;
     _voiceNoteTransferred = record.lead.hasVoiceNote;
     final sourceAudio = lead.audioLocalPath;
     if (sourceAudio != null &&
         record.lead.audioLocalPath != null &&
         sourceAudio != record.lead.audioLocalPath) {
       unawaited(_voiceNoteService.deleteFile(sourceAudio));
+    }
+    if (record.lead.audioLocalPath != null) {
+      setState(() {
+        _voiceNote = VoiceNoteState(
+          phase: VoiceNotePhase.recorded,
+          localPath: record.lead.audioLocalPath,
+          elapsed: Duration(seconds: record.lead.audioSeconds),
+        );
+      });
     }
 
     if (record.mediaIncomplete) {
@@ -815,6 +852,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             record: record,
             draft: review,
             onConfirm: widget.onEmailReviewConfirmed!,
+            onDraftSaved: (draft) async {
+              await widget.onEmailReviewUpdated?.call(draft, record.lead);
+            },
             onConnectionRequired: () {
               widget.onDestinationSelected(AppDestination.email);
             },
@@ -874,6 +914,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       _voiceActionInProgress = false;
       _voiceNoteTransferred = false;
       _referenceImages.clear();
+      _persistedRecord = null;
     });
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
   }

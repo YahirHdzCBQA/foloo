@@ -3,7 +3,10 @@
 import { createHash } from "node:crypto";
 
 import type pg from "pg";
-import type { EmailTemplate } from "../domain/email_templates.js";
+import type {
+  EmailTemplate,
+  EventEmailTemplate,
+} from "../domain/email_templates.js";
 
 import {
   ApplicationError,
@@ -46,6 +49,83 @@ export class PostgresFolooRepository implements FolooRepository {
       [principal.workspaceId, principal.userId],
     );
     return result.rows;
+  }
+
+  async listEventEmailTemplates(
+    principal: Principal,
+  ): Promise<EventEmailTemplate[]> {
+    const result = await this.pool.query<EventEmailTemplate>(
+      `SELECT event_id AS "eventId", language, subject, body, signature
+       FROM event_email_templates
+       WHERE workspace_id=$1 AND owner_user_id=$2
+       ORDER BY event_id, language`,
+      [principal.workspaceId, principal.userId],
+    );
+    return result.rows;
+  }
+
+  async saveEventEmailTemplate(
+    principal: Principal,
+    template: EventEmailTemplate,
+    key: string,
+    hash: string,
+  ): Promise<IdempotentResult<EventEmailTemplate>> {
+    return this.idempotent(
+      principal.workspaceId,
+      "save-event-email-template",
+      key,
+      hash,
+      async (db) => {
+        const result = await db.query<EventEmailTemplate>(
+          `INSERT INTO event_email_templates
+           (workspace_id,owner_user_id,event_id,language,subject,body,signature)
+           SELECT $1,$2,e.id,$4,$5,$6,$7 FROM events e
+           WHERE e.workspace_id=$1 AND e.id=$3 AND e.deleted_at IS NULL
+           ON CONFLICT (workspace_id,owner_user_id,event_id,language)
+           DO UPDATE SET subject=EXCLUDED.subject, body=EXCLUDED.body,
+             signature=EXCLUDED.signature
+           RETURNING event_id AS "eventId", language, subject, body, signature`,
+          [
+            principal.workspaceId,
+            principal.userId,
+            template.eventId,
+            template.language,
+            template.subject,
+            template.body,
+            template.signature,
+          ],
+        );
+        const row = result.rows[0];
+        if (!row) throw notFound("Event");
+        return row;
+      },
+      200,
+    );
+  }
+
+  async deleteEventEmailTemplate(
+    principal: Principal,
+    eventId: string,
+    language: "es" | "en",
+    key: string,
+    hash: string,
+  ): Promise<IdempotentResult<{ deleted: true }>> {
+    return this.idempotent(
+      principal.workspaceId,
+      "delete-event-email-template",
+      key,
+      hash,
+      async (db) => {
+        await db.query(
+          `DELETE FROM event_email_templates
+           WHERE workspace_id=$1 AND owner_user_id=$2 AND event_id=$3
+             AND language=$4`,
+          [principal.workspaceId, principal.userId, eventId, language],
+        );
+        return { deleted: true as const };
+      },
+      200,
+    );
   }
 
   async saveEmailTemplate(
@@ -534,8 +614,12 @@ export class PostgresFolooRepository implements FolooRepository {
       key,
       hash,
       async (db) => {
-        const current = await db.query<{ origin: "event" | "direct" }>(
-          `SELECT origin FROM leads
+        const current = await db.query<{
+          origin: "event" | "direct";
+          content_file_ids: string[];
+          content_names: string[];
+        }>(
+          `SELECT origin,content_file_ids,content_names FROM leads
            WHERE workspace_id = $1 AND id = $2 AND deleted_at IS NULL
            FOR UPDATE`,
           [principal.workspaceId, leadId],
@@ -556,11 +640,31 @@ export class PostgresFolooRepository implements FolooRepository {
             "Place is required for direct leads.",
           );
         }
+        let selected = existing.content_file_ids;
+        let contentNames = existing.content_names;
+        if (input.contentFileIds != null) {
+          selected = [...new Set(input.contentFileIds)];
+          const attachments = selected.length
+            ? (
+                await db.query<{ id: string; display_name: string }>(
+                  `SELECT id,display_name FROM content_files
+                   WHERE workspace_id=$1 AND id=ANY($2::uuid[]) AND deleted_at IS NULL`,
+                  [principal.workspaceId, selected],
+                )
+              ).rows
+            : [];
+          if (attachments.length !== selected.length) throw notFound("Content");
+          const names = new Map(
+            attachments.map((item) => [item.id, item.display_name]),
+          );
+          contentNames = selected.map((id) => names.get(id)!);
+        }
         const result = await db.query(
           `UPDATE leads SET
              first_name = $4, last_name = $5, position = $6, company = $7,
              email = $8, phone = $9, lead_type = $10, interest = $11,
-             written_note = $12, place = $13
+             written_note = $12, place = $13,
+             content_file_ids = $14::uuid[], content_names = $15::text[]
            WHERE workspace_id = $1 AND id = $2 AND revision = $3
              AND deleted_at IS NULL
            RETURNING id, event_id AS "eventId", captured_at AS "capturedAt", origin,
@@ -582,6 +686,8 @@ export class PostgresFolooRepository implements FolooRepository {
             input.interest,
             input.writtenNote ?? null,
             existing.origin === "direct" ? input.place : null,
+            selected,
+            contentNames,
           ],
         );
         const row = result.rows[0];

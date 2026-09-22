@@ -25,6 +25,17 @@ ownership por su Lead o archivo. Email nunca sustituye el identificador estable.
   adjuntos y opt-out deben ser owner-scoped. La intención confirmada es distinta
   de la preparación tras guardar Lead y del retry técnico. Un timeout tras
   posible aceptación del proveedor deja Estado por confirmar, no retry ciego.
+  El default del vendedor se identifica por owner/origen/idioma y el override
+  opcional por owner/evento/idioma; ausencia de override significa herencia,
+  no copia. Una preparación sin intención se reutiliza por Lead y queda fuera
+  del historial real hasta la confirmación explícita: antes de ella reconcilia
+  destinatario y Content con el Lead actual. Asunto y cuerpo guardan por separado
+  una representación ordenada de segmentos literales/tokens y su indicador de
+  edición manual: esto permite conservar el delta literal de Review y volver a
+  renderizar solo tokens canónicos, sin reemplazar coincidencias arbitrarias.
+  Esa metadata vive en Drift mientras la preparación está activa y sobrevive
+  offline/restart. La intención confirmada referencia el follow-up ya congelado
+  y no vuelve a consultar datos mutables para reescribirlo.
 
 ## Invariantes
 

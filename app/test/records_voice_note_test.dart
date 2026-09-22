@@ -22,6 +22,7 @@ LeadDraft lead({
   String eventId = 'expo-alimentaria',
   String eventName = DemoEventData.eventName,
   String name = 'Mariana',
+  List<String> contentNames = const [],
   List<String> referenceImagePaths = const [],
   LeadOriginKind originKind = LeadOriginKind.event,
   String? place,
@@ -39,6 +40,7 @@ LeadDraft lead({
   eventLocalId: originKind == LeadOriginKind.event ? eventId : null,
   eventName: originKind == LeadOriginKind.event ? eventName : null,
   place: place,
+  contentNames: contentNames,
   audioLocalPath: audioPath,
   audioSeconds: audioSeconds,
   cardImageLocalPath: cardImagePath,
@@ -168,6 +170,27 @@ void main() {
       expect(chip.showCheckmark, isFalse);
     }
   });
+
+  testWidgets(
+    'Records detail renders the complete persisted Content snapshot',
+    (tester) async {
+      final record = SessionLead(
+        localId: 'lead-content',
+        folio: null,
+        capturedAt: DateTime(2026, 9, 22),
+        lead: lead(contentNames: const ['Ficha A.pdf', 'Ficha B.pdf']),
+      );
+      await tester.pumpWidget(
+        recordsApp(FakeVoiceNoteService(), records: [record]),
+      );
+
+      await tester.tap(find.text('Mariana Sandoval Ruiz'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ficha A.pdf'), findsOneWidget);
+      expect(find.text('Ficha B.pdf'), findsOneWidget);
+    },
+  );
 
   testWidgets('SYN-07 failed media is never described as waiting for signal', (
     tester,

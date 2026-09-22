@@ -553,6 +553,11 @@ class SyncEngine extends ChangeNotifier {
         operation.action == 'delete' && await _hasPendingLeadCreate(operation),
       SyncEntityType.profile => false,
       SyncEntityType.emailTemplate => false,
+      SyncEntityType.eventEmailTemplate => _store.hasPending(
+        operation.ownerUserId,
+        SyncEntityType.event,
+        payload['eventId'] as String? ?? '',
+      ),
       SyncEntityType.emailFollowUp => switch (payload['leadId']) {
         final String leadId => _store.hasPending(
           operation.ownerUserId,
@@ -663,6 +668,8 @@ class SyncEngine extends ChangeNotifier {
       .byName(operation.entityType)) {
     SyncEntityType.profile => '/v1/profile',
     SyncEntityType.emailTemplate => '/v1/email/templates',
+    SyncEntityType.eventEmailTemplate =>
+      '/v1/events/${_payload(operation)['eventId']}/email-template',
     SyncEntityType.emailFollowUp => '/v1/email/follow-ups',
     SyncEntityType.emailSendIntent =>
       operation.action == 'retry' || operation.action == 'cancel'
@@ -696,6 +703,12 @@ class SyncEngine extends ChangeNotifier {
       SyncEntityType.emailTemplate => SyncRequest(
         method: 'PUT',
         path: '/v1/email/templates',
+        body: payload,
+        idempotencyKey: operation.idempotencyKey,
+      ),
+      SyncEntityType.eventEmailTemplate => SyncRequest(
+        method: operation.action == 'delete' ? 'DELETE' : 'PUT',
+        path: '/v1/events/${payload.remove('eventId')}/email-template',
         body: payload,
         idempotencyKey: operation.idempotencyKey,
       ),
@@ -787,6 +800,18 @@ class SyncEngine extends ChangeNotifier {
           ),
         );
         await _store.applyRemoteEmailTemplates(ownerSub, templates);
+        final eventTemplates = _list(
+          _data(
+            await _api.send(
+              token,
+              const SyncRequest(
+                method: 'GET',
+                path: '/v1/email/event-templates',
+              ),
+            ),
+          ),
+        );
+        await _store.applyRemoteEventEmailTemplates(ownerSub, eventTemplates);
       } on SyncHttpException {
         // A DEV backend without FL-019 must not block existing sync flows.
       }

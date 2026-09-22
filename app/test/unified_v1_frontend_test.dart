@@ -508,6 +508,74 @@ void main() {
     expect(find.byKey(const Key('emailVariableError')), findsOneWidget);
   });
 
+  testWidgets(
+    'PLT-08 restore is staged until Save and template keyboard dismisses',
+    (tester) async {
+      phone(tester);
+      await login(tester);
+      await drawer(tester);
+      await tester.tap(find.byKey(const Key('drawerEmail')));
+      await tester.pumpAndSettle();
+      final subject = find.byKey(const ValueKey('emailSubject-event'));
+      await tester.enterText(subject, 'Personalizada {nombre}');
+      await tester.tap(find.byKey(const Key('saveEmailTemplateButton')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(subject);
+      await tester.pump();
+      final subjectFocus = tester
+          .widget<EditableText>(
+            find.descendant(of: subject, matching: find.byType(EditableText)),
+          )
+          .focusNode;
+      expect(subjectFocus.hasFocus, isTrue);
+      await tester.tapAt(const Offset(5, 400));
+      await tester.pump();
+      expect(subjectFocus.hasFocus, isFalse);
+
+      await tester.ensureVisible(
+        find.byKey(const Key('restoreFolooTemplateButton')),
+      );
+      await tester.tap(find.byKey(const Key('restoreFolooTemplateButton')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Restaurar').last);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(subject).controller?.text,
+        'Damos seguimiento, {nombre}',
+      );
+
+      await tester.tap(find.byIcon(Icons.arrow_back).first);
+      await tester.pumpAndSettle();
+      await drawer(tester);
+      await tester.tap(find.byKey(const Key('drawerEmail')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(subject).controller?.text,
+        'Personalizada {nombre}',
+      );
+
+      await tester.ensureVisible(
+        find.byKey(const Key('restoreFolooTemplateButton')),
+      );
+      await tester.tap(find.byKey(const Key('restoreFolooTemplateButton')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Restaurar').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('saveEmailTemplateButton')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_back).first);
+      await tester.pumpAndSettle();
+      await drawer(tester);
+      await tester.tap(find.byKey(const Key('drawerEmail')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(subject).controller?.text,
+        'Damos seguimiento, {nombre}',
+      );
+    },
+  );
+
   testWidgets('direct save confirms local persistence and keeps Lugar', (
     tester,
   ) async {

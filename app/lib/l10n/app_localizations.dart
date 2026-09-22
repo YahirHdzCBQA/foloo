@@ -2110,8 +2110,68 @@ abstract class AppLocalizations {
   /// No description provided for @templateSavedV1.
   ///
   /// In es, this message translates to:
-  /// **'Plantilla guardada en este dispositivo.'**
+  /// **'Plantilla guardada'**
   String get templateSavedV1;
+
+  /// No description provided for @folooDefaultTemplate.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantilla predeterminada de Foloo'**
+  String get folooDefaultTemplate;
+
+  /// No description provided for @sellerTemplateHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta plantilla se usará como base para futuros seguimientos.'**
+  String get sellerTemplateHelp;
+
+  /// No description provided for @restoreDefaultTemplate.
+  ///
+  /// In es, this message translates to:
+  /// **'Restaurar plantilla predeterminada'**
+  String get restoreDefaultTemplate;
+
+  /// No description provided for @restoreDefaultTemplateQuestion.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Restaurar plantilla predeterminada?'**
+  String get restoreDefaultTemplateQuestion;
+
+  /// No description provided for @restoreDefaultTemplateHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Se reemplazarán los cambios realizados en esta plantilla. Esto no modificará correos ya preparados o enviados.'**
+  String get restoreDefaultTemplateHelp;
+
+  /// No description provided for @restore.
+  ///
+  /// In es, this message translates to:
+  /// **'Restaurar'**
+  String get restore;
+
+  /// No description provided for @customizeEventEmail.
+  ///
+  /// In es, this message translates to:
+  /// **'Personalizar correo para este evento'**
+  String get customizeEventEmail;
+
+  /// No description provided for @usingDefaultTemplate.
+  ///
+  /// In es, this message translates to:
+  /// **'Usando plantilla predeterminada'**
+  String get usingDefaultTemplate;
+
+  /// No description provided for @customEventTemplate.
+  ///
+  /// In es, this message translates to:
+  /// **'Plantilla personalizada para este evento'**
+  String get customEventTemplate;
+
+  /// No description provided for @useDefaultTemplate.
+  ///
+  /// In es, this message translates to:
+  /// **'Usar plantilla predeterminada'**
+  String get useDefaultTemplate;
 
   /// No description provided for @emailNoLeadPreviewV1.
   ///

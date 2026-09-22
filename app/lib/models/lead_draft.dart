@@ -80,6 +80,8 @@ class LeadDraft {
     String? audioLocalPath,
     bool clearCardImage = false,
     bool clearAudio = false,
+    List<String>? contentFileIds,
+    List<String>? contentNames,
     List<String>? referenceImageLocalPaths,
   }) => LeadDraft(
     name: name ?? this.name,
@@ -100,8 +102,8 @@ class LeadDraft {
     audioLocalPath: clearAudio ? null : audioLocalPath ?? this.audioLocalPath,
     audioSeconds: audioSeconds,
     place: place ?? this.place,
-    contentFileIds: contentFileIds,
-    contentNames: contentNames,
+    contentFileIds: contentFileIds ?? this.contentFileIds,
+    contentNames: contentNames ?? this.contentNames,
     referenceImageLocalPaths:
         referenceImageLocalPaths ?? this.referenceImageLocalPaths,
   );

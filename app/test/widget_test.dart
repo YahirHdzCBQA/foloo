@@ -7,6 +7,7 @@ import 'package:foloo/models/lead_draft.dart';
 import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/screens/lead_capture_screen.dart';
 import 'package:foloo/theme/foloo_theme.dart';
+import 'package:foloo/widgets/progress_header.dart';
 
 Widget captureApp({FutureOr<SessionLead> Function(LeadDraft)? onLeadSaved}) =>
     MaterialApp(
@@ -27,6 +28,9 @@ Widget captureApp({FutureOr<SessionLead> Function(LeadDraft)? onLeadSaved}) =>
         onLogout: () {},
       ),
     );
+
+Finder editableFor(Key key) =>
+    find.descendant(of: find.byKey(key), matching: find.byType(EditableText));
 
 void main() {
   testWidgets('shows required validation without losing the draft', (
@@ -207,5 +211,112 @@ void main() {
       final field = tester.widget<TextFormField>(find.byKey(key));
       expect(field.controller?.text, isEmpty);
     }
+  });
+
+  testWidgets(
+    'Capture text selection keeps one editable connection and persists edits',
+    (tester) async {
+      await tester.pumpWidget(captureApp());
+      const emailKey = Key('emailField');
+      await tester.scrollUntilVisible(
+        find.byKey(emailKey),
+        220,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.enterText(find.byKey(emailKey), 'thomas@airbagtech.io');
+      await tester.pump();
+      final editable = editableFor(emailKey);
+      final initialState = tester.state<EditableTextState>(editable);
+      final initialWidget = tester.widget<EditableText>(editable);
+      final headerBeforeSelection = tester.widget<ProgressHeader>(
+        find.byType(ProgressHeader),
+      );
+
+      expect(initialWidget.focusNode.hasFocus, isTrue);
+      initialWidget.controller.selection = const TextSelection(
+        baseOffset: 0,
+        extentOffset: 6,
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(
+        identical(tester.state<EditableTextState>(editable), initialState),
+        isTrue,
+      );
+      expect(
+        identical(
+          tester.widget<ProgressHeader>(find.byType(ProgressHeader)),
+          headerBeforeSelection,
+        ),
+        isTrue,
+      );
+      expect(initialWidget.focusNode.hasFocus, isTrue);
+      expect(
+        initialWidget.controller.selection.textInside(
+          initialWidget.controller.text,
+        ),
+        'thomas',
+      );
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'tom@airbagtech.io',
+          selection: TextSelection.collapsed(offset: 3),
+        ),
+      );
+      await tester.pump();
+      expect(initialWidget.controller.text, 'tom@airbagtech.io');
+      expect(
+        identical(
+          tester.widget<ProgressHeader>(find.byType(ProgressHeader)),
+          headerBeforeSelection,
+        ),
+        isFalse,
+      );
+      expect(
+        identical(tester.state<EditableTextState>(editable), initialState),
+        isTrue,
+      );
+    },
+  );
+
+  testWidgets('Capture focus traversal and drag dismissal do not refocus', (
+    tester,
+  ) async {
+    await tester.pumpWidget(captureApp());
+    const emailKey = Key('emailField');
+    const phoneKey = Key('phoneField');
+    await tester.scrollUntilVisible(
+      find.byKey(emailKey),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(editableFor(emailKey));
+    await tester.pump();
+    expect(
+      tester.widget<EditableText>(editableFor(emailKey)).focusNode.hasFocus,
+      isTrue,
+    );
+
+    await tester.testTextInput.receiveAction(TextInputAction.next);
+    await tester.pump();
+    expect(
+      tester.widget<EditableText>(editableFor(phoneKey)).focusNode.hasFocus,
+      isTrue,
+    );
+
+    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, 120));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<EditableText>(editableFor(phoneKey)).focusNode.hasFocus,
+      isFalse,
+    );
+    await tester.pump();
+    expect(
+      tester.widget<EditableText>(editableFor(phoneKey)).focusNode.hasFocus,
+      isFalse,
+    );
+    expect(tester.takeException(), isNull);
   });
 }

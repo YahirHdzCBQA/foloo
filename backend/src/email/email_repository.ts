@@ -25,6 +25,7 @@ export type OAuthState = {
 
 export type FollowUpContext = {
   leadId: string;
+  eventId: string | null;
   origin: "event" | "direct";
   recipientAddress: string | null;
   values: Record<string, string>;

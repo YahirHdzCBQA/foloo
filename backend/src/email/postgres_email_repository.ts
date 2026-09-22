@@ -159,6 +159,7 @@ export class PostgresEmailRepository implements EmailRepository {
   ): Promise<FollowUpContext> {
     const result = await this.pool.query<{
       lead_id: string;
+      event_id: string | null;
       origin: "event" | "direct";
       recipient_address: string | null;
       first_name: string;
@@ -172,7 +173,7 @@ export class PostgresEmailRepository implements EmailRepository {
       content_file_ids: string[];
       content_names: string[];
     }>(
-      `SELECT l.id AS lead_id,l.origin,l.email AS recipient_address,l.first_name,
+      `SELECT l.id AS lead_id,l.event_id,l.origin,l.email AS recipient_address,l.first_name,
               l.last_name,l.company,l.position,e.name AS event_name,l.place,
               p.name AS seller_name,p.company AS seller_company,
               l.content_file_ids,l.content_names
@@ -202,6 +203,7 @@ export class PostgresEmailRepository implements EmailRepository {
       : { rows: [] as HistoricalAttachment[] };
     return {
       leadId: row.lead_id,
+      eventId: row.event_id,
       origin: row.origin,
       recipientAddress: row.recipient_address,
       contentFileIds: row.content_file_ids,

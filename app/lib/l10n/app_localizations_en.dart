@@ -1184,7 +1184,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String get emailSignatureV1 => 'Signature';
 
   @override
-  String get templateSavedV1 => 'Template saved on this device.';
+  String get templateSavedV1 => 'Template saved';
+
+  @override
+  String get folooDefaultTemplate => 'Foloo default template';
+
+  @override
+  String get sellerTemplateHelp =>
+      'This template will be used as the basis for future follow-ups.';
+
+  @override
+  String get restoreDefaultTemplate => 'Restore default template';
+
+  @override
+  String get restoreDefaultTemplateQuestion => 'Restore default template?';
+
+  @override
+  String get restoreDefaultTemplateHelp =>
+      'Changes made to this template will be replaced. This will not modify emails that are already prepared or sent.';
+
+  @override
+  String get restore => 'Restore';
+
+  @override
+  String get customizeEventEmail => 'Customize email for this event';
+
+  @override
+  String get usingDefaultTemplate => 'Using default template';
+
+  @override
+  String get customEventTemplate => 'Custom template for this event';
+
+  @override
+  String get useDefaultTemplate => 'Use default template';
 
   @override
   String get emailNoLeadPreviewV1 =>

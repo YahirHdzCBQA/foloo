@@ -15,6 +15,7 @@ class FakeVoiceNoteService implements VoiceNoteService {
   int stopPlaybackCount = 0;
   int cancelCount = 0;
   final List<String> deletedPaths = [];
+  final List<String> playedPaths = [];
   String? activePath;
 
   @override
@@ -44,6 +45,7 @@ class FakeVoiceNoteService implements VoiceNoteService {
   @override
   Future<void> play(String path) async {
     playCount++;
+    playedPaths.add(path);
   }
 
   @override

@@ -158,6 +158,44 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/DataResponse" }
         "400": { $ref: "#/components/responses/ErrorResponse" }
+  /email/event-templates:
+    get:
+      operationId: listEventEmailTemplates
+      description: Lists optional owner-scoped Event overrides; absence means inheritance.
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+  /events/{eventId}/email-template:
+    parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      operationId: putEventEmailTemplate
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EventEmailTemplateInput" }
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+        "404": { $ref: "#/components/responses/ErrorResponse" }
+    delete:
+      operationId: deleteEventEmailTemplate
+      description: Removes the override so the Event inherits the current seller default.
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [language]
+              properties:
+                language: { type: string, enum: [es, en] }
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
   /workspace:
     get:
       operationId: getWorkspace
@@ -452,6 +490,15 @@ components:
         subject: { type: string, minLength: 1, maxLength: 500 }
         body: { type: string, minLength: 1, maxLength: 20000 }
         signature: { type: string, maxLength: 2000 }
+    EventEmailTemplateInput:
+      type: object
+      additionalProperties: false
+      required: [language, subject, body, signature]
+      properties:
+        language: { type: string, enum: [es, en] }
+        subject: { type: string, minLength: 1, maxLength: 500 }
+        body: { type: string, minLength: 1, maxLength: 20000 }
+        signature: { type: string, maxLength: 2000 }
     SellerProfileInput:
       type: object
       additionalProperties: false
@@ -540,6 +587,10 @@ components:
           nullable: true
           maxLength: 240
           description: Mutable only when the persisted Lead origin is direct.
+        contentFileIds:
+          description: Current pre-send Content selection; the server refreshes the corresponding display-name snapshot.
+          type: array
+          items: { type: string, format: uuid }
     LeadMediaInput:
       type: object
       additionalProperties: false
