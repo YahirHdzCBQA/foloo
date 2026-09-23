@@ -55,7 +55,7 @@ class LeadCaptureScreen extends StatefulWidget {
     this.onContentAdded,
     this.pdfPickerService,
     this.contentFiles = const [],
-    this.profile = DemoAppData.profile,
+    this.profile = DemoProfile.empty,
     this.eventId,
     this.eventName,
     this.initialPlace,

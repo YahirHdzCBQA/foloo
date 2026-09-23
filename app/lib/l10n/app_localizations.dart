@@ -164,6 +164,42 @@ abstract class AppLocalizations {
   /// **'Crear cuenta'**
   String get createAccount;
 
+  /// No description provided for @noAccountQuestion.
+  ///
+  /// In es, this message translates to:
+  /// **'¿No tienes cuenta?'**
+  String get noAccountQuestion;
+
+  /// No description provided for @orContinueWith.
+  ///
+  /// In es, this message translates to:
+  /// **'o entra con'**
+  String get orContinueWith;
+
+  /// No description provided for @orUseEmail.
+  ///
+  /// In es, this message translates to:
+  /// **'o con tu correo'**
+  String get orUseEmail;
+
+  /// No description provided for @continueWithGoogle.
+  ///
+  /// In es, this message translates to:
+  /// **'Continuar con Google'**
+  String get continueWithGoogle;
+
+  /// No description provided for @continueWithMicrosoft.
+  ///
+  /// In es, this message translates to:
+  /// **'Continuar con Microsoft'**
+  String get continueWithMicrosoft;
+
+  /// No description provided for @authSocialUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'El acceso social todavía requiere configuración de Cognito. Puedes usar correo y contraseña.'**
+  String get authSocialUnavailable;
+
   /// No description provided for @createAccountTitle.
   ///
   /// In es, this message translates to:
@@ -469,6 +505,60 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Completa la autorización en el navegador. Al volver, Foloo comprobará la conexión.'**
   String get emailOnboardingWaiting;
+
+  /// No description provided for @emailOnboardingPrivacy.
+  ///
+  /// In es, this message translates to:
+  /// **'Foloo solo envía los correos de seguimiento que tú apruebas. No lee tu bandeja.'**
+  String get emailOnboardingPrivacy;
+
+  /// No description provided for @contentLibraryHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Administra aquí los PDF que compartirás con tus leads. Asígnalos a eventos para adjuntarlos a sus correos de seguimiento.'**
+  String get contentLibraryHelp;
+
+  /// No description provided for @createEventContentHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'El contenido elegido para este evento podrá adjuntarse a los seguimientos de sus leads.'**
+  String get createEventContentHelp;
+
+  /// No description provided for @exportCompleted.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportación completada'**
+  String get exportCompleted;
+
+  /// No description provided for @emailNotSent.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin seguimiento enviado'**
+  String get emailNotSent;
+
+  /// No description provided for @emailResendQuestion.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Enviar nuevamente?'**
+  String get emailResendQuestion;
+
+  /// No description provided for @emailResendWarning.
+  ///
+  /// In es, this message translates to:
+  /// **'Esto crea un envío manual nuevo y podría entregar un duplicado.'**
+  String get emailResendWarning;
+
+  /// No description provided for @emailResend.
+  ///
+  /// In es, this message translates to:
+  /// **'Reenviar'**
+  String get emailResend;
+
+  /// No description provided for @retry.
+  ///
+  /// In es, this message translates to:
+  /// **'Reintentar'**
+  String get retry;
 
   /// No description provided for @emailSendingAccount.
   ///
@@ -1514,6 +1604,18 @@ abstract class AppLocalizations {
   /// **'Mensaje'**
   String get emailReviewMessage;
 
+  /// No description provided for @emailReviewSignature.
+  ///
+  /// In es, this message translates to:
+  /// **'Firma'**
+  String get emailReviewSignature;
+
+  /// No description provided for @edit.
+  ///
+  /// In es, this message translates to:
+  /// **'Editar'**
+  String get edit;
+
   /// No description provided for @emailReviewRequired.
   ///
   /// In es, this message translates to:
@@ -1591,24 +1693,6 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'El lead permanece guardado. Puedes reintentar desde Correo.'**
   String get emailErrorDetail;
-
-  /// No description provided for @emailRecipientOptedOutTitle.
-  ///
-  /// In es, this message translates to:
-  /// **'Correo no enviado'**
-  String get emailRecipientOptedOutTitle;
-
-  /// No description provided for @emailRecipientOptedOutDetail.
-  ///
-  /// In es, this message translates to:
-  /// **'El lead permanece guardado, pero el correo no se envió porque la dirección aparece dada de baja.'**
-  String get emailRecipientOptedOutDetail;
-
-  /// No description provided for @emailRecipientOptedOutStatus.
-  ///
-  /// In es, this message translates to:
-  /// **'No enviado · Destinatario dado de baja'**
-  String get emailRecipientOptedOutStatus;
 
   /// No description provided for @emailNotRetryableStatus.
   ///
@@ -1783,12 +1867,6 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Con los datos del último lead capturado'**
   String get latestLeadData;
-
-  /// No description provided for @emailPreviewServerHelp.
-  ///
-  /// In es, this message translates to:
-  /// **'{source} · El aviso de privacidad y la baja se agregan del lado del servidor.'**
-  String emailPreviewServerHelp(Object source);
 
   /// No description provided for @recentEventHelp.
   ///
@@ -2094,12 +2172,6 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Recibiste este correo como seguimiento a nuestro encuentro.'**
   String get emailFooterGenericV1;
-
-  /// No description provided for @emailUnsubscribeV1.
-  ///
-  /// In es, this message translates to:
-  /// **'Si prefieres no recibir más comunicaciones, puedes darte de baja aquí.'**
-  String get emailUnsubscribeV1;
 
   /// No description provided for @emailSignatureV1.
   ///

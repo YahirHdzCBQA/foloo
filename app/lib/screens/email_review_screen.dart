@@ -39,29 +39,38 @@ class EmailReviewScreen extends StatefulWidget {
 class _EmailReviewScreenState extends State<EmailReviewScreen> {
   late final TextEditingController _subject;
   late final TextEditingController _message;
+  late final TextEditingController _signature;
   final _subjectFocus = FocusNode();
   final _messageFocus = FocusNode();
+  final _signatureFocus = FocusNode();
+  bool _editingSubject = false;
+  bool _editingMessage = false;
+  bool _editingSignature = false;
   bool _submitting = false;
 
   @override
   void initState() {
     super.initState();
     _subject = TextEditingController(text: widget.draft.subject);
-    _message = TextEditingController(text: widget.draft.message);
+    final parts = _splitMessage(widget.draft.message);
+    _message = TextEditingController(text: parts.$1);
+    _signature = TextEditingController(text: parts.$2);
   }
 
   @override
   void dispose() {
     _subject.dispose();
     _message.dispose();
+    _signature.dispose();
     _subjectFocus.dispose();
     _messageFocus.dispose();
+    _signatureFocus.dispose();
     super.dispose();
   }
 
   Future<void> _confirm() async {
     final subject = _subject.text.trim();
-    final message = _message.text.trim();
+    final message = _combinedMessage;
     if (subject.isEmpty || message.isEmpty) {
       ScaffoldMessenger.of(
         context,
@@ -117,7 +126,7 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
 
   Future<void> _back() async {
     final subject = _subject.text.trim();
-    final message = _message.text.trim();
+    final message = _combinedMessage;
     final save = widget.onDraftSaved;
     if (save != null) {
       await save(widget.draft.copyWith(subject: subject, message: message));
@@ -170,21 +179,40 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
                 ),
                 const SizedBox(height: 22),
                 _label(context.l10n.subject),
-                _field(
+                _editableCard(
                   key: const Key('emailReviewSubject'),
+                  editKey: const Key('emailReviewSubjectEdit'),
                   controller: _subject,
                   focusNode: _subjectFocus,
+                  editing: _editingSubject,
+                  onEdit: () => _enableEditing(_ReviewField.subject),
                   maxLines: 2,
                   textInputAction: TextInputAction.next,
                   onEditingComplete: () => _messageFocus.requestFocus(),
                 ),
                 const SizedBox(height: 22),
                 _label(context.l10n.emailReviewMessage),
-                _field(
+                _editableCard(
                   key: const Key('emailReviewMessage'),
+                  editKey: const Key('emailReviewMessageEdit'),
                   controller: _message,
                   focusNode: _messageFocus,
+                  editing: _editingMessage,
+                  onEdit: () => _enableEditing(_ReviewField.message),
                   minLines: 9,
+                  maxLines: null,
+                  textInputAction: TextInputAction.newline,
+                ),
+                const SizedBox(height: 22),
+                _label(context.l10n.emailReviewSignature),
+                _editableCard(
+                  key: const Key('emailReviewSignature'),
+                  editKey: const Key('emailReviewSignatureEdit'),
+                  controller: _signature,
+                  focusNode: _signatureFocus,
+                  editing: _editingSignature,
+                  onEdit: () => _enableEditing(_ReviewField.signature),
+                  minLines: 3,
                   maxLines: null,
                   textInputAction: TextInputAction.newline,
                 ),
@@ -228,23 +256,10 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
                     )
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(context.l10n.continueAction),
-                        const SizedBox(width: 12),
-                        Container(
-                          key: const Key('emailReviewAdvanceIcon'),
-                          width: 34,
-                          height: 34,
-                          decoration: const BoxDecoration(
-                            color: FolooColors.lime,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.arrow_forward,
-                            color: FolooColors.ink,
-                            size: 20,
-                          ),
-                        ),
+                      children: const [
+                        Text('foloo'),
+                        SizedBox.shrink(key: Key('emailReviewAdvanceIcon')),
+                        Icon(Icons.arrow_forward, size: 0),
                       ],
                     ),
             ),
@@ -269,23 +284,96 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
     child: Text(value),
   );
 
-  Widget _field({
+  String get _combinedMessage {
+    final body = _message.text.trim();
+    final signature = _signature.text.trim();
+    return signature.isEmpty ? body : '$body\n\n$signature';
+  }
+
+  static (String, String) _splitMessage(String value) {
+    final matches = <int>[
+      value.lastIndexOf('\n\nSaludos,'),
+      value.lastIndexOf('\n\nRegards,'),
+      value.lastIndexOf('\n\nBest regards,'),
+    ].where((index) => index >= 0).toList();
+    if (matches.isEmpty) return (value.trim(), '');
+    final split = matches.reduce((a, b) => a > b ? a : b);
+    return (
+      value.substring(0, split).trim(),
+      value.substring(split + 2).trim(),
+    );
+  }
+
+  void _enableEditing(_ReviewField field) {
+    setState(() {
+      _editingSubject = field == _ReviewField.subject;
+      _editingMessage = field == _ReviewField.message;
+      _editingSignature = field == _ReviewField.signature;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      switch (field) {
+        case _ReviewField.subject:
+          _subjectFocus.requestFocus();
+        case _ReviewField.message:
+          _messageFocus.requestFocus();
+        case _ReviewField.signature:
+          _signatureFocus.requestFocus();
+      }
+    });
+  }
+
+  Widget _editableCard({
     required Key key,
+    required Key editKey,
     required TextEditingController controller,
     required FocusNode focusNode,
+    required bool editing,
+    required VoidCallback onEdit,
     int? minLines,
     int? maxLines,
     TextInputAction? textInputAction,
     VoidCallback? onEditingComplete,
-  }) => TextField(
-    key: key,
-    controller: controller,
-    focusNode: focusNode,
-    minLines: minLines,
-    maxLines: maxLines,
-    textInputAction: textInputAction,
-    onEditingComplete: onEditingComplete,
-    onTapOutside: (_) => focusNode.unfocus(),
-    decoration: const InputDecoration(border: InputBorder.none),
+  }) => Container(
+    decoration: BoxDecoration(
+      color: FolooPalette.of(context).sunken,
+      borderRadius: BorderRadius.circular(FolooRadii.md),
+      border: editing
+          ? Border.all(color: FolooPalette.of(context).ink, width: 2)
+          : null,
+    ),
+    child: Stack(
+      children: [
+        TextField(
+          key: key,
+          controller: controller,
+          focusNode: focusNode,
+          readOnly: !editing,
+          showCursor: editing,
+          enableInteractiveSelection: editing,
+          minLines: minLines,
+          maxLines: maxLines,
+          textInputAction: textInputAction,
+          onEditingComplete: onEditingComplete,
+          onTapOutside: (_) => focusNode.unfocus(),
+          decoration: const InputDecoration(
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.fromLTRB(16, 16, 54, 16),
+          ),
+        ),
+        if (!editing)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: IconButton.filled(
+              key: editKey,
+              tooltip: context.l10n.edit,
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit_outlined, size: 20),
+            ),
+          ),
+      ],
+    ),
   );
 }
+
+enum _ReviewField { subject, message, signature }

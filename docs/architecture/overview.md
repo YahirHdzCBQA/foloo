@@ -53,7 +53,7 @@ intención a una frontera backend de proveedor, sin credenciales de
 correo en Flutter. ADR-007 mantiene API/RDS en subredes aisladas y lleva el
 egreso a una Lambda de proveedor sin VPC, invocada por un endpoint privado de
 Lambda. Esa frontera lee secretos OAuth de aplicación y cifra/descifra tokens
-renovables con KMS, pero no tiene acceso a PostgreSQL. Callback OAuth y opt-out
+renovables con KMS, pero no tiene acceso a PostgreSQL. El callback OAuth
 son las únicas rutas públicas sin JWT y usan respectivamente state+PKCE de un
 solo uso y token opaco.
 

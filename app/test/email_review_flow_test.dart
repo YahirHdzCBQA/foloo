@@ -82,6 +82,8 @@ void main() {
     expect(find.textContaining('{nombre}'), findsNothing);
     expect(find.byKey(const Key('emailReviewAdvanceIcon')), findsOneWidget);
     expect(find.byIcon(Icons.arrow_forward), findsOneWidget);
+    await tester.tap(find.byKey(const Key('emailReviewMessageEdit')));
+    await tester.pump();
     await tester.enterText(
       find.byKey(const Key('emailReviewMessage')),
       'Mensaje editado solo para este lead.',
@@ -142,10 +144,14 @@ void main() {
         },
       ),
     );
+    await tester.tap(find.byKey(const Key('emailReviewSubjectEdit')));
+    await tester.pump();
     await tester.enterText(
       find.byKey(const Key('emailReviewSubject')),
       'Asunto manual',
     );
+    await tester.tap(find.byKey(const Key('emailReviewMessageEdit')));
+    await tester.pump();
     await tester.enterText(
       find.byKey(const Key('emailReviewMessage')),
       'Mensaje manual específico',
@@ -155,25 +161,6 @@ void main() {
 
     expect(saved?.subject, 'Asunto manual');
     expect(saved?.message, 'Mensaje manual específico');
-  });
-
-  testWidgets('opted-out recipient is terminal while the lead stays saved', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      harness(onConfirm: (_) async => EmailReviewOutcome.recipientOptedOut),
-    );
-
-    await tester.tap(find.byKey(const Key('confirmFollowUpButton')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Guardado en el dispositivo'), findsOneWidget);
-    expect(find.text('Correo no enviado'), findsOneWidget);
-    expect(
-      find.textContaining('la dirección aparece dada de baja'),
-      findsOneWidget,
-    );
-    expect(find.text('Correo pendiente'), findsNothing);
   });
 
   testWidgets(
@@ -201,6 +188,8 @@ void main() {
 
       final message = find.byKey(const Key('emailReviewMessage'));
       await tester.ensureVisible(message);
+      await tester.tap(find.byKey(const Key('emailReviewMessageEdit')));
+      await tester.pump();
       await tester.enterText(message, '$longMessage\nEdición final');
       tester.view.viewInsets = const FakeViewPadding(bottom: 260);
       await tester.pumpAndSettle();

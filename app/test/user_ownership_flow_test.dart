@@ -18,8 +18,19 @@ Future<void> _login(WidgetTester tester, String username) async {
 }
 
 Future<void> _completeProfile(WidgetTester tester) async {
+  await tester.enterText(
+    find.byKey(const Key('profileNameField')),
+    'Persona de prueba',
+  );
+  await tester.enterText(
+    find.byKey(const Key('profileCompanyField')),
+    'Empresa de prueba',
+  );
   await tester.tap(find.byKey(const Key('profileContinueButton')));
   await tester.pumpAndSettle();
+  await tester.ensureVisible(
+    find.byKey(const Key('emailOnboardingSkipButton')),
+  );
   await tester.tap(find.byKey(const Key('emailOnboardingSkipButton')));
   await tester.pumpAndSettle();
 }

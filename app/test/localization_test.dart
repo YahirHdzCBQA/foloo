@@ -18,6 +18,9 @@ Future<void> enterShell(WidgetTester tester) async {
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(const Key('profileContinueButton')));
   await tester.pumpAndSettle();
+  await tester.ensureVisible(
+    find.byKey(const Key('emailOnboardingSkipButton')),
+  );
   await tester.tap(find.byKey(const Key('emailOnboardingSkipButton')));
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(const Key('originContinueButton')));
@@ -39,7 +42,7 @@ void main() {
 
   testWidgets('Login switches ES to EN immediately', (tester) async {
     phone(tester);
-    await tester.pumpWidget(const FolooApp());
+    await tester.pumpWidget(const FolooApp(initialLocale: Locale('es')));
     await tester.pumpAndSettle();
     expect(find.text('Entrar'), findsOneWidget);
 
@@ -108,8 +111,8 @@ void main() {
     expect(find.text('Email'), findsOneWidget);
     expect(find.text('Subject'), findsOneWidget);
     expect(find.text('Body'), findsOneWidget);
-    expect(find.text('Variables'), findsOneWidget);
     expect(find.text('Preview'), findsOneWidget);
+    expect(find.byKey(const Key('templateEdit-body')), findsOneWidget);
   });
 
   testWidgets('English records and events remain consistently localized', (

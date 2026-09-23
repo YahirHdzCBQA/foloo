@@ -22,6 +22,11 @@ abstract interface class AuthService {
   Future<void> signOut();
 }
 
+/// Optional federated Cognito capability kept out of email/password doubles.
+abstract interface class SocialAuthService {
+  Future<AuthUser> signInWithProvider(AuthProvider provider);
+}
+
 /// Optional future capability kept separate so deferred recovery does not
 /// expand or break the active [AuthService] contract (AUT-13).
 abstract interface class AccountRecoveryService {

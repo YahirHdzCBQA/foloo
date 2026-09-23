@@ -2,6 +2,7 @@
 library;
 
 import 'package:amplify_flutter/amplify_flutter.dart' as amplify;
+import 'package:amplify_auth_cognito/amplify_auth_cognito.dart' as cognito;
 
 import 'auth_models.dart';
 import 'auth_service.dart';
@@ -40,7 +41,12 @@ abstract interface class CognitoAuthClient {
   Future<void> signOut();
 }
 
-class AmplifyCognitoAuthClient implements CognitoAuthClient {
+abstract interface class CognitoSocialAuthClient {
+  Future<CognitoIdentity> signInWithProvider(AuthProvider provider);
+}
+
+class AmplifyCognitoAuthClient
+    implements CognitoAuthClient, CognitoSocialAuthClient {
   const AmplifyCognitoAuthClient();
 
   @override
@@ -129,6 +135,54 @@ class AmplifyCognitoAuthClient implements CognitoAuthClient {
     }
   }
 
+  @override
+  Future<CognitoIdentity> signInWithProvider(AuthProvider provider) async {
+    try {
+      final amplifyProvider = switch (provider) {
+        AuthProvider.google => amplify.AuthProvider.google,
+        // The exact Cognito IdP name is externally configurable. Foloo uses
+        // the approved product name and never borrows sender OAuth tokens.
+        AuthProvider.microsoft => const amplify.AuthProvider.custom(
+          'Microsoft',
+        ),
+      };
+
+      final result = await amplify.Amplify.Auth.signInWithWebUI(
+        provider: amplifyProvider,
+        options: provider == AuthProvider.microsoft
+            ? const amplify.SignInWithWebUIOptions(
+                pluginOptions: cognito.CognitoSignInWithWebUIPluginOptions(
+                  prompt: [cognito.CognitoSignInWithWebUIPrompt.selectAccount],
+                ),
+              )
+            : const amplify.SignInWithWebUIOptions(),
+      );
+
+      if (!result.isSignedIn) {
+        throw const FolooAuthException(AuthFailureCode.socialLoginUnavailable);
+      }
+      return await _currentIdentity();
+    } on Object catch (error, stackTrace) {
+      amplify.safePrint('=== SOCIAL LOGIN ERROR ===');
+      amplify.safePrint('Provider: $provider');
+      amplify.safePrint('Type: ${error.runtimeType}');
+      amplify.safePrint('Error: $error');
+      amplify.safePrint('StackTrace: $stackTrace');
+      amplify.safePrint('==========================');
+
+      if (error is FolooAuthException) rethrow;
+
+      final mapped = _mapAmplifyError(error, _AuthOperation.socialSignIn);
+
+      if (mapped.code == AuthFailureCode.unexpected ||
+          mapped.code == AuthFailureCode.invalidInput) {
+        throw const FolooAuthException(AuthFailureCode.socialLoginUnavailable);
+      }
+
+      throw mapped;
+    }
+  }
+
   Future<CognitoIdentity> _currentIdentity() async {
     final user = await amplify.Amplify.Auth.getCurrentUser();
     return CognitoIdentity(sub: user.userId, username: user.username);
@@ -144,7 +198,7 @@ class AmplifyCognitoAuthClient implements CognitoAuthClient {
   }
 }
 
-class CognitoAuthService implements AuthService {
+class CognitoAuthService implements AuthService, SocialAuthService {
   const CognitoAuthService(this._client);
 
   final CognitoAuthClient _client;
@@ -190,6 +244,17 @@ class CognitoAuthService implements AuthService {
   );
 
   @override
+  Future<AuthUser> signInWithProvider(AuthProvider provider) async {
+    final client = _client;
+    if (client is! CognitoSocialAuthClient) {
+      throw const FolooAuthException(AuthFailureCode.socialLoginUnavailable);
+    }
+    return _mapUser(
+      await (client as CognitoSocialAuthClient).signInWithProvider(provider),
+    );
+  }
+
+  @override
   Future<void> signOut() => _client.signOut();
 
   static AuthUser _mapUser(CognitoIdentity identity) =>
@@ -202,6 +267,7 @@ enum _AuthOperation {
   confirmSignUp,
   resendCode,
   signIn,
+  socialSignIn,
   signOut,
 }
 

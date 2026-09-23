@@ -11,24 +11,25 @@ import 'package:foloo/sync/sync_models.dart';
 import 'package:foloo/sync/sync_store.dart';
 
 void main() {
-  test(
-    'recipient opt-out and retry-not-allowed are terminal in both forms',
-    () {
-      for (final value in [
-        'recipient_opted_out',
-        'http_409_recipient_opted_out',
-        'email_retry_not_allowed',
-        'http_409_email_retry_not_allowed',
-      ]) {
-        expect(isTerminalEmailDeliveryError(value), isTrue, reason: value);
-      }
-      expect(isRecipientOptedOutError('recipient_opted_out'), isTrue);
-      expect(isRecipientOptedOutError('email_retry_not_allowed'), isFalse);
-      expect(isTerminalEmailDeliveryError('provider_safe_retry'), isFalse);
-    },
-  );
+  test('superseded opt-out errors no longer block active delivery', () {
+    for (final value in [
+      'recipient_opted_out',
+      'http_409_recipient_opted_out',
+    ]) {
+      expect(isTerminalEmailDeliveryError(value), isFalse, reason: value);
+    }
+    for (final value in [
+      'email_retry_not_allowed',
+      'http_409_email_retry_not_allowed',
+    ]) {
+      expect(isTerminalEmailDeliveryError(value), isTrue, reason: value);
+    }
+    expect(isRecipientOptedOutError('recipient_opted_out'), isTrue);
+    expect(isRecipientOptedOutError('email_retry_not_allowed'), isFalse);
+    expect(isTerminalEmailDeliveryError('provider_safe_retry'), isFalse);
+  });
 
-  test('terminal intent cannot enqueue a manual retry', () async {
+  test('historical opt-out intent can enqueue a manual retry', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);
     final repository = EmailDeliveryRepository(database);
@@ -49,7 +50,9 @@ void main() {
       ),
     );
 
-    expect(await database.syncDao.allForOwner('seller-a'), isEmpty);
+    final operations = await database.syncDao.allForOwner('seller-a');
+    expect(operations, hasLength(1));
+    expect(operations.single.entityType, SyncEntityType.emailSendIntent.name);
   });
 
   test(

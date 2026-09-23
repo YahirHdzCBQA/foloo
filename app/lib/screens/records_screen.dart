@@ -6,6 +6,7 @@ library;
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -15,6 +16,9 @@ import '../models/app_event.dart';
 import '../models/content_file.dart';
 import '../models/lead_draft.dart';
 import '../models/session_lead.dart';
+import '../data/local/app_database.dart';
+import '../data/repositories/local_repositories.dart';
+import '../models/email_delivery_error.dart';
 import '../services/voice_note_service.dart';
 import '../services/records_export_service.dart';
 import '../theme/foloo_theme.dart';
@@ -68,13 +72,16 @@ class RecordsScreen extends StatefulWidget {
     this.contentFiles = const [],
     this.events = const [],
     this.eventNameForId,
-    this.profile = DemoAppData.profile,
+    this.profile = DemoProfile.empty,
     this.voiceNoteService,
     this.onSync,
     this.syncing = false,
     this.onLeadUpdated,
     this.exportService = const RecordsExportService(),
     this.fileSharer = const DeviceRecordsFileSharer(),
+    this.ownerSub,
+    this.deliveryRepository,
+    this.onSendQueued,
     super.key,
   });
 
@@ -94,6 +101,9 @@ class RecordsScreen extends StatefulWidget {
   onLeadUpdated;
   final RecordsExportService exportService;
   final RecordsFileSharer fileSharer;
+  final String? ownerSub;
+  final EmailDeliveryRepository? deliveryRepository;
+  final VoidCallback? onSendQueued;
 
   @override
   State<RecordsScreen> createState() => _RecordsScreenState();
@@ -110,6 +120,10 @@ class _RecordsScreenState extends State<RecordsScreen>
   String? _busyAudioPath;
   bool _audioPlaying = false;
   String _eventId = _allEventsFilterId;
+  List<StoredEmailFollowUp> _followUps = const [];
+  List<StoredEmailSendIntent> _emailIntents = const [];
+  StreamSubscription<List<StoredEmailFollowUp>>? _followUpsSubscription;
+  StreamSubscription<List<StoredEmailSendIntent>>? _intentsSubscription;
 
   @override
   void initState() {
@@ -126,6 +140,7 @@ class _RecordsScreenState extends State<RecordsScreen>
       }
     });
     _search.addListener(() => setState(() {}));
+    _watchEmailDelivery();
   }
 
   @override
@@ -134,6 +149,10 @@ class _RecordsScreenState extends State<RecordsScreen>
     if (_eventId != _allEventsFilterId &&
         !widget.events.any((event) => event.id == _eventId)) {
       _eventId = _initialEventId();
+    }
+    if (oldWidget.ownerSub != widget.ownerSub ||
+        oldWidget.deliveryRepository != widget.deliveryRepository) {
+      _watchEmailDelivery();
     }
   }
 
@@ -174,8 +193,80 @@ class _RecordsScreenState extends State<RecordsScreen>
     WidgetsBinding.instance.removeObserver(this);
     _search.dispose();
     _completed.cancel();
+    unawaited(_followUpsSubscription?.cancel());
+    unawaited(_intentsSubscription?.cancel());
     unawaited(_disposeAudio());
     super.dispose();
+  }
+
+  void _watchEmailDelivery() {
+    unawaited(_followUpsSubscription?.cancel());
+    unawaited(_intentsSubscription?.cancel());
+    final owner = widget.ownerSub;
+    final repository = widget.deliveryRepository;
+    if (owner == null || repository == null) return;
+    _followUpsSubscription = repository.watchFollowUps(owner).listen((value) {
+      if (mounted && owner == widget.ownerSub) {
+        setState(() => _followUps = value);
+      }
+    });
+    _intentsSubscription = repository.watchIntents(owner).listen((value) {
+      if (mounted && owner == widget.ownerSub) {
+        setState(() => _emailIntents = value);
+      }
+    });
+  }
+
+  StoredEmailFollowUp? _followUpForLead(String leadId) {
+    final matches = _followUps.where((item) => item.leadLocalId == leadId);
+    return matches.isEmpty ? null : matches.first;
+  }
+
+  StoredEmailSendIntent? _intentFor(StoredEmailFollowUp? followUp) {
+    if (followUp == null) return null;
+    final matches = _emailIntents.where(
+      (item) => item.followUpLocalId == followUp.localId,
+    );
+    return matches.isEmpty ? null : matches.first;
+  }
+
+  Future<void> _retryEmail(StoredEmailSendIntent intent) async {
+    final owner = widget.ownerSub;
+    if (owner == null) return;
+    await widget.deliveryRepository?.retry(owner: owner, intent: intent);
+    widget.onSendQueued?.call();
+  }
+
+  Future<void> _resendEmail(
+    StoredEmailFollowUp followUp,
+    StoredEmailSendIntent intent,
+  ) async {
+    final owner = widget.ownerSub;
+    if (owner == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.l10n.emailResendQuestion),
+        content: Text(context.l10n.emailResendWarning),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(context.l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(context.l10n.emailResend),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await widget.deliveryRepository?.confirm(
+      owner: owner,
+      followUpId: followUp.localId,
+      parentIntentId: intent.localId,
+    );
+    widget.onSendQueued?.call();
   }
 
   Future<void> _disposeAudio() async {
@@ -289,6 +380,12 @@ class _RecordsScreenState extends State<RecordsScreen>
           onEdit: widget.onLeadUpdated == null
               ? null
               : (updated) => widget.onLeadUpdated!(record, updated),
+          followUp: _followUpForLead(record.localId),
+          emailIntent: _intentFor(_followUpForLead(record.localId)),
+          ownerSub: widget.ownerSub,
+          deliveryRepository: widget.deliveryRepository,
+          onRetryEmail: _retryEmail,
+          onResendEmail: _resendEmail,
         ),
       ),
     );
@@ -497,6 +594,9 @@ class _RecordsScreenState extends State<RecordsScreen>
         ),
       );
       await widget.fileSharer.share(file, origin: origin);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.exportCompleted)));
     } on Object {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -625,6 +725,11 @@ class _RecordsScreenState extends State<RecordsScreen>
                         audioBusy: _busyAudioPath == record.lead.audioLocalPath,
                         onToggleAudio: () => _toggleAudio(record),
                         onOpen: () => _openDetail(record),
+                        emailIntent: _intentFor(
+                          _followUpForLead(record.localId),
+                        ),
+                        hasPreparedEmail:
+                            _followUpForLead(record.localId) != null,
                       );
                     },
                   ),
@@ -921,12 +1026,36 @@ class _RecordRow extends StatelessWidget {
     required this.audioBusy,
     required this.onToggleAudio,
     required this.onOpen,
+    required this.emailIntent,
+    required this.hasPreparedEmail,
   });
   final SessionLead record;
   final bool audioPlaying;
   final bool audioBusy;
   final VoidCallback onToggleAudio;
   final VoidCallback onOpen;
+  final StoredEmailSendIntent? emailIntent;
+  final bool hasPreparedEmail;
+
+  String _emailLabel(BuildContext context) => switch (emailIntent?.status) {
+    'sent' => context.l10n.emailFollowUpSent,
+    'pending' => context.l10n.emailFollowUpPending,
+    'sending' => context.l10n.emailFollowUpSending,
+    'error' => context.l10n.emailFollowUpError,
+    'confirmation_required' => context.l10n.emailFollowUpConfirmation,
+    _ when hasPreparedEmail => context.l10n.emailFollowUpReady,
+    _ => context.l10n.emailNotSent,
+  };
+
+  IconData get _emailIcon => switch (emailIntent?.status) {
+    'sent' => Icons.mark_email_read_outlined,
+    'pending' => Icons.schedule_send_outlined,
+    'sending' => Icons.outgoing_mail,
+    'error' => Icons.mark_email_unread_outlined,
+    'confirmation_required' => Icons.help_outline,
+    _ when hasPreparedEmail => Icons.drafts_outlined,
+    _ => Icons.mail_outline,
+  };
 
   Color _interest(BuildContext context) => switch (record.lead.interest) {
     InterestLevel.low => FolooColors.interestLow,
@@ -1005,6 +1134,23 @@ class _RecordRow extends StatelessWidget {
                           ),
                         ),
                       const SizedBox(width: 4),
+                      Tooltip(
+                        message: _emailLabel(context),
+                        child: Semantics(
+                          label: _emailLabel(context),
+                          child: Container(
+                            key: Key('recordEmail-${record.uiKey}'),
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: palette.paper,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(_emailIcon, size: 15),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
                       Container(
                         width: 28,
                         height: 28,
@@ -1049,6 +1195,12 @@ class ConnectionDetailScreen extends StatelessWidget {
     required this.onToggleAudio,
     this.currentEventName,
     this.onEdit,
+    this.followUp,
+    this.emailIntent,
+    this.ownerSub,
+    this.deliveryRepository,
+    this.onRetryEmail,
+    this.onResendEmail,
     super.key,
   });
   final SessionLead record;
@@ -1056,6 +1208,16 @@ class ConnectionDetailScreen extends StatelessWidget {
   final VoidCallback onToggleAudio;
   final String? currentEventName;
   final Future<void> Function(LeadDraft updated)? onEdit;
+  final StoredEmailFollowUp? followUp;
+  final StoredEmailSendIntent? emailIntent;
+  final String? ownerSub;
+  final EmailDeliveryRepository? deliveryRepository;
+  final Future<void> Function(StoredEmailSendIntent intent)? onRetryEmail;
+  final Future<void> Function(
+    StoredEmailFollowUp followUp,
+    StoredEmailSendIntent intent,
+  )?
+  onResendEmail;
 
   @override
   Widget build(BuildContext context) {
@@ -1340,6 +1502,16 @@ class ConnectionDetailScreen extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 20),
+            _LiveLeadFollowUpSection(
+              leadId: record.localId,
+              ownerSub: ownerSub,
+              repository: deliveryRepository,
+              initialFollowUp: followUp,
+              initialIntent: emailIntent,
+              onRetry: onRetryEmail,
+              onResend: onResendEmail,
+            ),
             const SizedBox(height: 18),
             Text(
               context.l10n.sentContentDemo,
@@ -1651,6 +1823,208 @@ class _LeadEditScreenState extends State<_LeadEditScreen> {
       },
     ),
   );
+}
+
+/// Keeps the open Lead detail bound to the same Drift streams as Records.
+class _LiveLeadFollowUpSection extends StatelessWidget {
+  const _LiveLeadFollowUpSection({
+    required this.leadId,
+    required this.ownerSub,
+    required this.repository,
+    required this.initialFollowUp,
+    required this.initialIntent,
+    required this.onRetry,
+    required this.onResend,
+  });
+
+  final String leadId;
+  final String? ownerSub;
+  final EmailDeliveryRepository? repository;
+  final StoredEmailFollowUp? initialFollowUp;
+  final StoredEmailSendIntent? initialIntent;
+  final Future<void> Function(StoredEmailSendIntent intent)? onRetry;
+  final Future<void> Function(
+    StoredEmailFollowUp followUp,
+    StoredEmailSendIntent intent,
+  )?
+  onResend;
+
+  @override
+  Widget build(BuildContext context) {
+    final owner = ownerSub;
+    final source = repository;
+    if (owner == null || source == null) {
+      return _LeadFollowUpSection(
+        followUp: initialFollowUp,
+        intent: initialIntent,
+        onRetry: onRetry,
+        onResend: onResend,
+      );
+    }
+    return StreamBuilder<List<StoredEmailFollowUp>>(
+      stream: source.watchFollowUps(owner),
+      initialData: initialFollowUp == null ? const [] : [initialFollowUp!],
+      builder: (context, followUpSnapshot) {
+        final matches = (followUpSnapshot.data ?? const []).where(
+          (item) => item.leadLocalId == leadId,
+        );
+        final followUp = matches.isEmpty ? null : matches.first;
+        return StreamBuilder<List<StoredEmailSendIntent>>(
+          stream: source.watchIntents(owner),
+          initialData: initialIntent == null ? const [] : [initialIntent!],
+          builder: (context, intentSnapshot) {
+            final intents = (intentSnapshot.data ?? const []).where(
+              (item) => item.followUpLocalId == followUp?.localId,
+            );
+            return _LeadFollowUpSection(
+              followUp: followUp,
+              intent: intents.isEmpty ? null : intents.first,
+              onRetry: onRetry,
+              onResend: onResend,
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _LeadFollowUpSection extends StatelessWidget {
+  const _LeadFollowUpSection({
+    required this.followUp,
+    required this.intent,
+    required this.onRetry,
+    required this.onResend,
+  });
+
+  final StoredEmailFollowUp? followUp;
+  final StoredEmailSendIntent? intent;
+  final Future<void> Function(StoredEmailSendIntent intent)? onRetry;
+  final Future<void> Function(
+    StoredEmailFollowUp followUp,
+    StoredEmailSendIntent intent,
+  )?
+  onResend;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = FolooPalette.of(context);
+    final current = followUp;
+    final status = switch (intent?.status) {
+      'sent' => context.l10n.emailFollowUpSent,
+      'pending' => context.l10n.emailFollowUpPending,
+      'sending' => context.l10n.emailFollowUpSending,
+      'error' => context.l10n.emailFollowUpError,
+      'confirmation_required' => context.l10n.emailFollowUpConfirmation,
+      _ when current != null => context.l10n.emailFollowUpReady,
+      _ => context.l10n.emailNotSent,
+    };
+    final names = current == null
+        ? const <String>[]
+        : (jsonDecode(current.contentNamesJson) as List)
+              .whereType<String>()
+              .toList();
+    return Column(
+      key: const Key('leadFollowUpSection'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          context.l10n.emailFollowUps,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: palette.paper,
+            borderRadius: BorderRadius.circular(FolooRadii.md),
+          ),
+          child: current == null
+              ? Text(status, style: TextStyle(color: palette.inkSecondary))
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.mail_outline, size: 19),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            status,
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(current.recipientAddress),
+                    if (intent?.senderAddress case final sender?)
+                      Text(
+                        sender,
+                        style: TextStyle(color: palette.inkSecondary),
+                      ),
+                    const SizedBox(height: 10),
+                    Text(
+                      current.subject,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(current.plainBody),
+                    if (names.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      ...names.map(
+                        (name) => Row(
+                          children: [
+                            const Icon(Icons.picture_as_pdf_outlined, size: 17),
+                            const SizedBox(width: 6),
+                            Expanded(child: Text(name)),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Text(
+                      DateFormat.yMMMd(
+                        Localizations.localeOf(context).toLanguageTag(),
+                      ).add_Hm().format(current.preparedAt.toLocal()),
+                      style: TextStyle(
+                        color: palette.inkSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (intent?.errorCode case final error?) ...[
+                      const SizedBox(height: 6),
+                      Text(error, style: TextStyle(color: palette.error)),
+                    ],
+                    if (intent case final emailIntent?) ...[
+                      const SizedBox(height: 10),
+                      if (emailIntent.status == 'error' &&
+                          !isTerminalEmailDeliveryError(emailIntent.errorCode))
+                        OutlinedButton.icon(
+                          key: const Key('leadFollowUpRetry'),
+                          onPressed: onRetry == null
+                              ? null
+                              : () => onRetry!(emailIntent),
+                          icon: const Icon(Icons.refresh),
+                          label: Text(context.l10n.retry),
+                        )
+                      else if (emailIntent.status == 'sent' ||
+                          emailIntent.status == 'confirmation_required')
+                        OutlinedButton.icon(
+                          key: const Key('leadFollowUpResend'),
+                          onPressed: onResend == null
+                              ? null
+                              : () => onResend!(current, emailIntent),
+                          icon: const Icon(Icons.forward_to_inbox_outlined),
+                          label: Text(context.l10n.emailResend),
+                        ),
+                    ],
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
 }
 
 class _ReadOnlyValue extends StatelessWidget {

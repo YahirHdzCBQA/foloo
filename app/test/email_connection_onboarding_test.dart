@@ -281,9 +281,7 @@ void main() {
     expect(find.text('Microsoft'), findsWidgets);
   });
 
-  testWidgets('opted-out history is terminal and exposes no Retry action', (
-    tester,
-  ) async {
+  testWidgets('Correo no longer duplicates follow-up history', (tester) async {
     final persistence = LocalPersistence.inMemory();
     await persistence.initialize();
     addTearDown(persistence.close);
@@ -364,28 +362,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.ensureVisible(
-      find.textContaining('No enviado · Destinatario dado de baja'),
-    );
-
     expect(
-      find.textContaining('No enviado · Destinatario dado de baja'),
-      findsOneWidget,
+      find.byKey(const ValueKey('emailFollowUp-follow-up-a')),
+      findsNothing,
     );
-    expect(find.text('Mariana'), findsNWidgets(2));
-    expect(find.text('lead@example.com'), findsNWidgets(2));
-    expect(find.text('Lead directo · Monterrey'), findsNWidgets(2));
-    expect(find.text('Damos seguimiento, Mariana'), findsOneWidget);
-    expect(find.byIcon(Icons.error_outline), findsOneWidget);
     expect(
-      tester
-          .getTopLeft(find.byKey(const ValueKey('emailFollowUp-follow-up-b')))
-          .dy,
-      lessThan(
-        tester
-            .getTopLeft(find.byKey(const ValueKey('emailFollowUp-follow-up-a')))
-            .dy,
-      ),
+      find.byKey(const ValueKey('emailFollowUp-follow-up-b')),
+      findsNothing,
     );
     expect(find.byKey(const ValueKey('emailRetry-intent-a')), findsNothing);
     expect(find.textContaining('Pendiente'), findsNothing);

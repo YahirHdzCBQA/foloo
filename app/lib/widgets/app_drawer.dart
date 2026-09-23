@@ -24,7 +24,7 @@ class AppDrawer extends StatelessWidget {
     required this.onAppearanceChanged,
     required this.onLogout,
     this.contentCount = 0,
-    this.profile = DemoAppData.profile,
+    this.profile = DemoProfile.empty,
     super.key,
   });
 

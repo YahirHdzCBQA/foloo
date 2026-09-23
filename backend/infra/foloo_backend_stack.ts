@@ -299,12 +299,6 @@ export class FolooBackendStack extends cdk.Stack {
         integration,
       });
     }
-    api.addRoutes({
-      path: "/v1/email/unsubscribe",
-      methods: [apigateway.HttpMethod.GET, apigateway.HttpMethod.POST],
-      integration,
-    });
-
     new cdk.CfnOutput(this, "ApiUrl", { value: api.apiEndpoint });
     new cdk.CfnOutput(this, "MigrationFunctionName", {
       value: migrationFunction.functionName,

@@ -31,8 +31,10 @@ convertir credenciales demo en autenticación de producción.
 - Runtime normal usa Cognito DEV (`us-east-1`, User Pool
   `us-east-1_QVm3dWe4O`, App Client `6jong3atp2crqcsde6g215ant8`). La
   configuración está centralizada y deja PROD sin valores inventados.
-- Se permite self sign-up únicamente con email/password y confirmación por
-  código de email. Reenvío y errores se traducen a errores de dominio ES/EN.
+- Se permite self sign-up con email/password y confirmación por código. FL-019.5
+  añade Google/Microsoft exclusivamente mediante federación/Hosted UI Cognito;
+  requiere proveedores, dominio y redirect URIs configurados externamente. El
+  OAuth de envío de ADR-006 nunca se acepta como sesión Foloo.
 - MFA de usuario y passwordless están deshabilitados. Account recovery está
   habilitado en el proveedor, pero la UI de recuperación se difiere.
 - La identidad de autenticación (`AuthUser.id`, Cognito `sub`) es distinta
@@ -41,6 +43,8 @@ convertir credenciales demo en autenticación de producción.
   invalida una sesión restaurada.
 - Trial y suscripción no se infieren de FakeAuth ni de Cognito; pertenecen al
   backend Foloo futuro bajo `MON-*`.
+- Una identidad federada ya confirmada omite el código manual, pero sigue usando
+  su Cognito `sub`; tampoco autoriza automáticamente una cuenta sender.
 
 ## Alternativas consideradas
 

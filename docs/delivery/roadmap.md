@@ -89,14 +89,18 @@ idempotentes y reconciliación local-first.
   Gmail API y Microsoft OAuth + Graph; sin SES/SMTP para follow-ups.
 - D-14–D-20 quedaron resueltas y validadas dentro del contrato de E-08.
 
-## FL-019.5 — Email Review Visual Polish
+## FL-019.5 — Demo Feedback UX & Email Flow Polish
 
-**Estado:** **PENDIENTE DE MOCKUP; no iniciar hasta recibirlo.**
+**Estado:** **IMPLEMENTADA LOCALMENTE; pendiente QA físico y configuración social externa.**
 
-- Rediseño visual exclusivamente de Review. No inventar diseño.
-- No cambia lifecycle, persistencia, templates, reconciliación semántica,
-  adjuntos, intención, outbox, Gmail, Graph, unsubscribe ni lógica offline.
-- La semántica funcional cerrada en FL-019 permanece inmutable.
+- Feedback de demo: login/alta unificados, perfil sin fixtures, onboarding de
+  sender, helpers Content, Review/editor inline, acuse de siete segundos,
+  seguimiento en Registros, feedback de exportación y templates con chips.
+- Social login usa federación Cognito y requiere configuración externa; nunca
+  reutiliza OAuth de sender. FL-019.5 supersede D-16 y retira unsubscribe activo
+  sin destruir migraciones/tablas históricas.
+- Mantiene preparación/intención únicas, reconciliación, adjuntos, outbox,
+  Gmail/Graph, aislamiento y offline-first validados en FL-019.
 
 ## FL-020 — Trial & Subscription Foundation
 

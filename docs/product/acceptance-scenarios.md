@@ -4,14 +4,17 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 ## E-01 · Alta, confirmación, sesión y perfil
 
-**Trazas:** `AUT-01`–`AUT-14`, `SYN-09`, `SAL-08`, `SAL-09`.
+**Trazas:** `AUT-01`–`AUT-16`, `SYN-09`, `SAL-08`, `SAL-09`.
 
 - Dado un email nuevo, al registrarse con contraseña, entonces Cognito envía un
-  código y la app solicita confirmación sin pedir datos de perfil.
+  código de seis dígitos y la app solicita confirmación sin pedir perfil.
+- Login y Crear cuenta ofrecen email/contraseña, Google y Microsoft. Google o
+  Microsoft autentican únicamente mediante federación Cognito configurada y
+  omiten el código manual; su OAuth nunca se reutiliza como conexión sender.
 - Código inválido/vencido, reenvío, usuario confirmado, red y error inesperado
   se expresan en ES/EN sin texto AWS crudo.
-- Login válido restaura el `sub`; perfil incompleto abre Tu perfil y perfil
-  completo abre Inicio.
+- Login válido restaura el `sub`; perfil incompleto abre Tu perfil vacío, sin
+  Yahir/CBQA u otra identidad demo, y perfil completo abre Inicio.
 - Al completar un perfil nuevo se ofrece una cuenta de envío Google/Microsoft
   distinta de la cuenta Foloo. Conectar u omitir permite continuar; omitir no
   bloquea Leads ni reaparece cada inicio. Usuarios con perfil previo no repiten
@@ -72,17 +75,18 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   intento remoto.
 - Si la escritura local falla, no se muestra éxito y el formulario permanece.
 - El acuse informa únicamente estados reales, permite volver ahora y vuelve
-  automáticamente conservando origen/evento.
+  automáticamente a los siete segundos conservando origen/evento.
 - El intento de guardar el sexto Lead conserva el borrador y abre paywall.
 
 ## E-06 · Registros y detalle editable
 
-**Trazas:** `REG-01`–`REG-08`.
+**Trazas:** `REG-01`–`REG-08`, `REG-15`, `REG-16`, `SAL-10`.
 
 - “Todos los eventos” muestra todos; elegir uno filtra y actualiza conteos sin
   cambiar el evento activo.
 - Búsqueda, tipo y orden funcionan offline sobre Drift.
-- El renglón comunica interés, voz y sync con icono/palabra.
+- El renglón comunica interés, voz, correo y sync; correo usa icono accesible
+  entre voz y sync para no enviado/pendiente/enviando/enviado/error/por confirmar.
 - El detalle reproduce voz, abre tarjeta/referencias completas y muestra
   fecha/hora, origen y capturó.
 - Tras renombrar un evento, el detalle de sus Leads muestra el nombre vigente
@@ -93,6 +97,8 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   actualiza por outbox y no cambia owner, UUID, captura, origen, evento o medios.
 - Una revisión remota distinta conserva la edición local, muestra conflicto
   recuperable y nunca crea otro Lead.
+- Después de Nota escrita, Seguimiento reutiliza la fuente Drift y muestra
+  snapshot, adjuntos, estado/causa real y retry/reenvío; Correo no duplica lista.
 
 ## E-07 · Contenido PDF y asignación
 
@@ -103,6 +109,8 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Todos los eventos domina sin borrar selecciones individuales.
 - Editar asignación y eliminar requieren resultado persistente/confirmado.
 - Crear evento permite seleccionar contenido existente o iniciar PDF.
+- Biblioteca y Crear evento explican brevemente la relación Content → Evento →
+  adjunto; el modal conserva scroll, aire y Subir contenido accesible.
 - Adjuntos elegidos quedan congelados por Lead y un PDF atascado no bloquea
   Leads.
 - El PDF de hasta 25 000 000 bytes se copia a almacenamiento privado antes de
@@ -114,7 +122,7 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 ## E-08 · Plantillas y correo
 
-**Trazas:** `PLT-01`–`PLT-10`, `SAL-01`–`SAL-10`, `RC-01`, ADR-006/007.
+**Trazas:** `PLT-01`–`PLT-13`, `SAL-01`–`SAL-10`, `RC-01`, ADR-006/007.
 
 - Event/Direct ES/EN eligen por origen estructurado; asunto, cuerpo y firma
   editados sobreviven reinicio y cambio de cuenta. Preview del Lead real no envía.
@@ -132,12 +140,9 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Tocar un token lo inserta en la selección/caret del asunto o cuerpo que tenga
   el foco (y en el último campo activo si el teclado perdió foco), sin borrar
   texto adyacente ni moverlo siempre al final.
-- Footer fijo ES/EN de Evento o Directo incluye enlace de baja operativo y no
-  editable. GET, preview o prefetch solo muestran confirmación y no cambian
-  datos; POST explícito registra la baja y repetirlo es idempotente. Token
-  inválido no cambia datos; otro workspace no se ve afectado; Lead e historial
-  se preservan. Una baja real bloquea envíos futuros como estado terminal sin
-  retry; sin baja, la misma dirección admite múltiples follow-ups legítimos.
+- FL-019.5 no genera footer/enlace de baja, no expone GET/POST unsubscribe ni
+  crea nuevos bloqueos por destinatario. Migraciones/tablas históricas se
+  preservan y la decisión no se presenta como cumplimiento legal.
 - Guardar Lead confirma primero la persistencia local y abre “Revisar” con
   destinatario no editable, texto concreto sin tokens y todos los adjuntos
   seleccionados. Antes de `foloo`, Back → editar Lead → Guardar actualiza la
@@ -169,7 +174,7 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   La intención nace solo al pulsar `foloo`; desde ahí cambios posteriores de
   Lead, Content o plantilla no reescriben el snapshot histórico.
 - Mientras Correo permanece visible, cambios persistidos en Drift actualizan
-  todos los estados de seguimiento sin salir/reingresar y sin polling.
+  conexión/templates sin polling; el historial reactivo vive en Registros.
 - Adjuntos congelados se validan en backend. PDF borrado/no disponible o exceso
   de tamaño no se omite en silencio: el vendedor decide omitirlo para esa
   intención o cancelar. El Lead y su snapshot no cambian.
@@ -177,7 +182,7 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   autorización revocada hay CTA de conectar/reconectar sin perder datos. Un
   pendiente de identidad anterior requiere confirmar el nuevo remitente. Los
   envíos históricos mantienen su remitente efectivo y ninguna cuenta B accede
-  a conexión, plantilla, follow-up u opt-out de A.
+  a conexión, plantilla o follow-up de A.
 - Correo consulta el backend al abrirse y al volver del navegador. Con conexión
   muestra proveedor, dirección enmascarada y estado; jamás infiere conexión por
   haber tocado OAuth ni reutiliza el estado visual de otro `sub`.
@@ -187,6 +192,10 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Microsoft Graph `202 Accepted` sin cuerpo se registra como Enviado/aceptado,
   no como respuesta perdida. El historial nunca vuelve a mostrar variables de
   plantilla crudas después de reconciliar con backend.
+- Review muestra Asunto/Mensaje/Firma con lápiz y edición inline sin crear
+  intención hasta `foloo`. Templates representan tokens internos como chips
+  humanos; rayo inserta en cursor, tocar chip reemplaza ese segmento y preview
+  vivo nunca muestra llaves técnicas.
 
 ## E-09 · Offline total y sincronización
 
@@ -230,6 +239,8 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - CSV usa BOM UTF-8 y escaping RFC 4180; XLSX es un archivo real. Ambos
   preservan Unicode, omiten medios/IDs/estado técnico y se comparten mediante
   la hoja del sistema con el filename de `REG-12`.
+- El retorno del share sheet muestra éxito genérico; solo diferencia
+  cancelación/destino cuando la plataforma lo reporta, sin inventar rutas.
 
 ## E-11 · Trial y suscripción
 

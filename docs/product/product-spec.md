@@ -97,11 +97,11 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 
 | ID | Requerimiento |
 |---|---|
-| `AUT-01` | Runtime normal autentica con AWS Cognito por email y contraseña; la UI no llama Cognito directamente. |
+| `AUT-01` | Runtime normal autentica con AWS Cognito por email/contraseña o federación Cognito Google/Microsoft cuando la configuración externa esté aprobada; la UI no llama Cognito ni reutiliza OAuth de correo directamente. |
 | `AUT-02` | La sesión válida se restaura al abrir sin pedir login de nuevo; perder red no equivale a logout. |
 | `AUT-03` | La persona puede mostrar/ocultar la contraseña y recibe errores de dominio ES/EN, nunca mensajes AWS crudos. |
-| `AUT-04` | Self sign-up solicita solo email y contraseña. |
-| `AUT-05` | El alta requiere código enviado por email y admite reenvío cuando Cognito lo permita. |
+| `AUT-04` | Login y Crear cuenta ofrecen email/contraseña, Google y Microsoft en la misma arquitectura Cognito. El alta local solicita solo email y contraseña. |
+| `AUT-05` | Solo el alta por email/contraseña requiere código de seis dígitos enviado por email y admite reenvío cuando Cognito lo permita; una identidad federada ya confirmada omite ese paso. |
 | `AUT-06` | Código incorrecto, vencido, cuenta confirmada, red y error inesperado tienen estados recuperables ES/EN. |
 | `AUT-07` | Después de autenticar, un perfil incompleto abre “Tu perfil”; uno completo abre Inicio. |
 | `AUT-08` | El perfil Foloo solicita nombre, puesto, empresa, teléfono y foto opcional; no convierte esos campos en atributos Cognito obligatorios. |
@@ -109,8 +109,10 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `AUT-10` | Cognito `sub`, nunca email, es ownership de perfil, eventos, leads, preferencias y medios. |
 | `AUT-11` | Logout Cognito limpia sesión sensible y vuelve a Login sin borrar datos del producto. |
 | `AUT-12` | Filas históricas sin owner o de FakeAuth se preservan y no se reasignan silenciosamente. |
-| `AUT-13` | MFA de usuario, passwordless, social login y UI de recuperación quedan fuera; account recovery permanece habilitado en Cognito para una FL futura. |
+| `AUT-13` | MFA de usuario, passwordless y UI de recuperación quedan fuera; account recovery permanece habilitado en Cognito para una FL futura. |
 | `AUT-14` | Después de completar un perfil nuevo, el onboarding ofrece conectar opcionalmente la cuenta Google/Microsoft desde la que se enviarán seguimientos o “Configurar después”. Omitir no bloquea captura ni reaparece en cada inicio; la disposición del paso se guarda localmente por `sub`, sin confundirse con el estado OAuth autoritativo. Perfiles existentes anteriores al paso continúan sin reiniciar onboarding. |
+| `AUT-15` | La identidad Google/Microsoft usada para entrar a Foloo y la cuenta Google/Microsoft autorizada para enviar follow-ups son consentimientos y sesiones independientes; registrarse socialmente nunca conecta automáticamente el sender. |
+| `AUT-16` | Tu perfil inicia vacío para una cuenta sin perfil y usa únicamente nombre/empresa/foto introducidos por la persona; no presenta identidades demo como defaults o fallbacks runtime. |
 
 ### 4.2 Eventos y origen
 
@@ -143,7 +145,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `CAP-08` | Agregar/eliminar de cero a tres imágenes de referencia; cámara permite 1/2/3 fotos en una sesión y galería comparte el límite. |
 | `CAP-09` | Guardar persiste Lead y medios localmente antes de red. |
 | `CAP-10` | El acuse muestra contacto y resultados reales de persistencia/procesamiento; estados futuros no se presentan como completados. |
-| `CAP-11` | El acuse ofrece regreso inmediato y regreso automático a captura, conservando origen/evento y limpiando el nuevo formulario. |
+| `CAP-11` | El acuse ofrece regreso inmediato y regreso automático a captura después de siete segundos, conservando origen/evento y limpiando el nuevo formulario. |
 | `CAP-12` | El intento de guardar el sexto lead conserva el lead en curso mientras MON-03 abre el paywall. |
 
 | ID | Requerimiento OCR |
@@ -203,6 +205,9 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `REG-11` | Columnas, en orden: Fecha/hora, Nombre, Apellido, Puesto, Empresa, Correo, Teléfono, Tipo, Interés, Origen, Evento, Lugar y Nota escrita. Vacíos producen celda vacía; fecha/hora usa representación local con offset explícito; encabezados siguen ES/EN activo. CSV usa UTF-8 con BOM y escaping RFC 4180; XLSX/CSV conservan Unicode. |
 | `REG-12` | El archivo temporal privado se nombra `foloo_<evento>_<YYYY-MM-DD>.xlsx|csv`, sanitizando solo el filename, y se comparte mediante la hoja del sistema. |
 | `REG-13` | Exportación no incluye estado técnico, Voice Note, conteo de imágenes, rutas, URLs firmadas, object keys, IDs técnicos ni binarios. |
+| `REG-14` | Tras compartir/exportar se informa éxito genérico ES/EN; cancelación o error se distinguen solo cuando la plataforma lo reporta y nunca se inventa una ruta de destino. |
+| `REG-15` | Cada renglón muestra entre voz y sync un icono accesible del estado de correo existente: no enviado, pendiente, enviando, enviado, error o por confirmar. El icono tiene tooltip/semantics y no depende solo del color. |
+| `REG-16` | El detalle incorpora Seguimiento después de Nota escrita usando la misma fuente Drift: destinatario, remitente/proveedor disponible, asunto, mensaje, adjuntos, fecha, estado, error y acciones de retry/reenvío ya aprobadas. Correo deja de duplicar esa lista. |
 
 ### 4.7 Contenido, plantillas y correo
 
@@ -218,6 +223,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `CON-08` | Adjuntos elegidos quedan congelados en el Lead; cambios posteriores no reescriben historia. |
 | `CON-09` | PDF se conserva en copia privada local sin desalojo automático, incluso después de subirlo; importación y subida directa privada a S3 por outbox no bloquean la cola de Leads. |
 | `CON-10` | Cada PDF tiene límite V1 de 25 MB decimales (25 000 000 bytes), validado localmente y en backend. V1 no impone cuota total comercial ni desalojo automático; falta de espacio se comunica sin borrar otros archivos. |
+| `CON-11` | Biblioteca y Crear evento explican brevemente que Content administra PDF asociables a eventos y adjuntables a follow-ups; el helper no cambia asignación, persistencia ni envío. Crear evento conserva scroll y CTA de subir accesible. |
 
 | ID | Requerimiento de plantilla |
 |---|---|
@@ -225,12 +231,15 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `PLT-02` | Cada variante ES/EN conserva asunto, cuerpo y firma editables por cuenta; el default oficial Foloo es un mensaje personal sin diseño de marketing. El asunto inicial es `Damos seguimiento, {nombre}` en ES y `Following up, {nombre}` en EN. Evento menciona `{evento}` y Directo `{lugar}`. Se genera HTML ligero y plain text compatible. Cambiar defaults no sobrescribe snapshots concretos o históricos. |
 | `PLT-03` | La whitelist única V1 es `{nombre}`, `{apellido}`, `{empresa}`, `{puesto}`, `{evento}`, `{lugar}`, `{contenido}`, `{nombreVendedor}` y `{empresaVendedor}`. `{contenido}` representa los nombres congelados en el Lead, no IDs ni el estado actual de la biblioteca. |
 | `PLT-04` | Variables desconocidas o llaves abiertas bloquean guardar. El render defensivo de datos históricos omite valores ausentes y nunca envía tokens sin resolver, `null` ni `undefined`. No ejecuta expresiones. |
-| `PLT-05` | Todo follow-up incorpora un footer de privacidad/baja no editable, específico de Evento/Directo y ES/EN, con enlace Foloo operativo para opt-out dentro del scope del vendedor/workspace. |
+| `PLT-05` | Superseded por FL-019.5: V1 deja de generar footer/enlace de unsubscribe. Las tablas y migraciones históricas se conservan sin exponer rutas activas ni bloquear destinatarios; esta decisión de producto no afirma cumplimiento legal. |
 | `PLT-06` | Defaults y ediciones persisten local y remotamente por cuenta, con revisión/timestamps; cerrar/reabrir o cambiar de cuenta no mezcla plantillas. |
-| `PLT-07` | Texto visible y defaults son ES/EN; los identificadores de variables contractuales no se traducen. Preview usa Lead real, firma, footer y adjuntos y no envía correo. |
+| `PLT-07` | Texto visible y defaults son ES/EN; los identificadores contractuales no se traducen aunque la UI los represente con nombres humanos. Preview usa Lead real, firma y adjuntos y no envía correo. |
 | `PLT-08` | La resolución para Evento es override del Evento → predeterminada del vendedor → default oficial Foloo. Directo resuelve predeterminada del vendedor → default oficial Foloo. Antes de `foloo`, la única preparación activa se reconcilia con la plantilla efectiva y los datos actuales del Lead. Asunto y cuerpo conservan estado de edición independiente: los literales agregados en Review permanecen, mientras los segmentos derivados de la whitelist `PLT-03` se vuelven a renderizar semánticamente con los valores actuales, sin reemplazo global de texto. La representación necesaria persiste al reiniciar. Solo la confirmación crea el snapshot histórico congelado. |
 | `PLT-09` | “Restaurar plantilla predeterminada” carga el default Foloo únicamente en el editor de la variante actual y solo persiste al guardar. “Usar plantilla predeterminada” en Evento elimina el override para volver a heredar en vivo. |
 | `PLT-10` | Editar/guardar/restaurar una plantilla no crea follow-up ni intención. Seller defaults y overrides se guardan local-first y sincronizan en la outbox owner-scoped. |
+| `PLT-11` | El editor muestra asunto, mensaje y firma en lectura con lápiz; tocarlo habilita edición inline, borde/foco nativos y rayo para insertar datos, sin navegar ni perder selección/copy/paste. |
+| `PLT-12` | Los tokens canónicos `PLT-03` permanecen persistidos internamente, pero se representan como chips con nombres humanos ES/EN. El rayo abre selector con origen del dato e inserta en el cursor; tocar un chip permite reemplazar exactamente ese segmento. |
+| `PLT-13` | La previsualización viva renderiza datos reales/de ejemplo y nunca expone llaves técnicas; texto literal, Unicode, saltos, cursor y segmentos semánticos sobreviven edición y reconciliación. |
 
 | ID | Requerimiento de salida |
 |---|---|
@@ -240,10 +249,10 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `SAL-04` | El servidor ejecuta envío, sustitución y adjuntos; no hay credenciales ni cliente de correo del proveedor en Flutter. |
 | `SAL-05` | La identidad/dominio de envío autorizado cumple la autenticación de correo aplicable; rebotes y reputación se gestionan sin afirmar entrega por mera aceptación del proveedor. |
 | `SAL-06` | El follow-up sale de la cuenta de correo autorizada del vendedor: Gmail/Google Workspace mediante OAuth 2.0 + Gmail API, u Outlook/Microsoft 365 mediante OAuth 2.0 + Microsoft Graph. Una abstracción de proveedor aísla la lógica Foloo. No se usa SMTP manual, SES ni remitente general Foloo para estos follow-ups. |
-| `SAL-07` | Opt-out por enlace público opaco e idempotente se guarda server-side por vendedor/workspace y bloquea futuros envíos a esa dirección sin borrar Lead, Content ni historial. Abrir/precargar el enlace con GET solo valida y muestra confirmación; únicamente una acción explícita POST persiste la baja. `recipient_opted_out` y `email_retry_not_allowed` son terminales: no quedan pendientes ni ofrecen retry. Errores definitivos se separan de reintentos seguros; attachments no disponibles o grandes requieren decisión explícita de omitir o cancelar, sin alterar el snapshot histórico. Microsoft V1 conserva únicamente `Mail.Send`: no solicita `Mail.Read`/`Mail.ReadWrite`; cualquier adjunto que requiera esos permisos aplica D-19. |
+| `SAL-07` | Superseded por FL-019.5: no hay alta nueva de opt-out ni bloqueo `recipient_opted_out`. Errores definitivos siguen separados de reintentos seguros; attachments no disponibles o grandes requieren omitir/cancelar explícitamente. Microsoft conserva `Mail.Send` sin elevar permisos. |
 | `SAL-08` | La conexión OAuth del correo se vincula en backend al Cognito `sub`/workspace; el remitente efectivo deriva de la identidad autorizada por el proveedor, nunca de un `From` arbitrario enviado por Flutter. La cuenta Foloo/Cognito y la cuenta de envío son conceptos independientes y pueden ser distintas. Tokens, secretos y credenciales del proveedor no se guardan en Flutter, Drift, SharedPreferences ni Git. Flutter obtiene del backend solo proveedor, identidad enmascarada segura y estado, y refresca esa autoridad al abrir Correo y al regresar de OAuth. Conectar o cambiar cuenta muestra el selector explícito de identidad de Google/Microsoft sin ampliar scopes. El usuario puede identificar la cuenta conectada, cambiarla, reconectar y desconectar sin ocultar follow-ups históricos. |
 | `SAL-09` | Sin cuenta conectada se puede omitir el paso inicial y seguir usando Foloo/capturando Leads; solo enviar pide conectar Google/Microsoft. Una autorización revocada pide reconectar sin pérdida. Un pendiente creado bajo otra identidad no se envía desde la nueva sin confirmación explícita; el historial conserva proveedor, remitente, destinatario, fecha, estado e intención originales sin secretos. |
-| `SAL-10` | Seguimientos observa Drift como fuente de verdad: transiciones Pendiente/Enviando/Enviado/Error/Estado por confirmar/Baja actualizan la pantalla visible sin navegar ni hacer polling. Preparaciones antiguas duplicadas sin intención no se borran automáticamente y solo se presenta la más reciente por Lead. |
+| `SAL-10` | Seguimiento observa Drift desde Registros/detalle: transiciones Pendiente/Enviando/Enviado/Error/Estado por confirmar actualizan la pantalla visible sin polling. El copy añade causa solo si el estado real la conoce. Preparaciones antiguas duplicadas sin intención no se borran automáticamente y solo se presenta la más reciente por Lead. |
 
 ### 4.8 Navegación, apariencia e idioma
 
@@ -299,7 +308,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 
 | ID | Cumplimiento |
 |---|---|
-| `RC-01` | Cumplir LFPDPPP y entregar aviso/opt-out mediante pie no editable del correo. |
+| `RC-01` | La decisión FL-019.5 elimina el mecanismo unsubscribe de V1 sin afirmar cumplimiento; privacidad, avisos, base legal y requisitos de baja deben resolverse antes de Store Release. |
 | `RC-02` | Tarjeta, contacto, voz e imágenes tienen retención y eliminación aprobadas. |
 | `RC-03` | Acceso a datos y medios se restringe a identidad/organización autorizada. |
 | `RC-04` | Eliminación lógica de evento no equivale a eliminación legal. |

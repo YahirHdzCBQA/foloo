@@ -4,17 +4,17 @@
 
 | IDs | Escenario | Decisión/ADR | Evidencia / pendientes |
 |---|---|---|---|
-| `AUT-*` | E-01 | ADR-002/006 | `app/lib/auth/`; perfil → onboarding opcional de cuenta de envío owner-scoped; f1-01, f1-02, f4-02 |
+| `AUT-*` | E-01 | ADR-002/006 | FL-019.5: login/alta email + botones federados Cognito Google/Microsoft, confirmación solo email, perfil sin fixtures y sender onboarding independiente; configuración social externa pendiente; f1-01/02, f4-02 |
 | `EVT-*` | E-02 | ADR-001/004 | FL-017 estabiliza create/update/delete remoto, tombstones y confirmación; tests event sync/UI/backend; f1-03–05 |
 | `CAP-*`, `OCR-*` | E-03–E-05 | ADR-001; D-11 | captura/ML Kit/Drift; f1-06–09, 11–14, 24 |
 | `VOZ-*` | E-04 | ADR-001; D-05/D-06 | voice service/media/tests; f1-10, 21–23 |
 | `SYN-*` | E-05/E-09/E-13 | ADR-001/003/004/005; D-13 | Drift, outbox owner-scoped, retry/reconciliación FL-015 y transferencia media FL-016 |
-| `REG-*` | E-06/E-10 | ADR-001/004; D-06 | FL-017: filtro/detalle/edición optimista y export XLSX/CSV local; f1-16–19, f2-06/07, f5-12 |
-| `CON-*` | E-07 | D-11/D-13 | FL-018: 25 MB/PDF, copia privada durable, outbox/S3 y tombstone; D-11 afecta solo fidelidad visual y D-13 retención física; f2-01–03 |
-| `PLT-*`, `SAL-*` | E-01/E-08 | ADR-006/007; D-09 y D-14–D-20 resueltas | FL-019 CLOSED y validada físicamente: renderer/editor, Drift v10 con segmentos semánticos y dirty state independiente, jerarquía Foloo→seller→Evento, preparación única reconciliable antes de `foloo`, snapshot congelado, estado Drift reactivo, outbox, OAuth state+PKCE, Gmail/Graph, KMS, D-19 y opt-out. FL-019.5 queda limitada al polish visual de Review y espera mockup; f2-04/05, f4-04/12 |
+| `REG-*` | E-06/E-10 | ADR-001/004; D-06 | FL-017 filtro/detalle/export; FL-019.5 agrega estado de correo, Seguimiento en detalle y feedback de exportación; f1-16–19, f2-05–07, f5-12 |
+| `CON-*` | E-07 | D-11/D-13 | FL-018 durable; FL-019.5 añade helper en biblioteca/Crear evento sin cambiar asignación; D-13 retención física; f2-01–03 |
+| `PLT-*`, `SAL-*` | E-01/E-08 | ADR-006/007; D-09/D-14–D-20; D-16 superseded | FL-019 CLOSED conserva renderer, reconciliación, intención/outbox, Gmail/Graph y D-19. FL-019.5 mueve historial a Registros, añade Review/editor inline y chips humanos, y retira unsubscribe activo preservando historia; f2-04/05, f4-04/12 |
 | `NAV-*` | E-12 | ADR-001 | drawer/theme/l10n; f1-15/25/26 |
 | `MON-*` | E-11 | D-01–D-04/D-11 | sin implementación; f3-01–08 |
-| `INF-*`, `RC-*` | E-09/E-12/E-13 | ADR-001/002/003/005/006/007; D-10/D-13 | backend AWS FL-014 y S3 privado/presigned/confirmación FL-016; FL-019 implementa egreso seguro y opt-out técnico; compliance postal sigue pendiente |
+| `INF-*`, `RC-*` | E-09/E-12/E-13 | ADR-001/002/003/005/006/007; D-10/D-13/D-16 superseded | backend AWS/S3/egreso seguro; FL-019.5 retira rutas/footer de unsubscribe sin borrar tablas; cumplimiento legal sigue pendiente |
 | `REL-*`, `RNF-*` | E-12 | decisiones aplicables | suite local parcial y round-trip UTF-8 en app/backend; f5-01–12 |
 
 Los IDs antiguos aún presentes en código/tests describen el origen histórico de
@@ -86,8 +86,8 @@ interna sea reutilizable.
 | f2-01 | I | ContentScreen y repositorio durable owner-scoped con biblioteca/filtro | FL-018 CLOSED; QA física |
 | f2-02 | I | PdfPickerService, copia privada, visor offline, outbox y S3 | FL-018 CLOSED; límite 25 MB validado |
 | f2-03 | I | asignación Event↔Content y tombstone sin resurrección ni cascada destructiva | FL-018 CLOSED; D-13 conserva cleanup físico abierto |
-| f2-04 | I | FL-019: EmailScreen Event/Direct ES/EN persiste en Drift v10; preview usa Lead real y el snapshot revisado queda congelado en la outbox; renderer backend conserva whitelist y footer fijo | FL-019 CLOSED; QA física final aprobada |
-| f2-05 | I | Follow-up e intención owner-scoped, confirmación explícita, Gmail/Graph, D-19, reintento seguro, estado ambiguo, opt-out y reenvío manual | FL-019 CLOSED; ADR-006/007; QA física final aprobada |
+| f2-04 | I | EmailScreen Event/Direct ES/EN persiste en Drift v10; preview usa Lead real, chips humanos y el snapshot revisado queda congelado en outbox; renderer conserva whitelist sin footer unsubscribe | FL-019 CLOSED + FL-019.5; QA física de 019.5 pendiente |
+| f2-05 | I | Follow-up e intención owner-scoped, confirmación explícita, Gmail/Graph, D-19, reintento seguro, estado ambiguo y reenvío manual; opt-out superseded | FL-019 CLOSED + FL-019.5; ADR-006/007 |
 | f2-06 | I | XLSX real por evento, columnas/filename ES/EN y share sheet | FL-017; `records_export_service_test.dart` |
 | f2-07 | I | CSV BOM UTF-8, RFC 4180, Unicode y share sheet | FL-017; `records_export_service_test.dart` |
 
@@ -111,7 +111,7 @@ interna sea reutilizable.
 | f4-01 | P | modelo/repositorios locales Drift | FL-012/013A; faltan API/cloud |
 | f4-02 | P | Cognito real y `sub` ownership | FL-013B; workspace remoto no existe |
 | f4-03 | I | storage privado local + S3 directo/seguro desplegado y validado | FL-016/018 CLOSED; retención D-13 abierta |
-| f4-04 | I | frontera de proveedor Google/Microsoft, OAuth, Gmail/Graph, opt-out y estados remotos | FL-019 CLOSED; ADR-006/007; rebote posterior no se inventa como entrega |
+| f4-04 | I | frontera de proveedor Google/Microsoft, OAuth, Gmail/Graph y estados remotos; opt-out superseded | FL-019 CLOSED + FL-019.5; ADR-006/007 |
 | f4-05 | I | confirmación distingue guardado local, pendiente offline, aceptación remota y estado ambiguo | FL-019 CLOSED; Google Sheets sigue fuera de V1 |
 | f4-06 | F | no hay modelo org/teams aprobado | bloqueado D-10 |
 | f4-07 | P | config Cognito DEV/PROD centralizada | FL-013B; sin staging/secret ops |
@@ -119,7 +119,7 @@ interna sea reutilizable.
 | f4-09 | F | sin observabilidad/alerta sync | FL plataforma |
 | f4-10 | F | sin backup/retención/borrado | bloqueado D-13 |
 | f4-11 | F | sin modelo de costo por vendedor | FL infraestructura |
-| f4-12 | P | identidad OAuth efectiva y aislamiento implementados; footer/opt-out técnico operativos | FL-019 CLOSED; dirección postal/responsable legal exactos siguen en compliance |
+| f4-12 | P | identidad OAuth efectiva y aislamiento implementados; footer/opt-out retirados por FL-019.5 | Compliance legal continúa pendiente antes de Store Release |
 
 ## F5 · Salida a producción (12)
 

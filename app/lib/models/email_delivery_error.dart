@@ -14,12 +14,12 @@ String? emailDeliveryErrorCode(String? value) {
       : value;
 }
 
-/// True when the recipient has explicitly been recorded as opted out.
+/// Recognizes historical FL-019 rows without enabling new opt-out behavior.
 bool isRecipientOptedOutError(String? value) =>
     emailDeliveryErrorCode(value) == 'recipient_opted_out';
 
 /// Failures for which another send attempt is prohibited by the backend.
 bool isTerminalEmailDeliveryError(String? value) {
   final code = emailDeliveryErrorCode(value);
-  return code == 'recipient_opted_out' || code == 'email_retry_not_allowed';
+  return code == 'email_retry_not_allowed';
 }

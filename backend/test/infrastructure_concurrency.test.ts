@@ -67,7 +67,7 @@ test("FL-016 provisions private encrypted S3 without NAT or broad IAM", () => {
   assert.doesNotMatch(JSON.stringify(mediaPolicy), /s3:\*/);
 });
 
-test("FL-019 isolates provider egress and exposes only callback and opt-out publicly", () => {
+test("FL-019.5 isolates provider egress and exposes only OAuth callback publicly", () => {
   const app = new cdk.App();
   const stack = new FolooBackendStack(app, "EmailInfrastructureTest", {
     config: environmentConfig("dev"),
@@ -97,14 +97,12 @@ test("FL-019 isolates provider egress and exposes only callback and opt-out publ
   );
   assert.ok(callback);
   assert.equal(callback.Properties.AuthorizationType, "NONE");
-  for (const method of ["GET", "POST"]) {
-    const route = routes.find(
-      (item) =>
-        String(item.Properties.RouteKey) === `${method} /v1/email/unsubscribe`,
-    );
-    assert.ok(route, `${method} unsubscribe`);
-    assert.equal(route.Properties.AuthorizationType, "NONE");
-  }
+  assert.equal(
+    routes.some((item) =>
+      String(item.Properties.RouteKey).includes("/v1/email/unsubscribe"),
+    ),
+    false,
+  );
   const protectedRoute = routes.find((item) =>
     String(item.Properties.RouteKey).includes("/v1/{proxy+}"),
   );

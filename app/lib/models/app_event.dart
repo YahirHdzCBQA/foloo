@@ -51,6 +51,9 @@ class AppEvent {
 class DemoProfile {
   const DemoProfile({required this.name, required this.company});
 
+  /// Empty runtime identity used until the authenticated owner saves a profile.
+  static const empty = DemoProfile(name: '', company: '');
+
   final String name;
   final String company;
 }

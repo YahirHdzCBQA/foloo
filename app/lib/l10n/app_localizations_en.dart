@@ -44,6 +44,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createAccount => 'Create account';
 
   @override
+  String get noAccountQuestion => 'Don\'t have an account?';
+
+  @override
+  String get orContinueWith => 'or continue with';
+
+  @override
+  String get orUseEmail => 'or use your email';
+
+  @override
+  String get continueWithGoogle => 'Continue with Google';
+
+  @override
+  String get continueWithMicrosoft => 'Continue with Microsoft';
+
+  @override
+  String get authSocialUnavailable =>
+      'Social sign-in still requires Cognito configuration. You can use email and password.';
+
+  @override
   String get createAccountTitle => 'Create your account';
 
   @override
@@ -204,6 +223,37 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get emailOnboardingWaiting =>
       'Complete authorization in the browser. When you return, Foloo will check the connection.';
+
+  @override
+  String get emailOnboardingPrivacy =>
+      'Foloo only sends the follow-up emails you approve. It does not read your inbox.';
+
+  @override
+  String get contentLibraryHelp =>
+      'Manage the PDFs you share with leads here. Assign them to events so they can be attached to follow-up emails.';
+
+  @override
+  String get createEventContentHelp =>
+      'Content selected for this event can be attached to its lead follow-ups.';
+
+  @override
+  String get exportCompleted => 'Export completed';
+
+  @override
+  String get emailNotSent => 'No follow-up sent';
+
+  @override
+  String get emailResendQuestion => 'Send again?';
+
+  @override
+  String get emailResendWarning =>
+      'This creates a new manual send and could deliver a duplicate.';
+
+  @override
+  String get emailResend => 'Resend';
+
+  @override
+  String get retry => 'Retry';
 
   @override
   String get emailSendingAccount => 'Sending account';
@@ -777,6 +827,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get emailReviewMessage => 'Message';
 
   @override
+  String get emailReviewSignature => 'Signature';
+
+  @override
+  String get edit => 'Edit';
+
+  @override
   String get emailReviewRequired =>
       'Complete the subject and message before continuing.';
 
@@ -829,16 +885,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get emailErrorDetail =>
       'The lead remains saved. You can retry from Email.';
-
-  @override
-  String get emailRecipientOptedOutTitle => 'Email not sent';
-
-  @override
-  String get emailRecipientOptedOutDetail =>
-      'The lead remains saved, but the email was not sent because the address is recorded as opted out.';
-
-  @override
-  String get emailRecipientOptedOutStatus => 'Not sent · Recipient opted out';
 
   @override
   String get emailNotRetryableStatus => 'Not sent · Retry not allowed';
@@ -941,11 +987,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get latestLeadData => 'Using the latest captured lead';
-
-  @override
-  String emailPreviewServerHelp(Object source) {
-    return '$source · The privacy notice and unsubscribe option are added by the server.';
-  }
 
   @override
   String recentEventHelp(Object date) {
@@ -1175,10 +1216,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get emailFooterGenericV1 =>
       'You received this email as a follow-up to our meeting.';
-
-  @override
-  String get emailUnsubscribeV1 =>
-      'If you prefer not to receive further messages, you can unsubscribe here.';
 
   @override
   String get emailSignatureV1 => 'Signature';

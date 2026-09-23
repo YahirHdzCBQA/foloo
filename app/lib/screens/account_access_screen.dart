@@ -10,6 +10,7 @@ import '../theme/brand_theme.dart';
 import '../widgets/language_selector.dart';
 
 typedef SignUpRequested = Future<void> Function(String email, String password);
+typedef SocialSignUpRequested = Future<bool> Function(AuthProvider provider);
 typedef ConfirmationRequested = Future<void> Function(String code);
 typedef ResendCodeRequested = Future<bool> Function();
 
@@ -18,6 +19,7 @@ class SignUpScreen extends StatefulWidget {
     required this.onSubmit,
     required this.onBack,
     required this.busy,
+    this.onSocialSubmit,
     this.failure,
     super.key,
   });
@@ -25,6 +27,7 @@ class SignUpScreen extends StatefulWidget {
   final SignUpRequested onSubmit;
   final VoidCallback onBack;
   final bool busy;
+  final SocialSignUpRequested? onSocialSubmit;
   final AuthFailureCode? failure;
 
   @override
@@ -63,6 +66,35 @@ class _SignUpScreenState extends State<SignUpScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          OutlinedButton.icon(
+            key: const Key('signUpGoogleButton'),
+            onPressed: widget.busy || widget.onSocialSubmit == null
+                ? null
+                : () => widget.onSocialSubmit!(AuthProvider.google),
+            icon: const Icon(Icons.alternate_email),
+            label: Text(context.l10n.continueWithGoogle),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            key: const Key('signUpMicrosoftButton'),
+            onPressed: widget.busy || widget.onSocialSubmit == null
+                ? null
+                : () => widget.onSocialSubmit!(AuthProvider.microsoft),
+            icon: const Icon(Icons.business_outlined),
+            label: Text(context.l10n.continueWithMicrosoft),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              const Expanded(child: Divider()),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(context.l10n.orUseEmail),
+              ),
+              const Expanded(child: Divider()),
+            ],
+          ),
+          const SizedBox(height: 18),
           _label(context.l10n.loginUser),
           const SizedBox(height: 8),
           TextFormField(

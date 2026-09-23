@@ -10,16 +10,26 @@ class CognitoEnvironmentConfiguration {
     required this.region,
     required this.userPoolId,
     required this.appClientId,
+    this.hostedUiDomain = '',
+    this.signInRedirectUri = '',
+    this.signOutRedirectUri = '',
   });
 
   final String region;
   final String userPoolId;
   final String appClientId;
+  final String hostedUiDomain;
+  final String signInRedirectUri;
+  final String signOutRedirectUri;
+
+  bool get hasHostedUi =>
+      hostedUiDomain.isNotEmpty &&
+      signInRedirectUri.isNotEmpty &&
+      signOutRedirectUri.isNotEmpty;
 
   /// Amplify Gen 2 configuration containing public identifiers only.
-  String toAmplifyConfiguration() => jsonEncode({
-    'version': '1.0',
-    'auth': {
+  String toAmplifyConfiguration() {
+    final auth = <String, Object>{
       'aws_region': region,
       'user_pool_id': userPoolId,
       'user_pool_client_id': appClientId,
@@ -29,8 +39,19 @@ class CognitoEnvironmentConfiguration {
       'unauthenticated_identities_enabled': false,
       'mfa_configuration': 'NONE',
       'mfa_methods': <String>[],
-    },
-  });
+    };
+    if (hasHostedUi) {
+      auth['oauth'] = {
+        'domain': hostedUiDomain,
+        'identity_providers': ['GOOGLE'],
+        'redirect_sign_in_uri': [signInRedirectUri],
+        'redirect_sign_out_uri': [signOutRedirectUri],
+        'response_type': 'code',
+        'scopes': ['openid', 'email', 'profile'],
+      };
+    }
+    return jsonEncode({'version': '1.0', 'auth': auth});
+  }
 }
 
 abstract final class CognitoConfigurations {
@@ -38,6 +59,9 @@ abstract final class CognitoConfigurations {
     region: 'us-east-1',
     userPoolId: 'us-east-1_QVm3dWe4O',
     appClientId: '6jong3atp2crqcsde6g215ant8',
+    hostedUiDomain: String.fromEnvironment('FOLOO_COGNITO_HOSTED_UI_DOMAIN'),
+    signInRedirectUri: String.fromEnvironment('FOLOO_AUTH_SIGN_IN_REDIRECT'),
+    signOutRedirectUri: String.fromEnvironment('FOLOO_AUTH_SIGN_OUT_REDIRECT'),
   );
 
   static CognitoEnvironmentConfiguration forEnvironment(

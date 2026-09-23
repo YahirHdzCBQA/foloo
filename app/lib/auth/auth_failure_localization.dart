@@ -16,5 +16,6 @@ String localizedAuthFailure(AppLocalizations l10n, AuthFailureCode? failure) =>
       AuthFailureCode.network => l10n.authNetwork,
       AuthFailureCode.rateLimited => l10n.authRateLimited,
       AuthFailureCode.invalidInput => l10n.authInvalidInput,
+      AuthFailureCode.socialLoginUnavailable => l10n.authSocialUnavailable,
       AuthFailureCode.unexpected || null => l10n.authenticationFailed,
     };

@@ -28,7 +28,120 @@ import '../data/local/app_database.dart';
 
 enum _TemplateKind { event, direct }
 
-enum _TemplateField { subject, body }
+enum _TemplateField { subject, body, signature }
+
+/// Editable projection that keeps canonical tokens out of the visible text.
+///
+/// Invisible separators preserve native selection/copy/paste while the text
+/// between them is the localized, human label shown as a highlighted chip.
+class _FriendlyTemplateEditingController extends TextEditingController {
+  static const _marker = '\u2063';
+  Map<String, String> _tokenToLabel = const {};
+  Map<String, String> _labelToToken = const {};
+
+  void loadCanonical(String source, Map<String, String> labels) {
+    _tokenToLabel = labels;
+    _labelToToken = {
+      for (final entry in labels.entries) entry.value: entry.key,
+    };
+    final projected = source.replaceAllMapped(RegExp(r'\{[^}]+\}'), (match) {
+      final token = match.group(0)!;
+      final label = labels[token];
+      return label == null ? token : '$_marker$label$_marker';
+    });
+    value = TextEditingValue(
+      text: projected,
+      selection: TextSelection.collapsed(offset: projected.length),
+    );
+  }
+
+  String get canonicalText {
+    final buffer = StringBuffer();
+    var offset = 0;
+    while (offset < text.length) {
+      if (text[offset] != _marker) {
+        buffer.write(text[offset]);
+        offset++;
+        continue;
+      }
+      final end = text.indexOf(_marker, offset + 1);
+      if (end < 0) {
+        offset++;
+        continue;
+      }
+      final label = text.substring(offset + 1, end);
+      buffer.write(_labelToToken[label] ?? label);
+      offset = end + 1;
+    }
+    return buffer.toString();
+  }
+
+  void insertToken(String token) {
+    final label = _tokenToLabel[token] ?? token;
+    final insertion = label == token ? token : '$_marker$label$_marker';
+    final current = selection.isValid
+        ? selection
+        : TextSelection.collapsed(offset: text.length);
+    final next = text.replaceRange(current.start, current.end, insertion);
+    value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(
+        offset: current.start + insertion.length,
+      ),
+    );
+  }
+
+  @override
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    required bool withComposing,
+  }) {
+    final children = <InlineSpan>[];
+    var offset = 0;
+    while (offset < text.length) {
+      final start = text.indexOf(_marker, offset);
+      if (start < 0) {
+        children.add(TextSpan(text: text.substring(offset), style: style));
+        break;
+      }
+      if (start > offset) {
+        children.add(
+          TextSpan(text: text.substring(offset, start), style: style),
+        );
+      }
+      final end = text.indexOf(_marker, start + 1);
+      if (end < 0) {
+        children.add(TextSpan(text: text.substring(start), style: style));
+        break;
+      }
+      children.add(
+        TextSpan(
+          text: _marker,
+          style: style?.copyWith(fontSize: 0, letterSpacing: 0),
+        ),
+      );
+      children.add(
+        TextSpan(
+          text: text.substring(start + 1, end),
+          style: style?.copyWith(
+            color: FolooColors.ink,
+            backgroundColor: FolooColors.lime.withValues(alpha: .28),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+      children.add(
+        TextSpan(
+          text: _marker,
+          style: style?.copyWith(fontSize: 0, letterSpacing: 0),
+        ),
+      );
+      offset = end + 1;
+    }
+    return TextSpan(style: style, children: children);
+  }
+}
 
 /// Edits the Event or Direct template without initiating a send.
 class EmailScreen extends StatefulWidget {
@@ -80,6 +193,9 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
   final _directBody = TextEditingController();
   final _eventSignature = TextEditingController();
   final _directSignature = TextEditingController();
+  final _subjectEditor = _FriendlyTemplateEditingController();
+  final _bodyEditor = _FriendlyTemplateEditingController();
+  final _signatureEditor = _FriendlyTemplateEditingController();
   final _subjectFocus = FocusNode();
   final _bodyFocus = FocusNode();
   final _signatureFocus = FocusNode();
@@ -94,6 +210,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
   bool _connectionUnavailable = false;
   int _deliveryRequestGeneration = 0;
   _TemplateField _lastTemplateField = _TemplateField.body;
+  _TemplateField? _editingField;
   StreamSubscription<List<StoredEmailFollowUp>>? _followUpsSubscription;
   StreamSubscription<List<StoredEmailSendIntent>>? _intentsSubscription;
 
@@ -529,6 +646,9 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
     );
   }
 
+  // Historical renderer retained temporarily for migration evidence; the
+  // active UX now renders this source in Records (REG-16).
+  // ignore: unused_element
   Widget _followUpList() {
     final visible = <StoredEmailFollowUp>[];
     final preparedLeadIds = <String>{};
@@ -555,7 +675,6 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
           final status = intent?.status ?? 'ready';
           final attachmentDecision =
               intent != null && _attachmentDecisionIds(intent).isNotEmpty;
-          final recipientOptedOut = isRecipientOptedOutError(intent?.errorCode);
           final terminalFailure = isTerminalEmailDeliveryError(
             intent?.errorCode,
           );
@@ -563,8 +682,6 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
               ? context.l10n.emailFollowUpAttachmentDecision
               : intent?.errorCode == 'cancelled_by_seller'
               ? context.l10n.emailFollowUpCancelled
-              : recipientOptedOut
-              ? context.l10n.emailRecipientOptedOutStatus
               : terminalFailure
               ? context.l10n.emailNotRetryableStatus
               : switch (status) {
@@ -711,6 +828,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
   void _applyLanguage(AppLocalizations l10n) {
     final language = l10n.localeName.startsWith('en') ? 'en' : 'es';
     _languageCode = language;
+    _editingField = null;
     for (final origin in ['event', 'direct']) {
       final stored = _stored['$origin:$language'];
       final subject = origin == 'event' ? _eventSubject : _directSubject;
@@ -744,6 +862,9 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
       _directBody,
       _eventSignature,
       _directSignature,
+      _subjectEditor,
+      _bodyEditor,
+      _signatureEditor,
     ]) {
       controller.dispose();
     }
@@ -759,11 +880,28 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
         ? _TemplateField.subject
         : _bodyFocus.hasFocus
         ? _TemplateField.body
+        : _signatureFocus.hasFocus
+        ? _TemplateField.signature
         : _lastTemplateField;
-    final controller = target == _TemplateField.subject ? _subject : _body;
-    final focusNode = target == _TemplateField.subject
-        ? _subjectFocus
-        : _bodyFocus;
+    final controller = switch (target) {
+      _TemplateField.subject => _subject,
+      _TemplateField.body => _body,
+      _TemplateField.signature => _signature,
+    };
+    final focusNode = switch (target) {
+      _TemplateField.subject => _subjectFocus,
+      _TemplateField.body => _bodyFocus,
+      _TemplateField.signature => _signatureFocus,
+    };
+    if (_editingField == target) {
+      final editor = _editorFor(target);
+      editor.insertToken(variable);
+      controller.text = editor.canonicalText;
+      _lastTemplateField = target;
+      focusNode.requestFocus();
+      setState(() {});
+      return;
+    }
     final selection = controller.selection;
     final offset = selection.isValid ? selection.start : controller.text.length;
     controller.text = controller.text.replaceRange(
@@ -872,6 +1010,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
       _subject.text = official.subject;
       _body.text = official.body;
       _signature.text = official.signature;
+      _editingField = null;
       _error = null;
     });
   }
@@ -933,6 +1072,247 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
     return rendered.trim();
   }
 
+  String _friendlyToken(String token) => switch (token) {
+    '{nombre}' => _english ? 'Contact name' : 'Nombre del contacto',
+    '{apellido}' => _english ? 'Last name' : 'Apellido',
+    '{empresa}' => _english ? 'Contact company' : 'Empresa del contacto',
+    '{puesto}' => _english ? 'Role' : 'Puesto',
+    '{evento}' => _english ? 'Event' : 'Evento',
+    '{lugar}' => _english ? 'Place' : 'Lugar',
+    '{contenido}' => _english ? 'Content' : 'Contenido',
+    '{nombreVendedor}' => _english ? 'Your name' : 'Tu nombre',
+    '{empresaVendedor}' => _english ? 'Your company' : 'Tu empresa',
+    _ => token,
+  };
+
+  String _tokenSource(String token) => switch (token) {
+    '{nombre}' || '{apellido}' || '{empresa}' || '{puesto}' =>
+      _english ? 'From the captured lead' : 'Se toma del lead capturado',
+    '{evento}' =>
+      _english ? 'From the active event' : 'Se toma del evento activo',
+    '{lugar}' => _english ? 'From the direct lead' : 'Se toma del lead directo',
+    '{contenido}' =>
+      _english ? 'From selected PDFs' : 'Se toma del contenido elegido',
+    _ => _english ? 'From your profile' : 'Se toma de tu perfil',
+  };
+
+  _FriendlyTemplateEditingController _editorFor(_TemplateField field) =>
+      switch (field) {
+        _TemplateField.subject => _subjectEditor,
+        _TemplateField.body => _bodyEditor,
+        _TemplateField.signature => _signatureEditor,
+      };
+
+  void _prepareEditor(_TemplateField field, TextEditingController canonical) {
+    _editorFor(field).loadCanonical(canonical.text, {
+      for (final token in _variables) token: _friendlyToken(token),
+    });
+  }
+
+  Future<void> _chooseVariable({
+    String? replacing,
+    int? replacementStart,
+    _TemplateField? replacementField,
+  }) async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                _english ? 'Insert data' : 'Insertar dato',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _english
+                    ? 'It fills automatically from the lead, event, or your profile.'
+                    : 'Se llena solo con la información del lead, el evento o tu perfil.',
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: _variables
+                      .map(
+                        (token) => ListTile(
+                          key: Key('templateVariableChoice-$token'),
+                          selected: token == replacing,
+                          selectedTileColor: FolooColors.lime.withValues(
+                            alpha: .25,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(FolooRadii.md),
+                          ),
+                          title: Text(_friendlyToken(token)),
+                          subtitle: Text(_tokenSource(token)),
+                          trailing: token == replacing
+                              ? const Icon(Icons.check_circle)
+                              : null,
+                          onTap: () => Navigator.pop(sheetContext, token),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (selected == null) return;
+    if (replacing == null) {
+      _insert(selected);
+      return;
+    }
+    final field = replacementField ?? _lastTemplateField;
+    final controller = switch (field) {
+      _TemplateField.subject => _subject,
+      _TemplateField.body => _body,
+      _TemplateField.signature => _signature,
+    };
+    final start = replacementStart ?? controller.text.indexOf(replacing);
+    if (start < 0 ||
+        start + replacing.length > controller.text.length ||
+        controller.text.substring(start, start + replacing.length) !=
+            replacing) {
+      return;
+    }
+    controller.text = controller.text.replaceRange(
+      start,
+      start + replacing.length,
+      selected,
+    );
+    controller.selection = TextSelection.collapsed(
+      offset: start + selected.length,
+    );
+    if (mounted) setState(() {});
+  }
+
+  Widget _friendlyDocument(
+    TextEditingController controller,
+    _TemplateField field,
+  ) {
+    final matches = RegExp(r'\{[^}]+\}').allMatches(controller.text).toList();
+    final children = <Widget>[];
+    var offset = 0;
+    for (final match in matches) {
+      if (match.start > offset) {
+        children.add(Text(controller.text.substring(offset, match.start)));
+      }
+      final token = match.group(0)!;
+      children.add(
+        ActionChip(
+          key: Key('friendlyToken-${field.name}-$token-${match.start}'),
+          label: Text(_friendlyToken(token)),
+          backgroundColor: FolooColors.lime.withValues(alpha: .25),
+          onPressed: () {
+            _lastTemplateField = field;
+            _chooseVariable(
+              replacing: token,
+              replacementStart: match.start,
+              replacementField: field,
+            );
+          },
+        ),
+      );
+      offset = match.end;
+    }
+    if (offset < controller.text.length) {
+      children.add(Text(controller.text.substring(offset)));
+    }
+    return Wrap(
+      spacing: 3,
+      runSpacing: 3,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: children,
+    );
+  }
+
+  Widget _templateField({
+    required _TemplateField field,
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required Key key,
+    int minLines = 1,
+    int maxLines = 4,
+  }) {
+    final editing = _editingField == field;
+    final editor = _editorFor(field);
+    final palette = FolooPalette.of(context);
+    return Container(
+      padding: editing
+          ? EdgeInsets.zero
+          : const EdgeInsets.fromLTRB(14, 10, 4, 10),
+      decoration: BoxDecoration(
+        color: palette.paper,
+        borderRadius: BorderRadius.circular(FolooRadii.md),
+        border: editing ? Border.all(color: palette.ink, width: 2) : null,
+      ),
+      child: editing
+          ? Stack(
+              children: [
+                TextField(
+                  key: key,
+                  controller: editor,
+                  focusNode: focusNode,
+                  minLines: minLines,
+                  maxLines: maxLines,
+                  onTap: () => _lastTemplateField = field,
+                  onChanged: (_) {
+                    controller.text = editor.canonicalText;
+                    setState(() {});
+                  },
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.fromLTRB(14, 14, 52, 14),
+                  ),
+                ),
+                Positioned(
+                  top: 5,
+                  right: 5,
+                  child: IconButton.filled(
+                    key: Key('templateLightning-${field.name}'),
+                    tooltip: _english ? 'Insert data' : 'Insertar dato',
+                    onPressed: _chooseVariable,
+                    icon: const Icon(Icons.bolt, color: FolooColors.lime),
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _friendlyDocument(controller, field)),
+                IconButton(
+                  key: Key('templateEdit-${field.name}'),
+                  tooltip: context.l10n.edit,
+                  onPressed: () {
+                    _prepareEditor(field, controller);
+                    setState(() {
+                      _editingField = field;
+                      _lastTemplateField = field;
+                    });
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      focusNode.requestFocus();
+                      controller.selection = TextSelection.collapsed(
+                        offset: controller.text.length,
+                      );
+                    });
+                  },
+                  icon: const Icon(Icons.edit_outlined),
+                ),
+              ],
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -969,6 +1349,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                       onSelected: (value) => setState(() {
                         _kind = value;
                         _error = null;
+                        _editingField = null;
                       }),
                       selectedHorizontalPadding: 8,
                       options: [
@@ -1006,21 +1387,12 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                       style: const TextStyle(fontSize: 11),
                     ),
                     const SizedBox(height: 7),
-                    TextField(
+                    _templateField(
                       key: ValueKey('emailSubject-${_kind.name}'),
+                      field: _TemplateField.subject,
                       controller: _subject,
                       focusNode: _subjectFocus,
-                      textInputAction: TextInputAction.next,
-                      onSubmitted: (_) => _bodyFocus.requestFocus(),
-                      onTapOutside: (_) =>
-                          FocusManager.instance.primaryFocus?.unfocus(),
-                      onTap: () => _lastTemplateField = _TemplateField.subject,
-                      decoration: const InputDecoration(
-                        border: FolooBorders.borderlessField,
-                        enabledBorder: FolooBorders.borderlessField,
-                        focusedBorder: FolooBorders.borderlessField,
-                      ),
-                      onChanged: (_) => setState(() {}),
+                      maxLines: 2,
                     ),
                     const SizedBox(height: 14),
                     Text(
@@ -1028,22 +1400,13 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                       style: const TextStyle(fontSize: 11),
                     ),
                     const SizedBox(height: 7),
-                    TextField(
+                    _templateField(
                       key: ValueKey('emailBody-${_kind.name}'),
+                      field: _TemplateField.body,
                       controller: _body,
                       focusNode: _bodyFocus,
-                      textInputAction: TextInputAction.newline,
-                      onTapOutside: (_) =>
-                          FocusManager.instance.primaryFocus?.unfocus(),
-                      onTap: () => _lastTemplateField = _TemplateField.body,
                       minLines: 8,
                       maxLines: 12,
-                      decoration: const InputDecoration(
-                        border: FolooBorders.borderlessField,
-                        enabledBorder: FolooBorders.borderlessField,
-                        focusedBorder: FolooBorders.borderlessField,
-                      ),
-                      onChanged: (_) => setState(() {}),
                     ),
                     const SizedBox(height: 14),
                     Text(
@@ -1051,23 +1414,13 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                       style: const TextStyle(fontSize: 11),
                     ),
                     const SizedBox(height: 7),
-                    TextField(
+                    _templateField(
                       key: ValueKey('emailSignature-${_kind.name}'),
+                      field: _TemplateField.signature,
                       controller: _signature,
                       focusNode: _signatureFocus,
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) =>
-                          FocusManager.instance.primaryFocus?.unfocus(),
-                      onTapOutside: (_) =>
-                          FocusManager.instance.primaryFocus?.unfocus(),
                       minLines: 2,
                       maxLines: 4,
-                      decoration: const InputDecoration(
-                        border: FolooBorders.borderlessField,
-                        enabledBorder: FolooBorders.borderlessField,
-                        focusedBorder: FolooBorders.borderlessField,
-                      ),
-                      onChanged: (_) => setState(() {}),
                     ),
                     if (_error != null)
                       Padding(
@@ -1089,25 +1442,6 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                         icon: const Icon(Icons.restore),
                         label: Text(context.l10n.restoreDefaultTemplate),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      context.l10n.variables,
-                      style: TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 7,
-                      runSpacing: 7,
-                      children: _variables
-                          .map(
-                            (value) => ActionChip(
-                              key: Key('variable-$value'),
-                              label: Text(value),
-                              onPressed: () => _insert(value),
-                            ),
-                          )
-                          .toList(),
                     ),
                     const SizedBox(height: 20),
                     Text(
@@ -1143,24 +1477,6 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                             Text(_preview(_body.text)),
                             const SizedBox(height: 12),
                             Text(_preview(_signature.text)),
-                            const SizedBox(height: 12),
-                            Text(
-                              (_kind == _TemplateKind.event
-                                              ? _previewRecord!.lead.eventName
-                                              : _previewRecord!.lead.place)
-                                          ?.trim()
-                                          .isNotEmpty ==
-                                      true
-                                  ? (_kind == _TemplateKind.event
-                                        ? context.l10n.emailFooterEventV1(
-                                            _previewRecord!.lead.eventName!,
-                                          )
-                                        : context.l10n.emailFooterDirectV1(
-                                            _previewRecord!.lead.place!,
-                                          ))
-                                  : context.l10n.emailFooterGenericV1,
-                            ),
-                            Text(context.l10n.emailUnsubscribeV1),
                           ] else
                             Text(
                               context.l10n.emailNoLeadPreviewV1,
@@ -1169,7 +1485,6 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                         ],
                       ),
                     ),
-                    _followUpList(),
                   ],
                 ),
               ),

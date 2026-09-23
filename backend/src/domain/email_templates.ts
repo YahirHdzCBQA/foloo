@@ -138,57 +138,27 @@ export function renderEmailPart(part: string, values: EmailValues): string {
   });
 }
 
-function footer(
-  language: EmailLanguage,
-  context: string,
-  unsubscribeUrl: string,
-): { plain: string; html: string } {
-  const introduction =
-    language === "es"
-      ? context
-        ? `Recibiste este correo como seguimiento a nuestro encuentro en ${context}.`
-        : "Recibiste este correo como seguimiento a nuestro encuentro."
-      : context
-        ? `You received this email as a follow-up to our meeting at ${context}.`
-        : "You received this email as a follow-up to our meeting.";
-  const action =
-    language === "es"
-      ? "Si prefieres no recibir más comunicaciones, puedes darte de baja aquí."
-      : "If you prefer not to receive further messages, you can unsubscribe here.";
-  const label = language === "es" ? "darte de baja aquí" : "unsubscribe here";
-  const actionPrefix = action.slice(0, action.indexOf(label));
-  return {
-    plain: `${introduction}\n${action}\n${unsubscribeUrl}`,
-    html: `<p>${escapedHtml(introduction)}<br>${escapedHtml(actionPrefix)}<a href="${escapedHtml(unsubscribeUrl)}">${escapedHtml(label)}</a>.</p>`,
-  };
-}
-
-/** Adds the server-owned compliance footer to an already frozen local body. */
+/** Legacy helper retained for source compatibility; FL-019.5 adds no footer. */
 export function appendFixedEmailFooter(
   preview: EmailPreview,
-  language: EmailLanguage,
-  context: string,
-  unsubscribeUrl: string,
+  _language: EmailLanguage,
+  _context: string,
+  _unsubscribeUrl: string,
 ): EmailPreview {
-  const url = new URL(unsubscribeUrl);
-  if (url.protocol !== "https:") throw new Error("invalid_unsubscribe_url");
-  const fixed = footer(language, context.trim(), unsubscribeUrl);
   return {
     subject: preview.subject.replace(/[\r\n]+/g, " ").trim(),
-    plainText: `${preview.plainText.trim()}\n\n${fixed.plain}`,
-    html: `${preview.html}${fixed.html}`,
+    plainText: preview.plainText.trim(),
+    html: preview.html,
   };
 }
 
-/** Renders an immutable fixed footer; caller must supply a Foloo HTTPS URL. */
+/** Renders the approved message without an unsubscribe footer (FL-019.5). */
 export function renderEmailPreview(
   template: EmailTemplate,
   values: EmailValues,
-  unsubscribeUrl: string,
+  _legacyUnsubscribeUrl?: string,
 ): EmailPreview {
   validateEmailTemplate(template);
-  const url = new URL(unsubscribeUrl);
-  if (url.protocol !== "https:") throw new Error("invalid_unsubscribe_url");
   const context =
     template.origin === "event" ? values.evento?.trim() : values.lugar?.trim();
   const subject = renderEmailPart(template.subject, values)
@@ -218,13 +188,12 @@ export function renderEmailPreview(
   }
   const signature = renderEmailPart(template.signature, values);
   const message = `${body.trim()}\n\n${signature.trim()}`.trim();
-  const fixed = footer(template.language, context ?? "", unsubscribeUrl);
-  const plainText = `${message}\n\n${fixed.plain}`;
+  const plainText = message;
   const htmlMessage = message
     .split(/\n\s*\n/)
     .map(
       (paragraph) => `<p>${escapedHtml(paragraph).replace(/\n/g, "<br>")}</p>`,
     )
     .join("");
-  return { subject, plainText, html: `${htmlMessage}${fixed.html}` };
+  return { subject, plainText, html: htmlMessage };
 }

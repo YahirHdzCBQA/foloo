@@ -235,8 +235,6 @@ export class PostgresEmailRepository implements EmailRepository {
       footer: string;
       plainBody: string;
       htmlBody: string;
-      unsubscribeTokenHash: string;
-      recipientHash: string;
     },
   ) {
     const client = await this.pool.connect();
@@ -265,7 +263,7 @@ export class PostgresEmailRepository implements EmailRepository {
           input.plainBody,
           input.htmlBody,
           input.footer,
-          input.unsubscribeTokenHash,
+          "",
         ],
       );
       if (!inserted.rows[0]) {
@@ -277,17 +275,6 @@ export class PostgresEmailRepository implements EmailRepository {
         await client.query("COMMIT");
         return { id: input.id, leadId: input.context.leadId, status: "ready" };
       }
-      await client.query(
-        `INSERT INTO email_unsubscribe_tokens
-         (token_hash,workspace_id,owner_user_id,recipient_hash)
-       VALUES ($1,$2,$3,$4)`,
-        [
-          input.unsubscribeTokenHash,
-          principal.workspaceId,
-          principal.userId,
-          input.recipientHash,
-        ],
-      );
       await client.query("COMMIT");
       return { id: input.id, leadId: input.context.leadId, status: "ready" };
     } catch (error) {
@@ -317,15 +304,6 @@ export class PostgresEmailRepository implements EmailRepository {
       [principal.workspaceId, principal.userId],
     );
     return result.rows;
-  }
-
-  async isOptedOut(principal: Principal, recipientHash: string) {
-    const result = await this.pool.query(
-      `SELECT 1 FROM email_owner_opt_outs
-       WHERE workspace_id=$1 AND owner_user_id=$2 AND recipient_hash=$3`,
-      [principal.workspaceId, principal.userId, recipientHash],
-    );
-    return Boolean(result.rows[0]);
   }
 
   async createIntent(
@@ -499,35 +477,5 @@ export class PostgresEmailRepository implements EmailRepository {
       [principal.workspaceId, intent.followUpId, intent.attachedContentIds],
     );
     return result.rows;
-  }
-
-  async isUnsubscribeTokenValid(tokenHash: string) {
-    const result = await this.pool.query(
-      `SELECT 1 FROM email_unsubscribe_tokens
-       WHERE token_hash=$1 AND revoked_at IS NULL AND owner_user_id IS NOT NULL`,
-      [tokenHash],
-    );
-    return Boolean(result.rows[0]);
-  }
-
-  async optOut(tokenHash: string) {
-    const result = await this.pool.query(
-      `INSERT INTO email_owner_opt_outs
-       (workspace_id,owner_user_id,recipient_hash)
-       SELECT workspace_id,owner_user_id,recipient_hash
-       FROM email_unsubscribe_tokens
-       WHERE token_hash=$1 AND revoked_at IS NULL AND owner_user_id IS NOT NULL
-       ON CONFLICT DO NOTHING RETURNING workspace_id`,
-      [tokenHash],
-    );
-    if (result.rows[0]) return true;
-    const existing = await this.pool.query(
-      `SELECT 1 FROM email_unsubscribe_tokens t JOIN email_owner_opt_outs o
-       ON o.workspace_id=t.workspace_id AND o.owner_user_id=t.owner_user_id
-        AND o.recipient_hash=t.recipient_hash
-       WHERE t.token_hash=$1 AND t.revoked_at IS NULL`,
-      [tokenHash],
-    );
-    return Boolean(existing.rows[0]);
   }
 }

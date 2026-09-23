@@ -22,7 +22,6 @@ import 'models/app_event.dart';
 import 'models/lead_draft.dart';
 import 'models/content_file.dart';
 import 'models/email_review.dart';
-import 'models/email_delivery_error.dart';
 import 'models/session_lead.dart';
 import 'screens/event_screen.dart';
 import 'screens/account_access_screen.dart';
@@ -96,7 +95,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   ThemeMode _themeMode = ThemeMode.light;
   AppDestination _destination = AppDestination.home;
   AppDestination _eventsReturnDestination = AppDestination.home;
-  DemoProfile _profile = DemoAppData.profile;
+  DemoProfile _profile = DemoProfile.empty;
   bool _profileCompleted = false;
   late List<AppEvent> _events;
   late List<ContentFile> _contentFiles;
@@ -328,7 +327,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     final storedContent = await _persistence.content.list(userId);
     if (!mounted) return;
     setState(() {
-      _profile = storedProfile ?? DemoAppData.profile;
+      _profile = storedProfile ?? DemoProfile.empty;
       _profileCompleted = storedProfile != null;
       _events = storedEvents;
       _eventSelectionMode = shouldChooseAutomatically
@@ -422,8 +421,6 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       'sent' => EmailReviewOutcome.sent,
       'sending' => EmailReviewOutcome.sending,
       'confirmation_required' => EmailReviewOutcome.confirmationRequired,
-      'error' when isRecipientOptedOutError(intent?.errorCode) =>
-        EmailReviewOutcome.recipientOptedOut,
       'error' => EmailReviewOutcome.error,
       _ => EmailReviewOutcome.pending,
     };
@@ -513,6 +510,15 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       }
       return false;
     }
+    await _loadUserState(user.id);
+    unawaited(_synchronize(trigger: SyncTrigger.startup));
+    return true;
+  }
+
+  Future<bool> _authenticateWithProvider(AuthProvider provider) async {
+    final authenticated = await _authRepository.signInWithProvider(provider);
+    final user = _authRepository.state.user;
+    if (!authenticated || user == null) return false;
     await _loadUserState(user.id);
     unawaited(_synchronize(trigger: SyncTrigger.startup));
     return true;
@@ -635,7 +641,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       _destination = AppDestination.home;
       _stage = _AuthenticatedStage.profile;
       _profileCompleted = false;
-      _profile = DemoAppData.profile;
+      _profile = DemoProfile.empty;
       _events = [];
       _contentAwaitingEvent.clear();
       _contentFiles = widget.useDemoFixtures
@@ -999,6 +1005,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
               _AccessStage.login => LoginScreen(
                 key: const ValueKey('loginScreen'),
                 onAuthenticated: _authenticate,
+                onSocialAuthenticated: _authenticateWithProvider,
                 authenticating:
                     _authRepository.state.status == AuthStatus.initializing,
                 failure: _authRepository.state.status == AuthStatus.error
@@ -1016,6 +1023,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
               _AccessStage.signUp => SignUpScreen(
                 key: const ValueKey('signUpScreen'),
                 onSubmit: _signUp,
+                onSocialSubmit: _authenticateWithProvider,
                 onBack: () {
                   _authRepository.clearFailure();
                   setState(() => _accessStage = _AccessStage.login);
@@ -1043,6 +1051,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           : switch (_stage) {
               _AuthenticatedStage.profile => ProfileSetupScreen(
                 key: const ValueKey('profileScreen'),
+                initialProfile: widget.useDemoFixtures
+                    ? DemoAppData.profile
+                    : DemoProfile.empty,
                 onContinue: _completeProfile,
               ),
               _AuthenticatedStage.email => EmailOnboardingScreen(
@@ -1115,6 +1126,10 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           onSync: () => _synchronize(trigger: SyncTrigger.manual),
           syncing: _syncEngine?.running ?? false,
           onLeadUpdated: _updateLead,
+          ownerSub: _userId,
+          deliveryRepository: _persistence.emailDelivery,
+          onSendQueued: () =>
+              unawaited(_synchronize(trigger: SyncTrigger.postSave)),
         ),
         EventScreen(
           key: const ValueKey('eventsScreen'),

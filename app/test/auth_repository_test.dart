@@ -104,4 +104,29 @@ void main() {
     expect(repository.state.status, AuthStatus.error);
     expect(repository.state.user, isNull);
   });
+
+  test(
+    'AUT-15 Google and Microsoft use the shared authenticated state',
+    () async {
+      final store = _MemoryAuthStore();
+      final repository = AuthRepository(
+        DevelopmentAuthService(store, userIdFactory: () => 'social-owner'),
+      );
+
+      expect(await repository.signInWithProvider(AuthProvider.google), isTrue);
+      expect(repository.state.user?.id, 'social-owner');
+      expect(repository.state.user?.username, 'google@development.foloo.local');
+
+      await repository.signOut();
+      expect(
+        await repository.signInWithProvider(AuthProvider.microsoft),
+        isTrue,
+      );
+      expect(repository.state.user?.id, 'social-owner');
+      expect(
+        repository.state.user?.username,
+        'microsoft@development.foloo.local',
+      );
+    },
+  );
 }

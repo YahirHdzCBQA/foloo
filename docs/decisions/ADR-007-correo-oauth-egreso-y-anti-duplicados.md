@@ -46,14 +46,10 @@ como retry seguro aun si Foloo deduplica la operación API.
    Graph `sendMail` responde `202` sin body; ese contrato es aceptación válida,
    no una respuesta perdida ni un motivo para `confirmation_required`.
    Historial conserva la identidad efectiva original aun al cambiar cuenta.
-5. La baja usa token opaco de alta entropía, almacenado como hash y vinculado a
-   workspace/vendedor/destinatario. GET valida el token y muestra una landing
-   mínima, pero no modifica estado; esto evita que scanners, previews o prefetch
-   creen bajas. Solo el POST de la acción explícita inserta el opt-out de forma
-   idempotente. El endpoint no revela IDs internos, el token no se expone a
-   logs y futuros envíos de ese scope quedan bloqueados como error terminal sin
-   retry. El enlace es de duración prolongada para que correos históricos
-   mantengan una vía de baja; la rotación/revocación sigue siendo posible.
+5. **Superseded por FL-019.5 el 2026-09-23.** V1 deja de generar token/footer,
+   exponer GET/POST unsubscribe o bloquear nuevos envíos por ese mecanismo.
+   Migraciones, tablas y filas históricas se conservan para no destruir datos;
+   la decisión de producto no se interpreta como resolución de compliance.
 6. Con el scope delegado Microsoft `Mail.Send` aprobado no se pide
    `Mail.ReadWrite`. El flujo documentado por Microsoft para adjuntos Graph de
    3 MB o más usa upload session sobre un draft y requiere `Mail.ReadWrite`;
@@ -74,9 +70,8 @@ como retry seguro aun si Foloo deduplica la operación API.
   costo fijo menor que NAT Gateway pero no nulo. El despliegue debe verificar
   cuotas/costos reales de la cuenta. El API/DB siguen privados y el S3 de
   Content no se publica.
-- La dirección postal y responsable legal exactos quedan como pendiente de
-  compliance; no se inventan en código ni se usan para el mecanismo técnico
-  de opt-out.
+- Privacidad, dirección postal, responsable legal y requisitos de baja quedan
+  pendientes de compliance; no se inventan en código.
 
 Referencias técnicas: [Lambda VPC sin Internet en subnet pública](https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc-internet.html),
 [adjuntos grandes de Graph](https://learn.microsoft.com/en-us/graph/outlook-large-attachments),

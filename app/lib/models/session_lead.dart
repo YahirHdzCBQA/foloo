@@ -26,7 +26,7 @@ class SessionLead {
     this.uploadState = SessionUploadState.pending,
     this.mediaIncomplete = false,
     this.remoteRevision,
-    this.capturedBy = DemoEventData.capturePerson,
+    this.capturedBy = '',
   });
 
   final String localId;

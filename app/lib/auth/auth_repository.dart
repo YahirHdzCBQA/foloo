@@ -53,6 +53,24 @@ class AuthRepository extends ChangeNotifier {
     }
   }
 
+  Future<bool> signInWithProvider(AuthProvider provider) async {
+    _setState(const AuthState.initializing());
+    try {
+      final service = _service;
+      if (service is! SocialAuthService) {
+        throw const FolooAuthException(AuthFailureCode.socialLoginUnavailable);
+      }
+      final user = await (service as SocialAuthService).signInWithProvider(
+        provider,
+      );
+      _setState(AuthState.authenticated(user));
+      return true;
+    } catch (error) {
+      _setState(AuthState.error(error));
+      return false;
+    }
+  }
+
   Future<AuthSignUpResult?> signUp({
     required String email,
     required String password,

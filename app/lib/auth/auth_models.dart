@@ -6,6 +6,8 @@ library;
 
 enum AuthStatus { initializing, authenticated, unauthenticated, error }
 
+enum AuthProvider { google, microsoft }
+
 /// Stable UI-safe authentication failures; provider messages never reach UI.
 enum AuthFailureCode {
   invalidCredentials,
@@ -19,6 +21,7 @@ enum AuthFailureCode {
   rateLimited,
   invalidInput,
   unexpected,
+  socialLoginUnavailable,
 }
 
 class FolooAuthException implements Exception {

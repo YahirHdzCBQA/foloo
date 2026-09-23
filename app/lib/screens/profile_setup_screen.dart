@@ -16,9 +16,14 @@ import '../l10n/l10n.dart';
 
 /// Collects the minimum seller identity required before lead capture.
 class ProfileSetupScreen extends StatefulWidget {
-  const ProfileSetupScreen({required this.onContinue, super.key});
+  const ProfileSetupScreen({
+    required this.onContinue,
+    this.initialProfile = DemoProfile.empty,
+    super.key,
+  });
 
   final ValueChanged<DemoProfile> onContinue;
+  final DemoProfile initialProfile;
 
   @override
   State<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
@@ -26,10 +31,17 @@ class ProfileSetupScreen extends StatefulWidget {
 
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _name = TextEditingController(text: DemoAppData.profile.name);
-  final _company = TextEditingController(text: DemoAppData.profile.company);
+  late final TextEditingController _name;
+  late final TextEditingController _company;
   final _picker = ImagePicker();
   Uint8List? _profileBytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: widget.initialProfile.name);
+    _company = TextEditingController(text: widget.initialProfile.company);
+  }
 
   Future<void> _pickProfileImage(ImageSource source) async {
     try {

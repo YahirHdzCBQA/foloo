@@ -215,27 +215,15 @@ test("two legitimate follow-ups to one address send without an unsubscribe", asy
   assert.equal(first.providerCalls() + second.providerCalls(), 2);
 });
 
-test("recipient opt-out is persisted terminal and cannot be retried", async () => {
+test("historical opt-out state no longer blocks a new V1 follow-up", async () => {
   const value = harness({ optedOut: true });
-
-  await assert.rejects(
-    () =>
-      value.application.confirm(principal.userId, intent().followUpId, {
-        intentId: intent().id,
-      }),
-    (error: unknown) =>
-      error instanceof ApplicationError && error.code === "recipient_opted_out",
+  const result = await value.application.confirm(
+    principal.userId,
+    intent().followUpId,
+    { intentId: intent().id },
   );
-  assert.equal(value.intent().status, "error");
-  assert.equal(value.intent().errorCode, "recipient_opted_out");
-  assert.equal(value.providerCalls(), 0);
-  await assert.rejects(
-    () => value.application.retry(principal.userId, intent().id),
-    (error: unknown) =>
-      error instanceof ApplicationError &&
-      error.code === "email_retry_not_allowed",
-  );
-  assert.equal(value.providerCalls(), 0);
+  assert.equal(result.intent.status, "sent");
+  assert.equal(value.providerCalls(), 1);
 });
 
 test("attachment cancellation persists without calling a provider", async () => {

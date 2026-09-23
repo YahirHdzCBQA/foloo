@@ -44,6 +44,25 @@ class AppLocalizationsEs extends AppLocalizations {
   String get createAccount => 'Crear cuenta';
 
   @override
+  String get noAccountQuestion => '¿No tienes cuenta?';
+
+  @override
+  String get orContinueWith => 'o entra con';
+
+  @override
+  String get orUseEmail => 'o con tu correo';
+
+  @override
+  String get continueWithGoogle => 'Continuar con Google';
+
+  @override
+  String get continueWithMicrosoft => 'Continuar con Microsoft';
+
+  @override
+  String get authSocialUnavailable =>
+      'El acceso social todavía requiere configuración de Cognito. Puedes usar correo y contraseña.';
+
+  @override
   String get createAccountTitle => 'Crea tu cuenta';
 
   @override
@@ -207,6 +226,37 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get emailOnboardingWaiting =>
       'Completa la autorización en el navegador. Al volver, Foloo comprobará la conexión.';
+
+  @override
+  String get emailOnboardingPrivacy =>
+      'Foloo solo envía los correos de seguimiento que tú apruebas. No lee tu bandeja.';
+
+  @override
+  String get contentLibraryHelp =>
+      'Administra aquí los PDF que compartirás con tus leads. Asígnalos a eventos para adjuntarlos a sus correos de seguimiento.';
+
+  @override
+  String get createEventContentHelp =>
+      'El contenido elegido para este evento podrá adjuntarse a los seguimientos de sus leads.';
+
+  @override
+  String get exportCompleted => 'Exportación completada';
+
+  @override
+  String get emailNotSent => 'Sin seguimiento enviado';
+
+  @override
+  String get emailResendQuestion => '¿Enviar nuevamente?';
+
+  @override
+  String get emailResendWarning =>
+      'Esto crea un envío manual nuevo y podría entregar un duplicado.';
+
+  @override
+  String get emailResend => 'Reenviar';
+
+  @override
+  String get retry => 'Reintentar';
 
   @override
   String get emailSendingAccount => 'Cuenta de envío';
@@ -781,6 +831,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get emailReviewMessage => 'Mensaje';
 
   @override
+  String get emailReviewSignature => 'Firma';
+
+  @override
+  String get edit => 'Editar';
+
+  @override
   String get emailReviewRequired =>
       'Completa el asunto y el mensaje antes de continuar.';
 
@@ -832,17 +888,6 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get emailErrorDetail =>
       'El lead permanece guardado. Puedes reintentar desde Correo.';
-
-  @override
-  String get emailRecipientOptedOutTitle => 'Correo no enviado';
-
-  @override
-  String get emailRecipientOptedOutDetail =>
-      'El lead permanece guardado, pero el correo no se envió porque la dirección aparece dada de baja.';
-
-  @override
-  String get emailRecipientOptedOutStatus =>
-      'No enviado · Destinatario dado de baja';
 
   @override
   String get emailNotRetryableStatus => 'No enviado · No se puede reintentar';
@@ -945,11 +990,6 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get latestLeadData => 'Con los datos del último lead capturado';
-
-  @override
-  String emailPreviewServerHelp(Object source) {
-    return '$source · El aviso de privacidad y la baja se agregan del lado del servidor.';
-  }
 
   @override
   String recentEventHelp(Object date) {
@@ -1180,10 +1220,6 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get emailFooterGenericV1 =>
       'Recibiste este correo como seguimiento a nuestro encuentro.';
-
-  @override
-  String get emailUnsubscribeV1 =>
-      'Si prefieres no recibir más comunicaciones, puedes darte de baja aquí.';
 
   @override
   String get emailSignatureV1 => 'Firma';

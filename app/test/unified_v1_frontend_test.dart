@@ -452,52 +452,69 @@ void main() {
     await drawer(tester);
     await tester.tap(find.byKey(const Key('drawerEmail')));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('templateEdit-body')));
+    await tester.pump();
     final defaultBody = tester
         .widget<TextField>(find.byKey(const ValueKey('emailBody-event')))
         .controller!
         .text;
-    expect(defaultBody, startsWith('Hola {nombre},'));
-    expect(defaultBody, contains('Te comparto {contenido}'));
+    expect(defaultBody, contains('Nombre del contacto'));
+    expect(defaultBody, contains('Contenido'));
+    expect(defaultBody, isNot(contains('{nombre}')));
+    await tester.ensureVisible(find.byKey(const Key('templateEdit-signature')));
+    await tester.tap(find.byKey(const Key('templateEdit-signature')));
+    await tester.pump();
     expect(
       tester
           .widget<TextField>(find.byKey(const ValueKey('emailSignature-event')))
           .controller
           ?.text,
-      contains('{nombreVendedor}'),
+      contains('Tu nombre'),
     );
     final eventSubject = find.byKey(const ValueKey('emailSubject-event'));
-    await tester.enterText(eventSubject, 'Evento especial {evento}');
+    await tester.ensureVisible(find.byKey(const Key('templateEdit-subject')));
+    await tester.tap(find.byKey(const Key('templateEdit-subject')));
+    await tester.pump();
+    await tester.enterText(eventSubject, 'Evento especial');
     final subjectController = tester
         .widget<TextField>(eventSubject)
         .controller!;
     await tester.tap(eventSubject);
     subjectController.selection = const TextSelection.collapsed(offset: 7);
-    await tester.ensureVisible(find.byKey(const Key('variable-{nombre}')));
-    await tester.tap(find.byKey(const Key('variable-{nombre}')));
-    await tester.pump();
-    expect(subjectController.text, 'Evento {nombre}especial {evento}');
+    await tester.tap(find.byKey(const Key('templateLightning-subject')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('templateVariableChoice-{nombre}')));
+    await tester.pumpAndSettle();
+    expect(subjectController.text, contains('Nombre del contacto'));
+    expect(subjectController.text, isNot(contains('{nombre}')));
 
     final eventBody = find.byKey(const ValueKey('emailBody-event'));
-    await tester.ensureVisible(eventBody);
+    await tester.ensureVisible(find.byKey(const Key('templateEdit-body')));
+    await tester.tap(find.byKey(const Key('templateEdit-body')));
+    await tester.pump();
     final bodyController = tester.widget<TextField>(eventBody).controller!;
     await tester.tap(eventBody);
     bodyController.selection = const TextSelection(
       baseOffset: 0,
       extentOffset: 4,
     );
-    await tester.ensureVisible(find.byKey(const Key('variable-{empresa}')));
-    await tester.tap(find.byKey(const Key('variable-{empresa}')));
-    await tester.pump();
-    expect(bodyController.text, startsWith('{empresa}'));
+    await tester.tap(find.byKey(const Key('templateLightning-body')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('templateVariableChoice-{empresa}')));
+    await tester.pumpAndSettle();
+    expect(bodyController.text, contains('Empresa del contacto'));
+    expect(bodyController.text, isNot(contains('{empresa}')));
     await tester.ensureVisible(find.text('Lead directo'));
     await tester.tap(find.text('Lead directo'));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('templateEdit-subject')));
     await tester.pump();
     expect(
       tester
           .widget<TextField>(find.byKey(const ValueKey('emailSubject-direct')))
           .controller
           ?.text,
-      'Damos seguimiento, {nombre}',
+      contains('Nombre del contacto'),
     );
     await tester.enterText(
       find.byKey(const ValueKey('emailSubject-direct')),
@@ -517,6 +534,8 @@ void main() {
       await tester.tap(find.byKey(const Key('drawerEmail')));
       await tester.pumpAndSettle();
       final subject = find.byKey(const ValueKey('emailSubject-event'));
+      await tester.tap(find.byKey(const Key('templateEdit-subject')));
+      await tester.pump();
       await tester.enterText(subject, 'Personalizada {nombre}');
       await tester.tap(find.byKey(const Key('saveEmailTemplateButton')));
       await tester.pumpAndSettle();
@@ -540,19 +559,19 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Restaurar').last);
       await tester.pumpAndSettle();
-      expect(
-        tester.widget<TextField>(subject).controller?.text,
-        'Damos seguimiento, {nombre}',
-      );
+      expect(find.text('Nombre del contacto'), findsWidgets);
 
       await tester.tap(find.byIcon(Icons.arrow_back).first);
       await tester.pumpAndSettle();
       await drawer(tester);
       await tester.tap(find.byKey(const Key('drawerEmail')));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('templateEdit-subject')));
+      await tester.tap(find.byKey(const Key('templateEdit-subject')));
+      await tester.pump();
       expect(
         tester.widget<TextField>(subject).controller?.text,
-        'Personalizada {nombre}',
+        allOf(contains('Personalizada'), contains('Nombre del contacto')),
       );
 
       await tester.ensureVisible(
@@ -569,9 +588,12 @@ void main() {
       await drawer(tester);
       await tester.tap(find.byKey(const Key('drawerEmail')));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('templateEdit-subject')));
+      await tester.tap(find.byKey(const Key('templateEdit-subject')));
+      await tester.pump();
       expect(
         tester.widget<TextField>(subject).controller?.text,
-        'Damos seguimiento, {nombre}',
+        allOf(contains('Damos seguimiento'), contains('Nombre del contacto')),
       );
     },
   );

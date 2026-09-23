@@ -182,6 +182,11 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
           ],
         ),
         const SizedBox(height: 16),
+        Text(
+          context.l10n.createEventContentHelp,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 10),
         FilledButton.icon(
           key: const Key('createEventUploadContentButton'),
           onPressed: _uploadContent,
@@ -206,7 +211,7 @@ class _CreateEventDialogState extends State<_CreateEventDialog> {
           const SizedBox(height: 6),
           SizedBox(
             width: double.maxFinite,
-            height: 150,
+            height: 190,
             child: ListView(
               children: _availableFiles
                   .map(

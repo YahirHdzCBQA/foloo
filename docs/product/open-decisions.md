@@ -67,11 +67,10 @@ FL-019.5. No reabre ni cambia la semántica funcional cerrada de FL-019.
   asunto/cuerpo/firma editables. El asunto inicial aprobado es
   `Damos seguimiento, {nombre}` / `Following up, {nombre}`; aplica solo cuando
   no existe una plantilla persistida y no reescribe snapshots históricos.
-- `D-16`: footer fijo con enlace Foloo de opt-out owner/workspace-scoped. GET
-  valida y muestra landing sin efecto lateral; solo POST tras confirmación
-  explícita persiste la baja idempotente. El bloqueo posterior es terminal.
-  La dirección postal/responsable legal exacto sigue pendiente de compliance;
-  no se inventa ni bloquea el mecanismo técnico de baja.
+- `D-16` (superseded el 2026-09-23 por FL-019.5): el footer/enlace Foloo de
+  opt-out dejó de pertenecer a V1. Se conservan historia y tablas sin rutas ni
+  comportamiento activo. Esto no afirma cumplimiento; privacidad/base legal y
+  requisitos de baja siguen pendientes antes de Store Release.
 - `D-17`: Lead guardado abre la revisión concreta; solo el CTA `foloo` congela
   y envía o encola; sin email no crea envío; reenvío manual es nueva intención.
 - `D-18`: cinco estados visibles y no retry automático tras aceptación ambigua;

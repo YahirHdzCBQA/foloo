@@ -1,4 +1,4 @@
-/** Verifies D-16 requires a human confirmation before persisting opt-out. */
+/** Verifies FL-019.5 no longer exposes unsubscribe as a public route. */
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -44,26 +44,22 @@ function unsubscribeHarness() {
   return { request, optedOut, writes: () => writes };
 }
 
-test("GET and repeated scanner-like prefetches never create an opt-out", async () => {
+test("GET unsubscribe is no longer handled as a public endpoint", async () => {
   const value = unsubscribeHarness();
-
-  const first = await value.request("GET");
-  const second = await value.request("GET");
-
-  assert.equal(first.statusCode, 200);
-  assert.equal(second.statusCode, 200);
-  assert.match(first.body ?? "", /<form method="post"/);
+  await assert.rejects(
+    () => value.request("GET"),
+    /Authentication is required/,
+  );
   assert.equal(value.optedOut.size, 0);
   assert.equal(value.writes(), 0);
 });
 
-test("explicit POST creates one idempotent opt-out", async () => {
+test("POST unsubscribe is no longer handled as a public endpoint", async () => {
   const value = unsubscribeHarness();
-
-  assert.equal((await value.request("GET")).statusCode, 200);
-  assert.equal((await value.request("POST")).statusCode, 200);
-  assert.equal((await value.request("POST")).statusCode, 200);
-
-  assert.equal(value.optedOut.size, 1);
-  assert.equal(value.writes(), 1);
+  await assert.rejects(
+    () => value.request("POST"),
+    /Authentication is required/,
+  );
+  assert.equal(value.optedOut.size, 0);
+  assert.equal(value.writes(), 0);
 });

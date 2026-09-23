@@ -1,4 +1,4 @@
-/** Persistence contract for OAuth connections, follow-ups and opt-out state. */
+/** Persistence contract for OAuth connections and follow-up delivery state. */
 
 import type { Principal } from "../domain/models.js";
 import type {
@@ -88,12 +88,9 @@ export interface EmailRepository {
       footer: string;
       plainBody: string;
       htmlBody: string;
-      unsubscribeTokenHash: string;
-      recipientHash: string;
     },
   ): Promise<unknown>;
   listFollowUps(principal: Principal): Promise<unknown[]>;
-  isOptedOut(principal: Principal, recipientHash: string): Promise<boolean>;
   createIntent(
     principal: Principal,
     input: {
@@ -125,6 +122,4 @@ export interface EmailRepository {
     principal: Principal,
     intent: StoredSendIntent,
   ): Promise<HistoricalAttachment[]>;
-  isUnsubscribeTokenValid(tokenHash: string): Promise<boolean>;
-  optOut(tokenHash: string): Promise<boolean>;
 }

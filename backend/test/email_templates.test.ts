@@ -13,7 +13,7 @@ const url = "https://example.org/u/opaque";
 
 for (const language of ["es", "en"] as const) {
   for (const origin of ["event", "direct"] as const) {
-    test(`${origin}/${language} default uses structured context and fixed footer`, () => {
+    test(`${origin}/${language} default uses structured context without unsubscribe footer`, () => {
       const template = defaultEmailTemplate(origin, language);
       const rendered = renderEmailPreview(
         template,
@@ -40,7 +40,7 @@ for (const language of ["es", "en"] as const) {
       );
       assert.match(rendered.plainText, /Catálogo/);
       assert.match(rendered.plainText, /Sofía/);
-      assert.match(rendered.html, /href="https:\/\/example.org\/u\/opaque"/);
+      assert.doesNotMatch(rendered.html, /unsubscribe|darte de baja|href=/i);
       assert.doesNotMatch(rendered.html, /<img|background|gradient/i);
     });
   }
@@ -77,14 +77,14 @@ test("content names keep Unicode and use human readable conjunction", () => {
   assert.equal(contentNamesForEmail(["One", "Two"], "en"), "One and Two");
 });
 
-test("HTML escapes Lead data and requires HTTPS footer link", () => {
+test("HTML escapes Lead data without appending an unsubscribe link", () => {
   const template = defaultEmailTemplate("event", "es");
   const preview = renderEmailPreview(template, { nombre: "<Ana & Co>" }, url);
   assert.match(preview.html, /&lt;Ana &amp; Co&gt;/);
-  assert.throws(() => renderEmailPreview(template, {}, "javascript:alert(1)"));
+  assert.doesNotMatch(preview.html, /href=/);
 });
 
-test("an offline frozen snapshot is preserved while the server adds its footer", () => {
+test("an offline frozen snapshot is preserved without a server footer", () => {
   const preview = appendFixedEmailFooter(
     {
       subject: "Snapshot original",
@@ -97,6 +97,6 @@ test("an offline frozen snapshot is preserved while the server adds its footer",
   );
   assert.equal(preview.subject, "Snapshot original");
   assert.match(preview.plainText, /^Cuerpo revisado sin conexión/);
-  assert.match(preview.plainText, /Expo Norte/);
-  assert.match(preview.html, /href="https:\/\/example.org\/u\/opaque"/);
+  assert.equal(preview.plainText, "Cuerpo revisado sin conexión");
+  assert.doesNotMatch(preview.html, /href=/);
 });

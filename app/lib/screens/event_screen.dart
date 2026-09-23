@@ -42,7 +42,7 @@ class EventScreen extends StatefulWidget {
     this.ownerSub,
     this.templateRepository,
     this.eventEmailTemplateRepository,
-    this.profile = DemoAppData.profile,
+    this.profile = DemoProfile.empty,
     super.key,
   });
 

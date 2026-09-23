@@ -10,7 +10,7 @@ import '../models/email_review.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 
-/// Shows the saved lead summary and returns to clean capture after 3 seconds.
+/// Shows the saved lead summary and returns to clean capture after 7 seconds.
 class LeadConfirmationScreen extends StatefulWidget {
   const LeadConfirmationScreen({
     required this.record,
@@ -31,12 +31,13 @@ class LeadConfirmationScreen extends StatefulWidget {
 
 class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
   Timer? _returnTimer;
-  int _seconds = 3;
+  static const _automaticReturnSeconds = 7;
+  int _seconds = _automaticReturnSeconds;
 
   @override
   void initState() {
     super.initState();
-    // CAP-11: keep the approved short automatic return to a clean capture.
+    // CAP-11: allow enough time to read the truthful operation results.
     _returnTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       if (_seconds <= 1) {
@@ -195,7 +196,7 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
                 borderRadius: BorderRadius.circular(99),
                 child: LinearProgressIndicator(
                   key: const Key('confirmationCountdownProgress'),
-                  value: _seconds / 3,
+                  value: _seconds / _automaticReturnSeconds,
                   minHeight: 3,
                   backgroundColor: palette.line,
                   valueColor: AlwaysStoppedAnimation<Color>(palette.ink),
@@ -260,13 +261,6 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
           context.l10n.emailConfirmationRequired,
           context.l10n.emailAmbiguousDetail,
           EmailReviewOutcome.confirmationRequired,
-        ));
-        break;
-      case EmailReviewOutcome.recipientOptedOut:
-        rows.add((
-          context.l10n.emailRecipientOptedOutTitle,
-          context.l10n.emailRecipientOptedOutDetail,
-          EmailReviewOutcome.recipientOptedOut,
         ));
         break;
       case EmailReviewOutcome.error:

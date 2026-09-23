@@ -23,7 +23,7 @@ ownership por su Lead o archivo. Email nunca sustituye el identificador estable.
 - Conexión de correo/follow-up: ADR-006 fija la relación Cognito
   `sub`/workspace → identidad Google/Microsoft autorizada. Plantillas
   Event/Direct por idioma, intención de envío, intento, snapshot de remitente,
-  adjuntos y opt-out deben ser owner-scoped. La intención confirmada es distinta
+  adjuntos deben ser owner-scoped. La intención confirmada es distinta
   de la preparación tras guardar Lead y del retry técnico. Un timeout tras
   posible aceptación del proveedor deja Estado por confirmar, no retry ciego.
   El default del vendedor se identifica por owner/origen/idioma y el override

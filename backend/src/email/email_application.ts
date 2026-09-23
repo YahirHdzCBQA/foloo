@@ -4,7 +4,6 @@ import { randomUUID } from "node:crypto";
 import { ApplicationError } from "../application/errors.js";
 import type { FolooRepository } from "../application/ports.js";
 import {
-  appendFixedEmailFooter,
   contentNamesForEmail,
   defaultEmailTemplate,
   renderEmailPart,
@@ -14,8 +13,6 @@ import {
 import {
   incompatibleAttachments,
   maskedAddress,
-  normalizedRecipient,
-  opaqueToken,
   tokenHash,
   type EmailProviderName,
 } from "../domain/email_follow_ups.js";
@@ -129,23 +126,13 @@ export class EmailApplication {
       context.contentNames,
       language,
     );
-    const unsubscribeToken = opaqueToken();
-    const unsubscribeUrl = `${this.publicBaseUrl}/v1/email/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
     const rendered = frozen
-      ? appendFixedEmailFooter(
-          {
-            subject: frozen.subject,
-            plainText: frozen.plainBody,
-            html: frozen.htmlBody,
-          },
-          language,
-          context.origin === "event"
-            ? (context.values.evento ?? "")
-            : (context.values.lugar ?? ""),
-          unsubscribeUrl,
-        )
-      : renderEmailPreview(template, context.values, unsubscribeUrl);
-    const footerStart = rendered.plainText.lastIndexOf("\n\n");
+      ? {
+          subject: frozen.subject.replace(/[\r\n]+/g, " ").trim(),
+          plainText: frozen.plainBody.trim(),
+          html: frozen.htmlBody,
+        }
+      : renderEmailPreview(template, context.values);
     const value = await this.repository.createFollowUp(principal, {
       id,
       context,
@@ -153,11 +140,9 @@ export class EmailApplication {
       subject: rendered.subject,
       body: template.body,
       signature: template.signature,
-      footer: footerStart >= 0 ? rendered.plainText.slice(footerStart + 2) : "",
+      footer: "",
       plainBody: rendered.plainText,
       htmlBody: rendered.html,
-      unsubscribeTokenHash: tokenHash(unsubscribeToken),
-      recipientHash: tokenHash(normalizedRecipient(context.recipientAddress)),
     });
     return {
       ...(value as object),
@@ -234,20 +219,6 @@ export class EmailApplication {
       return { intent: ambiguous };
     }
     if (intent.status !== "pending") return { intent };
-    const recipientHash = tokenHash(
-      normalizedRecipient(intent.recipientAddress),
-    );
-    if (await this.repository.isOptedOut(principal, recipientHash)) {
-      await this.repository.finishIntent(principal, intent.id, {
-        status: "error",
-        errorCode: "recipient_opted_out",
-      });
-      throw new ApplicationError(
-        "recipient_opted_out",
-        409,
-        "This recipient opted out of follow-up email.",
-      );
-    }
     const attachments = await this.repository.intentAttachments(
       principal,
       intent,
@@ -297,12 +268,6 @@ export class EmailApplication {
         "ambiguous_send",
         409,
         "The previous email may have been sent. Use manual resend.",
-      );
-    if (intent.errorCode === "recipient_opted_out")
-      throw new ApplicationError(
-        "email_retry_not_allowed",
-        409,
-        "An opted-out recipient cannot be retried.",
       );
     if (intent.status !== "error")
       throw new ApplicationError(
@@ -412,15 +377,5 @@ export class EmailApplication {
       acceptedSenderAddress:
         result.outcome === "accepted" ? intent.senderAddress! : undefined,
     });
-  }
-
-  async validateUnsubscribe(token: string) {
-    if (token.length < 32) return false;
-    return this.repository.isUnsubscribeTokenValid(tokenHash(token));
-  }
-
-  async unsubscribe(token: string) {
-    if (token.length < 32) return false;
-    return this.repository.optOut(tokenHash(token));
   }
 }

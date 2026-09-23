@@ -11,7 +11,7 @@ import 'auth_service.dart';
 
 typedef FakeUserIdFactory = String Function();
 
-class DevelopmentAuthService implements AuthService {
+class DevelopmentAuthService implements AuthService, SocialAuthService {
   DevelopmentAuthService(this._store, {FakeUserIdFactory? userIdFactory})
     : _userIdFactory = userIdFactory ?? _defaultUserId;
 
@@ -71,6 +71,12 @@ class DevelopmentAuthService implements AuthService {
     await _store.writeSession(user);
     return user;
   }
+
+  @override
+  Future<AuthUser> signInWithProvider(AuthProvider provider) => signIn(
+    username: '${provider.name}@development.foloo.local',
+    password: 'development-social-session',
+  );
 
   @override
   Future<void> signOut() => _store.clearSession();

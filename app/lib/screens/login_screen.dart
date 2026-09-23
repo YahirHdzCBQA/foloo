@@ -16,12 +16,14 @@ typedef LoginRequested = Future<bool> Function(
   String username,
   String password,
 );
+typedef SocialLoginRequested = Future<bool> Function(AuthProvider provider);
 
 /// Collects account credentials before entering profile and origin setup.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
     required this.onAuthenticated,
     required this.onCreateAccount,
+    this.onSocialAuthenticated,
     this.authenticating = false,
     this.failure,
     this.accountConfirmed = false,
@@ -30,6 +32,7 @@ class LoginScreen extends StatefulWidget {
 
   final LoginRequested onAuthenticated;
   final VoidCallback onCreateAccount;
+  final SocialLoginRequested? onSocialAuthenticated;
   final bool authenticating;
   final AuthFailureCode? failure;
   final bool accountConfirmed;
@@ -205,22 +208,81 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                               ],
-                              const SizedBox(height: 8),
-                              TextButton(
-                                key: const Key('openSignUpButton'),
-                                onPressed: widget.authenticating
-                                    ? null
-                                    : widget.onCreateAccount,
-                                style: TextButton.styleFrom(
-                                  foregroundColor: theme.colorScheme.onSurface,
-                                ),
-                                child: Text(context.l10n.createAccount),
-                              ),
                             ],
                           ),
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 18),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 28),
+                        child: Row(
+                          children: [
+                            const Expanded(child: Divider()),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: Text(context.l10n.orContinueWith),
+                            ),
+                            const Expanded(child: Divider()),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 28),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _SocialButton(
+                              key: const Key('loginGoogleButton'),
+                              icon: Icons.alternate_email,
+                              label: context.l10n.continueWithGoogle,
+                              onPressed:
+                                  widget.authenticating ||
+                                      widget.onSocialAuthenticated == null
+                                  ? null
+                                  : () => widget.onSocialAuthenticated!(
+                                      AuthProvider.google,
+                                    ),
+                            ),
+                            const SizedBox(height: 12),
+                            _SocialButton(
+                              key: const Key('loginMicrosoftButton'),
+                              icon: Icons.business_outlined,
+                              label: context.l10n.continueWithMicrosoft,
+                              onPressed:
+                                  widget.authenticating ||
+                                      widget.onSocialAuthenticated == null
+                                  ? null
+                                  : () => widget.onSocialAuthenticated!(
+                                      AuthProvider.microsoft,
+                                    ),
+                            ),
+                            const SizedBox(height: 14),
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                Text(context.l10n.noAccountQuestion),
+                                OutlinedButton.icon(
+                                  key: const Key('openSignUpButton'),
+                                  onPressed: widget.authenticating
+                                      ? null
+                                      : widget.onCreateAccount,
+                                  icon: const Icon(
+                                    Icons.person_add_alt_1_outlined,
+                                  ),
+                                  label: Text(context.l10n.createAccount),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       const Align(
                         alignment: Alignment.center,
                         child: LanguageSelector(),
@@ -286,20 +348,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                  if (!keyboardVisible)
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(0, 18, 0, 14),
-                      child: Text(
-                        'Foloo v1.0.4 · CBQA Solutions',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: FolooBrand.gray,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ),
+                  if (!keyboardVisible) const SizedBox(height: 14),
                 ],
               ),
             ),
@@ -308,6 +357,32 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+}
+
+class _SocialButton extends StatelessWidget {
+  const _SocialButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    super.key,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => OutlinedButton.icon(
+    onPressed: onPressed,
+    icon: Icon(icon),
+    label: Text(label),
+    style: OutlinedButton.styleFrom(
+      foregroundColor: Theme.of(context).colorScheme.onSurface,
+      minimumSize: const Size.fromHeight(54),
+      side: BorderSide(color: Theme.of(context).colorScheme.outline),
+      shape: const StadiumBorder(),
+    ),
+  );
 }
 
 class _FieldLabel extends StatelessWidget {

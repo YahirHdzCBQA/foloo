@@ -165,6 +165,17 @@ class _ContentScreenState extends State<ContentScreen> {
             onBack: () => widget.onDestinationSelected(AppDestination.home),
           ),
           Divider(height: 1, color: palette.line),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+            child: Text(
+              context.l10n.contentLibraryHelp,
+              style: TextStyle(
+                color: palette.inkSecondary,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ),
           if (widget.files.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),

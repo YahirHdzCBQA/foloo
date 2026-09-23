@@ -38,7 +38,7 @@ enum EmailReviewOutcome {
   pending,
   sending,
   sent,
-  recipientOptedOut,
+
   error,
   confirmationRequired,
   connectionRequired,
