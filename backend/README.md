@@ -1,17 +1,17 @@
-# Foloo backend — FL-014 to FL-016
+# Foloo backend — Foloo V1
 
 Node.js 22 + TypeScript foundation for the protected Foloo `/v1` API. It is a
 modular serverless monolith: API Gateway HTTP API validates Cognito JWTs, one
 application Lambda derives ownership from `sub`, and PostgreSQL runs privately
-on RDS. Flutter is not connected yet; Drift remains the write-first authority.
+on RDS. Flutter stays write-first in Drift and synchronizes through the outbox.
 
 ## Boundaries
 
 Implemented: account/workspace bootstrap, seller profile, events, leads, lead
 media metadata, validation, idempotent creates, safe errors, migrations,
-structured logging and FL-016 private S3 media transfer. Mobile sync uses the
-existing Flutter outbox. Not implemented: PDF/content upload, email,
-payments/trial, Teams, transcription or later-phase integrations.
+structured logging, private S3 media/Content transfer, Event/Lead sync and the
+FL-019 Google/Microsoft email boundary. Mobile sync uses the Flutter outbox.
+Not implemented: payments/trial, Teams, transcription or later phases.
 
 The OpenAPI contract is in `openapi/foloo-v1.yaml`. `ownerId`, `workspaceId`,
 `sub` and email from request payloads are never authorization inputs.

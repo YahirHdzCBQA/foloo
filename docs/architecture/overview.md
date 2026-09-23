@@ -147,6 +147,7 @@ No forman parte de V1 Google Sheets, Transcribe/IA, QR, Teams o HQ dashboard.
 ## Decisiones pendientes
 
 Ver `../product/open-decisions.md`: pago/tiendas,
-precio/vencimiento/reembolso, Voice Note, edición post-guardado, contrato de
-correo, Teams, mockups y retención. La base cloud quedó resuelta por ADR-003;
-la elección de proveedores de correo, por ADR-006.
+precio/vencimiento/reembolso, Voice Note, edición post-guardado, Teams, mockups
+y retención. La base cloud quedó resuelta por ADR-003 y el contrato/proveedores
+de correo por ADR-006/007. Solo el polish visual de Review espera mockup en
+FL-019.5.

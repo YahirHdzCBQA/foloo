@@ -17,8 +17,9 @@ ownership por su Lead o archivo. Email nunca sustituye el identificador estable.
 - LeadMedia: tarjeta, Voice Note o imagen de referencia, ruta privada local.
 - Preferencia: clave/valor por owner.
 - Content/PDF: id, owner, nombre visible, nombre de archivo, peso,
-  asignación a eventos o todos, ruta privada, revisión y tombstone. Plantilla
-  y suscripción todavía no tienen un modelo productivo durable completo.
+  asignación a eventos o todos, ruta privada, revisión y tombstone. Plantillas,
+  preparaciones e intenciones de correo tienen modelo durable; suscripción aún
+  no tiene un modelo productivo completo.
 - Conexión de correo/follow-up: ADR-006 fija la relación Cognito
   `sub`/workspace → identidad Google/Microsoft autorizada. Plantillas
   Event/Direct por idioma, intención de envío, intento, snapshot de remitente,

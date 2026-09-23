@@ -11,7 +11,7 @@
 | `SYN-*` | E-05/E-09/E-13 | ADR-001/003/004/005; D-13 | Drift, outbox owner-scoped, retry/reconciliación FL-015 y transferencia media FL-016 |
 | `REG-*` | E-06/E-10 | ADR-001/004; D-06 | FL-017: filtro/detalle/edición optimista y export XLSX/CSV local; f1-16–19, f2-06/07, f5-12 |
 | `CON-*` | E-07 | D-11/D-13 | FL-018: 25 MB/PDF, copia privada durable, outbox/S3 y tombstone; D-11 afecta solo fidelidad visual y D-13 retención física; f2-01–03 |
-| `PLT-*`, `SAL-*` | E-01/E-08 | ADR-006/007; D-09 y D-14–D-20 resueltas | FL-019: renderer/editor, Drift v10 con segmentos semánticos y dirty state independiente para asunto/cuerpo, jerarquía Foloo→seller→Event→concrete, preparación única reconciliable antes de `foloo` y snapshot congelado al confirmar, estado Drift reactivo, follow-up e intent outbox, OAuth state+PKCE, Gmail/Graph, KMS, attachments D-19, opt-out y API/SQL 004–006. Pendiente deploy/QA final; no cerrar; f2-04/05, f4-04/12 |
+| `PLT-*`, `SAL-*` | E-01/E-08 | ADR-006/007; D-09 y D-14–D-20 resueltas | FL-019 CLOSED y validada físicamente: renderer/editor, Drift v10 con segmentos semánticos y dirty state independiente, jerarquía Foloo→seller→Evento, preparación única reconciliable antes de `foloo`, snapshot congelado, estado Drift reactivo, outbox, OAuth state+PKCE, Gmail/Graph, KMS, D-19 y opt-out. FL-019.5 queda limitada al polish visual de Review y espera mockup; f2-04/05, f4-04/12 |
 | `NAV-*` | E-12 | ADR-001 | drawer/theme/l10n; f1-15/25/26 |
 | `MON-*` | E-11 | D-01–D-04/D-11 | sin implementación; f3-01–08 |
 | `INF-*`, `RC-*` | E-09/E-12/E-13 | ADR-001/002/003/005/006/007; D-10/D-13 | backend AWS FL-014 y S3 privado/presigned/confirmación FL-016; FL-019 implementa egreso seguro y opt-out técnico; compliance postal sigue pendiente |
@@ -55,7 +55,7 @@ interna sea reutilizable.
 | f1-01 | I | `auth/`, Login/SignUp/Confirm, Cognito runtime y auth tests | FL-013A/B; validación manual pendiente |
 | f1-02 | P | `ProfileSetupScreen`, ProfileRepository | FL-013A; faltan puesto/teléfono y edición completa |
 | f1-03 | I | origin screen, `LeadOriginKind`, lugar y persistence | FL-013 + tests de navegación |
-| f1-04 | I | EventScreen, confirmación, EventRepository, outbox y POST/PUT/DELETE remoto con tombstone | FL-017 estabilización; tests Drift/sync/backend/UI |
+| f1-04 | I | EventScreen, confirmación, EventRepository, outbox y POST/PUT/DELETE remoto con tombstone | FL-017 CLOSED; tests Drift/sync/backend/UI y QA física |
 | f1-05 | I | `EventSelectionPolicy`, preferencia manual y refresh diario | FL-013A refinement |
 | f1-06 | I | LeadCaptureScreen: scroll, progreso y dock | FL-002/008/010 |
 | f1-07 | P | ML Kit, parser/preprocessor, reprocesar y tests | FL-005/011; falta campaña de precisión real |
@@ -72,7 +72,7 @@ interna sea reutilizable.
 | f1-18 | I | detalle edita solo campos REG-07, Drift-first + PUT optimista | FL-017; tests de repositorio/sync/backend |
 | f1-19 | I | visor modal de tarjeta desde detalle | FL-010/013 |
 | f1-20 | P | varios estados usan icono/palabra | FL-010; falta auditoría global |
-| f1-21 | P | PrivateMediaStorage persiste tarjeta/voz; FL-016 añade subida S3 | falta validación AWS DEV/retención D-13 |
+| f1-21 | I | PrivateMediaStorage persiste tarjeta/voz y FL-016 añade subida S3 validada | FL-016 CLOSED; retención legal/física sigue en D-13 |
 | f1-22 | I | reproducción, pausa, borrado y regrabación antes/después cubiertos por widget tests | FL-006/010/013; política remota futura sigue en D-06 |
 | f1-23 | F | no existe tope productivo | bloqueado D-05 |
 | f1-24 | I | multi-photo, Drift media y visor disponibles para toda cuenta | FL-013A refinement/013D |
@@ -83,11 +83,11 @@ interna sea reutilizable.
 
 | ID | Estado | Evidencia actual | Cobertura / siguiente FL |
 |---|:---:|---|---|
-| f2-01 | P | ContentScreen y ContentFile demo, filtro visual | FL-009/012.1; sin repositorio durable |
-| f2-02 | P | PdfPickerService, empty state y assignment sheet | FL-012.1; no persiste/sube |
-| f2-03 | P | UI edita eventos/elimina en memoria | FL-009; falta persistencia/S3 |
-| f2-04 | I | FL-019: EmailScreen Event/Direct ES/EN persiste en Drift v8; preview usa Lead real y el snapshot revisado queda congelado en la outbox; renderer backend conserva whitelist y agrega footer fijo | Configuración externa, deploy y validación física pendientes |
-| f2-05 | I | Follow-up e intención owner-scoped, confirmación explícita, Gmail/Graph, D-19, reintento seguro, estado ambiguo y reenvío manual implementados localmente | FL-019, ADR-006/007; deploy y QA física pendientes |
+| f2-01 | I | ContentScreen y repositorio durable owner-scoped con biblioteca/filtro | FL-018 CLOSED; QA física |
+| f2-02 | I | PdfPickerService, copia privada, visor offline, outbox y S3 | FL-018 CLOSED; límite 25 MB validado |
+| f2-03 | I | asignación Event↔Content y tombstone sin resurrección ni cascada destructiva | FL-018 CLOSED; D-13 conserva cleanup físico abierto |
+| f2-04 | I | FL-019: EmailScreen Event/Direct ES/EN persiste en Drift v10; preview usa Lead real y el snapshot revisado queda congelado en la outbox; renderer backend conserva whitelist y footer fijo | FL-019 CLOSED; QA física final aprobada |
+| f2-05 | I | Follow-up e intención owner-scoped, confirmación explícita, Gmail/Graph, D-19, reintento seguro, estado ambiguo, opt-out y reenvío manual | FL-019 CLOSED; ADR-006/007; QA física final aprobada |
 | f2-06 | I | XLSX real por evento, columnas/filename ES/EN y share sheet | FL-017; `records_export_service_test.dart` |
 | f2-07 | I | CSV BOM UTF-8, RFC 4180, Unicode y share sheet | FL-017; `records_export_service_test.dart` |
 
@@ -110,16 +110,16 @@ interna sea reutilizable.
 |---|:---:|---|---|
 | f4-01 | P | modelo/repositorios locales Drift | FL-012/013A; faltan API/cloud |
 | f4-02 | P | Cognito real y `sub` ownership | FL-013B; workspace remoto no existe |
-| f4-03 | P | storage privado local + implementación S3 directa/segura | FL-012/016; falta deploy DEV y retención D-13 |
-| f4-04 | F | sin servicio de correo/dominio/rebotes | FL-019: ADR-006/007; D-14–D-20 resueltas |
-| f4-05 | F | confirmación informa solo el guardado local real | Google Sheets sigue fuera de V1; salida remota pendiente |
+| f4-03 | I | storage privado local + S3 directo/seguro desplegado y validado | FL-016/018 CLOSED; retención D-13 abierta |
+| f4-04 | I | frontera de proveedor Google/Microsoft, OAuth, Gmail/Graph, opt-out y estados remotos | FL-019 CLOSED; ADR-006/007; rebote posterior no se inventa como entrega |
+| f4-05 | I | confirmación distingue guardado local, pendiente offline, aceptación remota y estado ambiguo | FL-019 CLOSED; Google Sheets sigue fuera de V1 |
 | f4-06 | F | no hay modelo org/teams aprobado | bloqueado D-10 |
 | f4-07 | P | config Cognito DEV/PROD centralizada | FL-013B; sin staging/secret ops |
 | f4-08 | F | sin CI/CD/distribución documentada | FL plataforma |
 | f4-09 | F | sin observabilidad/alerta sync | FL plataforma |
 | f4-10 | F | sin backup/retención/borrado | bloqueado D-13 |
 | f4-11 | F | sin modelo de costo por vendedor | FL infraestructura |
-| f4-12 | F | sin autenticación/reputación de identidades de envío | ADR-006; falta implementación y cumplimiento |
+| f4-12 | P | identidad OAuth efectiva y aislamiento implementados; footer/opt-out técnico operativos | FL-019 CLOSED; dirección postal/responsable legal exactos siguen en compliance |
 
 ## F5 · Salida a producción (12)
 
@@ -136,7 +136,7 @@ interna sea reutilizable.
 | f5-09 | P | permisos cámara/micrófono existen | faltan privacidad/términos/suscripción |
 | f5-10 | F | sin envío/revisión de tiendas | salida a producción |
 | f5-11 | F | sin tag/release notes/soporte V1 | salida a producción |
-| f5-12 | F | sin generador XLSX/CSV | después de f2-06/f2-07 |
+| f5-12 | I | exportador XLSX/CSV real, Unicode y share sheet | FL-017 CLOSED; f2-06/f2-07 |
 
 ## Convergencia de runtime completada en FL-013D
 
@@ -158,8 +158,8 @@ interna sea reutilizable.
 - `backend/infra/` define API Gateway JWT, Lambda/VPC, RDS privado, SGs y
   Secrets Manager sin recrear Cognito.
 - `backend/openapi/foloo-v1.yaml` es el contrato desplegable de los endpoints
-  implementados. FL-015 conecta sync y FL-016 agrega autorización/confirmación
-  de medios privados; su despliegue DEV todavía no se presume.
+  implementados. FL-015 conecta sync; FL-016/018 agregan
+  autorización/confirmación de medios y Content privados, y FL-019 el correo.
 
 ## FL históricas con evidencia reutilizable
 
@@ -177,6 +177,7 @@ interna sea reutilizable.
 
 ## Conclusión
 
-El repositorio ya tiene base móvil local, API/sync y almacenamiento S3 de medios
-implementados, pero no una V1 productiva. Faltan validación AWS de FL-016,
-detalle editable, PDF/contenido, correo, export real, monetización y tiendas.
+El repositorio ya tiene base móvil local, API/sync, almacenamiento S3, edición y
+exportación de Registros, Content/PDF y correo productivo validados. Permanecen
+monetización, hardening, QA E2E y tiendas según FL-020–FL-024; FL-019.5 será
+únicamente polish visual de Review cuando exista mockup aprobado.

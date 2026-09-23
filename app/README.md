@@ -10,13 +10,14 @@ el runtime no contiene selector ni gating por edición.
 - Drift/SQLite y medios privados locales.
 - Outbox persistente y sync autenticado contra la API Foloo (`SYN-04`–`SYN-10`).
 - Evento/directo, ML Kit, Voice Note, imágenes de referencia y Registros.
-- Tema claro/oscuro, ES/EN, contenido/plantillas demo y selector PDF.
+- Tema claro/oscuro, ES/EN, Content/PDF durable, plantillas y correo
+  Google/Microsoft, edición de Registros y exportación XLSX/CSV por evento.
 
 ## Límites actuales
 
-FL-015 no sube binarios: S3 corresponde a FL-016. Tampoco existen todavía
-correo productivo, exportación real ni monetización. Google Sheets y
-transcripción automática no pertenecen a V1. Consulta
+La monetización comienza en FL-020. Google Sheets y transcripción automática no
+pertenecen a V1. FL-019 está cerrada; FL-019.5 espera mockup y solo podrá pulir
+visualmente Review sin cambiar su semántica. Consulta
 `../docs/delivery/traceability.md`.
 
 La URL DEV está centralizada en `FolooApiConfiguration.dev` y puede sustituirse

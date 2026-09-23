@@ -52,9 +52,8 @@ no demuestra control del buzón externo.
 - `D-14`–`D-20` quedaron resueltas por Producto en `PLT-*`, `SAL-*` y E-08;
   esta ADR sigue delimitando proveedor/identidad, no duplica el texto del
   mensaje ni su lifecycle.
-- El backend actual corre en subredes aisladas sin NAT. Gmail API, Graph y
-  endpoints OAuth son públicos: FL-019 deberá justificar una vía de salida
-  segura antes de usarlos; esta ADR no selecciona NAT ni otra topología.
+- El backend principal corre en subredes aisladas sin NAT. ADR-007 resolvió el
+  egreso mediante una frontera Lambda sin VPC, sin acceso a PostgreSQL.
 
 ## Alternativas no elegidas para el follow-up V1
 

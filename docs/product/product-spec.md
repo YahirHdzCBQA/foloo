@@ -346,5 +346,6 @@ una actualización explícita. Por ello XLSX/CSV reingresan a V1 y Google Sheets
 permanece backlog. ML Kit local reemplaza la antigua dirección de OCR remoto y
 la transcripción automática queda fuera. Las decisiones de producto
 2026-09-18 resuelven `D-09` y `D-14`–`D-20` mediante `PLT-*`/`SAL-*`, E-08 y
-ADR-006/007. FL-019 permanece OPEN hasta implementación, despliegue y
-validación física.
+ADR-006/007. FL-019 quedó CLOSED tras implementación, despliegue y validación
+física final el 2026-09-22. El polish visual posterior de Review pertenece a
+FL-019.5, espera mockup aprobado y no altera este contrato funcional.

@@ -41,7 +41,9 @@ idempotentes y reconciliación local-first.
 - Trazas: `SYN-04`–`SYN-10`, `RNF-07`.
 - ADR-004 define idempotencia, aislamiento y política conservadora de conflictos.
 
-## FL-016 — Media & Content Storage / S3 (implementada en repositorio)
+## FL-016 — Media & Content Storage / S3
+
+**Estado:** **CLOSED, desplegado y validado físicamente.**
 
 **Objetivo:** subir/reanudar Leads y binarios sin pérdidas/duplicados.
 
@@ -50,14 +52,12 @@ idempotentes y reconciliación local-first.
 - Bucket privado cifrado, sin NAT; Lambda verifica por endpoint Gateway S3.
 - PostgreSQL conserva metadata/estado mediante migration 002; no binarios.
 - Trazas: `SYN-04`–`SYN-10`, `INF-02`, `RC-02`, `RC-03`.
-- Validación AWS DEV y política final de retención siguen pendientes. D-05 no
-  impide el techo técnico antiabuso; el contrato PDF se definió en FL-018 y
-  D-13 no se considera resuelta.
+- La política final de retención sigue pendiente en D-13; D-05 no impide el
+  techo técnico antiabuso y el contrato PDF quedó definido en FL-018.
 
 ## FL-017 — Records + XLSX/CSV Export
 
-**Estado:** estabilización en repositorio; pendiente deploy DEV y nueva validación
-física sobre la misma instalación de iPhone. No cerrar todavía.
+**Estado:** **CLOSED, desplegado y validado físicamente.**
 
 - Records local-first, detalle y edición estructurada con revisión optimista.
 - Exportación local por evento a XLSX/CSV y hoja de compartir.
@@ -65,6 +65,8 @@ física sobre la misma instalación de iPhone. No cerrar todavía.
 - `D-07` resuelta el 2026-09-15; `D-06` sigue bloqueando edición de medios.
 
 ## FL-018 — Content/PDF
+
+**Estado:** **CLOSED, desplegado y validado físicamente.**
 
 **Objetivo:** sustituir contenido PDF demo por persistencia local/remota.
 
@@ -74,41 +76,27 @@ física sobre la misma instalación de iPhone. No cerrar todavía.
 
 ## FL-019 — Email/Templates
 
-**Objetivo:** plantillas productivas y envío server-side con cumplimiento.
+**Estado:** **CLOSED, desplegado y validado físicamente el 2026-09-22.**
 
-- Trazas: `PLT-*`, `SAL-*`, `RC-01`, E-08; ADR-006.
+- Entrega validada: Gmail OAuth/send, Microsoft OAuth/Graph, defaults Foloo y
+  seller, overrides por Evento, Capture → Review → `foloo`, reconciliación
+  semántica con ediciones manuales, múltiples PDF, D-19, preservación de Voice
+  Note, preparación/intención únicas, estados reactivos, outbox offline,
+  unsubscribe GET + POST explícito, terminal `recipient_opted_out`, ES/EN y
+  correcciones de teclado/foco/selección.
+- Trazas: `PLT-*`, `SAL-*`, `RC-01`, E-08; ADR-006/007.
 - D-09 resuelta el 2026-09-18: cuenta autorizada del vendedor, Google OAuth +
   Gmail API y Microsoft OAuth + Graph; sin SES/SMTP para follow-ups.
-- D-14–D-20 resueltas el 2026-09-18; implementar el contrato de E-08 y el
-  egreso seguro documentado en ADR-007. No cerrar hasta deploy y validación
-  física Google, Microsoft, offline, adjuntos, baja y anti-duplicados.
-- Implementación local 2026-09-18: OAuth Google/Microsoft, follow-up/outbox,
-  Gmail/Graph, adjuntos, opt-out, KMS y Lambda de egreso separada. Microsoft
-  conserva `Mail.Send` y nunca eleva a `Mail.ReadWrite`; sigue pendiente la
-  configuración externa, deploy y validación física.
-- QA Google 2026-09-19 confirmó autorización/callback real. El ajuste vigente
-  añade cuenta de envío opcional después del perfil, grandfathering de perfiles
-  existentes y refresh backend-authoritative al volver de OAuth/Correo; no
-  confunde la cuenta Cognito con el remitente ni condiciona captura.
-- Corrección local 2026-09-20: Guardar → Revisar → `foloo`, snapshot concreto
-  antes de outbox, confirmación online/offline veraz, asunto renderizado en
-  backend y aceptación Graph `202` sin cuerpo. Pendiente deploy y QA física.
-- Corrección local 2026-09-21: la baja requiere GET de confirmación sin efecto
-  lateral y POST explícito; opt-out/retry prohibido quedan terminales en app y
-  outbox. Pendiente redeploy y QA física.
-- Corrección local 2026-09-21: jerarquía Foloo→seller→override de Evento,
-  restauración no destructiva, preparación única por Lead, Voice Note estable
-  al volver de Review y estados reactivos desde Drift. FL-019 permanece abierta
-  hasta QA física y aplicación de la migración 006 en un futuro deploy.
-- Corrección local 2026-09-22: la preparación única se reconcilia antes de
-  `foloo` con campos y selección Content actuales del Lead, conserva texto
-  editado manualmente en Review y congela exactamente ese estado al confirmar.
-  FL-019 permanece abierta hasta QA física de esta consistencia final.
-- Corrección local 2026-09-22: asunto y cuerpo ahora conservan en Drift v10
-  segmentos literales/tokens y dirty state independientes. Los literales de
-  Review sobreviven Back/offline/restart, los tokens D-14 reflejan el Lead
-  vigente sin reemplazo global y `foloo` sigue siendo el punto de freeze.
-  FL-019 permanece abierta hasta QA física del caso Juan→Pedro→Carlos.
+- D-14–D-20 quedaron resueltas y validadas dentro del contrato de E-08.
+
+## FL-019.5 — Email Review Visual Polish
+
+**Estado:** **PENDIENTE DE MOCKUP; no iniciar hasta recibirlo.**
+
+- Rediseño visual exclusivamente de Review. No inventar diseño.
+- No cambia lifecycle, persistencia, templates, reconciliación semántica,
+  adjuntos, intención, outbox, Gmail, Graph, unsubscribe ni lógica offline.
+- La semántica funcional cerrada en FL-019 permanece inmutable.
 
 ## FL-020 — Trial & Subscription Foundation
 

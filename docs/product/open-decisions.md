@@ -47,10 +47,11 @@ construir dashboard o roles en V1.
 ### `D-11` · Mockups faltantes
 
 Faltan diseños aprobados de paywall, confirmación de pago, subida de PDF,
-imágenes de referencia y controles post-grabación. La UI existente es evidencia
-parcial, no una resolución de Diseño.
+imágenes de referencia, controles post-grabación y el polish visual de Email
+Review. La UI existente es evidencia parcial, no una resolución de Diseño.
 
-**Bloquea:** fidelidad final de `MON-03`, `CON-02`, `CAP-08`, `VOZ-02`.
+**Bloquea:** fidelidad final de `MON-03`, `CON-02`, `CAP-08`, `VOZ-02` y
+FL-019.5. No reabre ni cambia la semántica funcional cerrada de FL-019.
 
 ### `D-13` · Retención, cifrado local y eliminación legal
 
