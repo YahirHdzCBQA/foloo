@@ -97,8 +97,9 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   actualiza por outbox y no cambia owner, UUID, captura, origen, evento o medios.
 - Una revisión remota distinta conserva la edición local, muestra conflicto
   recuperable y nunca crea otro Lead.
-- Después de Nota escrita, Seguimiento reutiliza la fuente Drift y muestra
-  snapshot, adjuntos, estado/causa real y retry/reenvío; Correo no duplica lista.
+- Después de Contenido compartido, Seguimiento reutiliza la fuente Drift como
+  tarjeta compacta de contacto/correo/estado; tocarla abre snapshot, adjuntos,
+  estado/causa real y retry/reenvío. Correo no duplica lista.
 
 ## E-07 · Contenido PDF y asignación
 

@@ -55,6 +55,9 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
     final parts = _splitMessage(widget.draft.message);
     _message = TextEditingController(text: parts.$1);
     _signature = TextEditingController(text: parts.$2);
+    _subjectFocus.addListener(_syncEditingWithFocus);
+    _messageFocus.addListener(_syncEditingWithFocus);
+    _signatureFocus.addListener(_syncEditingWithFocus);
   }
 
   @override
@@ -140,16 +143,46 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     final keyboardVisible = keyboardInset > 0;
     return Scaffold(
+      backgroundColor: palette.card,
       appBar: AppBar(
-        leading: IconButton(
-          key: const Key('emailReviewBack'),
-          onPressed: _back,
-          icon: const Icon(Icons.arrow_back),
+        toolbarHeight: 94,
+        centerTitle: false,
+        leadingWidth: 88,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 20),
+          child: Center(
+            child: SizedBox.square(
+              key: const Key('emailReviewBackFrame'),
+              dimension: 56,
+              child: IconButton.filled(
+                key: const Key('emailReviewBack'),
+                onPressed: _back,
+                style: IconButton.styleFrom(
+                  fixedSize: const Size.square(56),
+                  minimumSize: const Size.square(56),
+                  maximumSize: const Size.square(56),
+                  backgroundColor: FolooColors.lime,
+                  foregroundColor: FolooColors.ink,
+                ),
+                icon: const Icon(Icons.arrow_back, size: 26),
+              ),
+            ),
+          ),
         ),
+        titleSpacing: 0,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(context.l10n.emailReviewTitle),
+            Text(
+              context.l10n.emailReviewTitle,
+              style: const TextStyle(
+                fontSize: 26,
+                height: 1,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -.7,
+              ),
+            ),
+            const SizedBox(height: 6),
             Text(
               widget.draft.leadName,
               style: TextStyle(
@@ -180,6 +213,7 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
                 const SizedBox(height: 22),
                 _label(context.l10n.subject),
                 _editableCard(
+                  cardKey: const Key('emailReviewSubjectCard'),
                   key: const Key('emailReviewSubject'),
                   editKey: const Key('emailReviewSubjectEdit'),
                   controller: _subject,
@@ -193,6 +227,7 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
                 const SizedBox(height: 22),
                 _label(context.l10n.emailReviewMessage),
                 _editableCard(
+                  cardKey: const Key('emailReviewMessageCard'),
                   key: const Key('emailReviewMessage'),
                   editKey: const Key('emailReviewMessageEdit'),
                   controller: _message,
@@ -206,6 +241,7 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
                 const SizedBox(height: 22),
                 _label(context.l10n.emailReviewSignature),
                 _editableCard(
+                  cardKey: const Key('emailReviewSignatureCard'),
                   key: const Key('emailReviewSignature'),
                   editKey: const Key('emailReviewSignatureEdit'),
                   controller: _signature,
@@ -322,7 +358,35 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
     });
   }
 
+  void _finishEditing(FocusNode focusNode) {
+    focusNode.unfocus();
+    if (!mounted) return;
+    setState(() {
+      _editingSubject = false;
+      _editingMessage = false;
+      _editingSignature = false;
+    });
+  }
+
+  void _syncEditingWithFocus() {
+    if (!mounted) return;
+    final subject = _editingSubject && _subjectFocus.hasFocus;
+    final message = _editingMessage && _messageFocus.hasFocus;
+    final signature = _editingSignature && _signatureFocus.hasFocus;
+    if (subject == _editingSubject &&
+        message == _editingMessage &&
+        signature == _editingSignature) {
+      return;
+    }
+    setState(() {
+      _editingSubject = subject;
+      _editingMessage = message;
+      _editingSignature = signature;
+    });
+  }
+
   Widget _editableCard({
+    required Key cardKey,
     required Key key,
     required Key editKey,
     required TextEditingController controller,
@@ -334,6 +398,8 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
     TextInputAction? textInputAction,
     VoidCallback? onEditingComplete,
   }) => Container(
+    key: cardKey,
+    clipBehavior: Clip.antiAlias,
     decoration: BoxDecoration(
       color: FolooPalette.of(context).sunken,
       borderRadius: BorderRadius.circular(FolooRadii.md),
@@ -354,9 +420,15 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
           maxLines: maxLines,
           textInputAction: textInputAction,
           onEditingComplete: onEditingComplete,
-          onTapOutside: (_) => focusNode.unfocus(),
+          onTapOutside: (_) => _finishEditing(focusNode),
           decoration: const InputDecoration(
+            filled: false,
             border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            errorBorder: InputBorder.none,
+            focusedErrorBorder: InputBorder.none,
             contentPadding: EdgeInsets.fromLTRB(16, 16, 54, 16),
           ),
         ),
@@ -364,11 +436,23 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
           Positioned(
             top: 8,
             right: 8,
-            child: IconButton.filled(
-              key: editKey,
-              tooltip: context.l10n.edit,
-              onPressed: onEdit,
-              icon: const Icon(Icons.edit_outlined, size: 20),
+            child: Material(
+              color: FolooPalette.of(context).card,
+              elevation: 1,
+              shadowColor: Colors.black.withValues(alpha: .18),
+              shape: CircleBorder(
+                side: BorderSide(color: FolooPalette.of(context).line),
+              ),
+              child: IconButton(
+                key: editKey,
+                tooltip: context.l10n.edit,
+                onPressed: onEdit,
+                style: IconButton.styleFrom(
+                  fixedSize: const Size.square(46),
+                  foregroundColor: FolooPalette.of(context).ink,
+                ),
+                icon: const Icon(Icons.edit_outlined, size: 20),
+              ),
             ),
           ),
       ],

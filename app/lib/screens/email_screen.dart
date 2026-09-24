@@ -97,49 +97,58 @@ class _FriendlyTemplateEditingController extends TextEditingController {
     TextStyle? style,
     required bool withComposing,
   }) {
+    final cleanStyle = (style ?? const TextStyle()).copyWith(
+      decoration: TextDecoration.none,
+      decorationColor: Colors.transparent,
+      decorationThickness: 0,
+    );
     final children = <InlineSpan>[];
     var offset = 0;
     while (offset < text.length) {
       final start = text.indexOf(_marker, offset);
       if (start < 0) {
-        children.add(TextSpan(text: text.substring(offset), style: style));
+        children.add(TextSpan(text: text.substring(offset), style: cleanStyle));
         break;
       }
       if (start > offset) {
         children.add(
-          TextSpan(text: text.substring(offset, start), style: style),
+          TextSpan(text: text.substring(offset, start), style: cleanStyle),
         );
       }
       final end = text.indexOf(_marker, start + 1);
       if (end < 0) {
-        children.add(TextSpan(text: text.substring(start), style: style));
+        children.add(TextSpan(text: text.substring(start), style: cleanStyle));
         break;
       }
       children.add(
         TextSpan(
           text: _marker,
-          style: style?.copyWith(fontSize: 0, letterSpacing: 0),
+          style: cleanStyle.copyWith(fontSize: 0, letterSpacing: 0),
         ),
       );
       children.add(
         TextSpan(
           text: text.substring(start + 1, end),
-          style: style?.copyWith(
-            color: FolooColors.ink,
-            backgroundColor: FolooColors.lime.withValues(alpha: .28),
+          style: cleanStyle.copyWith(
+            color: FolooPalette.of(context).ink,
+            backgroundColor: Theme.of(context).brightness == Brightness.dark
+                ? FolooColors.lime.withValues(alpha: .20)
+                : FolooColors.lime.withValues(alpha: .28),
             fontWeight: FontWeight.w600,
+            fontSize: 12,
+            height: 1.2,
           ),
         ),
       );
       children.add(
         TextSpan(
           text: _marker,
-          style: style?.copyWith(fontSize: 0, letterSpacing: 0),
+          style: cleanStyle.copyWith(fontSize: 0, letterSpacing: 0),
         ),
       );
       offset = end + 1;
     }
-    return TextSpan(style: style, children: children);
+    return TextSpan(style: cleanStyle, children: children);
   }
 }
 
@@ -1114,54 +1123,147 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
     int? replacementStart,
     _TemplateField? replacementField,
   }) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    String? pendingSelection = replacing;
     final selected = await showModalBottomSheet<String>(
       context: context,
-      showDragHandle: true,
       isScrollControlled: true,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                _english ? 'Insert data' : 'Insertar dato',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _english
-                    ? 'It fills automatically from the lead, event, or your profile.'
-                    : 'Se llena solo con la información del lead, el evento o tu perfil.',
-              ),
-              const SizedBox(height: 12),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: _variables
-                      .map(
-                        (token) => ListTile(
-                          key: Key('templateVariableChoice-$token'),
-                          selected: token == replacing,
-                          selectedTileColor: FolooColors.lime.withValues(
-                            alpha: .25,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(FolooRadii.md),
-                          ),
-                          title: Text(_friendlyToken(token)),
-                          subtitle: Text(_tokenSource(token)),
-                          trailing: token == replacing
-                              ? const Icon(Icons.check_circle)
-                              : null,
-                          onTap: () => Navigator.pop(sheetContext, token),
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: .42),
+      builder: (sheetContext) => FractionallySizedBox(
+        key: const Key('templateVariableSheet'),
+        heightFactor: .78,
+        alignment: Alignment.bottomCenter,
+        child: Material(
+          color: FolooPalette.of(sheetContext).card,
+          clipBehavior: Clip.antiAlias,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(FolooRadii.xl),
+            ),
+          ),
+          child: StatefulBuilder(
+            builder: (sheetContext, setSheetState) => SafeArea(
+              top: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 38,
+                      height: 4,
+                      margin: const EdgeInsets.only(top: 10, bottom: 14),
+                      decoration: BoxDecoration(
+                        color: FolooPalette.of(sheetContext).lineStrong,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _english ? 'Insert data' : 'Insertar dato',
+                          style: Theme.of(sheetContext).textTheme.headlineSmall,
                         ),
-                      )
-                      .toList(),
-                ),
+                        const SizedBox(height: 5),
+                        Text(
+                          _english
+                              ? 'It fills automatically from the lead, event, or your profile. It is not edited here.'
+                              : 'Se llena solo con la información del lead, el evento o tu perfil. No se edita aquí.',
+                          style: TextStyle(
+                            color: FolooPalette.of(sheetContext).inkSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: ListView(
+                      key: const Key('templateVariableList'),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      children: [
+                        _variableGroupLabel(
+                          _english ? 'From the contact' : 'Del contacto',
+                        ),
+                        for (final token in _variables.take(4))
+                          _variableChoice(
+                            sheetContext,
+                            token,
+                            selected: token == pendingSelection,
+                            onTap: () =>
+                                setSheetState(() => pendingSelection = token),
+                          ),
+                        _variableGroupLabel(
+                          _english ? 'From the record' : 'Del registro',
+                        ),
+                        for (final token in _variables.skip(4).take(3))
+                          _variableChoice(
+                            sheetContext,
+                            token,
+                            selected: token == pendingSelection,
+                            onTap: () =>
+                                setSheetState(() => pendingSelection = token),
+                          ),
+                        _variableGroupLabel(_english ? 'Yours' : 'Tuyos'),
+                        for (final token in _variables.skip(7))
+                          _variableChoice(
+                            sheetContext,
+                            token,
+                            selected: token == pendingSelection,
+                            onTap: () =>
+                                setSheetState(() => pendingSelection = token),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Divider(height: 1, color: FolooPalette.of(sheetContext).line),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton(
+                            key: const Key('cancelTemplateVariable'),
+                            onPressed: () => Navigator.pop(sheetContext),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: FolooPalette.of(sheetContext)
+                                  .paper,
+                              foregroundColor: FolooPalette.of(sheetContext)
+                                  .ink,
+                            ),
+                            child: Text(context.l10n.cancel),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: FilledButton(
+                            key: const Key('insertTemplateVariable'),
+                            onPressed: pendingSelection == null
+                                ? null
+                                : () => Navigator.pop(
+                                    sheetContext,
+                                    pendingSelection,
+                                  ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: FolooPalette.of(sheetContext)
+                                  .ink,
+                              foregroundColor: FolooPalette.of(sheetContext)
+                                  .card,
+                            ),
+                            child: Text(_english ? 'Insert' : 'Insertar'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1195,43 +1297,187 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
     if (mounted) setState(() {});
   }
 
+  Widget _variableGroupLabel(String label) => Padding(
+    padding: const EdgeInsets.fromLTRB(2, 8, 2, 7),
+    child: Text(
+      label,
+      style: TextStyle(
+        color: FolooPalette.of(context).inkSecondary,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+
+  Widget _variableChoice(
+    BuildContext sheetContext,
+    String token, {
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final palette = FolooPalette.of(sheetContext);
+    final icon = switch (token) {
+      '{evento}' => Icons.calendar_today_outlined,
+      '{lugar}' => Icons.person_add_alt_1_outlined,
+      '{contenido}' => Icons.description_outlined,
+      '{empresa}' || '{empresaVendedor}' => Icons.business_outlined,
+      _ => Icons.verified_outlined,
+    };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: selected
+            ? FolooColors.lime.withValues(alpha: .28)
+            : palette.paper,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FolooRadii.md),
+          side: selected
+              ? BorderSide(color: palette.ink, width: 2)
+              : BorderSide.none,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: Key('templateVariableChoice-$token'),
+          onTap: onTap,
+          child: SizedBox(
+            height: 72,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Row(
+                children: [
+                  Icon(icon, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _friendlyToken(token),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          _tokenSource(token),
+                          style: TextStyle(
+                            color: palette.inkSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (selected)
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: palette.ink,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check,
+                        size: 16,
+                        color: FolooColors.lime,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _friendlyDocument(
     TextEditingController controller,
     _TemplateField field,
   ) {
     final matches = RegExp(r'\{[^}]+\}').allMatches(controller.text).toList();
-    final children = <Widget>[];
+    final palette = FolooPalette.of(context);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final textStyle = DefaultTextStyle.of(context).style.copyWith(
+      color: palette.ink,
+      fontSize: 15,
+      height: 1.45,
+      decoration: TextDecoration.none,
+      decorationColor: Colors.transparent,
+      decorationThickness: 0,
+    );
+    final children = <InlineSpan>[];
     var offset = 0;
     for (final match in matches) {
       if (match.start > offset) {
-        children.add(Text(controller.text.substring(offset, match.start)));
+        children.add(
+          TextSpan(text: controller.text.substring(offset, match.start)),
+        );
       }
       final token = match.group(0)!;
+      final remainder = controller.text.substring(match.end);
+      final punctuation =
+          RegExp(r'^[,.;:!?…]+').firstMatch(remainder)?.group(0) ?? '';
       children.add(
-        ActionChip(
-          key: Key('friendlyToken-${field.name}-$token-${match.start}'),
-          label: Text(_friendlyToken(token)),
-          backgroundColor: FolooColors.lime.withValues(alpha: .25),
-          onPressed: () {
-            _lastTemplateField = field;
-            _chooseVariable(
-              replacing: token,
-              replacementStart: match.start,
-              replacementField: field,
-            );
-          },
+        WidgetSpan(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  key: Key('friendlyToken-${field.name}-$token-${match.start}'),
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: () {
+                    _lastTemplateField = field;
+                    _chooseVariable(
+                      replacing: token,
+                      replacementStart: match.start,
+                      replacementField: field,
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: dark
+                          ? FolooColors.lime.withValues(alpha: .20)
+                          : FolooColors.lime.withValues(alpha: .25),
+                      border: Border.all(color: palette.lineStrong),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      _friendlyToken(token),
+                      style: textStyle.copyWith(
+                        color: palette.ink,
+                        fontSize: 12,
+                        height: 1.15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (punctuation.isNotEmpty) Text(punctuation, style: textStyle),
+            ],
+          ),
         ),
       );
-      offset = match.end;
+      offset = match.end + punctuation.length;
     }
     if (offset < controller.text.length) {
-      children.add(Text(controller.text.substring(offset)));
+      children.add(TextSpan(text: controller.text.substring(offset)));
     }
-    return Wrap(
-      spacing: 3,
-      runSpacing: 3,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: children,
+    return Text.rich(
+      TextSpan(style: textStyle, children: children),
+      key: Key('friendlyDocument-${field.name}'),
     );
   }
 
@@ -1270,7 +1516,13 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                     setState(() {});
                   },
                   decoration: const InputDecoration(
+                    filled: false,
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    focusedErrorBorder: InputBorder.none,
                     contentPadding: EdgeInsets.fromLTRB(14, 14, 52, 14),
                   ),
                 ),
@@ -1281,7 +1533,12 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                     key: Key('templateLightning-${field.name}'),
                     tooltip: _english ? 'Insert data' : 'Insertar dato',
                     onPressed: _chooseVariable,
-                    icon: const Icon(Icons.bolt, color: FolooColors.lime),
+                    style: IconButton.styleFrom(
+                      fixedSize: const Size.square(42),
+                      backgroundColor: FolooColors.ink,
+                      foregroundColor: FolooColors.lime,
+                    ),
+                    icon: const Icon(Icons.bolt, size: 22),
                   ),
                 ),
               ],
@@ -1290,23 +1547,31 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(child: _friendlyDocument(controller, field)),
-                IconButton(
-                  key: Key('templateEdit-${field.name}'),
-                  tooltip: context.l10n.edit,
-                  onPressed: () {
-                    _prepareEditor(field, controller);
-                    setState(() {
-                      _editingField = field;
-                      _lastTemplateField = field;
-                    });
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      focusNode.requestFocus();
-                      controller.selection = TextSelection.collapsed(
-                        offset: controller.text.length,
-                      );
-                    });
-                  },
-                  icon: const Icon(Icons.edit_outlined),
+                Material(
+                  color: palette.card,
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    key: Key('templateEdit-${field.name}'),
+                    tooltip: context.l10n.edit,
+                    style: IconButton.styleFrom(
+                      fixedSize: const Size.square(42),
+                      foregroundColor: palette.ink,
+                    ),
+                    onPressed: () {
+                      _prepareEditor(field, controller);
+                      setState(() {
+                        _editingField = field;
+                        _lastTemplateField = field;
+                      });
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        focusNode.requestFocus();
+                        controller.selection = TextSelection.collapsed(
+                          offset: controller.text.length,
+                        );
+                      });
+                    },
+                    icon: const Icon(Icons.edit_outlined, size: 20),
+                  ),
                 ),
               ],
             ),

@@ -7,6 +7,7 @@ import '../auth/auth_failure_localization.dart';
 import '../auth/auth_models.dart';
 import '../l10n/l10n.dart';
 import '../theme/brand_theme.dart';
+import '../widgets/auth_text_form_field.dart';
 import '../widgets/language_selector.dart';
 
 typedef SignUpRequested = Future<void> Function(String email, String password);
@@ -38,12 +39,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
   bool _obscure = true;
 
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
@@ -61,66 +66,75 @@ class _SignUpScreenState extends State<SignUpScreen> {
     primaryKey: const Key('signUpButton'),
     onPrimary: widget.busy ? null : _submit,
     onBack: widget.onBack,
-    child: Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          OutlinedButton.icon(
-            key: const Key('signUpGoogleButton'),
-            onPressed: widget.busy || widget.onSocialSubmit == null
-                ? null
-                : () => widget.onSocialSubmit!(AuthProvider.google),
-            icon: const Icon(Icons.alternate_email),
-            label: Text(context.l10n.continueWithGoogle),
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            key: const Key('signUpMicrosoftButton'),
-            onPressed: widget.busy || widget.onSocialSubmit == null
-                ? null
-                : () => widget.onSocialSubmit!(AuthProvider.microsoft),
-            icon: const Icon(Icons.business_outlined),
-            label: Text(context.l10n.continueWithMicrosoft),
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              const Expanded(child: Divider()),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text(context.l10n.orUseEmail),
+    child: AutofillGroup(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            OutlinedButton.icon(
+              key: const Key('signUpGoogleButton'),
+              onPressed: widget.busy || widget.onSocialSubmit == null
+                  ? null
+                  : () => widget.onSocialSubmit!(AuthProvider.google),
+              icon: const Icon(Icons.alternate_email),
+              label: Text(context.l10n.continueWithGoogle),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(54),
+                shape: const StadiumBorder(),
               ),
-              const Expanded(child: Divider()),
-            ],
-          ),
-          const SizedBox(height: 18),
-          _label(context.l10n.loginUser),
-          const SizedBox(height: 8),
-          TextFormField(
-            key: const Key('signUpEmailField'),
-            controller: _email,
-            keyboardType: TextInputType.emailAddress,
-            autofillHints: const [AutofillHints.newUsername],
-            textInputAction: TextInputAction.next,
-            decoration: _fieldDecoration(context),
-            validator: (value) =>
-                value == null || value.trim().isEmpty || !value.contains('@')
-                ? context.l10n.loginUserRequired
-                : null,
-          ),
-          const SizedBox(height: 20),
-          _label(context.l10n.loginPassword),
-          const SizedBox(height: 8),
-          TextFormField(
-            key: const Key('signUpPasswordField'),
-            controller: _password,
-            obscureText: _obscure,
-            autofillHints: const [AutofillHints.newPassword],
-            textInputAction: TextInputAction.done,
-            onFieldSubmitted: (_) => _submit(),
-            decoration: _fieldDecoration(
-              context,
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              key: const Key('signUpMicrosoftButton'),
+              onPressed: widget.busy || widget.onSocialSubmit == null
+                  ? null
+                  : () => widget.onSocialSubmit!(AuthProvider.microsoft),
+              icon: const Icon(Icons.business_outlined),
+              label: Text(context.l10n.continueWithMicrosoft),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(54),
+                shape: const StadiumBorder(),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                const Expanded(child: Divider()),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(context.l10n.orUseEmail),
+                ),
+                const Expanded(child: Divider()),
+              ],
+            ),
+            const SizedBox(height: 18),
+            _label(context.l10n.loginUser),
+            const SizedBox(height: 8),
+            AuthTextFormField(
+              fieldKey: const Key('signUpEmailField'),
+              controller: _email,
+              focusNode: _emailFocus,
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.newUsername],
+              textInputAction: TextInputAction.next,
+              onEditingComplete: _passwordFocus.requestFocus,
+              validator: (value) =>
+                  value == null || value.trim().isEmpty || !value.contains('@')
+                  ? context.l10n.loginUserRequired
+                  : null,
+            ),
+            const SizedBox(height: 20),
+            _label(context.l10n.loginPassword),
+            const SizedBox(height: 8),
+            AuthTextFormField(
+              fieldKey: const Key('signUpPasswordField'),
+              controller: _password,
+              focusNode: _passwordFocus,
+              obscureText: _obscure,
+              autofillHints: const [AutofillHints.newPassword],
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _submit(),
               suffixIcon: IconButton(
                 tooltip: _obscure
                     ? context.l10n.loginShowPassword
@@ -132,16 +146,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       : Icons.visibility_off_outlined,
                 ),
               ),
+              validator: (value) => value == null || value.isEmpty
+                  ? context.l10n.loginPasswordRequired
+                  : null,
             ),
-            validator: (value) => value == null || value.isEmpty
-                ? context.l10n.loginPasswordRequired
-                : null,
-          ),
-          if (widget.failure != null) ...[
-            const SizedBox(height: 12),
-            _error(context, widget.failure),
+            if (widget.failure != null) ...[
+              const SizedBox(height: 12),
+              _error(context, widget.failure),
+            ],
           ],
-        ],
+        ),
       ),
     ),
   );
@@ -206,13 +220,12 @@ class _ConfirmSignUpScreenState extends State<ConfirmSignUpScreen> {
         children: [
           _label(context.l10n.confirmationCode),
           const SizedBox(height: 8),
-          TextFormField(
-            key: const Key('confirmationCodeField'),
+          AuthTextFormField(
+            fieldKey: const Key('confirmationCodeField'),
             controller: _code,
             keyboardType: TextInputType.number,
             autofillHints: const [AutofillHints.oneTimeCode],
             textInputAction: TextInputAction.done,
-            decoration: _fieldDecoration(context),
             validator: (value) => value == null || value.trim().isEmpty
                 ? context.l10n.confirmationCodeRequired
                 : null,
@@ -281,7 +294,10 @@ class _AuthFrame extends StatelessWidget {
                 children: [
                   IconButton(
                     key: const Key('authBackButton'),
-                    onPressed: onBack,
+                    onPressed: () {
+                      FocusManager.instance.primaryFocus?.unfocus();
+                      onBack();
+                    },
                     icon: const Icon(Icons.arrow_back),
                   ),
                   const Spacer(),
@@ -325,6 +341,7 @@ class _AuthFrame extends StatelessWidget {
                 minimumSize: const Size.fromHeight(56),
                 backgroundColor: FolooBrand.lime,
                 foregroundColor: FolooBrand.ink,
+                shape: const StadiumBorder(),
               ),
               child: Text(primaryLabel),
             ),
@@ -333,27 +350,6 @@ class _AuthFrame extends StatelessWidget {
       ),
     );
   }
-}
-
-InputDecoration _fieldDecoration(BuildContext context, {Widget? suffixIcon}) {
-  final ink = Theme.of(context).colorScheme.onSurface;
-  final border = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(17),
-    borderSide: BorderSide(color: ink.withValues(alpha: .5), width: 1.4),
-  );
-  return InputDecoration(
-    filled: true,
-    fillColor: Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFF2C2C2C)
-        : FolooBrand.fieldFill,
-    border: border,
-    enabledBorder: border,
-    focusedBorder: border.copyWith(
-      borderSide: BorderSide(color: ink, width: 2),
-    ),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 19),
-    suffixIcon: suffixIcon,
-  );
 }
 
 Widget _label(String value) => Text(

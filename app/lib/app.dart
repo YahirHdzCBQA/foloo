@@ -64,6 +64,7 @@ class FolooApp extends StatefulWidget {
     this.syncApi,
     this.syncSessionProvider,
     this.mediaBinaryTransfer,
+    this.userStateLoadGate,
     super.key,
   });
 
@@ -79,6 +80,9 @@ class FolooApp extends StatefulWidget {
   final SyncApi? syncApi;
   final SyncSessionProvider? syncSessionProvider;
   final MediaBinaryTransfer? mediaBinaryTransfer;
+
+  /// Optional async boundary used to exercise slow owner hydration in tests.
+  final Future<void> Function(String userId)? userStateLoadGate;
 
   @override
   State<FolooApp> createState() => _FolooAppState();
@@ -111,6 +115,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   late final AuthRepository _authRepository;
   late final bool _ownsAuthRepository;
   bool _appInitialized = false;
+  String? _resolvedOwnerSub;
   Timer? _eventDayTimer;
   Timer? _syncRetryTimer;
   DateTime? _scheduledSyncAt;
@@ -266,6 +271,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     // A locale chosen on Login applies immediately to the session. A stored
     // user preference takes precedence when one already exists.
     final sessionLocale = _locale;
+    await widget.userStateLoadGate?.call(userId);
     await _persistence.syncStore.prepareOwner(userId);
     final storedProfile = await _persistence.profiles.load(userId);
     var storedEvents = await _persistence.events.list(userId);
@@ -325,7 +331,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     }
     final storedLeads = await _persistence.leads.listAll(userId);
     final storedContent = await _persistence.content.list(userId);
-    if (!mounted) return;
+    if (!mounted || _authRepository.state.user?.id != userId) return;
     setState(() {
       _profile = storedProfile ?? DemoProfile.empty;
       _profileCompleted = storedProfile != null;
@@ -354,6 +360,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
               )
           ? Locale(storedLocale)
           : sessionLocale;
+      _resolvedOwnerSub = userId;
     });
   }
 
@@ -652,6 +659,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       _accessStage = _AccessStage.login;
       _pendingConfirmationEmail = null;
       _accountJustConfirmed = false;
+      _resolvedOwnerSub = null;
     });
   }
 
@@ -966,6 +974,12 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final authState = _authRepository.state;
+    final authenticatedUser = authState.user;
+    final resolvingAuthenticatedOwner =
+        authState.status == AuthStatus.authenticated &&
+        authenticatedUser != null &&
+        _resolvedOwnerSub != authenticatedUser.id;
     return MaterialApp(
       scaffoldMessengerKey: _messengerKey,
       onGenerateTitle: (_) => 'Foloo · ${_profile.name}',
@@ -998,9 +1012,12 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
         },
         child: child ?? const SizedBox.shrink(),
       ),
-      home: !_appInitialized
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-          : _authRepository.state.status != AuthStatus.authenticated
+      home: !_appInitialized || resolvingAuthenticatedOwner
+          ? const Scaffold(
+              key: ValueKey('authenticatedStateLoading'),
+              body: Center(child: CircularProgressIndicator()),
+            )
+          : authState.status != AuthStatus.authenticated
           ? switch (_accessStage) {
               _AccessStage.login => LoginScreen(
                 key: const ValueKey('loginScreen'),

@@ -452,6 +452,39 @@ void main() {
     await drawer(tester);
     await tester.tap(find.byKey(const Key('drawerEmail')));
     await tester.pumpAndSettle();
+    final tokenChip = find
+        .byWidgetPredicate(
+          (widget) =>
+              widget is InkWell &&
+              widget.key is ValueKey<String> &&
+              (widget.key! as ValueKey<String>).value.startsWith(
+                'friendlyToken-',
+              ),
+        )
+        .first;
+    expect(tester.getSize(tokenChip).height, lessThan(24));
+    final tokenSurface = tester.widget<Container>(
+      find
+          .descendant(
+            of: tokenChip,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Container && widget.decoration is BoxDecoration,
+            ),
+          )
+          .first,
+    );
+    final tokenDecoration = tokenSurface.decoration! as BoxDecoration;
+    expect(tokenDecoration.border, isNotNull);
+    expect(tokenDecoration.borderRadius, BorderRadius.circular(999));
+    final friendlySubject = tester.widget<Text>(
+      find.byKey(const Key('friendlyDocument-subject')),
+    );
+    final friendlySubjectSpan = friendlySubject.textSpan! as TextSpan;
+    expect(friendlySubjectSpan.children, contains(isA<WidgetSpan>()));
+    expect(friendlySubjectSpan.style?.decoration, TextDecoration.none);
+    expect(friendlySubjectSpan.style?.decorationColor, Colors.transparent);
+    expect(friendlySubjectSpan.style?.decorationThickness, 0);
     await tester.tap(find.byKey(const Key('templateEdit-body')));
     await tester.pump();
     final defaultBody = tester
@@ -461,6 +494,21 @@ void main() {
     expect(defaultBody, contains('Nombre del contacto'));
     expect(defaultBody, contains('Contenido'));
     expect(defaultBody, isNot(contains('{nombre}')));
+    final editingBody = tester.widget<TextField>(
+      find.byKey(const ValueKey('emailBody-event')),
+    );
+    final editingBodySpan = editingBody.controller!.buildTextSpan(
+      context: tester.element(find.byKey(const ValueKey('emailBody-event'))),
+      style: const TextStyle(fontSize: 15),
+      withComposing: false,
+    );
+    final editingToken = editingBodySpan.children!
+        .whereType<TextSpan>()
+        .firstWhere((span) => span.text == 'Nombre del contacto');
+    expect(editingToken.style?.backgroundColor, isNotNull);
+    expect(editingToken.style?.decoration, TextDecoration.none);
+    expect(editingToken.style?.decorationColor, Colors.transparent);
+    expect(editingToken.style?.decorationThickness, 0);
     await tester.ensureVisible(find.byKey(const Key('templateEdit-signature')));
     await tester.tap(find.byKey(const Key('templateEdit-signature')));
     await tester.pump();
@@ -483,7 +531,23 @@ void main() {
     subjectController.selection = const TextSelection.collapsed(offset: 7);
     await tester.tap(find.byKey(const Key('templateLightning-subject')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('templateVariableSheet')), findsOneWidget);
+    expect(
+      tester
+          .widget<FractionallySizedBox>(
+            find.byKey(const Key('templateVariableSheet')),
+          )
+          .heightFactor,
+      .78,
+    );
+    final lightning = tester.widget<IconButton>(
+      find.byKey(const Key('templateLightning-subject')),
+    );
+    expect(lightning.style?.backgroundColor?.resolve({}), FolooColors.ink);
+    expect(lightning.style?.foregroundColor?.resolve({}), FolooColors.lime);
     await tester.tap(find.byKey(const Key('templateVariableChoice-{nombre}')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('insertTemplateVariable')));
     await tester.pumpAndSettle();
     expect(subjectController.text, contains('Nombre del contacto'));
     expect(subjectController.text, isNot(contains('{nombre}')));
@@ -501,6 +565,8 @@ void main() {
     await tester.tap(find.byKey(const Key('templateLightning-body')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('templateVariableChoice-{empresa}')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('insertTemplateVariable')));
     await tester.pumpAndSettle();
     expect(bodyController.text, contains('Empresa del contacto'));
     expect(bodyController.text, isNot(contains('{empresa}')));
@@ -523,6 +589,59 @@ void main() {
     await tester.tap(find.byKey(const Key('saveEmailTemplateButton')));
     await tester.pump();
     expect(find.byKey(const Key('emailVariableError')), findsOneWidget);
+  });
+
+  testWidgets('PLT-12 inline variables keep dark-mode contrast', (
+    tester,
+  ) async {
+    phone(tester);
+    await login(tester);
+    await drawer(tester);
+    await tester.tap(find.byKey(const Key('appearanceSwitch')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('closeMenuButton')));
+    await tester.pumpAndSettle();
+    await drawer(tester);
+    await tester.tap(find.byKey(const Key('drawerEmail')));
+    await tester.pumpAndSettle();
+
+    final tokenChip = find
+        .byWidgetPredicate(
+          (widget) =>
+              widget is InkWell &&
+              widget.key is ValueKey<String> &&
+              (widget.key! as ValueKey<String>).value.startsWith(
+                'friendlyToken-',
+              ),
+        )
+        .first;
+    final tokenText = tester.widget<Text>(
+      find.descendant(of: tokenChip, matching: find.byType(Text)).first,
+    );
+    expect(
+      tokenText.style?.color,
+      FolooPalette.of(tester.element(tokenChip)).ink,
+    );
+    expect(tokenText.style?.color, FolooColors.white);
+
+    await tester.tap(find.byKey(const Key('templateEdit-body')));
+    await tester.pump();
+    final editingBody = tester.widget<TextField>(
+      find.byKey(const ValueKey('emailBody-event')),
+    );
+    final editingSpan = editingBody.controller!.buildTextSpan(
+      context: tester.element(find.byKey(const ValueKey('emailBody-event'))),
+      style: const TextStyle(fontSize: 15),
+      withComposing: false,
+    );
+    final editingToken = editingSpan.children!.whereType<TextSpan>().firstWhere(
+      (span) => span.text == 'Nombre del contacto',
+    );
+    expect(editingToken.style?.color, FolooColors.white);
+    expect(editingToken.style?.backgroundColor, isNotNull);
+    expect(editingToken.style?.decoration, TextDecoration.none);
+    expect(editingToken.style?.decorationColor, Colors.transparent);
+    expect(editingToken.style?.decorationThickness, 0);
   });
 
   testWidgets(

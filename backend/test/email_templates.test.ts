@@ -7,6 +7,7 @@ import {
   defaultEmailTemplate,
   renderEmailPreview,
   validateEmailTemplate,
+  withoutLegacyUnsubscribeFooter,
 } from "../src/domain/email_templates.js";
 
 const url = "https://example.org/u/opaque";
@@ -100,3 +101,51 @@ test("an offline frozen snapshot is preserved without a server footer", () => {
   assert.equal(preview.plainText, "Cuerpo revisado sin conexión");
   assert.doesNotMatch(preview.html, /href=/);
 });
+
+for (const legacy of [
+  {
+    language: "es",
+    intro: "Recibiste este correo como seguimiento a nuestro encuentro.",
+    action:
+      "Si prefieres no recibir más comunicaciones, puedes darte de baja aquí.",
+  },
+  {
+    language: "en",
+    intro: "You received this email as a follow-up to our meeting.",
+    action:
+      "If you prefer not to receive further messages, you can unsubscribe here.",
+  },
+] as const) {
+  test(`removes a frozen ${legacy.language} legacy footer without altering the message`, () => {
+    const unsubscribeUrl =
+      "https://api.example/v1/email/unsubscribe?token=opaque";
+    const preview = withoutLegacyUnsubscribeFooter({
+      subject: "Original subject",
+      plainText: [
+        "Message body",
+        "",
+        "Seller signature",
+        "",
+        legacy.intro,
+        legacy.action,
+        unsubscribeUrl,
+      ].join("\n"),
+      html: [
+        "<p>Message body</p>",
+        "<p>Seller signature</p>",
+        `<p>${legacy.intro}<br>${legacy.action}<a href="${unsubscribeUrl}">link</a>.</p>`,
+      ].join(""),
+    });
+
+    assert.equal(preview.plainText, "Message body\n\nSeller signature");
+    assert.equal(preview.html, "<p>Message body</p><p>Seller signature</p>");
+    assert.doesNotMatch(
+      preview.plainText,
+      /unsubscribe|darte de baja|\/v1\/email\/unsubscribe/i,
+    );
+    assert.doesNotMatch(
+      preview.html,
+      /unsubscribe|darte de baja|\/v1\/email\/unsubscribe/i,
+    );
+  });
+}

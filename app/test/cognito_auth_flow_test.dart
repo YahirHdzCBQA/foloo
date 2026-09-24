@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/app.dart';
@@ -9,6 +11,10 @@ import 'package:foloo/models/app_event.dart';
 
 class _FlowAuthService implements AuthService {
   AuthUser? restored;
+  AuthUser signedIn = const AuthUser(
+    id: 'cognito-sub-flow',
+    username: 'signed-in@example.com',
+  );
   bool failCode = false;
 
   @override
@@ -37,7 +43,7 @@ class _FlowAuthService implements AuthService {
   Future<AuthUser> signIn({
     required String username,
     required String password,
-  }) async => AuthUser(id: 'cognito-sub-flow', username: username);
+  }) async => signedIn;
 
   @override
   Future<void> signOut() async {}
@@ -51,7 +57,9 @@ void main() {
     await tester.pumpWidget(FolooApp(authRepository: AuthRepository(service)));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('openSignUpButton')));
+    final createAccount = find.byKey(const Key('openSignUpButton'));
+    await tester.ensureVisible(createAccount);
+    await tester.tap(createAccount);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('signUpScreen')), findsOneWidget);
 
@@ -123,9 +131,103 @@ void main() {
         useDemoFixtures: false,
       ),
     );
+    expect(
+      find.byKey(const ValueKey('authenticatedStateLoading')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('profileScreen')), findsNothing);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('profileScreen')), findsNothing);
     expect(find.byKey(const ValueKey('originScreen')), findsOneWidget);
+  });
+
+  testWidgets(
+    'AUT-07 existing login resolves owner profile before rendering a route',
+    (tester) async {
+      final persistence = LocalPersistence.inMemory();
+      await persistence.profiles.save(
+        'cognito-sub-existing',
+        const DemoProfile(name: 'Existing seller', company: 'Foloo'),
+      );
+      final service = _FlowAuthService()
+        ..signedIn = const AuthUser(
+          id: 'cognito-sub-existing',
+          username: 'existing@example.com',
+        );
+      final hydration = Completer<void>();
+      await tester.pumpWidget(
+        FolooApp(
+          authRepository: AuthRepository(service),
+          persistence: persistence,
+          useDemoFixtures: false,
+          userStateLoadGate: (_) => hydration.future,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('loginEmailField')),
+        'existing@example.com',
+      );
+      await tester.enterText(
+        find.byKey(const Key('loginPasswordField')),
+        'password',
+      );
+      await tester.tap(find.byKey(const Key('loginButton')));
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('authenticatedStateLoading')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('profileScreen')), findsNothing);
+
+      hydration.complete();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('profileScreen')), findsNothing);
+      expect(find.byKey(const ValueKey('originScreen')), findsOneWidget);
+    },
+  );
+
+  testWidgets('AUT-07 new login reaches profile only after owner resolution', (
+    tester,
+  ) async {
+    final service = _FlowAuthService()
+      ..signedIn = const AuthUser(
+        id: 'cognito-sub-new',
+        username: 'new@example.com',
+      );
+    final hydration = Completer<void>();
+    await tester.pumpWidget(
+      FolooApp(
+        authRepository: AuthRepository(service),
+        persistence: LocalPersistence.inMemory(),
+        useDemoFixtures: false,
+        userStateLoadGate: (_) => hydration.future,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('loginEmailField')),
+      'new@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const Key('loginPasswordField')),
+      'password',
+    );
+    await tester.tap(find.byKey(const Key('loginButton')));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('profileScreen')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('authenticatedStateLoading')),
+      findsOneWidget,
+    );
+
+    hydration.complete();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('profileScreen')), findsOneWidget);
   });
 }

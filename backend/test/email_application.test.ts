@@ -41,8 +41,9 @@ function harness(options: {
   outcome?: "accepted" | "safe_retry" | "ambiguous";
   optedOut?: boolean;
   attachmentCount?: 1 | 2;
+  intentOverride?: Partial<StoredSendIntent>;
 }) {
-  let current = intent();
+  let current = intent(options.intentOverride);
   let providerCalls = 0;
   let providerCommand: ProviderCommand | undefined;
   const attachmentIds = [
@@ -70,7 +71,11 @@ function harness(options: {
         storageObjectKey: `private/content-${index + 1}.pdf`,
       })),
     markSending: async () => {
-      current = intent({ status: "sending", attemptCount: 1 });
+      current = intent({
+        ...options.intentOverride,
+        status: "sending",
+        attemptCount: 1,
+      });
       return current;
     },
     finishIntent: async (_principal: unknown, _id: string, update: object) => {
@@ -213,6 +218,43 @@ test("two legitimate follow-ups to one address send without an unsubscribe", asy
     "sent",
   );
   assert.equal(first.providerCalls() + second.providerCalls(), 2);
+});
+
+test("historical frozen unsubscribe footer is removed at the provider boundary", async () => {
+  const unsubscribeUrl =
+    "https://api.example/v1/email/unsubscribe?token=historical";
+  const value = harness({
+    outcome: "accepted",
+    intentOverride: {
+      plainBody: [
+        "Hello lead",
+        "",
+        "Best,\nSeller",
+        "",
+        "You received this email as a follow-up to our meeting.",
+        "If you prefer not to receive further messages, you can unsubscribe here.",
+        unsubscribeUrl,
+      ].join("\n"),
+      htmlBody: [
+        "<p>Hello lead</p>",
+        "<p>Best,<br>Seller</p>",
+        `<p>You received this email as a follow-up to our meeting.<br><a href="${unsubscribeUrl}">unsubscribe here</a>.</p>`,
+      ].join(""),
+    },
+  });
+
+  const result = await value.application.confirm(
+    principal.userId,
+    intent().followUpId,
+    { intentId: intent().id },
+  );
+
+  assert.equal(result.intent.status, "sent");
+  const command = value.providerCommand();
+  assert.ok(command && command.action === "send");
+  assert.equal(command.plainBody, "Hello lead\n\nBest,\nSeller");
+  assert.equal(command.htmlBody, "<p>Hello lead</p><p>Best,<br>Seller</p>");
+  assert.equal(command.attachments.length, 1);
 });
 
 test("historical opt-out state no longer blocks a new V1 follow-up", async () => {

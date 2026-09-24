@@ -1502,16 +1502,6 @@ class ConnectionDetailScreen extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 20),
-            _LiveLeadFollowUpSection(
-              leadId: record.localId,
-              ownerSub: ownerSub,
-              repository: deliveryRepository,
-              initialFollowUp: followUp,
-              initialIntent: emailIntent,
-              onRetry: onRetryEmail,
-              onResend: onResendEmail,
-            ),
             const SizedBox(height: 18),
             Text(
               context.l10n.sentContentDemo,
@@ -1555,6 +1545,17 @@ class ConnectionDetailScreen extends StatelessWidget {
             _ReadOnlyValue(
               label: context.l10n.capturedBy,
               value: record.capturedBy,
+            ),
+            const SizedBox(height: 10),
+            _LiveLeadFollowUpSection(
+              leadId: record.localId,
+              leadName: lead.fullName,
+              ownerSub: ownerSub,
+              repository: deliveryRepository,
+              initialFollowUp: followUp,
+              initialIntent: emailIntent,
+              onRetry: onRetryEmail,
+              onResend: onResendEmail,
             ),
           ],
         ),
@@ -1829,6 +1830,7 @@ class _LeadEditScreenState extends State<_LeadEditScreen> {
 class _LiveLeadFollowUpSection extends StatelessWidget {
   const _LiveLeadFollowUpSection({
     required this.leadId,
+    required this.leadName,
     required this.ownerSub,
     required this.repository,
     required this.initialFollowUp,
@@ -1838,6 +1840,7 @@ class _LiveLeadFollowUpSection extends StatelessWidget {
   });
 
   final String leadId;
+  final String leadName;
   final String? ownerSub;
   final EmailDeliveryRepository? repository;
   final StoredEmailFollowUp? initialFollowUp;
@@ -1855,6 +1858,7 @@ class _LiveLeadFollowUpSection extends StatelessWidget {
     final source = repository;
     if (owner == null || source == null) {
       return _LeadFollowUpSection(
+        leadName: leadName,
         followUp: initialFollowUp,
         intent: initialIntent,
         onRetry: onRetry,
@@ -1877,6 +1881,7 @@ class _LiveLeadFollowUpSection extends StatelessWidget {
               (item) => item.followUpLocalId == followUp?.localId,
             );
             return _LeadFollowUpSection(
+              leadName: leadName,
               followUp: followUp,
               intent: intents.isEmpty ? null : intents.first,
               onRetry: onRetry,
@@ -1891,12 +1896,14 @@ class _LiveLeadFollowUpSection extends StatelessWidget {
 
 class _LeadFollowUpSection extends StatelessWidget {
   const _LeadFollowUpSection({
+    required this.leadName,
     required this.followUp,
     required this.intent,
     required this.onRetry,
     required this.onResend,
   });
 
+  final String leadName;
   final StoredEmailFollowUp? followUp;
   final StoredEmailSendIntent? intent;
   final Future<void> Function(StoredEmailSendIntent intent)? onRetry;
@@ -1924,6 +1931,109 @@ class _LeadFollowUpSection extends StatelessWidget {
         : (jsonDecode(current.contentNamesJson) as List)
               .whereType<String>()
               .toList();
+    final visual = switch (intent?.status) {
+      'sent' => (Icons.mark_email_read_outlined, palette.success),
+      'sending' => (Icons.outgoing_mail, palette.pending),
+      'error' => (Icons.mark_email_unread_outlined, palette.error),
+      'confirmation_required' => (Icons.help_outline, palette.pending),
+      'pending' => (Icons.schedule_send_outlined, palette.pending),
+      _ => (Icons.drafts_outlined, palette.inkSecondary),
+    };
+    Future<void> showDetails() => showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const Key('leadFollowUpDetailsDialog'),
+        title: Text(leadName),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                current!.recipientAddress,
+                style: TextStyle(color: palette.inkSecondary),
+              ),
+              if (intent?.senderAddress case final sender?) ...[
+                const SizedBox(height: 4),
+                Text(sender, style: TextStyle(color: palette.inkSecondary)),
+              ],
+              const SizedBox(height: 16),
+              Text(
+                context.l10n.subject,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 5),
+              Text(current.subject, key: const Key('leadFollowUpSubject')),
+              const SizedBox(height: 16),
+              Text(
+                context.l10n.emailReviewMessage,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 5),
+              Text(current.plainBody, key: const Key('leadFollowUpBody')),
+              if (names.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                ...names.map(
+                  (name) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.picture_as_pdf_outlined, size: 17),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text(name)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Text(
+                DateFormat.yMMMd(
+                  Localizations.localeOf(context).toLanguageTag(),
+                ).add_Hm().format(current.preparedAt.toLocal()),
+                style: TextStyle(color: palette.inkSecondary, fontSize: 12),
+              ),
+              if (intent?.errorCode case final error?) ...[
+                const SizedBox(height: 6),
+                Text(error, style: TextStyle(color: palette.error)),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          if (intent case final emailIntent?)
+            if (emailIntent.status == 'error' &&
+                !isTerminalEmailDeliveryError(emailIntent.errorCode))
+              TextButton.icon(
+                key: const Key('leadFollowUpRetry'),
+                onPressed: onRetry == null
+                    ? null
+                    : () async {
+                        Navigator.pop(dialogContext);
+                        await onRetry!(emailIntent);
+                      },
+                icon: const Icon(Icons.refresh),
+                label: Text(context.l10n.retry),
+              )
+            else if (emailIntent.status == 'sent' ||
+                emailIntent.status == 'confirmation_required')
+              TextButton.icon(
+                key: const Key('leadFollowUpResend'),
+                onPressed: onResend == null
+                    ? null
+                    : () async {
+                        Navigator.pop(dialogContext);
+                        await onResend!(current, emailIntent);
+                      },
+                icon: const Icon(Icons.forward_to_inbox_outlined),
+                label: Text(context.l10n.emailResend),
+              ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(MaterialLocalizations.of(context).closeButtonLabel),
+          ),
+        ],
+      ),
+    );
     return Column(
       key: const Key('leadFollowUpSection'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1933,94 +2043,62 @@ class _LeadFollowUpSection extends StatelessWidget {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: palette.paper,
-            borderRadius: BorderRadius.circular(FolooRadii.md),
-          ),
-          child: current == null
-              ? Text(status, style: TextStyle(color: palette.inkSecondary))
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+        Card(
+          key: const Key('leadFollowUpCard'),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: current == null ? null : showDetails,
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Icon(visual.$1, color: visual.$2, semanticLabel: status),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.mail_outline, size: 19),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            status,
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
+                        Text(
+                          current == null ? status : leadName,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
+                        if (current != null)
+                          Text(
+                            current.recipientAddress,
+                            style: TextStyle(
+                              color: palette.inkSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    Text(current.recipientAddress),
-                    if (intent?.senderAddress case final sender?)
-                      Text(
-                        sender,
-                        style: TextStyle(color: palette.inkSecondary),
+                  ),
+                  if (current != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 4,
                       ),
-                    const SizedBox(height: 10),
-                    Text(
-                      current.subject,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(current.plainBody),
-                    if (names.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      ...names.map(
-                        (name) => Row(
-                          children: [
-                            const Icon(Icons.picture_as_pdf_outlined, size: 17),
-                            const SizedBox(width: 6),
-                            Expanded(child: Text(name)),
-                          ],
+                      decoration: BoxDecoration(
+                        color: visual.$2.withValues(alpha: .14),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        status,
+                        style: TextStyle(
+                          color: visual.$2,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                    ],
-                    const SizedBox(height: 8),
-                    Text(
-                      DateFormat.yMMMd(
-                        Localizations.localeOf(context).toLanguageTag(),
-                      ).add_Hm().format(current.preparedAt.toLocal()),
-                      style: TextStyle(
-                        color: palette.inkSecondary,
-                        fontSize: 12,
-                      ),
                     ),
-                    if (intent?.errorCode case final error?) ...[
-                      const SizedBox(height: 6),
-                      Text(error, style: TextStyle(color: palette.error)),
-                    ],
-                    if (intent case final emailIntent?) ...[
-                      const SizedBox(height: 10),
-                      if (emailIntent.status == 'error' &&
-                          !isTerminalEmailDeliveryError(emailIntent.errorCode))
-                        OutlinedButton.icon(
-                          key: const Key('leadFollowUpRetry'),
-                          onPressed: onRetry == null
-                              ? null
-                              : () => onRetry!(emailIntent),
-                          icon: const Icon(Icons.refresh),
-                          label: Text(context.l10n.retry),
-                        )
-                      else if (emailIntent.status == 'sent' ||
-                          emailIntent.status == 'confirmation_required')
-                        OutlinedButton.icon(
-                          key: const Key('leadFollowUpResend'),
-                          onPressed: onResend == null
-                              ? null
-                              : () => onResend!(current, emailIntent),
-                          icon: const Icon(Icons.forward_to_inbox_outlined),
-                          label: Text(context.l10n.emailResend),
-                        ),
-                    ],
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right),
                   ],
-                ),
+                ],
+              ),
+            ),
+          ),
         ),
       ],
     );

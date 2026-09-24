@@ -138,6 +138,46 @@ export function renderEmailPart(part: string, values: EmailValues): string {
   });
 }
 
+const legacyUnsubscribePath = "/v1/email/unsubscribe?";
+const legacyFooterIntro =
+  /^(Recibiste este correo como seguimiento|You received this email as a follow-up)/u;
+const legacyFooterAction =
+  /^(Si prefieres no recibir más comunicaciones|If you prefer not to receive further messages)/u;
+
+/** Removes only the retired, server-generated footer from historical snapshots. */
+export function withoutLegacyUnsubscribeFooter(
+  preview: EmailPreview,
+): EmailPreview {
+  const lines = preview.plainText.trimEnd().split("\n");
+  const tailStart = Math.max(0, lines.length - 5);
+  const tail = lines.slice(tailStart);
+  const hasLegacyLink = tail.some((line) =>
+    line.includes(legacyUnsubscribePath),
+  );
+  if (hasLegacyLink) {
+    const firstFooterLine = tail.findIndex(
+      (line) =>
+        legacyFooterIntro.test(line.trim()) ||
+        legacyFooterAction.test(line.trim()),
+    );
+    lines.splice(
+      tailStart + (firstFooterLine < 0 ? tail.length - 1 : firstFooterLine),
+    );
+  }
+  const lowerHtml = preview.html.toLocaleLowerCase("en-US");
+  const lastParagraphStart = lowerHtml.lastIndexOf("<p");
+  const lastParagraph =
+    lastParagraphStart < 0 ? "" : preview.html.slice(lastParagraphStart);
+  const html = lastParagraph.includes(legacyUnsubscribePath)
+    ? preview.html.slice(0, lastParagraphStart).trimEnd()
+    : preview.html;
+  return {
+    subject: preview.subject.replace(/[\r\n]+/g, " ").trim(),
+    plainText: lines.join("\n").trim(),
+    html,
+  };
+}
+
 /** Legacy helper retained for source compatibility; FL-019.5 adds no footer. */
 export function appendFixedEmailFooter(
   preview: EmailPreview,
@@ -145,11 +185,11 @@ export function appendFixedEmailFooter(
   _context: string,
   _unsubscribeUrl: string,
 ): EmailPreview {
-  return {
+  return withoutLegacyUnsubscribeFooter({
     subject: preview.subject.replace(/[\r\n]+/g, " ").trim(),
     plainText: preview.plainText.trim(),
     html: preview.html,
-  };
+  });
 }
 
 /** Renders the approved message without an unsubscribe footer (FL-019.5). */

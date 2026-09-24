@@ -65,6 +65,85 @@ Widget harness({
 );
 
 void main() {
+  testWidgets('Review cards are subtle until their editor receives focus', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      harness(onConfirm: (_) async => EmailReviewOutcome.pending),
+    );
+
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+    expect(
+      scaffold.backgroundColor,
+      FolooPalette.of(tester.element(find.byType(Scaffold))).card,
+    );
+    final backFrame = find.byKey(const Key('emailReviewBackFrame'));
+    expect(tester.getSize(backFrame), const Size.square(56));
+    final title = find.text('Revisar');
+    expect(
+      tester.getTopLeft(title).dx,
+      greaterThan(tester.getTopRight(backFrame).dx),
+    );
+    expect(
+      tester.getTopLeft(title).dx - tester.getTopRight(backFrame).dx,
+      lessThanOrEqualTo(16),
+    );
+
+    final field = tester.widget<TextField>(
+      find.byKey(const Key('emailReviewSubject')),
+    );
+    expect(field.decoration?.filled, isFalse);
+    expect(field.decoration?.enabledBorder, InputBorder.none);
+    expect(field.decoration?.focusedBorder, InputBorder.none);
+    for (final key in const [
+      Key('emailReviewSubjectCard'),
+      Key('emailReviewMessageCard'),
+      Key('emailReviewSignatureCard'),
+    ]) {
+      final normalCard = tester.widget<Container>(find.byKey(key));
+      final decoration = normalCard.decoration! as BoxDecoration;
+      expect(decoration.border, isNull);
+      expect(decoration.borderRadius, BorderRadius.circular(FolooRadii.md));
+      expect(normalCard.clipBehavior, Clip.antiAlias);
+    }
+
+    final editButton = find.byKey(const Key('emailReviewSubjectEdit'));
+    final editMaterial = tester.widget<Material>(
+      find.ancestor(of: editButton, matching: find.byType(Material)).first,
+    );
+    expect(
+      editMaterial.color,
+      FolooPalette.of(tester.element(editButton)).card,
+    );
+
+    await tester.tap(editButton);
+    await tester.pump();
+
+    final editingCard = tester.widget<Container>(
+      find.byKey(const Key('emailReviewSubjectCard')),
+    );
+    final border = (editingCard.decoration! as BoxDecoration).border! as Border;
+    expect(border.top.width, 2);
+    expect(
+      (editingCard.decoration! as BoxDecoration).borderRadius,
+      BorderRadius.circular(FolooRadii.md),
+    );
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('emailReviewSubject')))
+          .focusNode
+          ?.hasFocus,
+      isTrue,
+    );
+
+    await tester.tap(find.text('Mensaje'));
+    await tester.pump();
+    final finishedCard = tester.widget<Container>(
+      find.byKey(const Key('emailReviewSubjectCard')),
+    );
+    expect((finishedCard.decoration! as BoxDecoration).border, isNull);
+  });
+
   testWidgets('recipient is immutable and concrete edits reach confirmation', (
     tester,
   ) async {

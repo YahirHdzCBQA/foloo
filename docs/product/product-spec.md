@@ -207,7 +207,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `REG-13` | Exportación no incluye estado técnico, Voice Note, conteo de imágenes, rutas, URLs firmadas, object keys, IDs técnicos ni binarios. |
 | `REG-14` | Tras compartir/exportar se informa éxito genérico ES/EN; cancelación o error se distinguen solo cuando la plataforma lo reporta y nunca se inventa una ruta de destino. |
 | `REG-15` | Cada renglón muestra entre voz y sync un icono accesible del estado de correo existente: no enviado, pendiente, enviando, enviado, error o por confirmar. El icono tiene tooltip/semantics y no depende solo del color. |
-| `REG-16` | El detalle incorpora Seguimiento después de Nota escrita usando la misma fuente Drift: destinatario, remitente/proveedor disponible, asunto, mensaje, adjuntos, fecha, estado, error y acciones de retry/reenvío ya aprobadas. Correo deja de duplicar esa lista. |
+| `REG-16` | El detalle incorpora Seguimiento después de Contenido compartido, preferentemente al final de los datos secundarios, usando la misma fuente Drift. Presenta una tarjeta compacta con contacto, correo y estado; al tocarla abre el asunto, mensaje, adjuntos, fecha, remitente/proveedor, error y acciones de retry/reenvío ya aprobadas. Correo deja de duplicar esa lista. |
 
 ### 4.7 Contenido, plantillas y correo
 

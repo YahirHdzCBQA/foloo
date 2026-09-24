@@ -117,7 +117,32 @@ void main() {
     await tester.tap(find.byKey(const Key('record-lead-a')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('leadFollowUpSection')), findsOneWidget);
+    expect(find.byKey(const Key('leadFollowUpCard')), findsOneWidget);
+    expect(find.text('Mariana Sandoval'), findsWidgets);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('leadFollowUpCard')),
+        matching: find.text('mariana@example.com'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Seguimiento concreto'), findsNothing);
+    expect(find.text('Hola Mariana'), findsNothing);
+    expect(
+      tester.getTopLeft(find.byKey(const Key('leadFollowUpSection'))).dy,
+      greaterThan(tester.getTopLeft(find.text('Contenido adjunto')).dy),
+    );
+
+    await tester.ensureVisible(find.byKey(const Key('leadFollowUpCard')));
+    await tester.tap(find.byKey(const Key('leadFollowUpCard')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('leadFollowUpDetailsDialog')), findsOneWidget);
+    expect(find.byKey(const Key('leadFollowUpSubject')), findsOneWidget);
     expect(find.text('Seguimiento concreto'), findsOneWidget);
+    expect(find.byKey(const Key('leadFollowUpBody')), findsOneWidget);
+    expect(find.text('Hola Mariana'), findsOneWidget);
+    await tester.tap(find.text('Cerrar'));
+    await tester.pumpAndSettle();
 
     await database.emailDeliveryDao.updateIntentState(
       owner,
@@ -128,8 +153,9 @@ void main() {
       now.add(const Duration(seconds: 1)),
     );
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('leadFollowUpCard')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('leadFollowUpRetry')), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const Key('leadFollowUpRetry')));
     await tester.tap(find.byKey(const Key('leadFollowUpRetry')));
     await tester.pumpAndSettle();
     expect(queued, isTrue);

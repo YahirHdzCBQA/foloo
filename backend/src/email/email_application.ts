@@ -8,6 +8,7 @@ import {
   defaultEmailTemplate,
   renderEmailPart,
   renderEmailPreview,
+  withoutLegacyUnsubscribeFooter,
   type EmailLanguage,
 } from "../domain/email_templates.js";
 import {
@@ -126,13 +127,15 @@ export class EmailApplication {
       context.contentNames,
       language,
     );
-    const rendered = frozen
-      ? {
-          subject: frozen.subject.replace(/[\r\n]+/g, " ").trim(),
-          plainText: frozen.plainBody.trim(),
-          html: frozen.htmlBody,
-        }
-      : renderEmailPreview(template, context.values);
+    const rendered = withoutLegacyUnsubscribeFooter(
+      frozen
+        ? {
+            subject: frozen.subject.replace(/[\r\n]+/g, " ").trim(),
+            plainText: frozen.plainBody.trim(),
+            html: frozen.htmlBody,
+          }
+        : renderEmailPreview(template, context.values),
+    );
     const value = await this.repository.createFollowUp(principal, {
       id,
       context,
@@ -350,6 +353,11 @@ export class EmailApplication {
       }),
     );
     intent = await this.repository.markSending(principal, intentId, kind);
+    const providerContent = withoutLegacyUnsubscribeFooter({
+      subject: intent.subject,
+      plainText: intent.plainBody,
+      html: intent.htmlBody,
+    });
     const result = await this.providers.invoke({
       action: "send",
       provider: intent.provider!,
@@ -357,9 +365,9 @@ export class EmailApplication {
       workspaceId: principal.workspaceId,
       senderAddress: intent.senderAddress!,
       recipientAddress: intent.recipientAddress,
-      subject: intent.subject,
-      plainBody: intent.plainBody,
-      htmlBody: intent.htmlBody,
+      subject: providerContent.subject,
+      plainBody: providerContent.plainText,
+      htmlBody: providerContent.html,
       attachments: commands,
     });
     if (!("outcome" in result)) throw new Error("Invalid provider response");
