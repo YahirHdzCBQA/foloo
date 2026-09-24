@@ -8,10 +8,17 @@ import 'auth_models.dart';
 import 'auth_service.dart';
 
 class CognitoIdentity {
-  const CognitoIdentity({required this.sub, required this.username});
+  const CognitoIdentity({
+    required this.sub,
+    required this.username,
+    this.email,
+    this.provider,
+  });
 
   final String sub;
   final String username;
+  final String? email;
+  final AuthProvider? provider;
 }
 
 class CognitoSignUpOutcome {
@@ -149,19 +156,13 @@ class AmplifyCognitoAuthClient
 
       final result = await amplify.Amplify.Auth.signInWithWebUI(
         provider: amplifyProvider,
-        options: provider == AuthProvider.microsoft
-            ? const amplify.SignInWithWebUIOptions(
-                pluginOptions: cognito.CognitoSignInWithWebUIPluginOptions(
-                  prompt: [cognito.CognitoSignInWithWebUIPrompt.selectAccount],
-                ),
-              )
-            : const amplify.SignInWithWebUIOptions(),
+        options: webUiOptionsFor(provider),
       );
 
       if (!result.isSignedIn) {
         throw const FolooAuthException(AuthFailureCode.socialLoginUnavailable);
       }
-      return await _currentIdentity();
+      return await _currentIdentity(provider: provider);
     } on Object catch (error, stackTrace) {
       amplify.safePrint('=== SOCIAL LOGIN ERROR ===');
       amplify.safePrint('Provider: $provider');
@@ -183,9 +184,60 @@ class AmplifyCognitoAuthClient
     }
   }
 
-  Future<CognitoIdentity> _currentIdentity() async {
+  /// Explicit social actions always let the user choose an IdP account.
+  static amplify.SignInWithWebUIOptions webUiOptionsFor(
+    AuthProvider provider,
+  ) => const amplify.SignInWithWebUIOptions(
+    pluginOptions: cognito.CognitoSignInWithWebUIPluginOptions(
+      prompt: [cognito.CognitoSignInWithWebUIPrompt.selectAccount],
+    ),
+  );
+
+  Future<CognitoIdentity> _currentIdentity({AuthProvider? provider}) async {
     final user = await amplify.Amplify.Auth.getCurrentUser();
-    return CognitoIdentity(sub: user.userId, username: user.username);
+    String? accountEmail;
+    try {
+      final attributes = await amplify.Amplify.Auth.fetchUserAttributes();
+      for (final attribute in attributes) {
+        if (attribute.userAttributeKey.key ==
+                amplify.AuthUserAttributeKey.email.key &&
+            attribute.value.trim().isNotEmpty) {
+          accountEmail = attribute.value.trim();
+          break;
+        }
+      }
+    } on amplify.AuthException {
+      // The ID token below remains a session-local source for standard claims.
+    }
+    if (accountEmail == null) {
+      try {
+        final session =
+            await amplify.Amplify.Auth.fetchAuthSession()
+                as cognito.CognitoAuthSession;
+        final tokens = session.userPoolTokensResult.valueOrNull;
+        final tokenEmail = tokens == null
+            ? null
+            : cognito.CognitoIdToken(tokens.idToken).email;
+        if (tokenEmail != null && tokenEmail.trim().isNotEmpty) {
+          accountEmail = tokenEmail.trim();
+        }
+      } on amplify.AuthException {
+        // Never expose the technical username when email is unavailable.
+      }
+    }
+    return CognitoIdentity(
+      sub: user.userId,
+      username: user.username,
+      email: accountEmail,
+      provider: provider ?? _providerFromUsername(user.username),
+    );
+  }
+
+  AuthProvider? _providerFromUsername(String username) {
+    final normalized = username.toLowerCase();
+    if (normalized.startsWith('google_')) return AuthProvider.google;
+    if (normalized.startsWith('microsoft_')) return AuthProvider.microsoft;
+    return null;
   }
 
   @override
@@ -257,8 +309,12 @@ class CognitoAuthService implements AuthService, SocialAuthService {
   @override
   Future<void> signOut() => _client.signOut();
 
-  static AuthUser _mapUser(CognitoIdentity identity) =>
-      AuthUser(id: identity.sub, username: identity.username);
+  static AuthUser _mapUser(CognitoIdentity identity) => AuthUser(
+    id: identity.sub,
+    username: identity.username,
+    email: identity.email,
+    provider: identity.provider,
+  );
 }
 
 enum _AuthOperation {

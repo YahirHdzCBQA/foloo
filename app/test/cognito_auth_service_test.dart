@@ -1,6 +1,7 @@
 import 'dart:convert';
 
-import 'package:amplify_flutter/amplify_flutter.dart';
+import 'package:amplify_flutter/amplify_flutter.dart' hide AuthProvider;
+import 'package:amplify_auth_cognito/amplify_auth_cognito.dart' as cognito;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/auth/auth_models.dart';
 import 'package:foloo/auth/auth_repository.dart';
@@ -12,6 +13,7 @@ class _FakeCognitoClient implements CognitoAuthClient {
   CognitoIdentity signedIn = const CognitoIdentity(
     sub: 'cognito-sub-123',
     username: 'seller@example.com',
+    email: 'seller@example.com',
   );
   FolooAuthException? signInFailure;
   FolooAuthException? confirmationFailure;
@@ -65,6 +67,18 @@ class _FakeCognitoClient implements CognitoAuthClient {
 }
 
 void main() {
+  test('AUT-15 Google and Microsoft explicit auth request account choice', () {
+    for (final provider in AuthProvider.values) {
+      final options = AmplifyCognitoAuthClient.webUiOptionsFor(provider);
+      final plugin =
+          options.pluginOptions as cognito.CognitoSignInWithWebUIPluginOptions;
+      expect(
+        plugin.prompt,
+        contains(cognito.CognitoSignInWithWebUIPrompt.selectAccount),
+      );
+    }
+  });
+
   test('AUT-12 DEV configuration has public User Pool identifiers only', () {
     final decoded = jsonDecode(
       CognitoConfigurations.dev.toAmplifyConfiguration(),
@@ -82,7 +96,9 @@ void main() {
     final client = _FakeCognitoClient()
       ..restored = const CognitoIdentity(
         sub: 'stable-sub',
-        username: 'restored@example.com',
+        username: 'google_123456',
+        email: 'restored@example.com',
+        provider: AuthProvider.google,
       );
     final repository = AuthRepository(CognitoAuthService(client));
 
@@ -90,7 +106,9 @@ void main() {
 
     expect(repository.state.status, AuthStatus.authenticated);
     expect(repository.state.user?.id, 'stable-sub');
-    expect(repository.state.user?.username, 'restored@example.com');
+    expect(repository.state.user?.username, 'google_123456');
+    expect(repository.state.user?.email, 'restored@example.com');
+    expect(repository.state.user?.id, isNot('restored@example.com'));
   });
 
   test(
@@ -168,6 +186,7 @@ void main() {
         isTrue,
       );
       expect(repository.state.user?.id, 'cognito-sub-123');
+      expect(repository.state.user?.email, 'seller@example.com');
     },
   );
 

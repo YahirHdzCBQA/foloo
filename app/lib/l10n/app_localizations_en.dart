@@ -104,7 +104,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authWeakPassword =>
-      'The password does not meet the security requirements.';
+      'Password must be at least 8 characters and include an uppercase letter, lowercase letter, number, and symbol.';
 
   @override
   String get authInvalidCode =>
@@ -213,6 +213,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get emailOnboardingMicrosoft => 'Continue with Microsoft';
+
+  @override
+  String get emailOnboardingSameAccount => 'Use the account you signed up with';
+
+  @override
+  String get emailOnboardingOtherAccount => 'or connect another account';
 
   @override
   String get emailOnboardingLater => 'Set up later';

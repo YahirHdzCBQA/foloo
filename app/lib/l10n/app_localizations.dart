@@ -281,7 +281,7 @@ abstract class AppLocalizations {
   /// No description provided for @authWeakPassword.
   ///
   /// In es, this message translates to:
-  /// **'La contraseña no cumple los requisitos de seguridad.'**
+  /// **'La contraseña debe tener al menos 8 caracteres e incluir una mayúscula, una minúscula, un número y un símbolo.'**
   String get authWeakPassword;
 
   /// No description provided for @authInvalidCode.
@@ -487,6 +487,18 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Continuar con Microsoft'**
   String get emailOnboardingMicrosoft;
+
+  /// No description provided for @emailOnboardingSameAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'Usar la cuenta con la que te registraste'**
+  String get emailOnboardingSameAccount;
+
+  /// No description provided for @emailOnboardingOtherAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'o conecta otra cuenta'**
+  String get emailOnboardingOtherAccount;
 
   /// No description provided for @emailOnboardingLater.
   ///

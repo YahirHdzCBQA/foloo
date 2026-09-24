@@ -64,6 +64,7 @@ class DevelopmentAuthService implements AuthService, SocialAuthService {
     final user = AuthUser(
       id: existingId ?? _userIdFactory(),
       username: username.trim(),
+      email: normalized.contains('@') ? normalized : null,
     );
     if (existingId == null) {
       await _store.writeAssignedUserId(normalized, user.id);
@@ -73,10 +74,20 @@ class DevelopmentAuthService implements AuthService, SocialAuthService {
   }
 
   @override
-  Future<AuthUser> signInWithProvider(AuthProvider provider) => signIn(
-    username: '${provider.name}@development.foloo.local',
-    password: 'development-social-session',
-  );
+  Future<AuthUser> signInWithProvider(AuthProvider provider) async {
+    final user = await signIn(
+      username: '${provider.name}@development.foloo.local',
+      password: 'development-social-session',
+    );
+    final socialUser = AuthUser(
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      provider: provider,
+    );
+    await _store.writeSession(socialUser);
+    return socialUser;
+  }
 
   @override
   Future<void> signOut() => _store.clearSession();

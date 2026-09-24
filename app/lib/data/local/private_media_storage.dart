@@ -45,6 +45,30 @@ class PrivateMediaStorage {
     return PrivateMediaStorage(Directory(p.join(support.path, 'foloo_media')));
   }
 
+  /// Copies the optional seller avatar into owner-scoped private storage.
+  Future<String> persistProfileImage({
+    required String sourcePath,
+    required String ownerSub,
+  }) async {
+    final source = File(sourcePath);
+    if (!await source.exists()) {
+      throw MediaPersistenceException(
+        'Selected profile image is no longer available.',
+      );
+    }
+    final directory = Directory(p.join(root.path, 'profiles'));
+    await directory.create(recursive: true);
+    final safeOwner = ownerSub.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+    final destination = File(p.join(directory.path, '$safeOwner.jpg'));
+    final normalized = await _normalizeImage(source, destination);
+    if (normalized == null) {
+      throw const MediaPersistenceException(
+        'Selected profile image is not a supported decodable image.',
+      );
+    }
+    return normalized.path;
+  }
+
   /// Resolves a persisted media path after iOS changes the application
   /// container UUID while retaining the Application Support contents.
   Future<String?> resolveExistingPath(String storedPath) async {

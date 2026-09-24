@@ -66,20 +66,41 @@ EmailSemanticDocument _reconciledDocument({
 class ProfileRepository {
   ProfileRepository(
     this._database, {
+    this.mediaStorage,
     LocalIdFactory? idFactory,
     SyncStore? syncStore,
   }) : _idFactory = idFactory ?? _defaultLocalId,
        _syncStore = syncStore ?? SyncStore(_database);
 
+  static const _photoPathPreference = 'profilePhotoLocalPath';
+
   final AppDatabase _database;
   final LocalIdFactory _idFactory;
+  final PrivateMediaStorage? mediaStorage;
   final SyncStore _syncStore;
 
   Future<DemoProfile?> load(String userId) async {
     final stored = await _database.profilePreferencesDao.profileForUser(userId);
-    return stored == null
+    if (stored == null) return null;
+    final persistedPath = await _database.profilePreferencesDao.userPreference(
+      userId,
+      _photoPathPreference,
+    );
+    final resolvedPath = persistedPath == null || mediaStorage == null
         ? null
-        : DemoProfile(name: stored.name, company: stored.company);
+        : await mediaStorage!.resolveExistingPath(persistedPath);
+    if (resolvedPath != null && resolvedPath != persistedPath) {
+      await _database.profilePreferencesDao.saveUserPreference(
+        userId,
+        _photoPathPreference,
+        resolvedPath,
+      );
+    }
+    return DemoProfile(
+      name: stored.name,
+      company: stored.company,
+      photoLocalPath: resolvedPath,
+    );
   }
 
   Future<void> save(String userId, DemoProfile profile) async {
@@ -100,6 +121,13 @@ class ProfileRepository {
           syncState: const Value('local'),
         ),
       );
+      if (profile.photoLocalPath != null) {
+        await _database.profilePreferencesDao.saveUserPreference(
+          userId,
+          _photoPathPreference,
+          profile.photoLocalPath!,
+        );
+      }
       await _syncStore.enqueue(
         ownerSub: userId,
         entityType: SyncEntityType.profile,
@@ -1656,7 +1684,7 @@ class LocalPersistence {
     this.database,
     this.mediaStorage, {
     this.deleteMediaOnClose = false,
-  }) : profiles = ProfileRepository(database),
+  }) : profiles = ProfileRepository(database, mediaStorage: mediaStorage),
        preferences = PreferencesRepository(database),
        templates = EmailTemplateRepository(database),
        eventEmailTemplates = EventEmailTemplateRepository(database),

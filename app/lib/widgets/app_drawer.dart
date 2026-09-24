@@ -4,6 +4,8 @@
 /// controls and protected logout behavior.
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../models/app_destination.dart';
@@ -12,7 +14,16 @@ import '../models/session_lead.dart';
 import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
+import 'auth_account_scope.dart';
 import 'language_selector.dart';
+
+/// Resolves only an existing owner-scoped photo; callers retain initials as
+/// the fallback when the local file is unavailable.
+@visibleForTesting
+ImageProvider<Object>? drawerProfileImageFor(DemoProfile profile) {
+  final path = profile.photoLocalPath;
+  return path != null && File(path).existsSync() ? FileImage(File(path)) : null;
+}
 
 /// Renders every destination available in the unified V1 product.
 class AppDrawer extends StatelessWidget {
@@ -55,6 +66,8 @@ class AppDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ink = theme.colorScheme.onSurface;
+    final accountEmail = AuthAccountScope.maybeOf(context)?.email ?? '';
+    final profileImage = drawerProfileImageFor(profile);
     return Drawer(
       key: const Key('appDrawer'),
       width: MediaQuery.sizeOf(context).width.clamp(300, 360).toDouble(),
@@ -107,15 +120,20 @@ class AppDrawer extends StatelessWidget {
               child: Row(
                 children: [
                   CircleAvatar(
+                    key: const Key('drawerProfileAvatar'),
                     radius: 28,
                     backgroundColor: ink,
-                    child: Text(
-                      _initials,
-                      style: const TextStyle(
-                        color: FolooColors.lime,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
+                    backgroundImage: profileImage,
+                    child: profileImage != null
+                        ? null
+                        : Text(
+                            _initials,
+                            key: const Key('drawerProfileInitials'),
+                            style: const TextStyle(
+                              color: FolooColors.lime,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -124,11 +142,27 @@ class AppDrawer extends StatelessWidget {
                       children: [
                         Text(
                           profile.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontSize: 17,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
+                        if (accountEmail.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            accountEmail,
+                            key: const Key('drawerAccountEmail'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: ink.withValues(alpha: 0.72),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 5),
                         Text(
                           '${profile.company.toUpperCase()} · ${context.l10n.drawerSales}',

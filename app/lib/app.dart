@@ -42,6 +42,7 @@ import 'sync/sync_engine.dart';
 import 'sync/media_binary_transfer.dart';
 import 'sync/sync_models.dart';
 import 'theme/foloo_theme.dart';
+import 'widgets/auth_account_scope.dart';
 
 enum _AuthenticatedStage { profile, email, origin, shell }
 
@@ -568,20 +569,29 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   }
 
   Future<void> _completeProfile(DemoProfile profile) async {
+    var durableProfile = profile;
     try {
+      final selectedPhoto = profile.photoLocalPath;
+      if (selectedPhoto != null) {
+        final durablePath = await _persistence.mediaStorage.persistProfileImage(
+          sourcePath: selectedPhoto,
+          ownerSub: _userId,
+        );
+        durableProfile = profile.copyWith(photoLocalPath: durablePath);
+      }
       await _persistence.preferences.write(
         _userId,
         _emailOnboardingPreference,
         'pending',
       );
-      await _persistence.profiles.save(_userId, profile);
+      await _persistence.profiles.save(_userId, durableProfile);
     } catch (_) {
       if (mounted) _showPersistenceError();
       return;
     }
     if (!mounted) return;
     setState(() {
-      _profile = profile;
+      _profile = durableProfile;
       _profileCompleted = true;
       _stage = _AuthenticatedStage.email;
     });
@@ -995,22 +1005,26 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       theme: FolooTheme.light,
       darkTheme: FolooTheme.dark,
       themeMode: _themeMode,
-      builder: (context, child) => AppLanguageScope(
-        locale: _locale,
-        onLocaleChanged: (locale) {
-          final user = _authRepository.state.user;
-          if (user != null) {
-            unawaited(
-              _persistence.preferences.write(
-                user.id,
-                'locale',
-                locale.languageCode,
-              ),
-            );
-          }
-          setState(() => _locale = locale);
-        },
-        child: child ?? const SizedBox.shrink(),
+      builder: (context, child) => AuthAccountScope(
+        email: authenticatedUser?.email ?? '',
+        provider: authenticatedUser?.provider,
+        child: AppLanguageScope(
+          locale: _locale,
+          onLocaleChanged: (locale) {
+            final user = _authRepository.state.user;
+            if (user != null) {
+              unawaited(
+                _persistence.preferences.write(
+                  user.id,
+                  'locale',
+                  locale.languageCode,
+                ),
+              );
+            }
+            setState(() => _locale = locale);
+          },
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
       home: !_appInitialized || resolvingAuthenticatedOwner
           ? const Scaffold(
@@ -1076,6 +1090,8 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
               _AuthenticatedStage.email => EmailOnboardingScreen(
                 key: const ValueKey('emailOnboardingStage'),
                 ownerSub: _userId,
+                accountEmail: authenticatedUser?.email ?? '',
+                authProvider: authenticatedUser?.provider,
                 connectionService: _emailConnectionService,
                 onComplete: _completeEmailOnboarding,
               ),

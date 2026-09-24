@@ -8,6 +8,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../auth/auth_models.dart';
 import '../l10n/l10n.dart';
 import '../services/email_connection_service.dart';
 import '../theme/brand_theme.dart';
@@ -18,11 +19,15 @@ class EmailOnboardingScreen extends StatefulWidget {
   const EmailOnboardingScreen({
     required this.ownerSub,
     required this.onComplete,
+    this.accountEmail = '',
+    this.authProvider,
     this.connectionService,
     super.key,
   });
 
   final String ownerSub;
+  final String accountEmail;
+  final AuthProvider? authProvider;
   final EmailConnectionService? connectionService;
   final Future<void> Function(bool skipped) onComplete;
 
@@ -154,6 +159,70 @@ class _EmailOnboardingScreenState extends State<EmailOnboardingScreen>
                     if (_connected)
                       _ConnectedAccountCard(connection: _connection!)
                     else ...[
+                      if (widget.authProvider != null &&
+                          widget.accountEmail.trim().isNotEmpty) ...[
+                        OutlinedButton(
+                          key: const Key('emailOnboardingSameAccountButton'),
+                          onPressed: _busy
+                              ? null
+                              : () => _connect(widget.authProvider!.name),
+                          style: OutlinedButton.styleFrom(
+                            alignment: Alignment.centerLeft,
+                            backgroundColor: FolooColors.lime.withValues(
+                              alpha: 0.24,
+                            ),
+                            side: BorderSide(color: palette.ink, width: 1.5),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 14,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.mail_outline),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      context.l10n.emailOnboardingSameAccount,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      widget.accountEmail,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: palette.inkSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Row(
+                          children: [
+                            const Expanded(child: Divider()),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: Text(
+                                context.l10n.emailOnboardingOtherAccount,
+                              ),
+                            ),
+                            const Expanded(child: Divider()),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                      ],
                       OutlinedButton.icon(
                         key: const Key('emailOnboardingGoogleButton'),
                         onPressed: _busy ? null : () => _connect('google'),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/app.dart';
+import 'package:foloo/auth/auth_models.dart';
 import 'package:foloo/data/repositories/local_repositories.dart';
 import 'package:foloo/data/local/app_database.dart';
 import 'package:foloo/l10n/app_localizations.dart';
@@ -27,11 +28,21 @@ class _ConnectionApi implements SyncApi {
   Map<String, Object?>? connection;
   bool fail = false;
   final owners = <String>[];
+  final requests = <SyncRequest>[];
 
   @override
   Future<SyncResponse> send(String accessToken, SyncRequest request) async {
     owners.add(accessToken.replaceFirst('token-', ''));
+    requests.add(request);
     if (fail) throw const SyncTransportException();
+    if (request.method == 'POST') {
+      return const SyncResponse(
+        statusCode: 200,
+        data: {
+          'data': {'authorizationUrl': 'https://accounts.example.test/oauth'},
+        },
+      );
+    }
     return SyncResponse(statusCode: 200, data: {'data': connection});
   }
 }
@@ -65,6 +76,81 @@ Future<void> _loginAndCompleteProfile(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets(
+    'AUT-15 same social account starts fresh sender OAuth without auth tokens',
+    (tester) async {
+      final api = _ConnectionApi();
+      Uri? launched;
+      final service = EmailConnectionService(
+        api,
+        const _Session(),
+        launcher: (uri) async {
+          launched = uri;
+          return true;
+        },
+      );
+      await tester.pumpWidget(
+        _localized(
+          EmailOnboardingScreen(
+            ownerSub: 'seller-a',
+            accountEmail: 'social@example.com',
+            authProvider: AuthProvider.google,
+            connectionService: service,
+            onComplete: (_) async {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('emailOnboardingSameAccountButton')),
+        findsOneWidget,
+      );
+      expect(find.text('social@example.com'), findsOneWidget);
+      expect(find.text('google_123456'), findsNothing);
+      await tester.tap(
+        find.byKey(const Key('emailOnboardingSameAccountButton')),
+      );
+      await tester.pumpAndSettle();
+
+      final request = api.requests.last;
+      expect(request.path, '/v1/email/connection/google');
+      expect(request.body, null);
+      expect(launched, Uri.parse('https://accounts.example.test/oauth'));
+    },
+  );
+
+  testWidgets('AUT-15 password account does not imply a sender provider', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _localized(
+        EmailOnboardingScreen(
+          ownerSub: 'seller-a',
+          accountEmail: 'password@example.com',
+          connectionService: EmailConnectionService(
+            _ConnectionApi(),
+            const _Session(),
+          ),
+          onComplete: (_) async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('emailOnboardingSameAccountButton')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('emailOnboardingGoogleButton')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('emailOnboardingMicrosoftButton')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('new user sees optional sending-account step after profile', (
     tester,
   ) async {
@@ -76,6 +162,9 @@ void main() {
     expect(find.byKey(const Key('emailOnboardingScreen')), findsOneWidget);
     expect(find.text('Envía seguimientos\ndesde tu correo'), findsOneWidget);
 
+    await tester.ensureVisible(
+      find.byKey(const Key('emailOnboardingSkipButton')),
+    );
     await tester.tap(find.byKey(const Key('emailOnboardingSkipButton')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('originScreen')), findsOneWidget);
@@ -143,6 +232,9 @@ void main() {
     expect(find.text('Google'), findsOneWidget);
     expect(find.text('se***@example.com'), findsOneWidget);
     expect(find.text('Conectada'), findsOneWidget);
+    await tester.ensureVisible(
+      find.byKey(const Key('emailOnboardingContinueButton')),
+    );
     await tester.tap(find.byKey(const Key('emailOnboardingContinueButton')));
     await tester.pump();
     expect(completed, isTrue);

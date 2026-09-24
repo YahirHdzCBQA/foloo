@@ -49,13 +49,24 @@ class AppEvent {
 
 /// Session-only seller profile attached to locally captured demo leads.
 class DemoProfile {
-  const DemoProfile({required this.name, required this.company});
+  const DemoProfile({
+    required this.name,
+    required this.company,
+    this.photoLocalPath,
+  });
 
   /// Empty runtime identity used until the authenticated owner saves a profile.
   static const empty = DemoProfile(name: '', company: '');
 
   final String name;
   final String company;
+  final String? photoLocalPath;
+
+  DemoProfile copyWith({String? photoLocalPath}) => DemoProfile(
+    name: name,
+    company: company,
+    photoLocalPath: photoLocalPath ?? this.photoLocalPath,
+  );
 }
 
 /// Centralized V1 fixtures used to exercise event and profile flows.

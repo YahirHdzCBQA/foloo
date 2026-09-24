@@ -38,10 +38,21 @@ class AuthSignUpResult {
 
 /// Minimal authenticated identity required to scope local data.
 class AuthUser {
-  const AuthUser({required this.id, required this.username});
+  const AuthUser({
+    required this.id,
+    required this.username,
+    this.email,
+    this.provider,
+  });
 
   final String id;
+
+  /// Provider/Cognito identifier. It is never presentation email or ownership.
   final String username;
+
+  /// Canonical visible account email obtained from authenticated attributes.
+  final String? email;
+  final AuthProvider? provider;
 }
 
 /// Single source of truth for authentication lifecycle state.

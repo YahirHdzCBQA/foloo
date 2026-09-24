@@ -25,7 +25,11 @@ class DriftDevelopmentAuthStore implements DevelopmentAuthStore {
     final id = await _preferences.read(_activeId);
     final username = await _preferences.read(_activeUsername);
     if (id == null || username == null) return null;
-    return AuthUser(id: id, username: username);
+    return AuthUser(
+      id: id,
+      username: username,
+      email: username.contains('@') ? username : null,
+    );
   }
 
   @override

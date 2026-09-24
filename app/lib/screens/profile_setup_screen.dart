@@ -38,6 +38,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _companyFocus = FocusNode();
   final _picker = ImagePicker();
   Uint8List? _profileBytes;
+  String? _profileSourcePath;
 
   @override
   void initState() {
@@ -57,7 +58,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       );
       if (image == null) return;
       final bytes = await image.readAsBytes();
-      if (mounted) setState(() => _profileBytes = bytes);
+      if (mounted) {
+        setState(() {
+          _profileBytes = bytes;
+          _profileSourcePath = image.path;
+        });
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -77,7 +83,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     widget.onContinue(
-      DemoProfile(name: _name.text.trim(), company: _company.text.trim()),
+      DemoProfile(
+        name: _name.text.trim(),
+        company: _company.text.trim(),
+        photoLocalPath:
+            _profileSourcePath ?? widget.initialProfile.photoLocalPath,
+      ),
     );
   }
 

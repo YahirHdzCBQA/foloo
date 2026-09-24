@@ -23,10 +23,11 @@ class EmailConnectionView {
 }
 
 class EmailConnectionService {
-  const EmailConnectionService(this._api, this._session);
+  const EmailConnectionService(this._api, this._session, {this.launcher});
 
   final SyncApi _api;
   final SyncSessionProvider _session;
+  final Future<bool> Function(Uri url)? launcher;
 
   Future<EmailConnectionView?> status(String owner) async {
     final token = await _session.accessTokenFor(owner);
@@ -57,7 +58,9 @@ class EmailConnectionService {
     final raw = envelope is Map ? envelope['data'] : null;
     final url = raw is Map ? raw['authorizationUrl'] as String? : null;
     if (url == null) return false;
-    return launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    final uri = Uri.parse(url);
+    return launcher?.call(uri) ??
+        launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Future<void> disconnect(String owner) async {

@@ -101,6 +101,7 @@ class _FriendlyTemplateEditingController extends TextEditingController {
       decoration: TextDecoration.none,
       decorationColor: Colors.transparent,
       decorationThickness: 0,
+      fontWeight: FontWeight.w400,
     );
     final children = <InlineSpan>[];
     var offset = 0;
@@ -1402,6 +1403,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
     final textStyle = DefaultTextStyle.of(context).style.copyWith(
       color: palette.ink,
       fontSize: 15,
+      fontWeight: FontWeight.w400,
       height: 1.45,
       decoration: TextDecoration.none,
       decorationColor: Colors.transparent,
