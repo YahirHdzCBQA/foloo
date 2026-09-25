@@ -96,9 +96,12 @@ idempotentes y reconciliación local-first.
 - Feedback de demo: login/alta unificados, perfil sin fixtures, onboarding de
   sender, helpers Content, Review/editor inline, acuse de siete segundos,
   seguimiento en Registros, feedback de exportación y templates con chips.
-- Social login usa federación Cognito y requiere configuración externa; nunca
-  reutiliza OAuth de sender. FL-019.5 supersede D-16 y retira unsubscribe activo
-  sin destruir migraciones/tablas históricas.
+- Google y Microsoft usan federación Cognito ya configurada; Microsoft OIDC
+  pasa por el tenant recurso Entra External ID/B2B de ADR-002. Queda QA físico
+  de la app y Cognito continúa siendo el único issuer de Foloo. Nunca reutiliza
+  OAuth de sender. FL-019.5
+  supersede D-16 y retira unsubscribe activo sin destruir migraciones/tablas
+  históricas.
 - Mantiene preparación/intención únicas, reconciliación, adjuntos, outbox,
   Gmail/Graph, aislamiento y offline-first validados en FL-019.
 

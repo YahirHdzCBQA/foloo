@@ -9,16 +9,28 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Dado un email nuevo, al registrarse con contraseña, entonces Cognito envía un
   código de seis dígitos y la app solicita confirmación sin pedir perfil.
 - Login y Crear cuenta ofrecen email/contraseña, Google y Microsoft. Google o
-  Microsoft autentican únicamente mediante federación Cognito configurada y
-  omiten el código manual; su OAuth nunca se reutiliza como conexión sender.
+  Microsoft solicitan selección de cuenta en cada acción explícita, autentican
+  únicamente mediante federación Cognito configurada y omiten el código manual;
+  su OAuth nunca se reutiliza como conexión sender.
+- Microsoft acepta una cuenta personal y una laboral/escolar de cualquier
+  tenant mediante el tenant recurso External ID/B2B: Cognito valida un issuer
+  estable y la app/backend reciben únicamente tokens Cognito. Una federación
+  directa de Cognito contra `/common` no satisface este escenario.
 - Código inválido/vencido, reenvío, usuario confirmado, red y error inesperado
   se expresan en ES/EN sin texto AWS crudo.
 - Login válido restaura el `sub`; perfil incompleto abre Tu perfil vacío, sin
   Yahir/CBQA u otra identidad demo, y perfil completo abre Inicio.
-- Al completar un perfil nuevo se ofrece una cuenta de envío Google/Microsoft
-  distinta de la cuenta Foloo. Conectar u omitir permite continuar; omitir no
-  bloquea Leads ni reaparece cada inicio. Usuarios con perfil previo no repiten
-  onboarding y la disposición local de este paso nunca suplanta el estado OAuth.
+- En identidad federada, `username` técnico, atributo `email` y `sub` permanecen
+  separados: la UI muestra `email`, nunca `google_*`/`microsoft_*`, mientras
+  ownership continúa usando exclusivamente `sub`.
+- Al completar un perfil nuevo se ofrece una cuenta de envío Google/Microsoft.
+  Si Auth fue federado, “Usar la cuenta con la que te registraste” abre un OAuth
+  sender independiente del mismo proveedor; Auth por contraseña no infiere
+  proveedor. Conectar u omitir permite continuar; omitir no bloquea Leads ni
+  reaparece cada inicio. Usuarios con perfil previo no repiten onboarding y la
+  disposición local de este paso nunca suplanta el estado OAuth.
+- El menú muestra la foto durable del perfil y el email canónico de Auth; sin
+  foto usa iniciales y al cambiar de `sub` no conserva la identidad anterior.
 - Cerrar/reabrir restaura sesión válida. Logout vuelve a Login y conserva datos.
 - Dos `sub` no ven perfil, eventos, leads o preferencias del otro; filas
   históricas no se reclaman.

@@ -15,8 +15,13 @@
 para tests/desarrollo controlado. Cognito DEV usa región `us-east-1`, User Pool
 `us-east-1_QVm3dWe4O` y App Client público
 `6jong3atp2crqcsde6g215ant8` sin Client Secret. Self sign-up es email/password,
-con código por email; MFA de usuario, passwordless y social login están fuera.
-El `sub` es ownership estable. Perfil Foloo no es un atributo Cognito.
+con código por email; Google y Microsoft están configurados mediante federación
+Cognito. Microsoft usa OIDC desde un tenant recurso Entra External ID/B2B de
+issuer estable antes de Cognito. El App Client móvil continúa sin secret; el
+secret OIDC externo reside solo en Cognito y nunca en Flutter.
+MFA de usuario y passwordless están fuera. El `sub` Cognito es ownership
+estable. Perfil Foloo no es un atributo Cognito. Auth social y OAuth sender son
+boundaries independientes.
 
 ### Idioma y apariencia
 

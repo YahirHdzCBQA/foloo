@@ -97,22 +97,23 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 
 | ID | Requerimiento |
 |---|---|
-| `AUT-01` | Runtime normal autentica con AWS Cognito por email/contraseña o federación Cognito Google/Microsoft cuando la configuración externa esté aprobada; la UI no llama Cognito ni reutiliza OAuth de correo directamente. |
+| `AUT-01` | Runtime normal autentica con AWS Cognito por email/contraseña o federación Cognito Google/Microsoft cuando la configuración externa esté aprobada; la UI no llama Cognito ni reutiliza OAuth de correo directamente. Cognito continúa siendo el único issuer aceptado por Foloo y su backend. |
 | `AUT-02` | La sesión válida se restaura al abrir sin pedir login de nuevo; perder red no equivale a logout. |
-| `AUT-03` | La persona puede mostrar/ocultar la contraseña y recibe errores de dominio ES/EN, nunca mensajes AWS crudos. |
-| `AUT-04` | Login y Crear cuenta ofrecen email/contraseña, Google y Microsoft en la misma arquitectura Cognito. El alta local solicita solo email y contraseña. |
+| `AUT-03` | La persona puede mostrar/ocultar la contraseña y recibe errores de dominio ES/EN, nunca mensajes AWS crudos; el error de contraseña débil describe la política Cognito vigente sin reemplazar su validación autoritativa. |
+| `AUT-04` | Login y Crear cuenta ofrecen email/contraseña, Google y Microsoft en la misma arquitectura Cognito. El alta local solicita solo email y contraseña. Cada acción federada explícita solicita elegir cuenta cuando el IdP lo admite. |
 | `AUT-05` | Solo el alta por email/contraseña requiere código de seis dígitos enviado por email y admite reenvío cuando Cognito lo permita; una identidad federada ya confirmada omite ese paso. |
 | `AUT-06` | Código incorrecto, vencido, cuenta confirmada, red y error inesperado tienen estados recuperables ES/EN. |
 | `AUT-07` | Después de autenticar, un perfil incompleto abre “Tu perfil”; uno completo abre Inicio. |
-| `AUT-08` | El perfil Foloo solicita nombre, puesto, empresa, teléfono y foto opcional; no convierte esos campos en atributos Cognito obligatorios. |
+| `AUT-08` | El perfil Foloo solicita nombre, puesto, empresa, teléfono y foto opcional; no convierte esos campos en atributos Cognito obligatorios. La foto local durable pertenece al `sub` y el menú usa esa foto o las iniciales como fallback. |
 | `AUT-09` | El perfil se persiste y puede editarse desde el menú. |
-| `AUT-10` | Cognito `sub`, nunca email, es ownership de perfil, eventos, leads, preferencias y medios. |
+| `AUT-10` | Cognito `sub`, nunca email, es ownership de perfil, eventos, leads, preferencias y medios. El `username` técnico de Cognito se conserva separado; la UI muestra únicamente el atributo autenticado `email`. |
 | `AUT-11` | Logout Cognito limpia sesión sensible y vuelve a Login sin borrar datos del producto. |
 | `AUT-12` | Filas históricas sin owner o de FakeAuth se preservan y no se reasignan silenciosamente. |
 | `AUT-13` | MFA de usuario, passwordless y UI de recuperación quedan fuera; account recovery permanece habilitado en Cognito para una FL futura. |
-| `AUT-14` | Después de completar un perfil nuevo, el onboarding ofrece conectar opcionalmente la cuenta Google/Microsoft desde la que se enviarán seguimientos o “Configurar después”. Omitir no bloquea captura ni reaparece en cada inicio; la disposición del paso se guarda localmente por `sub`, sin confundirse con el estado OAuth autoritativo. Perfiles existentes anteriores al paso continúan sin reiniciar onboarding. |
+| `AUT-14` | Después de completar un perfil nuevo, el onboarding ofrece conectar opcionalmente la cuenta Google/Microsoft desde la que se enviarán seguimientos o “Configurar después”. Si Auth fue federado, “Usar la cuenta con la que te registraste” inicia un consentimiento sender nuevo del mismo proveedor; email/password no presupone proveedor. Omitir no bloquea captura ni reaparece en cada inicio; la disposición del paso se guarda localmente por `sub`, sin confundirse con el estado OAuth autoritativo. Perfiles existentes anteriores al paso continúan sin reiniciar onboarding. |
 | `AUT-15` | La identidad Google/Microsoft usada para entrar a Foloo y la cuenta Google/Microsoft autorizada para enviar follow-ups son consentimientos y sesiones independientes; registrarse socialmente nunca conecta automáticamente el sender. |
 | `AUT-16` | Tu perfil inicia vacío para una cuenta sin perfil y usa únicamente nombre/empresa/foto introducidos por la persona; no presenta identidades demo como defaults o fallbacks runtime. |
+| `AUT-17` | Microsoft Auth admite cuentas personales y cuentas laborales/escolares de cualquier tenant. Debido al issuer dinámico de `/common`, no se federa ese endpoint directamente a Cognito: un tenant recurso administrado de Entra External ID/B2B valida la identidad de origen y emite desde un issuer tenant-specific estable que Cognito puede validar. Firma, audiencia, issuer, tenant, nonce, state y PKCE conservan validación; no se introducen JWT Microsoft en la API Foloo. |
 
 ### 4.2 Eventos y origen
 

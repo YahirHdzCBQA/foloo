@@ -3,6 +3,7 @@ library;
 
 import 'package:amplify_flutter/amplify_flutter.dart' as amplify;
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart' as cognito;
+import 'package:flutter/foundation.dart';
 
 import 'auth_models.dart';
 import 'auth_service.dart';
@@ -145,14 +146,7 @@ class AmplifyCognitoAuthClient
   @override
   Future<CognitoIdentity> signInWithProvider(AuthProvider provider) async {
     try {
-      final amplifyProvider = switch (provider) {
-        AuthProvider.google => amplify.AuthProvider.google,
-        // The exact Cognito IdP name is externally configurable. Foloo uses
-        // the approved product name and never borrows sender OAuth tokens.
-        AuthProvider.microsoft => const amplify.AuthProvider.custom(
-          'Microsoft',
-        ),
-      };
+      final amplifyProvider = amplifyProviderFor(provider);
 
       final result = await amplify.Amplify.Auth.signInWithWebUI(
         provider: amplifyProvider,
@@ -163,13 +157,8 @@ class AmplifyCognitoAuthClient
         throw const FolooAuthException(AuthFailureCode.socialLoginUnavailable);
       }
       return await _currentIdentity(provider: provider);
-    } on Object catch (error, stackTrace) {
-      amplify.safePrint('=== SOCIAL LOGIN ERROR ===');
-      amplify.safePrint('Provider: $provider');
-      amplify.safePrint('Type: ${error.runtimeType}');
-      amplify.safePrint('Error: $error');
-      amplify.safePrint('StackTrace: $stackTrace');
-      amplify.safePrint('==========================');
+    } on Object catch (error) {
+      _debugLogSocialAuthFailure(provider: provider, error: error);
 
       if (error is FolooAuthException) rethrow;
 
@@ -183,6 +172,76 @@ class AmplifyCognitoAuthClient
       throw mapped;
     }
   }
+
+  static void _debugLogSocialAuthFailure({
+    required AuthProvider provider,
+    required Object error,
+  }) {
+    if (!kDebugMode) return;
+
+    final amplifyError = error is amplify.AmplifyException ? error : null;
+    final underlying = amplifyError?.underlyingException;
+    amplify.safePrint('[auth.social] provider=${provider.name}');
+    amplify.safePrint('[auth.social] runtimeType=${error.runtimeType}');
+    amplify.safePrint(
+      '[auth.social] message=${_sanitizeAuthDiagnostic(amplifyError?.message)}',
+    );
+    amplify.safePrint(
+      '[auth.social] recoverySuggestion='
+      '${_sanitizeAuthDiagnostic(amplifyError?.recoverySuggestion)}',
+    );
+    amplify.safePrint(
+      '[auth.social] underlyingRuntimeType='
+      '${underlying?.runtimeType.toString() ?? 'null'}',
+    );
+    amplify.safePrint(
+      '[auth.social] underlyingException='
+      '${_sanitizeAuthDiagnostic(underlying)}',
+    );
+  }
+
+  static String _sanitizeAuthDiagnostic(Object? value) {
+    if (value == null) return 'null';
+
+    var sanitized = value.toString();
+    sanitized = sanitized.replaceAll(
+      RegExp(r'https?://[^\s\]\[(){}<>]+', caseSensitive: false),
+      '[REDACTED_URL]',
+    );
+    sanitized = sanitized.replaceAll(
+      RegExp(
+        r"[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+        r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?'
+        r'(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+',
+        caseSensitive: false,
+      ),
+      '[REDACTED_EMAIL]',
+    );
+    sanitized = sanitized.replaceAll(
+      RegExp(
+        r'\b(authorization_code|access_token|id_token|refresh_token|state|'
+        r'nonce|code_verifier|code_challenge|client_secret|password|code)'
+        r'\b\s*[:=]\s*[^\s,;&]+',
+        caseSensitive: false,
+      ),
+      r'$1=[REDACTED]',
+    );
+    sanitized = sanitized.replaceAll(
+      RegExp(r'\beyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\b'),
+      '[REDACTED_TOKEN]',
+    );
+    return sanitized;
+  }
+
+  /// Maps Foloo providers to the identifiers sent to Cognito Managed Login.
+  static amplify.AuthProvider amplifyProviderFor(AuthProvider provider) =>
+      switch (provider) {
+        AuthProvider.google => amplify.AuthProvider.google,
+        // This must match the externally configured Cognito IdP name exactly.
+        AuthProvider.microsoft => const amplify.AuthProvider.custom(
+          'Microsoft',
+        ),
+      };
 
   /// Explicit social actions always let the user choose an IdP account.
   static amplify.SignInWithWebUIOptions webUiOptionsFor(

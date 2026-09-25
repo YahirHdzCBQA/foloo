@@ -13,6 +13,7 @@ class CognitoEnvironmentConfiguration {
     this.hostedUiDomain = '',
     this.signInRedirectUri = '',
     this.signOutRedirectUri = '',
+    this.oauthRequired = false,
   });
 
   final String region;
@@ -21,14 +22,26 @@ class CognitoEnvironmentConfiguration {
   final String hostedUiDomain;
   final String signInRedirectUri;
   final String signOutRedirectUri;
+  final bool oauthRequired;
 
   bool get hasHostedUi =>
       hostedUiDomain.isNotEmpty &&
       signInRedirectUri.isNotEmpty &&
       signOutRedirectUri.isNotEmpty;
 
+  bool get _hasAnyHostedUiValue =>
+      hostedUiDomain.isNotEmpty ||
+      signInRedirectUri.isNotEmpty ||
+      signOutRedirectUri.isNotEmpty;
+
   /// Amplify Gen 2 configuration containing public identifiers only.
   String toAmplifyConfiguration() {
+    if ((oauthRequired || _hasAnyHostedUiValue) && !hasHostedUi) {
+      throw StateError(
+        'Incomplete Cognito OAuth configuration: domain, sign-in redirect, '
+        'and sign-out redirect are all required.',
+      );
+    }
     final auth = <String, Object>{
       'aws_region': region,
       'user_pool_id': userPoolId,
@@ -59,9 +72,19 @@ abstract final class CognitoConfigurations {
     region: 'us-east-1',
     userPoolId: 'us-east-1_QVm3dWe4O',
     appClientId: '6jong3atp2crqcsde6g215ant8',
-    hostedUiDomain: String.fromEnvironment('FOLOO_COGNITO_HOSTED_UI_DOMAIN'),
-    signInRedirectUri: String.fromEnvironment('FOLOO_AUTH_SIGN_IN_REDIRECT'),
-    signOutRedirectUri: String.fromEnvironment('FOLOO_AUTH_SIGN_OUT_REDIRECT'),
+    hostedUiDomain: String.fromEnvironment(
+      'FOLOO_COGNITO_HOSTED_UI_DOMAIN',
+      defaultValue: 'us-east-1qvm3dwe4o.auth.us-east-1.amazoncognito.com',
+    ),
+    signInRedirectUri: String.fromEnvironment(
+      'FOLOO_AUTH_SIGN_IN_REDIRECT',
+      defaultValue: 'foloo://callback/',
+    ),
+    signOutRedirectUri: String.fromEnvironment(
+      'FOLOO_AUTH_SIGN_OUT_REDIRECT',
+      defaultValue: 'foloo://signout/',
+    ),
+    oauthRequired: true,
   );
 
   static CognitoEnvironmentConfiguration forEnvironment(

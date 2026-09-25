@@ -4,7 +4,7 @@
 
 | IDs | Escenario | Decisión/ADR | Evidencia / pendientes |
 |---|---|---|---|
-| `AUT-*` | E-01 | ADR-002/006 | FL-019.5: login/alta email + botones federados Cognito Google/Microsoft, confirmación solo email, perfil sin fixtures y sender onboarding independiente; configuración social externa pendiente; f1-01/02, f4-02 |
+| `AUT-*` | E-01 | ADR-002/006 | FL-019.5: login/alta email + federación Cognito Google/Microsoft; Microsoft OIDC usa Entra External ID/B2B de issuer estable ya configurado. Confirmación solo email, perfil sin fixtures y sender onboarding independiente; QA físico Microsoft pendiente; f1-01/02, f4-02 |
 | `EVT-*` | E-02 | ADR-001/004 | FL-017 estabiliza create/update/delete remoto, tombstones y confirmación; tests event sync/UI/backend; f1-03–05 |
 | `CAP-*`, `OCR-*` | E-03–E-05 | ADR-001; D-11 | captura/ML Kit/Drift; f1-06–09, 11–14, 24 |
 | `VOZ-*` | E-04 | ADR-001; D-05/D-06 | voice service/media/tests; f1-10, 21–23 |

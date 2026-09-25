@@ -79,17 +79,51 @@ void main() {
     }
   });
 
-  test('AUT-12 DEV configuration has public User Pool identifiers only', () {
-    final decoded = jsonDecode(
-      CognitoConfigurations.dev.toAmplifyConfiguration(),
-    ) as Map<String, Object?>;
-    final outputs = AmplifyOutputs.fromJson(decoded);
+  test('AUT-01 Microsoft uses the exact Cognito custom provider name', () {
+    final provider = AmplifyCognitoAuthClient.amplifyProviderFor(
+      AuthProvider.microsoft,
+    );
 
-    expect(outputs.auth?.awsRegion, 'us-east-1');
-    expect(outputs.auth?.userPoolId, 'us-east-1_QVm3dWe4O');
-    expect(outputs.auth?.userPoolClientId, '6jong3atp2crqcsde6g215ant8');
-    expect(outputs.auth?.identityPoolId, isNull);
-    expect(decoded['auth'], isNot(contains('app_client_secret')));
+    expect(provider.uriParameter, 'Microsoft');
+  });
+
+  test(
+    'AUT-01/AUT-12 DEV configuration includes validated OAuth code flow',
+    () {
+      final decoded = jsonDecode(
+        CognitoConfigurations.dev.toAmplifyConfiguration(),
+      ) as Map<String, Object?>;
+      final outputs = AmplifyOutputs.fromJson(decoded);
+
+      expect(outputs.auth?.awsRegion, 'us-east-1');
+      expect(outputs.auth?.userPoolId, 'us-east-1_QVm3dWe4O');
+      expect(outputs.auth?.userPoolClientId, '6jong3atp2crqcsde6g215ant8');
+      expect(outputs.auth?.identityPoolId, isNull);
+      expect(
+        outputs.auth?.oauth?.domain,
+        'us-east-1qvm3dwe4o.auth.us-east-1.amazoncognito.com',
+      );
+      expect(outputs.auth?.oauth?.redirectSignInUri, ['foloo://callback/']);
+      expect(outputs.auth?.oauth?.redirectSignOutUri, ['foloo://signout/']);
+      expect(outputs.auth?.oauth?.responseType.name, 'code');
+      expect(
+        outputs.auth?.oauth?.scopes,
+        containsAll(['openid', 'email', 'profile']),
+      );
+      expect(decoded['auth'], isNot(contains('app_client_secret')));
+    },
+  );
+
+  test('AUT-01 incomplete required OAuth configuration fails clearly', () {
+    const configuration = CognitoEnvironmentConfiguration(
+      region: 'us-east-1',
+      userPoolId: 'pool',
+      appClientId: 'client',
+      hostedUiDomain: 'example.auth.us-east-1.amazoncognito.com',
+      oauthRequired: true,
+    );
+
+    expect(configuration.toAmplifyConfiguration, throwsStateError);
   });
 
   test('AUT-02 restores a Cognito session and maps sub as owner id', () async {
@@ -110,6 +144,28 @@ void main() {
     expect(repository.state.user?.email, 'restored@example.com');
     expect(repository.state.user?.id, isNot('restored@example.com'));
   });
+
+  test(
+    'AUT-10/AUT-17 Microsoft keeps Cognito sub and visible email separate',
+    () async {
+      final client = _FakeCognitoClient()
+        ..restored = const CognitoIdentity(
+          sub: 'cognito-owner-sub',
+          username: 'Microsoft_external-subject',
+          email: 'person@outlook.com',
+          provider: AuthProvider.microsoft,
+        );
+      final repository = AuthRepository(CognitoAuthService(client));
+
+      await repository.initialize();
+
+      expect(repository.state.user?.id, 'cognito-owner-sub');
+      expect(repository.state.user?.username, 'Microsoft_external-subject');
+      expect(repository.state.user?.email, 'person@outlook.com');
+      expect(repository.state.user?.provider, AuthProvider.microsoft);
+      expect(repository.state.user?.id, isNot(repository.state.user?.email));
+    },
+  );
 
   test(
     'AUT-10/AUT-11 sign-up, confirmation and resend stay normalized',
