@@ -47,24 +47,25 @@ class _ConnectionApi implements SyncApi {
   }
 }
 
-Widget _localized(Widget child) => MaterialApp(
-  locale: const Locale('es'),
-  supportedLocales: AppLocalizations.supportedLocales,
-  localizationsDelegates: const [
-    AppLocalizations.delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ],
-  theme: FolooTheme.light,
-  home: Builder(
-    builder: (context) => AppLanguageScope(
-      locale: const Locale('es'),
-      onLocaleChanged: (_) {},
-      child: child,
-    ),
-  ),
-);
+Widget _localized(Widget child, {Locale locale = const Locale('es')}) =>
+    MaterialApp(
+      locale: locale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      theme: FolooTheme.light,
+      home: Builder(
+        builder: (context) => AppLanguageScope(
+          locale: locale,
+          onLocaleChanged: (_) {},
+          child: child,
+        ),
+      ),
+    );
 
 Future<void> _loginAndCompleteProfile(WidgetTester tester) async {
   await tester.enterText(find.byKey(const Key('loginEmailField')), 'new-user');
@@ -143,6 +144,44 @@ void main() {
     );
     expect(
       find.byKey(const Key('emailOnboardingGoogleButton')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('emailOnboardingMicrosoftButton')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('emailOnboardingMicrosoftNotice')),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('cuentas personales (como Outlook o Hotmail)'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Microsoft sender limitation is localized before OAuth', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _localized(
+        EmailOnboardingScreen(
+          ownerSub: 'seller-a',
+          connectionService: EmailConnectionService(
+            _ConnectionApi(),
+            const _Session(),
+          ),
+          onComplete: (_) async {},
+        ),
+        locale: const Locale('en'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining(
+        'Microsoft connection is available for personal accounts',
+      ),
       findsOneWidget,
     );
     expect(
@@ -344,6 +383,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Google · go***@gmail.com'), findsOneWidget);
     expect(find.text('Conectada'), findsOneWidget);
+    expect(
+      find.byKey(const Key('emailMicrosoftConnectionNotice')),
+      findsNothing,
+    );
 
     await tester.pumpWidget(screen(false));
     await tester.pump();
@@ -357,6 +400,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Microsoft · mi***@company.com'), findsOneWidget);
     expect(find.text('Google · go***@gmail.com'), findsNothing);
+    expect(
+      find.byKey(const Key('emailMicrosoftConnectionNotice')),
+      findsOneWidget,
+    );
 
     await tester.pumpWidget(screen(false));
     await tester.pump();
@@ -371,6 +418,10 @@ void main() {
     expect(find.text('Necesita reconexión'), findsOneWidget);
     expect(find.text('Google'), findsOneWidget);
     expect(find.text('Microsoft'), findsWidgets);
+    expect(
+      find.byKey(const Key('emailMicrosoftConnectionNotice')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Correo no longer duplicates follow-up history', (tester) async {

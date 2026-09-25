@@ -84,19 +84,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 shape: const StadiumBorder(),
               ),
             ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              key: const Key('signUpMicrosoftButton'),
-              onPressed: widget.busy || widget.onSocialSubmit == null
-                  ? null
-                  : () => widget.onSocialSubmit!(AuthProvider.microsoft),
-              icon: const Icon(Icons.business_outlined),
-              label: Text(context.l10n.continueWithMicrosoft),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(54),
-                shape: const StadiumBorder(),
-              ),
-            ),
             const SizedBox(height: 18),
             Row(
               children: [

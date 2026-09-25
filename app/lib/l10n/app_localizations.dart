@@ -488,6 +488,12 @@ abstract class AppLocalizations {
   /// **'Continuar con Microsoft'**
   String get emailOnboardingMicrosoft;
 
+  /// No description provided for @emailMicrosoftPersonalAccountNotice.
+  ///
+  /// In es, this message translates to:
+  /// **'En esta versión, la conexión con Microsoft está disponible para cuentas personales (como Outlook o Hotmail). Las cuentas empresariales, educativas o administradas por una organización aún no son compatibles.'**
+  String get emailMicrosoftPersonalAccountNotice;
+
   /// No description provided for @emailOnboardingSameAccount.
   ///
   /// In es, this message translates to:

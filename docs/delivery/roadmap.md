@@ -96,10 +96,14 @@ idempotentes y reconciliación local-first.
 - Feedback de demo: login/alta unificados, perfil sin fixtures, onboarding de
   sender, helpers Content, Review/editor inline, acuse de siete segundos,
   seguimiento en Registros, feedback de exportación y templates con chips.
-- Google y Microsoft usan federación Cognito ya configurada; Microsoft OIDC
-  pasa por el tenant recurso Entra External ID/B2B de ADR-002. Queda QA físico
-  de la app y Cognito continúa siendo el único issuer de Foloo. Nunca reutiliza
-  OAuth de sender. FL-019.5
+- Google usa federación Cognito ya configurada. Microsoft Sign-In/OIDC queda
+  temporalmente fuera de esta versión por el conflicto de issuer observado con
+  Entra; Login y Crear cuenta no muestran esa opción, aunque conservan el código
+  reutilizable. Cognito continúa siendo el único issuer de Foloo y nunca se
+  reutiliza OAuth de sender. La conexión Microsoft para envío permanece activa
+  para cuentas personales compatibles; la UI advierte antes de OAuth que cuentas
+  empresariales, educativas u organizacionales no están soportadas en esta
+  versión. Google sender permanece sin cambios. FL-019.5
   supersede D-16 y retira unsubscribe activo sin destruir migraciones/tablas
   históricas.
 - Mantiene preparación/intención únicas, reconciliación, adjuntos, outbox,

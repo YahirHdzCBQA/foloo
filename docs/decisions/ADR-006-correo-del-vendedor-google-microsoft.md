@@ -15,8 +15,11 @@ no demuestra control del buzón externo.
 
 ## Decisión
 
-- V1 admite Gmail y Google Workspace con OAuth 2.0 + Gmail API, y Outlook y
-  Microsoft 365 con OAuth 2.0 + Microsoft Graph.
+- V1 admite Gmail y Google Workspace con OAuth 2.0 + Gmail API, y cuentas
+  Microsoft personales compatibles —como Outlook o Hotmail— con OAuth 2.0 +
+  Microsoft Graph. Las cuentas empresariales, educativas o administradas por
+  una organización no están soportadas ni garantizadas en esta versión por las
+  políticas Entra que cada organización controla.
 - La lógica de follow-up depende de una frontera de proveedor, no de SDKs de
   Google/Microsoft en widgets ni de un `From` suministrado por Flutter.
 - Backend vincula la identidad externa autorizada al Cognito `sub`/workspace y
@@ -28,6 +31,8 @@ no demuestra control del buzón externo.
 - Backend es la autoridad del estado de conexión. Flutter refresca al abrir
   Correo y al volver del navegador y solo recibe provider, dirección enmascarada
   y estado; tocar Google/Microsoft nunca produce por sí mismo `connected`.
+  Antes de iniciar OAuth Microsoft, Flutter presenta una aclaración informativa
+  sobre el alcance de cuentas personales sin alterar disponibilidad ni scopes.
 - No se emplean SMTP manual, passwords de correo, SES ni una cuenta general
   Foloo para estos follow-ups.
 - Tokens y secretos del proveedor permanecen fuera de Flutter, Drift,
@@ -42,7 +47,9 @@ no demuestra control del buzón externo.
   proveedor para follow-ups; cada identidad autorizada debe autenticarse con
   los mecanismos de correo aplicables a su propio dominio/proveedor.
 - OAuth de Google/Microsoft es una conexión de correo adicional, no sustituye
-  Cognito como identidad Foloo ni introduce Social Login.
+  Cognito como identidad Foloo ni introduce Social Login. Microsoft Sign-In
+  para autenticarse en Foloo continúa temporalmente deshabilitado; esta decisión
+  conserva únicamente Microsoft como proveedor de correo sender.
 - Usuarios con perfil anterior a este paso conservan acceso sin repetir
   onboarding. La marca local owner-scoped registra solo visto/omitido; no es un
   cache autoritativo de OAuth.

@@ -19,6 +19,7 @@ import '../models/email_template.dart';
 import '../models/email_delivery_error.dart';
 import '../data/repositories/local_repositories.dart';
 import '../theme/foloo_theme.dart';
+import '../widgets/microsoft_account_notice.dart';
 import '../l10n/l10n.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/module_header.dart';
@@ -607,6 +608,13 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
             ),
           ],
           const SizedBox(height: 10),
+          if (!connected || _connection?.provider == 'microsoft') ...[
+            MicrosoftAccountNotice(
+              key: const Key('emailMicrosoftConnectionNotice'),
+              message: context.l10n.emailMicrosoftPersonalAccountNotice,
+            ),
+            const SizedBox(height: 10),
+          ],
           if (connected)
             Row(
               children: [

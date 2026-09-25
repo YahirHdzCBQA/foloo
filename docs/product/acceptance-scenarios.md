@@ -4,24 +4,23 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 ## E-01 · Alta, confirmación, sesión y perfil
 
-**Trazas:** `AUT-01`–`AUT-16`, `SYN-09`, `SAL-08`, `SAL-09`.
+**Trazas:** `AUT-01`–`AUT-17`, `SYN-09`, `SAL-08`, `SAL-09`.
 
 - Dado un email nuevo, al registrarse con contraseña, entonces Cognito envía un
   código de seis dígitos y la app solicita confirmación sin pedir perfil.
-- Login y Crear cuenta ofrecen email/contraseña, Google y Microsoft. Google o
-  Microsoft solicitan selección de cuenta en cada acción explícita, autentican
-  únicamente mediante federación Cognito configurada y omiten el código manual;
-  su OAuth nunca se reutiliza como conexión sender.
-- Microsoft acepta una cuenta personal y una laboral/escolar de cualquier
-  tenant mediante el tenant recurso External ID/B2B: Cognito valida un issuer
-  estable y la app/backend reciben únicamente tokens Cognito. Una federación
-  directa de Cognito contra `/common` no satisface este escenario.
+- Login y Crear cuenta ofrecen email/contraseña y Google. Microsoft Sign-In no
+  aparece deshabilitado ni como opción futura. Google solicita selección de
+  cuenta en cada acción explícita, autentica mediante Cognito y omite el código
+  manual; su OAuth nunca se reutiliza como conexión sender.
+- El alta email/password acepta Gmail, Outlook, Hotmail y dominios empresariales
+  válidos admitidos por Cognito. La contraseña creada pertenece a Foloo y no es
+  la contraseña del proveedor del correo.
 - Código inválido/vencido, reenvío, usuario confirmado, red y error inesperado
   se expresan en ES/EN sin texto AWS crudo.
 - Login válido restaura el `sub`; perfil incompleto abre Tu perfil vacío, sin
   Yahir/CBQA u otra identidad demo, y perfil completo abre Inicio.
-- En identidad federada, `username` técnico, atributo `email` y `sub` permanecen
-  separados: la UI muestra `email`, nunca `google_*`/`microsoft_*`, mientras
+- En identidad Google federada, `username` técnico, atributo `email` y `sub`
+  permanecen separados: la UI muestra `email`, nunca `google_*`, mientras
   ownership continúa usando exclusivamente `sub`.
 - Al completar un perfil nuevo se ofrece una cuenta de envío Google/Microsoft.
   Si Auth fue federado, “Usar la cuenta con la que te registraste” abre un OAuth
@@ -191,8 +190,12 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Adjuntos congelados se validan en backend. PDF borrado/no disponible o exceso
   de tamaño no se omite en silencio: el vendedor decide omitirlo para esa
   intención o cancelar. El Lead y su snapshot no cambian.
-- Google/Microsoft conectan por OAuth y least privilege; sin conexión o con
-  autorización revocada hay CTA de conectar/reconectar sin perder datos. Un
+- Google conecta por OAuth sin cambios y Microsoft conecta cuentas personales
+  compatibles —como Outlook o Hotmail— con least privilege. Antes del OAuth de
+  Microsoft, onboarding y Correo informan que cuentas empresariales, educativas
+  o administradas por una organización no están soportadas en esta versión; la
+  aclaración no deshabilita el botón ni se presenta como error. Sin conexión o
+  con autorización revocada hay CTA de conectar/reconectar sin perder datos. Un
   pendiente de identidad anterior requiere confirmar el nuevo remitente. Los
   envíos históricos mantienen su remitente efectivo y ninguna cuenta B accede
   a conexión, plantilla o follow-up de A.

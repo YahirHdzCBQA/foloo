@@ -110,6 +110,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('profileContinueButton')));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('emailOnboardingSkipButton')),
+      );
       await tester.tap(find.byKey(const Key('emailOnboardingSkipButton')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('originContinueButton')));

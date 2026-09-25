@@ -1,7 +1,7 @@
 # ADR-002 — Frontera de autenticación con AWS Cognito
 
 - Estado: **Aceptado**
-- Fecha: 2026-08-31; actualizada por FL-013B el 2026-09-04 y FL-019.5 el 2026-09-24
+- Fecha: 2026-08-31; actualizada por FL-013B el 2026-09-04 y FL-019.5 el 2026-09-25
 - Alcance: Foloo V1 unificado
 - Trazas: AUT-01–AUT-17, SYN-03, SYN-09 y E-01
 
@@ -32,23 +32,22 @@ convertir credenciales demo en autenticación de producción.
   `us-east-1_QVm3dWe4O`, App Client `6jong3atp2crqcsde6g215ant8`). La
   configuración está centralizada y deja PROD sin valores inventados.
 - Se permite self sign-up con email/password y confirmación por código. FL-019.5
-  añade Google y Microsoft exclusivamente mediante federación/Hosted UI
-  Cognito; requiere proveedores, dominio y redirect URIs configurados
-  externamente. El OAuth de envío de ADR-006 nunca se acepta como sesión Foloo.
-- Google se federa directamente. Microsoft `/common` no se configura como OIDC
-  directo de Cognito: su discovery publica un issuer `{tenantid}` y los tokens
-  reales usan el tenant de origen, mientras Cognito compara `iss` con el issuer
-  OIDC configurado. Cambiar solo endpoints no altera esa validación.
-- Microsoft Auth usa un tenant recurso controlado de Microsoft Entra External
-  ID/B2B con self-service sign-up. Ese servicio administrado autentica cuentas
-  personales y cuentas Entra externas, crea su representación Guest y emite un
-  token del tenant recurso. Cognito confía únicamente en ese issuer
-  tenant-specific estable y sigue emitiendo la sesión canónica Foloo.
-- El App Registration de este boundary es confidencial y tenant-specific. Su
-  secret rotado vive solo en la configuración externa de Cognito; nunca en
-  Flutter, Git, logs ni SDD. El tenant recurso conserva validación de firma,
-  audiencia, issuer y políticas; Hosted UI conserva code flow, state, nonce y
-  PKCE. No se implementa un token broker propio.
+  añade Google exclusivamente mediante federación/Hosted UI Cognito. El alta
+  email/password admite cualquier dirección válida aceptada por Cognito y crea
+  una contraseña Foloo independiente del proveedor del buzón. El OAuth de envío
+  de ADR-006 nunca se acepta como sesión Foloo.
+- Microsoft Sign-In/OIDC queda temporalmente fuera del alcance de esta versión.
+  La integración presentó conflictos durante el flujo de federación con
+  Microsoft Entra External ID y se retomará en una iteración posterior.
+- Para esta versión, los métodos de autenticación soportados son Google Sign-In
+  y registro/inicio de sesión mediante correo electrónico y contraseña. Login y
+  Crear cuenta no presentan Microsoft, pero se conserva su código reutilizable
+  fuera de la ruta disponible.
+- La investigación confirmó que Microsoft `/common` publica un issuer
+  `{tenantid}` y los tokens reales usan el tenant de origen, mientras Cognito
+  rechazó el ID token por issuer. Cambiar endpoints manualmente no altera esa
+  validación. No se selecciona ni implementa todavía External ID/B2B, un broker
+  intermedio o autenticación Microsoft directa.
 - MFA de usuario y passwordless están deshabilitados. Account recovery está
   habilitado en el proveedor, pero la UI de recuperación se difiere.
 - La identidad de autenticación (`AuthUser.id`, Cognito `sub`) es distinta
@@ -73,9 +72,10 @@ convertir credenciales demo en autenticación de producción.
   `{tenantid}` + validación `tid` requerida por Microsoft para multitenant.
 - Aceptar JWT Microsoft en API Gateway o validarlos en cada endpoint: rechazado;
   crearía dos contratos de autorización y ownership.
-- Implementar un issuer/exchange propio: rechazado por ampliar innecesariamente
-  la superficie criptográfica y operativa cuando Entra B2B puede normalizar el
-  issuer de forma administrada.
+- Implementar un issuer/exchange propio: rechazado para esta versión por ampliar
+  innecesariamente la superficie criptográfica y operativa.
+- Implementar ahora Entra External ID/B2B: diferido; requiere una decisión y
+  validación posterior separada, no implícita dentro de FL-019.5.
 - Detener FL-013 completa: rechazado; ownership y persistencia pueden probarse
   con un adaptador intercambiable.
 
@@ -90,25 +90,22 @@ convertir credenciales demo en autenticación de producción.
   reasignan silenciosamente. Su migración requiere una futura decisión.
 - No se agregan secretos, credenciales IAM, backend, Terraform, sincronización
   ni determinación comercial mediante Cognito.
-- El cutover Microsoft requiere comprobar que usuarios Microsoft ya creados en
-  Cognito conservan su `sub`. Si el `sub` externo cambia al convertirse en Guest,
-  la configuración se detiene: no se reasigna ownership ni se fusionan cuentas
-  sin una decisión de migración explícita.
+- Microsoft Auth no es una ruta soportada en esta versión. Una futura
+  reactivación debe resolver issuer, continuidad de `sub` y migración sin
+  reasignar ownership ni fusionar cuentas silenciosamente.
 
 ## Configuración externa vigente y evidencia pendiente
 
-- Google y el IdP OIDC `Microsoft` están habilitados en el App Client Cognito.
-  Microsoft Entra External ID/B2B y su App Registration están configurados con
-  issuer tenant-specific estable; Cognito continúa siendo el único broker e
-  issuer aceptado por Foloo.
+- Google está habilitado y validado en el App Client Cognito. La configuración
+  OIDC Microsoft existente no constituye una ruta soportada por esta versión y
+  no se modifica como parte de esta decisión.
 - Managed Login usa Authorization Code Grant, scopes `openid email profile`,
   callback `foloo://callback/` y sign-out `foloo://signout/`. Amplify conserva
   `state`, nonce, PKCE, intercambio del código y almacenamiento seguro.
-- El nombre del IdP Cognito permanece exactamente `Microsoft`. Su secreto OIDC
-  vive únicamente en Cognito; Flutter contiene solo identificadores públicos.
-- Falta QA físico de la aplicación para login, restore, logout, cambio de cuenta
-  y continuidad del `sub`; la configuración externa Microsoft ya no está
-  pendiente.
+- El código reusable conserva el nombre externo `Microsoft`; ningún secreto
+  OIDC vive en Flutter, Git, logs o SDD.
+- Google y email/password conservan login, restore, logout, confirmación y
+  ownership por `sub`. Microsoft queda pendiente de una iteración futura.
 
 ## Referencias normativas
 

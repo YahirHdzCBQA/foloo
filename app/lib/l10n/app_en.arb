@@ -65,6 +65,7 @@
   "emailOnboardingHelp": "Connect the account you want to use to email your leads. It can be different from your Foloo account.",
   "emailOnboardingGoogle": "Continue with Google",
   "emailOnboardingMicrosoft": "Continue with Microsoft",
+  "emailMicrosoftPersonalAccountNotice": "In this version, Microsoft connection is available for personal accounts (such as Outlook or Hotmail). Business, educational, or organization-managed accounts are not yet supported.",
   "emailOnboardingSameAccount": "Use the account you signed up with",
   "emailOnboardingOtherAccount": "or connect another account",
   "emailOnboardingLater": "Set up later",

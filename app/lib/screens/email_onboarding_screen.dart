@@ -13,6 +13,7 @@ import '../l10n/l10n.dart';
 import '../services/email_connection_service.dart';
 import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
+import '../widgets/microsoft_account_notice.dart';
 
 /// Lets a new user connect a sender or explicitly defer that optional setup.
 class EmailOnboardingScreen extends StatefulWidget {
@@ -230,6 +231,12 @@ class _EmailOnboardingScreenState extends State<EmailOnboardingScreen>
                         label: Text(context.l10n.emailOnboardingGoogle),
                       ),
                       const SizedBox(height: 12),
+                      MicrosoftAccountNotice(
+                        key: const Key('emailOnboardingMicrosoftNotice'),
+                        message:
+                            context.l10n.emailMicrosoftPersonalAccountNotice,
+                      ),
+                      const SizedBox(height: 8),
                       OutlinedButton.icon(
                         key: const Key('emailOnboardingMicrosoftButton'),
                         onPressed: _busy ? null : () => _connect('microsoft'),

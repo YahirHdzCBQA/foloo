@@ -218,6 +218,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get emailOnboardingMicrosoft => 'Continuar con Microsoft';
 
   @override
+  String get emailMicrosoftPersonalAccountNotice =>
+      'En esta versión, la conexión con Microsoft está disponible para cuentas personales (como Outlook o Hotmail). Las cuentas empresariales, educativas o administradas por una organización aún no son compatibles.';
+
+  @override
   String get emailOnboardingSameAccount =>
       'Usar la cuenta con la que te registraste';
 

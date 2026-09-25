@@ -65,6 +65,7 @@
   "emailOnboardingHelp": "Conecta la cuenta desde la que quieres enviar correos a tus leads. Puede ser distinta a tu cuenta Foloo.",
   "emailOnboardingGoogle": "Continuar con Google",
   "emailOnboardingMicrosoft": "Continuar con Microsoft",
+  "emailMicrosoftPersonalAccountNotice": "En esta versión, la conexión con Microsoft está disponible para cuentas personales (como Outlook o Hotmail). Las cuentas empresariales, educativas o administradas por una organización aún no son compatibles.",
   "emailOnboardingSameAccount": "Usar la cuenta con la que te registraste",
   "emailOnboardingOtherAccount": "o conecta otra cuenta",
   "emailOnboardingLater": "Configurar después",

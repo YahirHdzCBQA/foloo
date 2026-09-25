@@ -15,10 +15,10 @@
 para tests/desarrollo controlado. Cognito DEV usa región `us-east-1`, User Pool
 `us-east-1_QVm3dWe4O` y App Client público
 `6jong3atp2crqcsde6g215ant8` sin Client Secret. Self sign-up es email/password,
-con código por email; Google y Microsoft están configurados mediante federación
-Cognito. Microsoft usa OIDC desde un tenant recurso Entra External ID/B2B de
-issuer estable antes de Cognito. El App Client móvil continúa sin secret; el
-secret OIDC externo reside solo en Cognito y nunca en Flutter.
+con código por email, y Google usa federación Cognito. Microsoft Sign-In/OIDC
+queda temporalmente fuera de esta versión después de presentar conflictos de
+issuer en la federación con Entra; su código reutilizable permanece fuera de la
+UI. El App Client móvil continúa sin secret.
 MFA de usuario y passwordless están fuera. El `sub` Cognito es ownership
 estable. Perfil Foloo no es un atributo Cognito. Auth social y OAuth sender son
 boundaries independientes.
@@ -52,7 +52,7 @@ bucket S3 privado para tarjeta, imágenes de referencia y Voice Note. FL-018
 reutiliza ese bucket para Content/PDF. Flutter
 obtiene una autorización corta de la API, transfiere directamente al objeto y
 confirma por la API; Lambda verifica S3 antes de actualizar PostgreSQL.
-FL-019 usa Google/Microsoft como proveedores de follow-up desde la cuenta
+FL-019 usa Google y cuentas Microsoft personales compatibles como proveedores de follow-up desde la cuenta
 autorizada del vendedor; la outbox lleva el snapshot local inmutable y la
 intención a una frontera backend de proveedor, sin credenciales de
 correo en Flutter. ADR-007 mantiene API/RDS en subredes aisladas y lleva el

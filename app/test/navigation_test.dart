@@ -22,6 +22,9 @@ Future<void> enterCapture(WidgetTester tester) async {
   expect(find.byKey(const ValueKey('profileScreen')), findsOneWidget);
   await tester.tap(find.byKey(const Key('profileContinueButton')));
   await tester.pumpAndSettle();
+  await tester.ensureVisible(
+    find.byKey(const Key('emailOnboardingSkipButton')),
+  );
   await tester.tap(find.byKey(const Key('emailOnboardingSkipButton')));
   await tester.pumpAndSettle();
   expect(find.byKey(const ValueKey('originScreen')), findsOneWidget);

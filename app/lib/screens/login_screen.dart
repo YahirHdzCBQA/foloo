@@ -222,20 +222,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             AuthProvider.google,
                           ),
                   ),
-                  const SizedBox(height: 10),
-                  _SocialButton(
-                    key: const Key('loginMicrosoftButton'),
-                    icon: Icons.business_outlined,
-                    label: context.l10n.continueWithMicrosoft,
-                    compact: compact,
-                    onPressed:
-                        widget.authenticating ||
-                            widget.onSocialAuthenticated == null
-                        ? null
-                        : () => widget.onSocialAuthenticated!(
-                            AuthProvider.microsoft,
-                          ),
-                  ),
                   SizedBox(height: compact ? 8 : 14),
                   Row(
                     children: [

@@ -215,6 +215,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get emailOnboardingMicrosoft => 'Continue with Microsoft';
 
   @override
+  String get emailMicrosoftPersonalAccountNotice =>
+      'In this version, Microsoft connection is available for personal accounts (such as Outlook or Hotmail). Business, educational, or organization-managed accounts are not yet supported.';
+
+  @override
   String get emailOnboardingSameAccount => 'Use the account you signed up with';
 
   @override
