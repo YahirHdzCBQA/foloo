@@ -149,6 +149,10 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   incompletas se rechazan. Datos históricos ausentes nunca producen tokens
   literales, `null`, `undefined` ni información inventada. `{contenido}` usa
   el snapshot histórico del Lead y representa varios PDF con nombres humanos.
+- Todas las variantes base ES/EN de Evento/Directo generan un `<p>` por bloque,
+  reservan `<br>` para saltos internos como la firma y controlan el margen
+  inline; no combinan párrafos con `<br>` vacíos que multipliquen el espacio en
+  Gmail, Outlook u otros clientes comunes.
 - Tocar un token lo inserta en la selección/caret del asunto o cuerpo que tenga
   el foco (y en el último campo activo si el teclado perdió foco), sin borrar
   texto adyacente ni moverlo siempre al final.

@@ -130,6 +130,19 @@ function escapedHtml(value: string): string {
   });
 }
 
+/** Converts reviewed plain text to stable, compact HTML for email clients. */
+export function plainTextToEmailHtml(message: string): string {
+  const normalized = message.replace(/\r\n?/g, "\n").trim();
+  if (!normalized) return "";
+  const paragraphs = normalized.split(/\n[ \t]*\n+/);
+  return paragraphs
+    .map((paragraph, index) => {
+      const margin = index === paragraphs.length - 1 ? "0" : "0 0 1em 0";
+      return `<p style="margin:${margin};">${escapedHtml(paragraph).replace(/\n/g, "<br>")}</p>`;
+    })
+    .join("");
+}
+
 /** Defensively resolves approved variables in one historical template part. */
 export function renderEmailPart(part: string, values: EmailValues): string {
   return part.replace(tokenPattern, (_, key: EmailVariable) => {
@@ -229,11 +242,6 @@ export function renderEmailPreview(
   const signature = renderEmailPart(template.signature, values);
   const message = `${body.trim()}\n\n${signature.trim()}`.trim();
   const plainText = message;
-  const htmlMessage = message
-    .split(/\n\s*\n/)
-    .map(
-      (paragraph) => `<p>${escapedHtml(paragraph).replace(/\n/g, "<br>")}</p>`,
-    )
-    .join("");
+  const htmlMessage = plainTextToEmailHtml(message);
   return { subject, plainText, html: htmlMessage };
 }

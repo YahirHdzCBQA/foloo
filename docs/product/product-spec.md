@@ -240,7 +240,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `PLT-10` | Editar/guardar/restaurar una plantilla no crea follow-up ni intención. Seller defaults y overrides se guardan local-first y sincronizan en la outbox owner-scoped. |
 | `PLT-11` | El editor muestra asunto, mensaje y firma en lectura con lápiz; tocarlo habilita edición inline, borde/foco nativos y rayo para insertar datos, sin navegar ni perder selección/copy/paste. |
 | `PLT-12` | Los tokens canónicos `PLT-03` permanecen persistidos internamente, pero se representan como chips con nombres humanos ES/EN. El rayo abre selector con origen del dato e inserta en el cursor; tocar un chip permite reemplazar exactamente ese segmento. |
-| `PLT-13` | La previsualización viva renderiza datos reales/de ejemplo y nunca expone llaves técnicas; texto literal, Unicode, saltos, cursor y segmentos semánticos sobreviven edición y reconciliación. |
+| `PLT-13` | La previsualización viva renderiza datos reales/de ejemplo y nunca expone llaves técnicas; texto literal, Unicode, saltos, cursor y segmentos semánticos sobreviven edición y reconciliación. El HTML enviado conserva un párrafo por bloque, usa `<br>` solo para saltos internos y fija separación inline compacta sin acumular márgenes predeterminados del cliente de correo. |
 
 | ID | Requerimiento de salida |
 |---|---|

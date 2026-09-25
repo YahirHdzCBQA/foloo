@@ -43,6 +43,9 @@ for (const language of ["es", "en"] as const) {
       assert.match(rendered.plainText, /Sofía/);
       assert.doesNotMatch(rendered.html, /unsubscribe|darte de baja|href=/i);
       assert.doesNotMatch(rendered.html, /<img|background|gradient/i);
+      assert.doesNotMatch(rendered.html, /<br><br>|<\/p><br>/i);
+      assert.match(rendered.html, /<p style="margin:0 0 1em 0;">/);
+      assert.match(rendered.html, /<p style="margin:0;">/);
     });
   }
 }

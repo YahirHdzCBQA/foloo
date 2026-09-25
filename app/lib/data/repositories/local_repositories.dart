@@ -19,6 +19,7 @@ import '../../models/email_delivery_error.dart';
 import '../../models/email_semantic_document.dart';
 import '../../models/lead_draft.dart';
 import '../../models/session_lead.dart';
+import '../../services/email_html_renderer.dart';
 import '../../sync/sync_models.dart';
 import '../../sync/sync_store.dart';
 import '../local/app_database.dart';
@@ -436,14 +437,7 @@ class EmailDeliveryRepository {
             recipientAddress: lead.email.trim(),
             subject: renderedSubject,
             plainBody: renderedBody,
-            htmlBody: renderedBody
-                .split('\n')
-                .map(
-                  (line) => line.isEmpty
-                      ? '<br>'
-                      : '<p>${const HtmlEscape().convert(line)}</p>',
-                )
-                .join(),
+            htmlBody: renderPlainTextEmailHtml(renderedBody),
             contentFileIdsJson: Value(jsonEncode(lead.contentFileIds)),
             contentNamesJson: Value(jsonEncode(lead.contentNames)),
             languageCode: language,
@@ -477,14 +471,7 @@ class EmailDeliveryRepository {
         );
         final concreteSubject = subjectDocument.render(values).trim();
         final concretePlain = bodyDocument.render(values).trim();
-        final concreteHtml = concretePlain
-            .split('\n')
-            .map(
-              (line) => line.isEmpty
-                  ? '<br>'
-                  : '<p>${const HtmlEscape().convert(line)}</p>',
-            )
-            .join();
+        final concreteHtml = renderPlainTextEmailHtml(concretePlain);
         await _database.emailDeliveryDao.replacePreparation(
           owner,
           id,
@@ -553,14 +540,7 @@ class EmailDeliveryRepository {
       followUpId,
       subject: concreteSubject,
       plainBody: concreteBody,
-      htmlBody: concreteBody
-          .split('\n')
-          .map(
-            (line) => line.isEmpty
-                ? '<br>'
-                : '<p>${const HtmlEscape().convert(line)}</p>',
-          )
-          .join(),
+      htmlBody: renderPlainTextEmailHtml(concreteBody),
       subjectSemanticJson: subjectDocument.toJson(),
       bodySemanticJson: bodyDocument.toJson(),
       subjectManuallyEdited: existing.subjectManuallyEdited || subjectChanged,
@@ -589,14 +569,7 @@ class EmailDeliveryRepository {
     if (followUp == null) throw StateError('Email follow-up not found.');
     final finalSubject = (subject ?? followUp.subject).trim();
     final finalPlainBody = (plainBody ?? followUp.plainBody).trim();
-    final finalHtmlBody = finalPlainBody
-        .split('\n')
-        .map(
-          (line) => line.isEmpty
-              ? '<br>'
-              : '<p>${const HtmlEscape().convert(line)}</p>',
-        )
-        .join();
+    final finalHtmlBody = renderPlainTextEmailHtml(finalPlainBody);
     await _database.transaction(() async {
       await _database.emailDeliveryDao.updatePreparedFollowUp(
         owner,
