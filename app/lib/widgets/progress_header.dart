@@ -70,44 +70,51 @@ class ProgressHeader extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  Container(
-                    constraints: const BoxConstraints(minHeight: 44),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: FolooColors.line),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isOnline) ...[
-                          const DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: FolooColors.lime,
-                              shape: BoxShape.circle,
+                  Semantics(
+                    key: const Key('connectivityStatus'),
+                    liveRegion: true,
+                    label: isOnline
+                        ? context.l10n.online
+                        : context.l10n.offline,
+                    child: ExcludeSemantics(
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 44),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isOnline) ...[
+                              const DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: FolooColors.lime,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: SizedBox.square(dimension: 7),
+                              ),
+                              const SizedBox(width: 6),
+                            ],
+                            Icon(
+                              isOnline
+                                  ? Icons.wifi_rounded
+                                  : Icons.wifi_off_rounded,
+                              size: 15,
+                              color: ink.withValues(alpha: 0.65),
                             ),
-                            child: SizedBox.square(dimension: 7),
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                        Icon(
-                          isOnline
-                              ? Icons.wifi_rounded
-                              : Icons.wifi_off_rounded,
-                          size: 15,
-                          color: ink.withValues(alpha: 0.65),
+                            const SizedBox(width: 7),
+                            Text(
+                              isOnline
+                                  ? context.l10n.online
+                                  : context.l10n.offline,
+                              style: TextStyle(
+                                color: ink.withValues(alpha: 0.72),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 7),
-                        Text(
-                          isOnline ? context.l10n.online : context.l10n.offline,
-                          style: TextStyle(
-                            color: ink.withValues(alpha: 0.72),
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),

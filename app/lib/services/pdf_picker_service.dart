@@ -1,7 +1,7 @@
 /// Native PDF-selection boundary for the V1 content library.
 ///
 /// It selects one local PDF and returns metadata only. Uploading, caching and
-/// backend persistence remain outside this frontend task (CON-02, CON-13).
+/// backend persistence remain outside this native picker boundary (CON-02).
 library;
 
 import 'package:file_picker/file_picker.dart';

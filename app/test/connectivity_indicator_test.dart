@@ -120,7 +120,11 @@ void main() {
 
       expect(find.text('SIN CONEXIÓN'), findsOneWidget);
       expect(find.byIcon(Icons.wifi_off_rounded), findsOneWidget);
-
+      final status = find.byKey(const Key('connectivityStatus'));
+      final statusContainer = tester.widget<Container>(
+        find.descendant(of: status, matching: find.byType(Container)).first,
+      );
+      expect(statusContainer.decoration, isNull);
       connectivity.emit(true);
       await tester.pumpAndSettle();
       expect(find.text('EN LÍNEA'), findsOneWidget);

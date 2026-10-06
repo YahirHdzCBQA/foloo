@@ -138,7 +138,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             : MemoryImage(_profileBytes!),
                         child: _profileBytes == null
                             ? Icon(
-                                Icons.photo_camera_outlined,
+                                Icons.person_outline,
+                                key: const Key('profilePlaceholderIcon'),
                                 color: palette.inkSecondary,
                                 size: 29,
                               )

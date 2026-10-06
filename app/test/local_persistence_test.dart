@@ -30,6 +30,8 @@ LeadDraft draft({
   List<String> contentIds = const [],
   List<String> contentNames = const [],
   List<String> referencePaths = const [],
+  LeadOriginKind originKind = LeadOriginKind.event,
+  String? place,
   DateTime? ignoredCapturedAt,
 }) => LeadDraft(
   name: name,
@@ -41,9 +43,10 @@ LeadDraft draft({
   type: LeadType.customer,
   interest: InterestLevel.high,
   note: 'Solicita seguimiento.',
-  originKind: LeadOriginKind.event,
-  eventLocalId: eventId,
-  eventName: 'Expo Uno',
+  originKind: originKind,
+  eventLocalId: originKind == LeadOriginKind.event ? eventId : null,
+  eventName: originKind == LeadOriginKind.event ? 'Expo Uno' : null,
+  place: originKind == LeadOriginKind.direct ? place : null,
   cardImageLocalPath: cardPath,
   audioLocalPath: audioPath,
   audioSeconds: audioPath == null ? 0 : 18,
@@ -128,6 +131,48 @@ void main() {
     );
     await database.close();
   });
+
+  test(
+    'CON-12 direct Content snapshot persists offline across reopen',
+    () async {
+      var database = openDatabase();
+      final leads = LeadRepository(
+        database,
+        PrivateMediaStorage(mediaRoot),
+        idFactory: () => 'direct-content-lead',
+      );
+      await leads.saveDraft(
+        userId,
+        draft(
+          originKind: LeadOriginKind.direct,
+          place: 'León',
+          contentIds: const ['content-a'],
+          contentNames: const ['Ficha directa'],
+        ),
+        capturedBy: const DemoProfile(name: 'Yahir', company: 'CBQA'),
+      );
+      final operation = (await database.syncDao.forEntity(
+        userId,
+        SyncEntityType.lead.name,
+        'direct-content-lead',
+      )).single;
+      final payload = jsonDecode(operation.payloadJson) as Map<String, dynamic>;
+      expect(payload['origin'], 'direct');
+      expect(payload['eventId'], isNull);
+      expect(payload['contentFileIds'], ['content-a']);
+      await database.close();
+
+      database = openDatabase();
+      final restored = (await LeadRepository(
+        database,
+        PrivateMediaStorage(mediaRoot),
+      ).listAll(userId)).single;
+      expect(restored.lead.originKind, LeadOriginKind.direct);
+      expect(restored.lead.contentFileIds, ['content-a']);
+      expect(restored.lead.contentNames, ['Ficha directa']);
+      await database.close();
+    },
+  );
 
   test(
     'REG-07 edit updates create snapshot or queues optimistic PUT',

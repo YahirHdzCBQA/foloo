@@ -185,6 +185,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   }
 
   Set<String> _defaultContentIds() {
+    if (widget.originKind == LeadOriginKind.direct) return {};
     final event = _selectedEvent;
     if (event == null) return {};
     return widget.contentFiles
@@ -235,6 +236,20 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       } else if (_voiceNote.isPlaying) {
         unawaited(_pausePlayback());
       }
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant LeadCaptureScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final contextChanged =
+        oldWidget.originKind != widget.originKind ||
+        oldWidget.eventId != widget.eventId;
+    if (contextChanged) {
+      _selectedContentIds = _defaultContentIds();
+    } else if (oldWidget.contentFiles != widget.contentFiles) {
+      final availableIds = widget.contentFiles.map((file) => file.id).toSet();
+      _selectedContentIds.retainAll(availableIds);
     }
   }
 
@@ -413,8 +428,14 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     return widget.events.isEmpty ? null : widget.events.first;
   }
 
-  List<ContentFile> get _defaultContentForEvent {
-    final event = _selectedEvent;
+  List<ContentFile> get _availableContentForCapture {
+    if (widget.originKind == LeadOriginKind.direct) {
+      return widget.contentFiles;
+    }
+    return _contentForEvent(_selectedEvent);
+  }
+
+  List<ContentFile> _contentForEvent(AppEvent? event) {
     if (event == null) return const [];
     return widget.contentFiles
         .where(
@@ -425,6 +446,11 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   }
 
   void _changeOrigin(LeadOriginKind kind) {
+    setState(() {
+      _selectedContentIds = kind == LeadOriginKind.direct
+          ? <String>{}
+          : _contentForEvent(_selectedEvent).map((file) => file.id).toSet();
+    });
     if (kind == LeadOriginKind.direct) {
       widget.onOriginChanged(kind, null);
     } else {
@@ -1082,6 +1108,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
           SegmentedBubble<LeadOriginKind>(
             key: const Key('captureOriginBubble'),
             selectedHorizontalPadding: 8,
+            selectedColor: FolooSelection.surface(context),
+            selectedBorderColor: palette.ink,
             selected: widget.originKind,
             onSelected: _changeOrigin,
             options: [
@@ -1523,6 +1551,8 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             height: 50,
             selectedHorizontalPadding: 8,
             selectedVerticalInset: 3,
+            selectedColor: FolooSelection.surface(context),
+            selectedBorderColor: FolooPalette.of(context).ink,
             selected: _interest,
             onSelected: (value) => setState(() => _interest = value),
             options: [
@@ -1546,40 +1576,57 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               ),
             ],
           ),
-          if (widget.originKind == LeadOriginKind.event &&
-              _defaultContentForEvent.isNotEmpty) ...[
+          if (widget.originKind == LeadOriginKind.direct ||
+              _availableContentForCapture.isNotEmpty) ...[
             const SizedBox(height: 20),
             Text(
               context.l10n.contentToShare,
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 10),
-            ..._defaultContentForEvent.map(
-              (file) => _ContentSelectionPill(
-                key: Key('captureContent-${file.id}'),
-                label: file.displayName,
-                selected: _selectedContentIds.contains(file.id),
-                onTap: () => setState(() {
-                  if (_selectedContentIds.contains(file.id)) {
-                    _selectedContentIds.remove(file.id);
-                  } else {
-                    _selectedContentIds.add(file.id);
-                  }
-                }),
+            if (_availableContentForCapture.isEmpty)
+              Text(
+                context.l10n.noDirectContentAvailable,
+                key: const Key('directContentEmpty'),
+                style: TextStyle(
+                  color: FolooPalette.of(context).inkSecondary,
+                  fontSize: 11,
+                ),
+              )
+            else
+              ..._availableContentForCapture.map(
+                (file) => _ContentSelectionPill(
+                  key: Key('captureContent-${file.id}'),
+                  label: file.displayName,
+                  selected: _selectedContentIds.contains(file.id),
+                  onTap: () => setState(() {
+                    if (_selectedContentIds.contains(file.id)) {
+                      _selectedContentIds.remove(file.id);
+                    } else {
+                      _selectedContentIds.add(file.id);
+                    }
+                  }),
+                ),
               ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              context.l10n.contentAttachmentSummary(
-                _selectedContentIds.length,
-                _defaultContentForEvent.length,
-                _contentEventLabel,
+            if (_availableContentForCapture.isNotEmpty) ...[
+              const SizedBox(height: 3),
+              Text(
+                widget.originKind == LeadOriginKind.direct
+                    ? context.l10n.directContentAttachmentSummary(
+                        _selectedContentIds.length,
+                        _availableContentForCapture.length,
+                      )
+                    : context.l10n.contentAttachmentSummary(
+                        _selectedContentIds.length,
+                        _availableContentForCapture.length,
+                        _contentEventLabel,
+                      ),
+                style: TextStyle(
+                  color: FolooPalette.of(context).inkSecondary,
+                  fontSize: 10.5,
+                ),
               ),
-              style: TextStyle(
-                color: FolooPalette.of(context).inkSecondary,
-                fontSize: 10.5,
-              ),
-            ),
+            ],
           ],
         ],
       ),

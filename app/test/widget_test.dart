@@ -50,6 +50,44 @@ void main() {
     expect(find.text('Elige Proveedor, Partner o Cliente'), findsOneWidget);
   });
 
+  testWidgets(
+    'CAP-06 interest and origin selected states use Foloo lime tint',
+    (tester) async {
+      await tester.pumpWidget(captureApp());
+
+      AnimatedContainer selectedSurface(Key key) =>
+          tester.widget<AnimatedContainer>(
+            find
+                .descendant(
+                  of: find.byKey(key),
+                  matching: find.byType(AnimatedContainer),
+                )
+                .first,
+          );
+
+      final origin = selectedSurface(const Key('captureOriginEventTab'));
+      expect(
+        (origin.decoration! as BoxDecoration).color,
+        FolooSelection.surface(
+          tester.element(find.byKey(const Key('captureOriginEventTab'))),
+        ),
+      );
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('interest-medium')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      final interest = selectedSurface(const Key('interest-medium'));
+      expect(
+        (interest.decoration! as BoxDecoration).color,
+        FolooSelection.surface(
+          tester.element(find.byKey(const Key('interest-medium'))),
+        ),
+      );
+    },
+  );
+
   testWidgets('invalid submission scrolls to and focuses the first field', (
     tester,
   ) async {

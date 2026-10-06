@@ -32,6 +32,8 @@ class SegmentedBubble<T> extends StatelessWidget {
     this.height = 44,
     this.selectedHorizontalPadding = 8,
     this.selectedVerticalInset = 2,
+    this.selectedColor,
+    this.selectedBorderColor,
     super.key,
   });
 
@@ -41,6 +43,8 @@ class SegmentedBubble<T> extends StatelessWidget {
   final double height;
   final double selectedHorizontalPadding;
   final double selectedVerticalInset;
+  final Color? selectedColor;
+  final Color? selectedBorderColor;
 
   @override
   Widget build(BuildContext context) {
@@ -76,8 +80,13 @@ class SegmentedBubble<T> extends StatelessWidget {
                       horizontal: isSelected ? selectedHorizontalPadding : 0,
                     ),
                     decoration: BoxDecoration(
-                      color: isSelected ? palette.card : Colors.transparent,
+                      color: isSelected
+                          ? selectedColor ?? palette.card
+                          : Colors.transparent,
                       borderRadius: BorderRadius.circular((height - 8) / 2),
+                      border: isSelected && selectedBorderColor != null
+                          ? Border.all(color: selectedBorderColor!)
+                          : null,
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,

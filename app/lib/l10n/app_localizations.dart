@@ -1016,6 +1016,12 @@ abstract class AppLocalizations {
   /// **'Editar contenido'**
   String get editContent;
 
+  /// No description provided for @contentActions.
+  ///
+  /// In es, this message translates to:
+  /// **'Acciones de contenido'**
+  String get contentActions;
+
   /// No description provided for @emailTitle.
   ///
   /// In es, this message translates to:
@@ -1957,6 +1963,18 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'{selected} de {total} archivos de {event} se adjuntan al correo.'**
   String contentAttachmentSummary(Object event, Object selected, Object total);
+
+  /// No description provided for @directContentAttachmentSummary.
+  ///
+  /// In es, this message translates to:
+  /// **'{selected} de {total} archivos seleccionados se adjuntan al correo.'**
+  String directContentAttachmentSummary(Object selected, Object total);
+
+  /// No description provided for @noDirectContentAvailable.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay contenido disponible. Puedes agregar PDF desde Contenido.'**
+  String get noDirectContentAvailable;
 
   /// No description provided for @thisEventLower.
   ///

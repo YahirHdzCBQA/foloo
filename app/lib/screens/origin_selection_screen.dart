@@ -121,6 +121,8 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
               SegmentedBubble<LeadOriginKind>(
                 key: const Key('originBubble'),
                 selectedHorizontalPadding: 8,
+                selectedColor: FolooSelection.surface(context),
+                selectedBorderColor: palette.ink,
                 selected: _kind,
                 onSelected: (value) => setState(() => _kind = value),
                 options: [

@@ -59,7 +59,7 @@ dependencies:
   # SYN-05/RNF-13: observe device network transport for visual status only.
   # Transport availability is not treated as Foloo backend reachability.
   connectivity_plus: ^7.3.1
-  # CON-02/CON-13: open the native document picker restricted to PDF files.
+  # CON-02: open the native document picker restricted to PDF files.
   file_picker: ^12.1.1
   # CON-04/CON-09: render durable private PDFs on-device while offline.
   # Flutter's SDK and existing dependencies do not provide a PDF viewer.

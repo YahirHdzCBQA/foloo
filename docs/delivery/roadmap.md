@@ -73,7 +73,9 @@ idempotentes y reconciliación local-first.
 **Objetivo:** sustituir contenido PDF demo por persistencia local/remota.
 
 - Biblioteca PDF, asignación/evento y adjuntos congelados.
-- Trazas: `CON-*`, E-07.
+- Feedback Post-TestFlight: Content explícito para Lead directo y swipe
+  Editar/Eliminar con alternativa accesible en biblioteca.
+- Trazas: `CON-01`–`CON-13`, E-07.
 - D-08 resuelta el 2026-09-17: 25 MB/PDF, sin cuota comercial total ni desalojo automático; borrado lógico sin `DeleteObject`. D-11 no bloquea funcionalidad técnica, solo fidelidad visual final.
 
 ## FL-019 — Email/Templates

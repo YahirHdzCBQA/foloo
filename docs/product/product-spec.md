@@ -227,6 +227,8 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `CON-09` | PDF se conserva en copia privada local sin desalojo automático, incluso después de subirlo; importación y subida directa privada a S3 por outbox no bloquean la cola de Leads. |
 | `CON-10` | Cada PDF tiene límite V1 de 25 MB decimales (25 000 000 bytes), validado localmente y en backend. V1 no impone cuota total comercial ni desalojo automático; falta de espacio se comunica sin borrar otros archivos. |
 | `CON-11` | Biblioteca y Crear evento explican brevemente que Content administra PDF asociables a eventos y adjuntables a follow-ups; el helper no cambia asignación, persistencia ni envío. Crear evento conserva scroll y CTA de subir accesible. |
+| `CON-12` | “Todos los eventos” aplica únicamente a capturas de Evento. En Lead directo, Capture muestra todos los Content activos sin preseleccionarlos y permite elegir explícitamente cuáles congelar en ese Lead; la selección persiste local-first y Email Review usa el mismo snapshot de adjuntos. |
+| `CON-13` | Cada card de la biblioteca revela Editar hacia la derecha y Eliminar hacia la izquierda, sin ejecutar al completar el gesto. Editar reutiliza el selector de asignaciones vigente; Eliminar conserva confirmación y tombstone. Ambas acciones siguen disponibles sin swipe mediante un menú accesible. |
 
 | ID | Requerimiento de plantilla |
 |---|---|

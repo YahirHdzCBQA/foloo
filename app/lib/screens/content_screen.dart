@@ -18,6 +18,7 @@ import '../l10n/l10n.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/content_assignment_sheet.dart';
 import '../widgets/module_header.dart';
+import '../widgets/swipe_action_card.dart';
 
 /// Lists PDF metadata, opens the private copy, and edits event assignments.
 class ContentScreen extends StatefulWidget {
@@ -59,6 +60,7 @@ class _ContentScreenState extends State<ContentScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final PdfPickerService _pdfPicker;
   String? _eventId;
+  String? _openSwipeContentId;
 
   @override
   void initState() {
@@ -72,6 +74,10 @@ class _ContentScreenState extends State<ContentScreen> {
     if (_eventId != null &&
         !widget.events.any((event) => event.id == _eventId)) {
       _eventId = null;
+    }
+    if (_openSwipeContentId != null &&
+        !widget.files.any((file) => file.id == _openSwipeContentId)) {
+      _openSwipeContentId = null;
     }
   }
 
@@ -109,12 +115,43 @@ class _ContentScreenState extends State<ContentScreen> {
   }
 
   Future<void> _edit(ContentFile file) async {
+    if (_openSwipeContentId != null) {
+      setState(() => _openSwipeContentId = null);
+    }
     final result = await showContentAssignmentSheet(
       context,
       events: widget.events,
       file: file,
     );
     if (result != null) await widget.onFileUpdated(result);
+  }
+
+  Future<void> _confirmDelete(ContentFile file) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.l10n.deleteFile),
+        content: Text(context.l10n.deleteLocalFileQuestion(file.displayName)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(context.l10n.cancel),
+          ),
+          FilledButton(
+            key: const Key('confirmDeleteContent'),
+            style: FilledButton.styleFrom(
+              backgroundColor: FolooPalette.of(context).error,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(context.l10n.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await widget.onFileDeleted(file);
+    if (mounted) setState(() => _openSwipeContentId = null);
   }
 
   Future<void> _open(ContentFile file) async {
@@ -217,7 +254,10 @@ class _ContentScreenState extends State<ContentScreen> {
                       ),
                     ),
                   ],
-                  onChanged: (value) => setState(() => _eventId = value),
+                  onChanged: (value) => setState(() {
+                    _eventId = value;
+                    _openSwipeContentId = null;
+                  }),
                 ),
               ),
             ),
@@ -270,35 +310,39 @@ class _ContentScreenState extends State<ContentScreen> {
                                 .where((e) => file.eventIds.contains(e.id))
                                 .map((e) => e.name)
                                 .toList();
-                      return _ContentFileCard(
-                        key: Key('contentFile-${file.id}'),
-                        file: file,
-                        eventNames: names,
-                        onTap: () => _open(file),
-                        onEdit: () => _edit(file),
-                        onDelete: () => showDialog<void>(
-                          context: context,
-                          builder: (dialogContext) => AlertDialog(
-                            title: Text(context.l10n.deleteFile),
-                            content: Text(
-                              context.l10n.deleteLocalFileQuestion(
-                                file.displayName,
-                              ),
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(dialogContext),
-                                child: Text(context.l10n.cancel),
-                              ),
-                              FilledButton(
-                                onPressed: () async {
-                                  Navigator.pop(dialogContext);
-                                  await widget.onFileDeleted(file);
-                                },
-                                child: Text(context.l10n.delete),
-                              ),
-                            ],
-                          ),
+                      return SwipeActionCard(
+                        key: Key('contentSwipe-${file.id}'),
+                        open: _openSwipeContentId == file.id,
+                        onOpened: () =>
+                            setState(() => _openSwipeContentId = file.id),
+                        onClosed: () {
+                          if (_openSwipeContentId == file.id) {
+                            setState(() => _openSwipeContentId = null);
+                          }
+                        },
+                        startAction: SwipeCardAction(
+                          actionKey: Key('contentSwipeEdit-${file.id}'),
+                          icon: Icons.edit_outlined,
+                          label: context.l10n.editContent,
+                          color: FolooColors.lime.withValues(alpha: .32),
+                          foregroundColor: palette.ink,
+                          onTap: () => _edit(file),
+                        ),
+                        endAction: SwipeCardAction(
+                          actionKey: Key('contentSwipeDelete-${file.id}'),
+                          icon: Icons.delete_outline,
+                          label: context.l10n.deleteFile,
+                          color: palette.error,
+                          foregroundColor: Colors.white,
+                          onTap: () => _confirmDelete(file),
+                        ),
+                        child: _ContentFileCard(
+                          key: Key('contentFile-${file.id}'),
+                          file: file,
+                          eventNames: names,
+                          onTap: () => _open(file),
+                          onEdit: () => _edit(file),
+                          onDelete: () => _confirmDelete(file),
                         ),
                       );
                     },
@@ -486,15 +530,34 @@ class _ContentFileCard extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
-                tooltip: context.l10n.editContent,
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined, size: 18),
-              ),
-              IconButton(
-                tooltip: context.l10n.deleteFile,
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline, size: 18),
+              PopupMenuButton<_ContentCardAction>(
+                key: Key('contentActions-${file.id}'),
+                tooltip: context.l10n.contentActions,
+                onSelected: (action) {
+                  switch (action) {
+                    case _ContentCardAction.edit:
+                      onEdit();
+                    case _ContentCardAction.delete:
+                      onDelete();
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: _ContentCardAction.edit,
+                    child: ListTile(
+                      leading: const Icon(Icons.edit_outlined),
+                      title: Text(context.l10n.editContent),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _ContentCardAction.delete,
+                    child: ListTile(
+                      leading: Icon(Icons.delete_outline, color: palette.error),
+                      title: Text(context.l10n.deleteFile),
+                    ),
+                  ),
+                ],
+                icon: const Icon(Icons.more_vert, size: 20),
               ),
             ],
           ),
@@ -503,3 +566,5 @@ class _ContentFileCard extends StatelessWidget {
     );
   }
 }
+
+enum _ContentCardAction { edit, delete }

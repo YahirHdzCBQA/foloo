@@ -497,6 +497,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get editContent => 'Editar contenido';
 
   @override
+  String get contentActions => 'Acciones de contenido';
+
+  @override
   String get emailTitle => 'Correo';
 
   @override
@@ -1043,6 +1046,15 @@ class AppLocalizationsEs extends AppLocalizations {
   String contentAttachmentSummary(Object event, Object selected, Object total) {
     return '$selected de $total archivos de $event se adjuntan al correo.';
   }
+
+  @override
+  String directContentAttachmentSummary(Object selected, Object total) {
+    return '$selected de $total archivos seleccionados se adjuntan al correo.';
+  }
+
+  @override
+  String get noDirectContentAvailable =>
+      'No hay contenido disponible. Puedes agregar PDF desde Contenido.';
 
   @override
   String get thisEventLower => 'este evento';

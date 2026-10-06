@@ -91,6 +91,14 @@ void main() {
     expect(find.byKey(const ValueKey('profileScreen')), findsOneWidget);
     expect(find.byKey(const Key('profileCameraButton')), findsOneWidget);
     expect(find.byKey(const Key('profileGalleryButton')), findsOneWidget);
+    expect(find.byKey(const Key('profilePlaceholderIcon')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(CircleAvatar),
+        matching: find.byIcon(Icons.photo_camera_outlined),
+      ),
+      findsNothing,
+    );
     expect(tester.widget<Image>(find.byType(Image)).width, 56);
     await finishOnboarding(tester);
     expect(find.byKey(const Key('cardSection')), findsOneWidget);

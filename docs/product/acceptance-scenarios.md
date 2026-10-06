@@ -120,12 +120,18 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 ## E-07 · Contenido PDF y asignación
 
-**Trazas:** `CON-01`–`CON-10`, `EVT-11`.
+**Trazas:** `CON-01`–`CON-13`, `EVT-11`.
 
 - Biblioteca vacía muestra el estado aprobado y Subir PDF abre archivos.
 - Solo PDF avanza a nombre visible y selección buscable de eventos.
 - Todos los eventos domina sin borrar selecciones individuales.
+- Todos los eventos sigue siendo semántica exclusiva de Evento. Un Lead directo
+  inicia sin Content preseleccionado, permite elegir explícitamente cualquier
+  PDF activo y conserva esa selección offline en su snapshot local.
 - Editar asignación y eliminar requieren resultado persistente/confirmado.
+- Swipe derecha abre el mismo editor de asignaciones y swipe izquierda revela
+  Eliminar sin ejecutar por gesto; el menú accesible ofrece ambas acciones sin
+  depender del swipe.
 - Crear evento permite seleccionar contenido existente o iniciar PDF.
 - Biblioteca y Crear evento explican brevemente la relación Content → Evento →
   adjunto; el modal conserva scroll, aire y Subir contenido accesible.
@@ -137,6 +143,8 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Upload/confirmación a S3 y descarga autenticada usan URLs temporales sin
   persistirlas; un retry conserva identidad y copia local. El borrado lógico
   deja de ofrecer el Content activo y no borra S3 ni adjuntos históricos.
+- Email Review de un Lead directo muestra exactamente los Content seleccionados
+  y los congela con las mismas reglas de Evento, sin envío automático.
 
 ## E-08 · Plantillas y correo
 

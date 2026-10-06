@@ -314,7 +314,9 @@ void main() {
     await tester.pumpAndSettle();
 
     for (var remaining = 3; remaining > 0; remaining--) {
-      await tester.tap(find.byTooltip('Eliminar archivo').first);
+      await tester.tap(find.byTooltip('Acciones de contenido').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Eliminar archivo').last);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Eliminar').last);
       await tester.pumpAndSettle();
@@ -400,7 +402,14 @@ void main() {
     await drawer(tester);
     await tester.tap(find.byKey(const Key('drawerContent')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('contentFile-scanley-ims')));
+    final card = find.byKey(const Key('contentFile-scanley-ims'));
+    await tester.drag(card, const Offset(120, 0));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('contentSwipeEdit-scanley-ims')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('contentSwipeEdit-scanley-ims')));
     await tester.pumpAndSettle();
     final eventRow = find.byKey(const Key('contentEvent-expo-alimentaria'));
     expect(
@@ -434,18 +443,22 @@ void main() {
     await tester.tap(find.byKey(const Key('drawerContent')));
     await tester.pumpAndSettle();
     final card = find.byKey(const Key('contentFile-scanley-ims'));
-    await tester.tap(
-      find.descendant(of: card, matching: find.byIcon(Icons.delete_outline)),
+    await tester.drag(card, const Offset(-120, 0));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('contentSwipeDelete-scanley-ims')),
+      findsOneWidget,
     );
+    await tester.tap(find.byKey(const Key('contentSwipeDelete-scanley-ims')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancelar').last);
     await tester.pumpAndSettle();
     expect(card, findsOneWidget);
-    await tester.tap(
-      find.descendant(of: card, matching: find.byIcon(Icons.delete_outline)),
-    );
+    await tester.drag(card, const Offset(-120, 0));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Eliminar').last);
+    await tester.tap(find.byKey(const Key('contentSwipeDelete-scanley-ims')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirmDeleteContent')));
     await tester.pumpAndSettle();
     expect(card, findsNothing);
   });
@@ -728,6 +741,22 @@ void main() {
   ) async {
     phone(tester);
     await login(tester, direct: true);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('captureContent-scanley-ims')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    final content = find.byKey(const Key('captureContent-scanley-ims'));
+    expect(
+      find.descendant(of: content, matching: find.byIcon(Icons.check)),
+      findsNothing,
+    );
+    await tester.tap(content);
+    await tester.pump();
+    expect(
+      find.descendant(of: content, matching: find.byIcon(Icons.check)),
+      findsOneWidget,
+    );
     await tester.enterText(
       find.byKey(const Key('directPlaceField')),
       'Oficinas del cliente',
@@ -751,6 +780,7 @@ void main() {
     await tester.tap(find.byKey(const Key('saveLeadButton')));
     await tester.pumpAndSettle();
     expect(find.text('Revisar'), findsOneWidget);
+    expect(find.text('Scanley IMS · Ficha técnica'), findsOneWidget);
     expect(find.textContaining('{nombre}'), findsNothing);
     await tester.tap(find.byKey(const Key('confirmFollowUpButton')));
     await tester.pumpAndSettle();

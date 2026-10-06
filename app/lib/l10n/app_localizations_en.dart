@@ -493,6 +493,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get editContent => 'Edit content';
 
   @override
+  String get contentActions => 'Content actions';
+
+  @override
   String get emailTitle => 'Email';
 
   @override
@@ -1038,6 +1041,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String contentAttachmentSummary(Object event, Object selected, Object total) {
     return '$selected of $total files from $event will be attached to the email.';
   }
+
+  @override
+  String directContentAttachmentSummary(Object selected, Object total) {
+    return '$selected of $total selected files will be attached to the email.';
+  }
+
+  @override
+  String get noDirectContentAvailable =>
+      'No content is available. You can add PDFs from Content.';
 
   @override
   String get thisEventLower => 'this event';

@@ -25,6 +25,7 @@ import '../services/records_export_service.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 import '../widgets/module_header.dart';
+import '../widgets/swipe_action_card.dart';
 import 'email_review_screen.dart';
 
 const _allRecordsFilterId = '__all_records__';
@@ -802,7 +803,7 @@ class _RecordsScreenState extends State<RecordsScreen>
                     separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (_, index) {
                       final record = records[index];
-                      return _SwipeActionCard(
+                      return SwipeActionCard(
                         key: Key('recordSwipe-${record.uiKey}'),
                         open: _openSwipeLeadId == record.localId,
                         onOpened: () =>
@@ -812,10 +813,22 @@ class _RecordsScreenState extends State<RecordsScreen>
                             setState(() => _openSwipeLeadId = null);
                           }
                         },
-                        emailLabel: context.l10n.email,
-                        deleteLabel: context.l10n.delete,
-                        onEmail: () => _openEmailReview(record),
-                        onDelete: () => _confirmDelete(record),
+                        startAction: SwipeCardAction(
+                          actionKey: const Key('recordSwipeEmailAction'),
+                          icon: Icons.mail_outline,
+                          label: context.l10n.email,
+                          color: FolooColors.lime.withValues(alpha: .32),
+                          foregroundColor: palette.ink,
+                          onTap: () => _openEmailReview(record),
+                        ),
+                        endAction: SwipeCardAction(
+                          actionKey: const Key('recordSwipeDeleteAction'),
+                          icon: Icons.delete_outline,
+                          label: context.l10n.delete,
+                          color: palette.error,
+                          foregroundColor: Colors.white,
+                          onTap: () => _confirmDelete(record),
+                        ),
                         child: _RecordRow(
                           record: record,
                           audioPlaying:
@@ -1129,168 +1142,6 @@ class _EmptyRecords extends StatelessWidget {
             style: TextStyle(color: FolooPalette.of(context).inkSecondary),
           ),
         ],
-      ),
-    ),
-  );
-}
-
-class _SwipeActionCard extends StatefulWidget {
-  const _SwipeActionCard({
-    required this.child,
-    required this.open,
-    required this.onOpened,
-    required this.onClosed,
-    required this.onEmail,
-    required this.onDelete,
-    required this.emailLabel,
-    required this.deleteLabel,
-    super.key,
-  });
-
-  final Widget child;
-  final bool open;
-  final VoidCallback onOpened;
-  final VoidCallback onClosed;
-  final VoidCallback onEmail;
-  final VoidCallback onDelete;
-  final String emailLabel;
-  final String deleteLabel;
-
-  @override
-  State<_SwipeActionCard> createState() => _SwipeActionCardState();
-}
-
-class _SwipeActionCardState extends State<_SwipeActionCard> {
-  static const _extent = 92.0;
-  double _offset = 0;
-
-  @override
-  void didUpdateWidget(covariant _SwipeActionCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!widget.open && _offset != 0) _offset = 0;
-  }
-
-  void _finish() {
-    final target = _offset.abs() >= 34 ? (_offset.sign * _extent) : 0.0;
-    setState(() => _offset = target);
-    if (target == 0) {
-      widget.onClosed();
-    } else {
-      widget.onOpened();
-    }
-  }
-
-  void _close() {
-    setState(() => _offset = 0);
-    widget.onClosed();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = FolooPalette.of(context);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(FolooRadii.md),
-      child: Stack(
-        children: [
-          if (_offset.abs() > .5)
-            Positioned.fill(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _SwipeActionSurface(
-                    key: const Key('recordSwipeEmailAction'),
-                    width: _extent,
-                    color: FolooColors.lime.withValues(alpha: .32),
-                    borderRadius: const BorderRadius.horizontal(
-                      left: Radius.circular(FolooRadii.md),
-                    ),
-                    icon: Icons.mail_outline,
-                    iconColor: palette.ink,
-                    label: widget.emailLabel,
-                    onTap: () {
-                      _close();
-                      widget.onEmail();
-                    },
-                  ),
-                  _SwipeActionSurface(
-                    key: const Key('recordSwipeDeleteAction'),
-                    width: _extent,
-                    color: palette.error,
-                    borderRadius: const BorderRadius.horizontal(
-                      right: Radius.circular(FolooRadii.md),
-                    ),
-                    icon: Icons.delete_outline,
-                    iconColor: Colors.white,
-                    label: widget.deleteLabel,
-                    onTap: () {
-                      _close();
-                      widget.onDelete();
-                    },
-                  ),
-                ],
-              ),
-            ),
-          GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onHorizontalDragUpdate: (details) => setState(
-              () => _offset = (_offset + details.delta.dx).clamp(
-                -_extent,
-                _extent,
-              ),
-            ),
-            onHorizontalDragEnd: (_) => _finish(),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              transform: Matrix4.translationValues(_offset, 0, 0),
-              child: widget.child,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SwipeActionSurface extends StatelessWidget {
-  const _SwipeActionSurface({
-    required this.width,
-    required this.color,
-    required this.borderRadius,
-    required this.icon,
-    required this.iconColor,
-    required this.label,
-    required this.onTap,
-    super.key,
-  });
-
-  final double width;
-  final Color color;
-  final BorderRadius borderRadius;
-  final IconData icon;
-  final Color iconColor;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: width,
-    child: Material(
-      color: color,
-      borderRadius: borderRadius,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Semantics(
-          button: true,
-          label: label,
-          child: Center(
-            child: Tooltip(
-              message: label,
-              child: Icon(icon, color: iconColor),
-            ),
-          ),
-        ),
       ),
     ),
   );
