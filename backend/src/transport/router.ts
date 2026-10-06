@@ -9,7 +9,12 @@ import { z } from "zod";
 import { ApplicationError } from "../application/errors.js";
 import { FolooApplication } from "../application/foloo_application.js";
 import { EmailApplication } from "../email/email_application.js";
-import type { EventUpdateInput, EventDeleteInput } from "../domain/models.js";
+import type {
+  EventUpdateInput,
+  EventDeleteInput,
+  LeadUpdateInput,
+  LeadDeleteInput,
+} from "../domain/models.js";
 import { authenticatedSubject } from "../auth/authenticated_identity.js";
 import { requestHash } from "../persistence/postgres_repository.js";
 import {
@@ -21,6 +26,7 @@ import {
   contentDeleteSchema,
   leadSchema,
   leadUpdateSchema,
+  leadDeleteSchema,
   mediaSchema,
   profileSchema,
   emailTemplateSchema,
@@ -443,16 +449,28 @@ export function createRouter(
     }
 
     const leadMatch = /^\/v1\/leads\/([^/]+)$/.exec(path);
-    if (leadMatch?.[1] && method === "PUT") {
+    if (leadMatch?.[1] && (method === "PUT" || method === "DELETE")) {
       const leadId = uuidSchema.parse(leadMatch[1]);
-      const payload = leadUpdateSchema.parse(body(event));
-      const result = await application.updateLead(
-        subject,
-        leadId,
-        payload,
-        idempotencyKey(event),
-        requestHash({ leadId, ...payload }),
-      );
+      const payload = method === "PUT"
+        ? leadUpdateSchema.parse(body(event))
+        : leadDeleteSchema.parse(body(event));
+      const key = idempotencyKey(event);
+      const hash = requestHash({ leadId, ...payload });
+      const result = method === "PUT"
+        ? await application.updateLead(
+            subject,
+            leadId,
+            payload as LeadUpdateInput,
+            key,
+            hash,
+          )
+        : await application.deleteLead(
+            subject,
+            leadId,
+            payload as LeadDeleteInput,
+            key,
+            hash,
+          );
       return json(
         200,
         { data: result.value },

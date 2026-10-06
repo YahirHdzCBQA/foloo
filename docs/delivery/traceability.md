@@ -9,7 +9,7 @@
 | `CAP-*`, `OCR-*` | E-03–E-05 | ADR-001; D-11 | captura/ML Kit/Drift; f1-06–09, 11–14, 24 |
 | `VOZ-*` | E-04 | ADR-001; D-05/D-06 | voice service/media/tests; f1-10, 21–23 |
 | `SYN-*` | E-05/E-09/E-13 | ADR-001/003/004/005; D-13 | Drift, outbox owner-scoped, retry/reconciliación FL-015 y transferencia media FL-016 |
-| `REG-*` | E-06/E-10 | ADR-001/004; D-06 | FL-017 filtro/detalle/export; FL-019.5 agrega estado de correo, Seguimiento en detalle y feedback de exportación; f1-16–19, f2-05–07, f5-12 |
+| `REG-*` | E-06/E-10 | ADR-001/004; D-06/D-13 | FL-017 filtro/detalle/export; FL-019.5 agrega estado de correo y Seguimiento; feedback Post-TestFlight agrega header secundario, filtros Todos/Eventos/Directos, swipe accesible, Review desde Records y tombstone de Lead sin cascada física; f1-16–19, f2-05–07, f5-12 |
 | `CON-*` | E-07 | D-11/D-13 | FL-018 durable; FL-019.5 añade helper en biblioteca/Crear evento sin cambiar asignación; D-13 retención física; f2-01–03 |
 | `PLT-*`, `SAL-*` | E-01/E-08 | ADR-006/007; D-09/D-14–D-20; D-16 superseded | FL-019 CLOSED conserva renderer, reconciliación, intención/outbox, Gmail/Graph y D-19. FL-019.5 mueve historial a Registros, añade Review/editor inline y chips humanos, retira unsubscribe activo preservando historia e informa antes del OAuth que Microsoft sender se limita a cuentas personales compatibles en esta versión; f2-04/05, f4-04/12 |
 | `NAV-*` | E-12 | ADR-001 | drawer/theme/l10n; f1-15/25/26 |

@@ -91,10 +91,11 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 ## E-06 · Registros y detalle editable
 
-**Trazas:** `REG-01`–`REG-08`, `REG-15`, `REG-16`, `SAL-10`.
+**Trazas:** `REG-01`–`REG-08`, `REG-15`–`REG-18`, `SAL-10`.
 
-- “Todos los eventos” muestra todos; elegir uno filtra y actualiza conteos sin
-  cambiar el evento activo.
+- “Todos” muestra la vista general; “Todos los eventos” incluye únicamente
+  orígenes event y “Leads directos” únicamente origen direct. Elegir un evento
+  filtra y actualiza conteos sin cambiar el evento activo.
 - Búsqueda, tipo y orden funcionan offline sobre Drift.
 - El renglón comunica interés, voz, correo y sync; correo usa icono accesible
   entre voz y sync para no enviado/pendiente/enviando/enviado/error/por confirmar.
@@ -108,6 +109,11 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   actualiza por outbox y no cambia owner, UUID, captura, origen, evento o medios.
 - Una revisión remota distinta conserva la edición local, muestra conflicto
   recuperable y nunca crea otro Lead.
+- Swipe revela Correo o Eliminar sin ejecutar por el gesto; Correo abre Review
+  incluso sin envío previo y Eliminar exige confirmación. Ambas acciones son
+  accesibles también desde el detalle.
+- Confirmar eliminación oculta inmediatamente el Lead offline, conserva su
+  media/historial, encola tombstone y evita resurrección tras pull o reinicio.
 - Después de Contenido compartido, Seguimiento reutiliza la fuente Drift como
   tarjeta compacta de contacto/correo/estado; tocarla abre snapshot, adjuntos,
   estado/causa real y retry/reenvío. Correo no duplica lista.

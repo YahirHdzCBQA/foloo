@@ -387,6 +387,15 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   }
 
   Future<EmailReviewDraft?> _emailReviewForLead(SessionLead record) async {
+    if (record.lead.email.trim().isEmpty) return null;
+    await _persistence.emailDelivery.prepareForLead(
+      owner: _userId,
+      leadId: record.localId,
+      lead: record.lead,
+      seller: _profile,
+      language: _locale.languageCode == 'en' ? 'en' : 'es',
+      reconcileExisting: true,
+    );
     final followUp = await _persistence.emailDelivery.forLead(
       _userId,
       record.localId,
@@ -456,6 +465,19 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     if (_isOnline) {
       unawaited(_synchronize(trigger: SyncTrigger.postSave));
     }
+  }
+
+  Future<void> _deleteLead(SessionLead record) async {
+    await _persistence.leads.delete(_userId, record);
+    final leads = await _persistence.leads.listAll(_userId);
+    if (mounted) {
+      setState(() {
+        _sessionLeads
+          ..clear()
+          ..addAll(leads);
+      });
+    }
+    unawaited(_synchronize(trigger: SyncTrigger.postSave));
   }
 
   /// Reuses the locally persisted Lead while Capture and Review are revisited.
@@ -1163,6 +1185,11 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           deliveryRepository: _persistence.emailDelivery,
           onSendQueued: () =>
               unawaited(_synchronize(trigger: SyncTrigger.postSave)),
+          onBack: () => _selectDestination(AppDestination.home),
+          onDelete: _deleteLead,
+          onEmailReviewRequested: _emailReviewForLead,
+          onEmailReviewConfirmed: _confirmEmailReview,
+          onEmailReviewUpdated: _saveEmailReviewDraft,
         ),
         EventScreen(
           key: const ValueKey('eventsScreen'),

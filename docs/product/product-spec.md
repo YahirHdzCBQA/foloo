@@ -194,7 +194,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | ID | Requerimiento |
 |---|---|
 | `REG-01` | Registros lista leads persistidos, con fecha/hora, nombre, empresa, tipo, interés, voz y estado de subida. |
-| `REG-02` | Selector incluye “Todos los eventos” y eventos persistidos; filtra sin cambiar el activo. |
+| `REG-02` | Selector distingue Todos, Todos los eventos, Leads directos y cada evento persistido; filtra por el origen explícito sin cambiar el evento activo. “Todos los eventos” excluye leads directos. |
 | `REG-03` | Buscar por nombre/empresa y filtrar Cliente/Partner/Proveedor funciona localmente. |
 | `REG-04` | Orden descendente por fecha de captura, con UUID como desempate estable, y estado vacío invitan a capturar; conteos reflejan el filtro actual. |
 | `REG-05` | El detalle muestra contacto, fecha/hora, origen, capturó, medios, notas, adjuntos y estados. Para un Lead de evento, Origen resuelve el nombre actual por su eventId local incluso si el evento fue eliminado lógicamente; el nombre histórico del Lead es solo respaldo. Para un Lead directo, Origen muestra también Lugar cuando existe. |
@@ -209,6 +209,8 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `REG-14` | Tras compartir/exportar se informa éxito genérico ES/EN; cancelación o error se distinguen solo cuando la plataforma lo reporta y nunca se inventa una ruta de destino. |
 | `REG-15` | Cada renglón muestra entre voz y sync un icono accesible del estado de correo existente: no enviado, pendiente, enviando, enviado, error o por confirmar. El icono tiene tooltip/semantics y no depende solo del color. |
 | `REG-16` | El detalle incorpora Seguimiento después de Contenido compartido, preferentemente al final de los datos secundarios, usando la misma fuente Drift. Presenta una tarjeta compacta con contacto, correo y estado; al tocarla abre el asunto, mensaje, adjuntos, fecha, remitente/proveedor, error y acciones de retry/reenvío ya aprobadas. Correo deja de duplicar esa lista. |
+| `REG-17` | Registros usa el header secundario con Back. Cada tarjeta revela Correo y Eliminar mediante swipe opuesto sin ejecutar al completar el gesto; las mismas acciones permanecen accesibles en el detalle. Correo siempre abre Review y distingue Enviar/Reenviar por historial real. |
+| `REG-18` | Eliminar exige confirmación y crea primero un tombstone Drift owner-scoped. La UI lo oculta de lista, búsqueda y filtros de inmediato; outbox sincroniza `DELETE /v1/leads/{leadId}` y pull no puede resucitarlo. Medios, historial de correo y adjuntos históricos se conservan; Content compartido nunca se elimina. La limpieza física permanece en D-13. |
 
 ### 4.7 Contenido, plantillas y correo
 

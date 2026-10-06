@@ -139,3 +139,20 @@ test("REG-07 update derives ownership from JWT and keeps immutable fields out", 
   assert.deepEqual(repository.seenSubjects, ["subject-a"]);
   assert.doesNotMatch(response.body ?? "", /subject-b|capturedAt/);
 });
+
+test("REG-18 delete is authenticated, revisioned and owner scoped", async () => {
+  const repository = new MemoryRepository();
+  const router = createRouter(new FolooApplication(repository));
+  const response = await router(
+    apiEvent({
+      method: "DELETE",
+      path: "/v1/leads/57d8ce9a-dcc4-4b78-8fd9-552c216a62a1",
+      subject: "subject-a",
+      idempotencyKey: "delete-lead-key-a",
+      body: { revision: 2 },
+    }),
+  );
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(repository.seenSubjects, ["subject-a"]);
+  assert.match(response.body ?? "", /deletedAt/);
+});

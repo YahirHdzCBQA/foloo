@@ -9,7 +9,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 void main() {
   test(
-    'v1 to v10 preserves rows and adds email metadata without data loss',
+    'v1 to v11 preserves rows and adds lead tombstones without data loss',
     () async {
       final directory = await Directory.systemTemp.createTemp('foloo_v1_v2_');
       addTearDown(() async {
@@ -133,7 +133,7 @@ void main() {
       final version = await database
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 10);
+      expect(version.read<int>('user_version'), 11);
       expect(await database.select(database.syncOperations).get(), isEmpty);
       expect(
         await database.select(database.localEmailFollowUps).get(),
@@ -171,7 +171,7 @@ void main() {
     },
   );
 
-  test('v9 to v10 preserves pending email preparation', () async {
+  test('v9 to v11 preserves pending email preparation', () async {
     final directory = await Directory.systemTemp.createTemp('foloo_v9_v10_');
     addTearDown(() async {
       if (await directory.exists()) await directory.delete(recursive: true);
@@ -221,6 +221,7 @@ void main() {
       ALTER TABLE local_email_follow_ups DROP COLUMN body_semantic_json;
       ALTER TABLE local_email_follow_ups DROP COLUMN subject_manually_edited;
       ALTER TABLE local_email_follow_ups DROP COLUMN body_manually_edited;
+      ALTER TABLE local_leads DROP COLUMN deleted_at;
       PRAGMA user_version = 9;
     ''');
     legacy.close();
@@ -230,7 +231,7 @@ void main() {
     final version = await database
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 10);
+    expect(version.read<int>('user_version'), 11);
     final pending = await database.emailDeliveryDao.followUpById(
       'seller-a',
       'follow-up-v9',

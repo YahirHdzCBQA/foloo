@@ -1565,6 +1565,17 @@ class $LocalContentFilesTable extends LocalContentFiles
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -1601,6 +1612,7 @@ class $LocalContentFilesTable extends LocalContentFiles
     uploadState,
     syncState,
     remoteRevision,
+    deletedAt,
     createdAt,
     updatedAt,
   ];
@@ -1713,6 +1725,12 @@ class $LocalContentFilesTable extends LocalContentFiles
         ),
       );
     }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -1786,6 +1804,10 @@ class $LocalContentFilesTable extends LocalContentFiles
         DriftSqlType.int,
         data['${effectivePrefix}remote_revision'],
       ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -1817,6 +1839,7 @@ class StoredContentFile extends DataClass
   final String uploadState;
   final String syncState;
   final int? remoteRevision;
+  final DateTime? deletedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
   const StoredContentFile({
@@ -1832,6 +1855,7 @@ class StoredContentFile extends DataClass
     required this.uploadState,
     required this.syncState,
     this.remoteRevision,
+    this.deletedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -1853,6 +1877,9 @@ class StoredContentFile extends DataClass
     map['sync_state'] = Variable<String>(syncState);
     if (!nullToAbsent || remoteRevision != null) {
       map['remote_revision'] = Variable<int>(remoteRevision);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -1877,6 +1904,9 @@ class StoredContentFile extends DataClass
       remoteRevision: remoteRevision == null && nullToAbsent
           ? const Value.absent()
           : Value(remoteRevision),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -1900,6 +1930,7 @@ class StoredContentFile extends DataClass
       uploadState: serializer.fromJson<String>(json['uploadState']),
       syncState: serializer.fromJson<String>(json['syncState']),
       remoteRevision: serializer.fromJson<int?>(json['remoteRevision']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -1920,6 +1951,7 @@ class StoredContentFile extends DataClass
       'uploadState': serializer.toJson<String>(uploadState),
       'syncState': serializer.toJson<String>(syncState),
       'remoteRevision': serializer.toJson<int?>(remoteRevision),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -1938,6 +1970,7 @@ class StoredContentFile extends DataClass
     String? uploadState,
     String? syncState,
     Value<int?> remoteRevision = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => StoredContentFile(
@@ -1955,6 +1988,7 @@ class StoredContentFile extends DataClass
     remoteRevision: remoteRevision.present
         ? remoteRevision.value
         : this.remoteRevision,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -1982,6 +2016,7 @@ class StoredContentFile extends DataClass
       remoteRevision: data.remoteRevision.present
           ? data.remoteRevision.value
           : this.remoteRevision,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -2002,6 +2037,7 @@ class StoredContentFile extends DataClass
           ..write('uploadState: $uploadState, ')
           ..write('syncState: $syncState, ')
           ..write('remoteRevision: $remoteRevision, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -2022,6 +2058,7 @@ class StoredContentFile extends DataClass
     uploadState,
     syncState,
     remoteRevision,
+    deletedAt,
     createdAt,
     updatedAt,
   );
@@ -2041,6 +2078,7 @@ class StoredContentFile extends DataClass
           other.uploadState == this.uploadState &&
           other.syncState == this.syncState &&
           other.remoteRevision == this.remoteRevision &&
+          other.deletedAt == this.deletedAt &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -2058,6 +2096,7 @@ class LocalContentFilesCompanion extends UpdateCompanion<StoredContentFile> {
   final Value<String> uploadState;
   final Value<String> syncState;
   final Value<int?> remoteRevision;
+  final Value<DateTime?> deletedAt;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -2074,6 +2113,7 @@ class LocalContentFilesCompanion extends UpdateCompanion<StoredContentFile> {
     this.uploadState = const Value.absent(),
     this.syncState = const Value.absent(),
     this.remoteRevision = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2091,6 +2131,7 @@ class LocalContentFilesCompanion extends UpdateCompanion<StoredContentFile> {
     this.uploadState = const Value.absent(),
     this.syncState = const Value.absent(),
     this.remoteRevision = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
@@ -2114,6 +2155,7 @@ class LocalContentFilesCompanion extends UpdateCompanion<StoredContentFile> {
     Expression<String>? uploadState,
     Expression<String>? syncState,
     Expression<int>? remoteRevision,
+    Expression<DateTime>? deletedAt,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -2131,6 +2173,7 @@ class LocalContentFilesCompanion extends UpdateCompanion<StoredContentFile> {
       if (uploadState != null) 'upload_state': uploadState,
       if (syncState != null) 'sync_state': syncState,
       if (remoteRevision != null) 'remote_revision': remoteRevision,
+      if (deletedAt != null) 'deleted_at': deletedAt,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -2150,6 +2193,7 @@ class LocalContentFilesCompanion extends UpdateCompanion<StoredContentFile> {
     Value<String>? uploadState,
     Value<String>? syncState,
     Value<int?>? remoteRevision,
+    Value<DateTime?>? deletedAt,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -2167,6 +2211,7 @@ class LocalContentFilesCompanion extends UpdateCompanion<StoredContentFile> {
       uploadState: uploadState ?? this.uploadState,
       syncState: syncState ?? this.syncState,
       remoteRevision: remoteRevision ?? this.remoteRevision,
+      deletedAt: deletedAt ?? this.deletedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -2212,6 +2257,9 @@ class LocalContentFilesCompanion extends UpdateCompanion<StoredContentFile> {
     if (remoteRevision.present) {
       map['remote_revision'] = Variable<int>(remoteRevision.value);
     }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -2239,6 +2287,7 @@ class LocalContentFilesCompanion extends UpdateCompanion<StoredContentFile> {
           ..write('uploadState: $uploadState, ')
           ..write('syncState: $syncState, ')
           ..write('remoteRevision: $remoteRevision, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -4010,6 +4059,17 @@ class $LocalLeadsTable extends LocalLeads
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -4057,6 +4117,7 @@ class $LocalLeadsTable extends LocalLeads
     transcription,
     syncState,
     remoteRevision,
+    deletedAt,
     createdAt,
     updatedAt,
   ];
@@ -4263,6 +4324,12 @@ class $LocalLeadsTable extends LocalLeads
         ),
       );
     }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -4380,6 +4447,10 @@ class $LocalLeadsTable extends LocalLeads
         DriftSqlType.int,
         data['${effectivePrefix}remote_revision'],
       ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -4421,6 +4492,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
   final String? transcription;
   final String syncState;
   final int? remoteRevision;
+  final DateTime? deletedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
   const StoredLead({
@@ -4447,6 +4519,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
     this.transcription,
     required this.syncState,
     this.remoteRevision,
+    this.deletedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -4489,6 +4562,9 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
     map['sync_state'] = Variable<String>(syncState);
     if (!nullToAbsent || remoteRevision != null) {
       map['remote_revision'] = Variable<int>(remoteRevision);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -4534,6 +4610,9 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
       remoteRevision: remoteRevision == null && nullToAbsent
           ? const Value.absent()
           : Value(remoteRevision),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -4572,6 +4651,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
       transcription: serializer.fromJson<String?>(json['transcription']),
       syncState: serializer.fromJson<String>(json['syncState']),
       remoteRevision: serializer.fromJson<int?>(json['remoteRevision']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -4603,6 +4683,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
       'transcription': serializer.toJson<String?>(transcription),
       'syncState': serializer.toJson<String>(syncState),
       'remoteRevision': serializer.toJson<int?>(remoteRevision),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -4632,6 +4713,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
     Value<String?> transcription = const Value.absent(),
     String? syncState,
     Value<int?> remoteRevision = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => StoredLead(
@@ -4666,6 +4748,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
     remoteRevision: remoteRevision.present
         ? remoteRevision.value
         : this.remoteRevision,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -4718,6 +4801,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
       remoteRevision: data.remoteRevision.present
           ? data.remoteRevision.value
           : this.remoteRevision,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -4749,6 +4833,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
           ..write('transcription: $transcription, ')
           ..write('syncState: $syncState, ')
           ..write('remoteRevision: $remoteRevision, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -4780,6 +4865,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
     transcription,
     syncState,
     remoteRevision,
+    deletedAt,
     createdAt,
     updatedAt,
   ]);
@@ -4810,6 +4896,7 @@ class StoredLead extends DataClass implements Insertable<StoredLead> {
           other.transcription == this.transcription &&
           other.syncState == this.syncState &&
           other.remoteRevision == this.remoteRevision &&
+          other.deletedAt == this.deletedAt &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -4838,6 +4925,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
   final Value<String?> transcription;
   final Value<String> syncState;
   final Value<int?> remoteRevision;
+  final Value<DateTime?> deletedAt;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -4865,6 +4953,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
     this.transcription = const Value.absent(),
     this.syncState = const Value.absent(),
     this.remoteRevision = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -4893,6 +4982,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
     this.transcription = const Value.absent(),
     this.syncState = const Value.absent(),
     this.remoteRevision = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
@@ -4935,6 +5025,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
     Expression<String>? transcription,
     Expression<String>? syncState,
     Expression<int>? remoteRevision,
+    Expression<DateTime>? deletedAt,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -4964,6 +5055,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
       if (transcription != null) 'transcription': transcription,
       if (syncState != null) 'sync_state': syncState,
       if (remoteRevision != null) 'remote_revision': remoteRevision,
+      if (deletedAt != null) 'deleted_at': deletedAt,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -4994,6 +5086,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
     Value<String?>? transcription,
     Value<String>? syncState,
     Value<int?>? remoteRevision,
+    Value<DateTime?>? deletedAt,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -5022,6 +5115,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
       transcription: transcription ?? this.transcription,
       syncState: syncState ?? this.syncState,
       remoteRevision: remoteRevision ?? this.remoteRevision,
+      deletedAt: deletedAt ?? this.deletedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -5100,6 +5194,9 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
     if (remoteRevision.present) {
       map['remote_revision'] = Variable<int>(remoteRevision.value);
     }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -5138,6 +5235,7 @@ class LocalLeadsCompanion extends UpdateCompanion<StoredLead> {
           ..write('transcription: $transcription, ')
           ..write('syncState: $syncState, ')
           ..write('remoteRevision: $remoteRevision, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -9706,6 +9804,7 @@ typedef $$LocalContentFilesTableCreateCompanionBuilder =
       Value<String> uploadState,
       Value<String> syncState,
       Value<int?> remoteRevision,
+      Value<DateTime?> deletedAt,
       required DateTime createdAt,
       required DateTime updatedAt,
       Value<int> rowid,
@@ -9724,6 +9823,7 @@ typedef $$LocalContentFilesTableUpdateCompanionBuilder =
       Value<String> uploadState,
       Value<String> syncState,
       Value<int?> remoteRevision,
+      Value<DateTime?> deletedAt,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -9795,6 +9895,11 @@ class $$LocalContentFilesTableFilterComposer
 
   ColumnFilters<int> get remoteRevision => $composableBuilder(
     column: $table.remoteRevision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9878,6 +9983,11 @@ class $$LocalContentFilesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -9944,6 +10054,9 @@ class $$LocalContentFilesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -10003,6 +10116,7 @@ class $$LocalContentFilesTableTableManager
                 Value<String> uploadState = const Value.absent(),
                 Value<String> syncState = const Value.absent(),
                 Value<int?> remoteRevision = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -10019,6 +10133,7 @@ class $$LocalContentFilesTableTableManager
                 uploadState: uploadState,
                 syncState: syncState,
                 remoteRevision: remoteRevision,
+                deletedAt: deletedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -10037,6 +10152,7 @@ class $$LocalContentFilesTableTableManager
                 Value<String> uploadState = const Value.absent(),
                 Value<String> syncState = const Value.absent(),
                 Value<int?> remoteRevision = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
@@ -10053,6 +10169,7 @@ class $$LocalContentFilesTableTableManager
                 uploadState: uploadState,
                 syncState: syncState,
                 remoteRevision: remoteRevision,
+                deletedAt: deletedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -11070,6 +11187,7 @@ typedef $$LocalLeadsTableCreateCompanionBuilder = LocalLeadsCompanion Function({
   Value<String?> transcription,
   Value<String> syncState,
   Value<int?> remoteRevision,
+  Value<DateTime?> deletedAt,
   required DateTime createdAt,
   required DateTime updatedAt,
   Value<int> rowid,
@@ -11098,6 +11216,7 @@ typedef $$LocalLeadsTableUpdateCompanionBuilder = LocalLeadsCompanion Function({
   Value<String?> transcription,
   Value<String> syncState,
   Value<int?> remoteRevision,
+  Value<DateTime?> deletedAt,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<int> rowid,
@@ -11292,6 +11411,11 @@ class $$LocalLeadsTableFilterComposer
 
   ColumnFilters<int> get remoteRevision => $composableBuilder(
     column: $table.remoteRevision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11498,6 +11622,11 @@ class $$LocalLeadsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -11628,6 +11757,9 @@ class $$LocalLeadsTableAnnotationComposer
     column: $table.remoteRevision,
     builder: (column) => column,
   );
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -11765,6 +11897,7 @@ class $$LocalLeadsTableTableManager
                 Value<String?> transcription = const Value.absent(),
                 Value<String> syncState = const Value.absent(),
                 Value<int?> remoteRevision = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -11792,6 +11925,7 @@ class $$LocalLeadsTableTableManager
                 transcription: transcription,
                 syncState: syncState,
                 remoteRevision: remoteRevision,
+                deletedAt: deletedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -11821,6 +11955,7 @@ class $$LocalLeadsTableTableManager
                 Value<String?> transcription = const Value.absent(),
                 Value<String> syncState = const Value.absent(),
                 Value<int?> remoteRevision = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
@@ -11848,6 +11983,7 @@ class $$LocalLeadsTableTableManager
                 transcription: transcription,
                 syncState: syncState,
                 remoteRevision: remoteRevision,
+                deletedAt: deletedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,

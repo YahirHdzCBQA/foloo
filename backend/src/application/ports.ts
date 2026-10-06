@@ -11,6 +11,7 @@ import type {
   IdempotentResult,
   LeadInput,
   LeadUpdateInput,
+  LeadDeleteInput,
   LeadMediaInput,
   LeadMediaRecord,
   Principal,
@@ -111,6 +112,13 @@ export interface FolooRepository {
     principal: Principal,
     leadId: string,
     input: LeadUpdateInput,
+    idempotencyKey: string,
+    requestHash: string,
+  ): Promise<IdempotentResult<unknown>>;
+  deleteLead(
+    principal: Principal,
+    leadId: string,
+    input: LeadDeleteInput,
     idempotencyKey: string,
     requestHash: string,
   ): Promise<IdempotentResult<unknown>>;

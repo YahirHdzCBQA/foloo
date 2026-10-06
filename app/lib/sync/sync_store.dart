@@ -735,7 +735,7 @@ class SyncStore {
       completed.entityId,
     )) {
       if (operation.operationId == completed.operationId ||
-          operation.action != 'update' ||
+          (operation.action != 'update' && operation.action != 'delete') ||
           operation.status == 'syncing') {
         continue;
       }
@@ -1320,6 +1320,7 @@ class SyncStore {
       }
       if (await hasPending(ownerSub, SyncEntityType.lead, id)) continue;
       final existing = await database.leadDao.byId(ownerSub, id);
+      final deletedAt = _date(lead['deletedAt']);
       final eventId = lead['eventId'] as String?;
       final event = eventId == null
           ? null
@@ -1362,6 +1363,7 @@ class SyncStore {
           transcription: Value(existing?.transcription),
           syncState: const Value('synced'),
           remoteRevision: Value(_requiredRemoteRevision(lead['revision'])),
+          deletedAt: Value(deletedAt),
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
         ),

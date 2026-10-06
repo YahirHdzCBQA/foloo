@@ -294,6 +294,20 @@ export class MemoryRepository implements FolooRepository {
       replayed: false,
     };
   }
+  async deleteLead(
+    _principal: Principal,
+    leadId: string,
+    input: { revision: number },
+  ): Promise<IdempotentResult<unknown>> {
+    return {
+      value: {
+        id: leadId,
+        revision: input.revision + 1,
+        deletedAt: new Date().toISOString(),
+      },
+      replayed: false,
+    };
+  }
   async listLeadMedia(
     principal: Principal,
     leadId: string,

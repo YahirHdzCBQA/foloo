@@ -19,14 +19,17 @@ import '../models/session_lead.dart';
 import '../data/local/app_database.dart';
 import '../data/repositories/local_repositories.dart';
 import '../models/email_delivery_error.dart';
+import '../models/email_review.dart';
 import '../services/voice_note_service.dart';
 import '../services/records_export_service.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
-import '../widgets/app_drawer.dart';
-import '../widgets/app_screen_header.dart';
+import '../widgets/module_header.dart';
+import 'email_review_screen.dart';
 
+const _allRecordsFilterId = '__all_records__';
 const _allEventsFilterId = '__all_events__';
+const _directLeadsFilterId = '__direct_leads__';
 
 String _leadTypeLabel(BuildContext context, LeadType type) => switch (type) {
   LeadType.supplier => context.l10n.supplier,
@@ -82,6 +85,11 @@ class RecordsScreen extends StatefulWidget {
     this.ownerSub,
     this.deliveryRepository,
     this.onSendQueued,
+    this.onBack,
+    this.onDelete,
+    this.onEmailReviewRequested,
+    this.onEmailReviewConfirmed,
+    this.onEmailReviewUpdated,
     super.key,
   });
 
@@ -104,6 +112,14 @@ class RecordsScreen extends StatefulWidget {
   final String? ownerSub;
   final EmailDeliveryRepository? deliveryRepository;
   final VoidCallback? onSendQueued;
+  final VoidCallback? onBack;
+  final Future<void> Function(SessionLead record)? onDelete;
+  final Future<EmailReviewDraft?> Function(SessionLead record)?
+  onEmailReviewRequested;
+  final Future<EmailReviewOutcome> Function(EmailReviewDraft draft)?
+  onEmailReviewConfirmed;
+  final Future<void> Function(EmailReviewDraft draft, LeadDraft lead)?
+  onEmailReviewUpdated;
 
   @override
   State<RecordsScreen> createState() => _RecordsScreenState();
@@ -111,7 +127,6 @@ class RecordsScreen extends StatefulWidget {
 
 class _RecordsScreenState extends State<RecordsScreen>
     with WidgetsBindingObserver {
-  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _search = TextEditingController();
   late final VoiceNoteService _voice;
   late final StreamSubscription<void> _completed;
@@ -119,7 +134,8 @@ class _RecordsScreenState extends State<RecordsScreen>
   String? _activeAudioPath;
   String? _busyAudioPath;
   bool _audioPlaying = false;
-  String _eventId = _allEventsFilterId;
+  String _eventId = _allRecordsFilterId;
+  String? _openSwipeLeadId;
   List<StoredEmailFollowUp> _followUps = const [];
   List<StoredEmailSendIntent> _emailIntents = const [];
   StreamSubscription<List<StoredEmailFollowUp>>? _followUpsSubscription;
@@ -146,7 +162,9 @@ class _RecordsScreenState extends State<RecordsScreen>
   @override
   void didUpdateWidget(covariant RecordsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_eventId != _allEventsFilterId &&
+    if (_eventId != _allRecordsFilterId &&
+        _eventId != _allEventsFilterId &&
+        _eventId != _directLeadsFilterId &&
         !widget.events.any((event) => event.id == _eventId)) {
       _eventId = _initialEventId();
     }
@@ -157,14 +175,15 @@ class _RecordsScreenState extends State<RecordsScreen>
   }
 
   String _initialEventId() {
-    if (widget.events.isEmpty) return _allEventsFilterId;
-    return widget.events
-        .firstWhere((event) => event.active, orElse: () => widget.events.first)
-        .id;
+    return _allRecordsFilterId;
   }
 
   AppEvent? get _selectedEvent {
-    if (_eventId == _allEventsFilterId) return null;
+    if (_eventId == _allRecordsFilterId ||
+        _eventId == _allEventsFilterId ||
+        _eventId == _directLeadsFilterId) {
+      return null;
+    }
     for (final event in widget.events) {
       if (event.id == _eventId) return event;
     }
@@ -172,8 +191,19 @@ class _RecordsScreenState extends State<RecordsScreen>
   }
 
   List<SessionLead> get _eventRecords {
+    if (_eventId == _allRecordsFilterId) return widget.records;
+    if (_eventId == _allEventsFilterId) {
+      return widget.records
+          .where((record) => record.lead.originKind == LeadOriginKind.event)
+          .toList();
+    }
+    if (_eventId == _directLeadsFilterId) {
+      return widget.records
+          .where((record) => record.lead.originKind == LeadOriginKind.direct)
+          .toList();
+    }
     final event = _selectedEvent;
-    if (event == null) return widget.records;
+    if (event == null) return const [];
     return widget.records
         .where((record) => record.lead.eventLocalId == event.id)
         .toList();
@@ -386,10 +416,77 @@ class _RecordsScreenState extends State<RecordsScreen>
           deliveryRepository: widget.deliveryRepository,
           onRetryEmail: _retryEmail,
           onResendEmail: _resendEmail,
+          onEmail: () => _openEmailReview(record),
+          onDelete: () => _confirmDelete(record, closeDetail: true),
         ),
       ),
     );
     if (mounted) setState(() {});
+  }
+
+  Future<void> _openEmailReview(SessionLead record) async {
+    final request = widget.onEmailReviewRequested;
+    final confirm = widget.onEmailReviewConfirmed;
+    if (request == null || confirm == null) return;
+    final draft = await request(record);
+    if (!mounted) return;
+    if (draft == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.leadEmailRequired)));
+      return;
+    }
+    setState(() => _openSwipeLeadId = null);
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => EmailReviewScreen(
+          record: record,
+          draft: draft,
+          onConfirm: confirm,
+          onConnectionRequired: () =>
+              widget.onDestinationSelected(AppDestination.email),
+          onCaptureAnother: () => Navigator.of(context).pop(),
+          onDraftSaved: widget.onEmailReviewUpdated == null
+              ? null
+              : (updated) => widget.onEmailReviewUpdated!(updated, record.lead),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(
+    SessionLead record, {
+    bool closeDetail = false,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.l10n.deleteLeadQuestion),
+        content: Text(context.l10n.deleteLeadWarning),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(context.l10n.cancel),
+          ),
+          FilledButton(
+            key: const Key('confirmDeleteLead'),
+            style: FilledButton.styleFrom(
+              backgroundColor: FolooPalette.of(context).error,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(context.l10n.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await widget.onDelete?.call(record);
+    if (!mounted) return;
+    setState(() => _openSwipeLeadId = null);
+    if (closeDetail && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _showExportDialog() async {
@@ -622,46 +719,34 @@ class _RecordsScreenState extends State<RecordsScreen>
         .length;
     final merelyPending = pending - failed - syncing - retryable;
     return Scaffold(
-      key: _scaffoldKey,
-      endDrawer: AppDrawer(
-        contentCount: widget.contentFiles.length,
-        profile: widget.profile,
-        activeDestination: AppDestination.records,
-        recordsCount: widget.records.length,
-        darkMode: widget.darkMode,
-        onDestinationSelected: (destination) {
-          unawaited(_stopAudio());
-          widget.onDestinationSelected(destination);
-        },
-        onAppearanceChanged: widget.onAppearanceChanged,
-        onLogout: widget.onLogout,
-      ),
       body: Column(
         children: [
-          AppScreenHeader(
+          ModuleHeader(
             title: context.l10n.recordsTitle,
             subtitle:
                 '${context.l10n.leadCount(records.length)} · ${context.l10n.pendingCount(pending)}',
-            badgeWidget: widget.events.isEmpty
-                ? null
-                : _RecordsEventSelector(
-                    events: widget.events,
-                    selectedEventId: _eventId,
-                    onChanged: (value) {
-                      if (value == null) return;
-                      unawaited(_stopAudio());
-                      setState(() => _eventId = value);
-                    },
-                  ),
-            onLogoPressed: () =>
-                widget.onDestinationSelected(AppDestination.home),
-            onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+            onBack:
+                widget.onBack ??
+                () => widget.onDestinationSelected(AppDestination.home),
           ),
           Container(
             color: palette.card,
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
             child: Column(
               children: [
+                _RecordsEventSelector(
+                  events: widget.events,
+                  selectedEventId: _eventId,
+                  onChanged: (value) {
+                    if (value == null) return;
+                    unawaited(_stopAudio());
+                    setState(() {
+                      _eventId = value;
+                      _openSwipeLeadId = null;
+                    });
+                  },
+                ),
+                const SizedBox(height: 8),
                 TextField(
                   key: const Key('recordsSearchField'),
                   controller: _search,
@@ -717,19 +802,35 @@ class _RecordsScreenState extends State<RecordsScreen>
                     separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (_, index) {
                       final record = records[index];
-                      return _RecordRow(
-                        record: record,
-                        audioPlaying:
-                            _activeAudioPath == record.lead.audioLocalPath &&
-                            _audioPlaying,
-                        audioBusy: _busyAudioPath == record.lead.audioLocalPath,
-                        onToggleAudio: () => _toggleAudio(record),
-                        onOpen: () => _openDetail(record),
-                        emailIntent: _intentFor(
-                          _followUpForLead(record.localId),
+                      return _SwipeActionCard(
+                        key: Key('recordSwipe-${record.uiKey}'),
+                        open: _openSwipeLeadId == record.localId,
+                        onOpened: () =>
+                            setState(() => _openSwipeLeadId = record.localId),
+                        onClosed: () {
+                          if (_openSwipeLeadId == record.localId) {
+                            setState(() => _openSwipeLeadId = null);
+                          }
+                        },
+                        emailLabel: context.l10n.email,
+                        deleteLabel: context.l10n.delete,
+                        onEmail: () => _openEmailReview(record),
+                        onDelete: () => _confirmDelete(record),
+                        child: _RecordRow(
+                          record: record,
+                          audioPlaying:
+                              _activeAudioPath == record.lead.audioLocalPath &&
+                              _audioPlaying,
+                          audioBusy:
+                              _busyAudioPath == record.lead.audioLocalPath,
+                          onToggleAudio: () => _toggleAudio(record),
+                          onOpen: () => _openDetail(record),
+                          emailIntent: _intentFor(
+                            _followUpForLead(record.localId),
+                          ),
+                          hasPreparedEmail:
+                              _followUpForLead(record.localId) != null,
                         ),
-                        hasPreparedEmail:
-                            _followUpForLead(record.localId) != null,
                       );
                     },
                   ),
@@ -817,7 +918,7 @@ class _RecordsEventSelector extends StatelessWidget {
     final palette = FolooPalette.of(context);
     return Container(
       height: 44,
-      constraints: const BoxConstraints(maxWidth: 190),
+      constraints: const BoxConstraints(minWidth: double.infinity),
       padding: const EdgeInsets.only(left: 13, right: 7),
       decoration: BoxDecoration(
         color: palette.paper,
@@ -867,8 +968,22 @@ class _RecordsEventSelector extends StatelessWidget {
                 ..insert(
                   0,
                   DropdownMenuItem<String>(
+                    value: _directLeadsFilterId,
+                    child: Text(context.l10n.directLeads),
+                  ),
+                )
+                ..insert(
+                  0,
+                  DropdownMenuItem<String>(
                     value: _allEventsFilterId,
                     child: Text(context.l10n.allEvents),
+                  ),
+                )
+                ..insert(
+                  0,
+                  DropdownMenuItem<String>(
+                    value: _allRecordsFilterId,
+                    child: Text(context.l10n.allRecords),
                   ),
                 ),
           onChanged: onChanged,
@@ -1014,6 +1129,168 @@ class _EmptyRecords extends StatelessWidget {
             style: TextStyle(color: FolooPalette.of(context).inkSecondary),
           ),
         ],
+      ),
+    ),
+  );
+}
+
+class _SwipeActionCard extends StatefulWidget {
+  const _SwipeActionCard({
+    required this.child,
+    required this.open,
+    required this.onOpened,
+    required this.onClosed,
+    required this.onEmail,
+    required this.onDelete,
+    required this.emailLabel,
+    required this.deleteLabel,
+    super.key,
+  });
+
+  final Widget child;
+  final bool open;
+  final VoidCallback onOpened;
+  final VoidCallback onClosed;
+  final VoidCallback onEmail;
+  final VoidCallback onDelete;
+  final String emailLabel;
+  final String deleteLabel;
+
+  @override
+  State<_SwipeActionCard> createState() => _SwipeActionCardState();
+}
+
+class _SwipeActionCardState extends State<_SwipeActionCard> {
+  static const _extent = 92.0;
+  double _offset = 0;
+
+  @override
+  void didUpdateWidget(covariant _SwipeActionCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.open && _offset != 0) _offset = 0;
+  }
+
+  void _finish() {
+    final target = _offset.abs() >= 34 ? (_offset.sign * _extent) : 0.0;
+    setState(() => _offset = target);
+    if (target == 0) {
+      widget.onClosed();
+    } else {
+      widget.onOpened();
+    }
+  }
+
+  void _close() {
+    setState(() => _offset = 0);
+    widget.onClosed();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = FolooPalette.of(context);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(FolooRadii.md),
+      child: Stack(
+        children: [
+          if (_offset.abs() > .5)
+            Positioned.fill(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _SwipeActionSurface(
+                    key: const Key('recordSwipeEmailAction'),
+                    width: _extent,
+                    color: FolooColors.lime.withValues(alpha: .32),
+                    borderRadius: const BorderRadius.horizontal(
+                      left: Radius.circular(FolooRadii.md),
+                    ),
+                    icon: Icons.mail_outline,
+                    iconColor: palette.ink,
+                    label: widget.emailLabel,
+                    onTap: () {
+                      _close();
+                      widget.onEmail();
+                    },
+                  ),
+                  _SwipeActionSurface(
+                    key: const Key('recordSwipeDeleteAction'),
+                    width: _extent,
+                    color: palette.error,
+                    borderRadius: const BorderRadius.horizontal(
+                      right: Radius.circular(FolooRadii.md),
+                    ),
+                    icon: Icons.delete_outline,
+                    iconColor: Colors.white,
+                    label: widget.deleteLabel,
+                    onTap: () {
+                      _close();
+                      widget.onDelete();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onHorizontalDragUpdate: (details) => setState(
+              () => _offset = (_offset + details.delta.dx).clamp(
+                -_extent,
+                _extent,
+              ),
+            ),
+            onHorizontalDragEnd: (_) => _finish(),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              transform: Matrix4.translationValues(_offset, 0, 0),
+              child: widget.child,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SwipeActionSurface extends StatelessWidget {
+  const _SwipeActionSurface({
+    required this.width,
+    required this.color,
+    required this.borderRadius,
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.onTap,
+    super.key,
+  });
+
+  final double width;
+  final Color color;
+  final BorderRadius borderRadius;
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: width,
+    child: Material(
+      color: color,
+      borderRadius: borderRadius,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Semantics(
+          button: true,
+          label: label,
+          child: Center(
+            child: Tooltip(
+              message: label,
+              child: Icon(icon, color: iconColor),
+            ),
+          ),
+        ),
       ),
     ),
   );
@@ -1201,6 +1478,8 @@ class ConnectionDetailScreen extends StatelessWidget {
     this.deliveryRepository,
     this.onRetryEmail,
     this.onResendEmail,
+    this.onEmail,
+    this.onDelete,
     super.key,
   });
   final SessionLead record;
@@ -1218,6 +1497,8 @@ class ConnectionDetailScreen extends StatelessWidget {
     StoredEmailSendIntent intent,
   )?
   onResendEmail;
+  final VoidCallback? onEmail;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -1556,6 +1837,28 @@ class ConnectionDetailScreen extends StatelessWidget {
               initialIntent: emailIntent,
               onRetry: onRetryEmail,
               onResend: onResendEmail,
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              key: const Key('detailEmailAction'),
+              onPressed: onEmail,
+              icon: const Icon(Icons.mail_outline),
+              label: Text(
+                emailIntent == null
+                    ? context.l10n.sendEmail
+                    : context.l10n.resendEmail,
+              ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              key: const Key('detailDeleteAction'),
+              onPressed: onDelete,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: palette.error,
+                side: BorderSide(color: palette.error),
+              ),
+              icon: const Icon(Icons.delete_outline),
+              label: Text(context.l10n.delete),
             ),
           ],
         ),

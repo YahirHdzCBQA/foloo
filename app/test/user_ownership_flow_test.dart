@@ -49,6 +49,10 @@ Future<void> _enterCapture(WidgetTester tester) async {
 }
 
 Future<void> _logout(WidgetTester tester) async {
+  if (find.byKey(const Key('moduleBackButton')).evaluate().isNotEmpty) {
+    await tester.tap(find.byKey(const Key('moduleBackButton')));
+    await tester.pumpAndSettle();
+  }
   await tester.tap(find.byKey(const Key('hamburgerMenuButton')).first);
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(const Key('logoutButton')));

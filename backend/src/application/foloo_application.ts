@@ -10,6 +10,7 @@ import type {
   ContentDeleteInput,
   LeadInput,
   LeadUpdateInput,
+  LeadDeleteInput,
   LeadMediaInput,
   SellerProfileInput,
 } from "../domain/models.js";
@@ -226,6 +227,17 @@ export class FolooApplication {
   ) {
     const principal = await this.repository.resolvePrincipal(subject);
     return this.repository.updateLead(principal, leadId, input, key, hash);
+  }
+
+  async deleteLead(
+    subject: string,
+    leadId: string,
+    input: LeadDeleteInput,
+    key: string,
+    hash: string,
+  ) {
+    const principal = await this.repository.resolvePrincipal(subject);
+    return this.repository.deleteLead(principal, leadId, input, key, hash);
   }
 
   async leadMedia(subject: string, leadId: string) {

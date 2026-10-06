@@ -64,6 +64,7 @@ class LocalContentFiles extends Table {
   TextColumn get uploadState => text().withDefault(const Constant('pending'))();
   TextColumn get syncState => text().withDefault(const Constant('local'))();
   IntColumn get remoteRevision => integer().nullable()();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
@@ -208,6 +209,7 @@ class LocalLeads extends Table {
   TextColumn get transcription => text().nullable()();
   TextColumn get syncState => text().withDefault(const Constant('local'))();
   IntColumn get remoteRevision => integer().nullable()();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
@@ -750,7 +752,9 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
 
   Stream<List<StoredLeadBundle>> watchAll(String userId) =>
       (select(localLeads)
-            ..where((row) => row.ownerUserId.equals(userId))
+            ..where(
+              (row) => row.ownerUserId.equals(userId) & row.deletedAt.isNull(),
+            )
             ..orderBy([
               (row) => OrderingTerm.desc(row.capturedAt),
               (row) => OrderingTerm.asc(row.localId),
@@ -760,7 +764,9 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
 
   Future<List<StoredLeadBundle>> listAll(String userId) async => _bundles(
     await (select(localLeads)
-          ..where((row) => row.ownerUserId.equals(userId))
+          ..where(
+            (row) => row.ownerUserId.equals(userId) & row.deletedAt.isNull(),
+          )
           ..orderBy([
             (row) => OrderingTerm.desc(row.capturedAt),
             (row) => OrderingTerm.asc(row.localId),
@@ -773,6 +779,7 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
             ..where(
               (row) =>
                   row.ownerUserId.equals(userId) &
+                  row.deletedAt.isNull() &
                   row.eventLocalId.equals(eventId),
             )
             ..orderBy([
@@ -785,7 +792,9 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
       (select(localLeads)
             ..where(
               (row) =>
-                  row.ownerUserId.equals(userId) & row.leadType.equals(type),
+                  row.ownerUserId.equals(userId) &
+                  row.deletedAt.isNull() &
+                  row.leadType.equals(type),
             )
             ..orderBy([
               (row) => OrderingTerm.desc(row.capturedAt),
@@ -799,6 +808,7 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
           ..where(
             (row) =>
                 row.ownerUserId.equals(userId) &
+                row.deletedAt.isNull() &
                 (row.name.like(pattern) |
                     row.lastName.like(pattern) |
                     row.company.like(pattern)),
@@ -832,6 +842,18 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
             (row) => row.ownerUserId.equals(userId) & row.localId.equals(id),
           ))
           .write(LocalLeadsCompanion(syncState: Value(state)));
+
+  Future<void> markLeadDeleted(String userId, String id, DateTime deletedAt) =>
+      (update(localLeads)..where(
+            (row) => row.ownerUserId.equals(userId) & row.localId.equals(id),
+          ))
+          .write(
+            LocalLeadsCompanion(
+              deletedAt: Value(deletedAt),
+              updatedAt: Value(deletedAt),
+              syncState: const Value('pending'),
+            ),
+          );
 
   Future<void> markMediaSyncState(String id, String state) =>
       (update(localLeadMedia)..where((row) => row.localId.equals(id))).write(
@@ -1075,7 +1097,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1147,6 +1169,9 @@ class AppDatabase extends _$AppDatabase {
           localEmailFollowUps,
           localEmailFollowUps.bodyManuallyEdited,
         );
+      }
+      if (from < 11) {
+        await migrator.addColumn(localLeads, localLeads.deletedAt);
       }
     },
     beforeOpen: (details) async {

@@ -61,7 +61,9 @@ idempotentes y reconciliación local-first.
 
 - Records local-first, detalle y edición estructurada con revisión optimista.
 - Exportación local por evento a XLSX/CSV y hoja de compartir.
-- Trazas: `REG-01`–`REG-13`, `SYN-*`, `REL-08`, E-06/E-09/E-10.
+- Trazas: `REG-01`–`REG-18`, `SYN-*`, `REL-08`, E-06/E-09/E-10.
+- Feedback Post-TestFlight: header secundario, filtros explícitos, swipe
+  Correo/Eliminar y tombstone de Lead offline-first.
 - `D-07` resuelta el 2026-09-15; `D-06` sigue bloqueando edición de medios.
 
 ## FL-018 — Content/PDF

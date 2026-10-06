@@ -79,6 +79,7 @@ export type LeadUpdateInput = {
   place?: string | null;
   contentFileIds?: string[];
 };
+export type LeadDeleteInput = { revision: number };
 
 export type LeadMediaInput = {
   id: string;

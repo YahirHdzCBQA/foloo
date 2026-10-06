@@ -84,11 +84,13 @@ void main() {
     expect(find.byKey(const ValueKey('recordsScreen')), findsOneWidget);
     expect(find.text('Aún no hay registros'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('screenLogoButton')));
+    await tester.tap(find.byKey(const Key('moduleBackButton')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('cardSection')), findsOneWidget);
 
     await selectDrawerDestination(tester, const Key('drawerRecords'));
+    await tester.tap(find.byKey(const Key('moduleBackButton')));
+    await tester.pumpAndSettle();
     await openDrawer(tester);
     await tester.tap(find.byKey(const Key('drawerLogoButton')));
     await tester.pumpAndSettle();

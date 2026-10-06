@@ -58,11 +58,18 @@ duplique datos o que un pull destruya trabajo local pendiente.
   temporalmente también la cadena decimal de `bigint` producida por el backend
   desplegado anteriormente, para recuperar operaciones en conflicto existentes.
 
+## Extensión FL-019 Post-TestFlight
+
+`DELETE /v1/leads/{leadId}` usa revisión, idempotencia y la misma outbox. Marca
+`deleted_at` local/remoto; GET incluye tombstones y la UI excluye esas filas.
+Un delete local pendiente prevalece sobre snapshots remotos. Media, seguimientos
+y adjuntos históricos permanecen asociados; no se invoca borrado físico S3 ni
+se elimina Content. D-13 conserva la decisión de retención definitiva.
+
 ## Límites conocidos
 
-No hay DELETE para leads. Tampoco hay cursor/delta
-sync. El PUT de Lead se limita a los campos estructurados de `REG-07`; los
-medios y campos de identidad permanecen inmutables.
+No hay cursor/delta sync. El PUT de Lead se limita a los campos estructurados
+de `REG-07`; los medios y campos de identidad permanecen inmutables.
 
 Filas históricas creadas por prototipos con identificadores que no cumplen UUID
 se preservan localmente y no se adjudican una identidad cloud nueva de manera

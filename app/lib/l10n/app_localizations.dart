@@ -1160,6 +1160,48 @@ abstract class AppLocalizations {
   /// **'Eliminar'**
   String get delete;
 
+  /// No description provided for @allRecords.
+  ///
+  /// In es, this message translates to:
+  /// **'Todos'**
+  String get allRecords;
+
+  /// No description provided for @directLeads.
+  ///
+  /// In es, this message translates to:
+  /// **'Leads directos'**
+  String get directLeads;
+
+  /// No description provided for @deleteLeadQuestion.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar lead?'**
+  String get deleteLeadQuestion;
+
+  /// No description provided for @deleteLeadWarning.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Estás seguro de que deseas eliminar este lead?'**
+  String get deleteLeadWarning;
+
+  /// No description provided for @sendEmail.
+  ///
+  /// In es, this message translates to:
+  /// **'Enviar correo'**
+  String get sendEmail;
+
+  /// No description provided for @resendEmail.
+  ///
+  /// In es, this message translates to:
+  /// **'Reenviar correo'**
+  String get resendEmail;
+
+  /// No description provided for @leadEmailRequired.
+  ///
+  /// In es, this message translates to:
+  /// **'Agrega un correo al lead antes de preparar el seguimiento.'**
+  String get leadEmailRequired;
+
   /// No description provided for @deleteFile.
   ///
   /// In es, this message translates to:

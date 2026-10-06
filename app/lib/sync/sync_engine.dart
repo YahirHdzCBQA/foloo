@@ -680,9 +680,9 @@ class SyncEngine extends ChangeNotifier {
           ? '/v1/events'
           : '/v1/events/${operation.entityId}',
     SyncEntityType.lead =>
-      operation.action == 'update'
-          ? '/v1/leads/${operation.entityId}'
-          : '/v1/leads',
+      operation.action == 'create'
+          ? '/v1/leads'
+          : '/v1/leads/${operation.entityId}',
     SyncEntityType.leadMedia =>
       '/v1/leads/${_payload(operation)['leadId']}/media',
     SyncEntityType.content =>
@@ -746,10 +746,14 @@ class SyncEngine extends ChangeNotifier {
         idempotencyKey: operation.idempotencyKey,
       ),
       SyncEntityType.lead => SyncRequest(
-        method: operation.action == 'update' ? 'PUT' : 'POST',
-        path: operation.action == 'update'
-            ? '/v1/leads/${operation.entityId}'
-            : '/v1/leads',
+        method: operation.action == 'create'
+            ? 'POST'
+            : operation.action == 'delete'
+            ? 'DELETE'
+            : 'PUT',
+        path: operation.action == 'create'
+            ? '/v1/leads'
+            : '/v1/leads/${operation.entityId}',
         body: payload,
         idempotencyKey: operation.idempotencyKey,
       ),
@@ -862,7 +866,7 @@ class SyncEngine extends ChangeNotifier {
       await _store.applyRemoteLeads(ownerSub, leads);
       for (final lead in leads) {
         final id = lead['id'];
-        if (id is! String) continue;
+        if (id is! String || lead['deletedAt'] != null) continue;
         final media = _list(
           _data(
             await _api.send(

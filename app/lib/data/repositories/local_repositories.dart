@@ -1357,6 +1357,55 @@ class LeadRepository {
     );
   }
 
+  /// Hides a Lead immediately and queues an owner-scoped tombstone mutation.
+  ///
+  /// Related media and email history remain durable while D-13 governs their
+  /// eventual physical retention; shared Content is never deleted here.
+  Future<void> delete(String userId, SessionLead session) async {
+    final stored = await _database.leadDao.byId(userId, session.localId);
+    if (stored == null || stored.ownerUserId != userId) {
+      throw StateError('Cannot delete an unavailable lead.');
+    }
+    if (stored.deletedAt != null) return;
+    final now = DateTime.now().toUtc();
+    await _database.transaction(() async {
+      await _database.leadDao.markLeadDeleted(userId, stored.localId, now);
+      for (final media in await _database.leadDao.mediaFor(stored.localId)) {
+        await _database.syncDao.deleteForEntity(
+          userId,
+          SyncEntityType.leadMedia.name,
+          media.localId,
+        );
+      }
+      final operations = await _database.syncDao.forEntity(
+        userId,
+        SyncEntityType.lead.name,
+        stored.localId,
+      );
+      final replaceableDeletes = operations.where(
+        (operation) =>
+            operation.action == 'delete' && operation.status != 'syncing',
+      );
+      final payload = <String, Object?>{'revision': stored.remoteRevision ?? 1};
+      if (replaceableDeletes.isNotEmpty) {
+        await _database.syncDao.repairFailedPayload(
+          replaceableDeletes.first.operationId,
+          jsonEncode(payload),
+          now,
+        );
+      } else {
+        await _syncStore.enqueue(
+          ownerSub: userId,
+          entityType: SyncEntityType.lead,
+          entityId: stored.localId,
+          action: 'delete',
+          payload: payload,
+          now: now,
+        );
+      }
+    });
+  }
+
   /// Persists REG-07 fields first and queues an owner-scoped optimistic update.
   Future<void> updateDraft(
     String userId,

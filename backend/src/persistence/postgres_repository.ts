@@ -26,6 +26,7 @@ import type {
   IdempotentResult,
   LeadInput,
   LeadUpdateInput,
+  LeadDeleteInput,
   LeadMediaInput,
   LeadMediaRecord,
   Principal,
@@ -526,8 +527,9 @@ export class PostgresFolooRepository implements FolooRepository {
               first_name AS "firstName", last_name AS "lastName", position, company,
               email, phone, lead_type AS "leadType", interest, written_note AS "writtenNote",
               commercial_folio AS "commercialFolio",
-              content_file_ids AS "contentFileIds", content_names AS "contentNames", revision
-       FROM leads WHERE workspace_id = $1 AND deleted_at IS NULL ORDER BY captured_at DESC`,
+              content_file_ids AS "contentFileIds", content_names AS "contentNames", revision,
+              deleted_at AS "deletedAt"
+       FROM leads WHERE workspace_id = $1 ORDER BY captured_at DESC`,
       [principal.workspaceId],
     );
     return result.rows;
@@ -693,6 +695,39 @@ export class PostgresFolooRepository implements FolooRepository {
         const row = result.rows[0];
         if (!row) throw revisionConflict();
         return row;
+      },
+      200,
+    );
+  }
+
+  async deleteLead(
+    principal: Principal,
+    leadId: string,
+    input: LeadDeleteInput,
+    key: string,
+    hash: string,
+  ): Promise<IdempotentResult<unknown>> {
+    return this.idempotent(
+      principal.workspaceId,
+      "delete-lead",
+      key,
+      hash,
+      async (db) => {
+        const result = await db.query(
+          `UPDATE leads SET deleted_at = now()
+           WHERE workspace_id = $1 AND id = $2 AND revision = $3 AND deleted_at IS NULL
+           RETURNING id, revision, deleted_at AS "deletedAt"`,
+          [principal.workspaceId, leadId, input.revision],
+        );
+        if (result.rows[0]) return result.rows[0];
+        const found = await db.query(
+          `SELECT id, revision, deleted_at AS "deletedAt"
+           FROM leads WHERE workspace_id = $1 AND id = $2`,
+          [principal.workspaceId, leadId],
+        );
+        if (!found.rows[0]) throw notFound("Lead");
+        if (found.rows[0].deletedAt) return found.rows[0];
+        throw revisionConflict();
       },
       200,
     );

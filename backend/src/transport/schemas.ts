@@ -156,6 +156,9 @@ export const leadUpdateSchema = z
       });
     }
   });
+export const leadDeleteSchema = z.object({
+  revision: z.number().int().positive(),
+});
 
 const mediaBaseSchema = z.object({
   id: z.uuid(),

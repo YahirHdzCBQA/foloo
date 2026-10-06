@@ -129,6 +129,8 @@ void main() {
     expect(find.text('Search by name or company'), findsOneWidget);
     expect(find.text('Registros'), findsNothing);
 
+    await tester.tap(find.byKey(const Key('moduleBackButton')));
+    await tester.pumpAndSettle();
     await openDrawer(tester);
     await tester.tap(find.byKey(const Key('drawerEvents')));
     await tester.pumpAndSettle();

@@ -6,6 +6,7 @@ import 'package:foloo/data/repositories/local_repositories.dart';
 import 'package:foloo/l10n/app_localizations.dart';
 import 'package:foloo/models/app_destination.dart';
 import 'package:foloo/models/app_event.dart';
+import 'package:foloo/models/email_review.dart';
 import 'package:foloo/models/lead_draft.dart';
 import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/screens/records_screen.dart';
@@ -59,6 +60,10 @@ Widget recordsApp(
   Future<void> Function(SessionLead, LeadDraft)? onLeadUpdated,
   Future<String?> Function(String eventId)? eventNameForId,
   Locale locale = const Locale('es'),
+  VoidCallback? onBack,
+  Future<void> Function(SessionLead)? onDelete,
+  Future<EmailReviewDraft?> Function(SessionLead)? onEmailReviewRequested,
+  Future<EmailReviewOutcome> Function(EmailReviewDraft)? onEmailReviewConfirmed,
 }) => MaterialApp(
   theme: FolooTheme.light,
   darkTheme: FolooTheme.dark,
@@ -79,6 +84,10 @@ Widget recordsApp(
     syncing: syncing,
     fileSharer: fileSharer,
     onLeadUpdated: onLeadUpdated,
+    onBack: onBack,
+    onDelete: onDelete,
+    onEmailReviewRequested: onEmailReviewRequested,
+    onEmailReviewConfirmed: onEmailReviewConfirmed,
   ),
 );
 
@@ -144,12 +153,10 @@ void main() {
     await tester.pump();
     expect(service.playCount, 2);
 
-    await tester.tap(find.byKey(const Key('hamburgerMenuButton')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('drawerHome')));
+    await tester.tap(find.byKey(const Key('moduleBackButton')));
     await tester.pumpAndSettle();
     expect(selectedDestination, AppDestination.home);
-    expect(service.stopPlaybackCount, greaterThanOrEqualTo(3));
+    expect(service.stopPlaybackCount, greaterThanOrEqualTo(2));
   });
 
   testWidgets('record without audio does not show a playback control', (
@@ -169,6 +176,151 @@ void main() {
     for (final chip in tester.widgetList<ChoiceChip>(find.byType(ChoiceChip))) {
       expect(chip.showCheckmark, isFalse);
     }
+  });
+
+  testWidgets('REG-17 uses secondary header and delete swipe confirms', (
+    tester,
+  ) async {
+    var deleted = false;
+    final record = SessionLead(
+      localId: 'lead-delete',
+      folio: null,
+      capturedAt: DateTime(2026, 10, 2),
+      lead: lead(),
+    );
+    await tester.pumpWidget(
+      recordsApp(
+        FakeVoiceNoteService(),
+        records: [record],
+        onDelete: (_) async => deleted = true,
+      ),
+    );
+
+    expect(find.byKey(const Key('moduleBackButton')), findsOneWidget);
+    expect(find.byKey(const Key('hamburgerMenuButton')), findsNothing);
+    expect(find.byKey(const Key('recordSwipeDeleteAction')), findsNothing);
+    await tester.drag(
+      find.byKey(const Key('record-lead-delete')),
+      const Offset(-120, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(deleted, isFalse);
+    final cardSize = tester.getSize(
+      find.byKey(const Key('record-lead-delete')),
+    );
+    final actionSize = tester.getSize(
+      find.byKey(const Key('recordSwipeDeleteAction')),
+    );
+    expect(actionSize.width, 92);
+    expect(actionSize.height, cardSize.height);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byKey(const Key('recordSwipeDeleteAction')));
+    await tester.pumpAndSettle();
+    expect(find.text('¿Eliminar lead?'), findsOneWidget);
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(deleted, isFalse);
+
+    await tester.drag(
+      find.byKey(const Key('record-lead-delete')),
+      const Offset(-120, 0),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('recordSwipeDeleteAction')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirmDeleteLead')));
+    await tester.pumpAndSettle();
+    expect(deleted, isTrue);
+  });
+
+  testWidgets('REG-17 email swipe fills the card and only opens on tap', (
+    tester,
+  ) async {
+    var reviewRequests = 0;
+    final record = SessionLead(
+      localId: 'lead-email',
+      folio: null,
+      capturedAt: DateTime(2026, 10, 2),
+      lead: lead(),
+    );
+    await tester.pumpWidget(
+      recordsApp(
+        FakeVoiceNoteService(),
+        records: [record],
+        onEmailReviewRequested: (_) async {
+          reviewRequests += 1;
+          return const EmailReviewDraft(
+            followUpId: 'follow-up-email',
+            leadName: 'Mariana Sandoval Ruiz',
+            recipientAddress: 'mariana@example.com',
+            subject: 'Seguimiento',
+            message: 'Hola Mariana',
+            attachmentNames: [],
+          );
+        },
+        onEmailReviewConfirmed: (_) async => EmailReviewOutcome.pending,
+      ),
+    );
+
+    expect(find.byKey(const Key('recordSwipeEmailAction')), findsNothing);
+    await tester.drag(
+      find.byKey(const Key('record-lead-email')),
+      const Offset(120, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(reviewRequests, 0);
+    final cardSize = tester.getSize(find.byKey(const Key('record-lead-email')));
+    final actionSize = tester.getSize(
+      find.byKey(const Key('recordSwipeEmailAction')),
+    );
+    expect(actionSize.width, 92);
+    expect(actionSize.height, cardSize.height);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('recordSwipeEmailAction')));
+    await tester.pumpAndSettle();
+    expect(reviewRequests, 1);
+    expect(find.text('Revisar'), findsOneWidget);
+  });
+
+  testWidgets('REG-02 distinguishes all events from direct leads', (
+    tester,
+  ) async {
+    final event = SessionLead(
+      localId: 'event-lead',
+      folio: null,
+      capturedAt: DateTime(2026, 10, 2),
+      lead: lead(name: 'Evento'),
+    );
+    final direct = SessionLead(
+      localId: 'direct-lead',
+      folio: null,
+      capturedAt: DateTime(2026, 10, 2),
+      lead: lead(
+        name: 'Directo',
+        originKind: LeadOriginKind.direct,
+        place: 'León',
+      ),
+    );
+    await tester.pumpWidget(
+      recordsApp(FakeVoiceNoteService(), records: [event, direct]),
+    );
+    expect(find.text('Evento Sandoval Ruiz'), findsOneWidget);
+    expect(find.text('Directo Sandoval Ruiz'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('recordsEventFilter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Todos los eventos').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Evento Sandoval Ruiz'), findsOneWidget);
+    expect(find.text('Directo Sandoval Ruiz'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('recordsEventFilter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Leads directos').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Evento Sandoval Ruiz'), findsNothing);
+    expect(find.text('Directo Sandoval Ruiz'), findsOneWidget);
   });
 
   testWidgets(
@@ -290,6 +442,13 @@ void main() {
       recordsApp(service, records: records, events: events),
     );
 
+    expect(find.text('Ana Sandoval Ruiz'), findsOneWidget);
+    expect(find.text('Beatriz Sandoval Ruiz'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('recordsEventFilter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Evento A').last);
+    await tester.pumpAndSettle();
     expect(find.text('Ana Sandoval Ruiz'), findsOneWidget);
     expect(find.text('Beatriz Sandoval Ruiz'), findsNothing);
 
@@ -424,6 +583,8 @@ void main() {
     );
 
     await tester.tap(find.byKey(const Key('exportButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Evento A').last);
     await tester.pumpAndSettle();
 
     expect(find.text('Exportar registros'), findsOneWidget);

@@ -12,6 +12,7 @@ import 'package:foloo/data/repositories/local_repositories.dart';
 import 'package:foloo/models/app_event.dart';
 import 'package:foloo/models/lead_draft.dart';
 import 'package:foloo/sync/sync_models.dart';
+import 'package:foloo/sync/sync_store.dart';
 import 'package:image/image.dart' as image_codec;
 
 List<int> testJpeg() =>
@@ -580,16 +581,16 @@ void main() {
 
   test('schema version is explicit and stable across reopen', () async {
     var database = openDatabase();
-    expect(database.schemaVersion, 10);
+    expect(database.schemaVersion, 11);
     var version = await database
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 10);
+    expect(version.read<int>('user_version'), 11);
     await database.close();
 
     database = openDatabase();
     version = await database.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 10);
+    expect(version.read<int>('user_version'), 11);
     await database.close();
   });
 
@@ -653,6 +654,58 @@ void main() {
       expect((await events.list(userA)).single.name, 'Event A');
       expect((await leads.listAll(userA)).single.lead.name, 'Lead A');
       expect((await leads.listAll(userA)).single.lead.name, isNot('Lead B'));
+      await database.close();
+    },
+  );
+
+  test(
+    'REG-18 lead delete survives reopen and keeps a durable outbox tombstone',
+    () async {
+      var database = openDatabase();
+      final leads = LeadRepository(
+        database,
+        PrivateMediaStorage(mediaRoot),
+        idFactory: () => '57d8ce9a-dcc4-4b78-8fd9-552c216a62a1',
+      );
+      final saved = await leads.saveDraft(
+        userId,
+        draft(eventId: null),
+        capturedBy: const DemoProfile(name: 'Yahir', company: 'CBQA'),
+      );
+      await leads.delete(userId, saved);
+      expect(await leads.listAll(userId), isEmpty);
+      final stored = await database.leadDao.byId(userId, saved.localId);
+      expect(stored?.deletedAt, isNotNull);
+      final operations = await database.syncDao.forEntity(
+        userId,
+        SyncEntityType.lead.name,
+        saved.localId,
+      );
+      expect(operations.any((item) => item.action == 'delete'), isTrue);
+      await SyncStore(database).applyRemoteLeads(userId, [
+        {
+          'id': saved.localId,
+          'capturedAt': saved.capturedAt.toUtc().toIso8601String(),
+          'origin': 'event',
+          'eventId': null,
+          'firstName': 'Remote copy',
+          'company': 'Remote',
+          'leadType': 'customer',
+          'interest': 'high',
+          'revision': 1,
+          'deletedAt': null,
+        },
+      ]);
+      expect(await leads.listAll(userId), isEmpty);
+      await database.close();
+
+      database = openDatabase();
+      final reopened = LeadRepository(database, PrivateMediaStorage(mediaRoot));
+      expect(await reopened.listAll(userId), isEmpty);
+      expect(
+        (await database.leadDao.byId(userId, saved.localId))?.deletedAt,
+        isNotNull,
+      );
       await database.close();
     },
   );

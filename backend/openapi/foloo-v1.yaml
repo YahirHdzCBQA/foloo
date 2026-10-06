@@ -207,6 +207,20 @@ paths:
         "201": { $ref: "#/components/responses/DataResponse" }
         "400": { $ref: "#/components/responses/ErrorResponse" }
         "409": { $ref: "#/components/responses/ErrorResponse" }
+    delete:
+      operationId: deleteLead
+      description: Creates an owner-scoped Lead tombstone; related media and email history are retained.
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LeadDeleteInput" }
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
+        "404": { $ref: "#/components/responses/ErrorResponse" }
+        "409": { $ref: "#/components/responses/ErrorResponse" }
   /events/{eventId}:
     parameters:
       - name: eventId
@@ -563,6 +577,12 @@ components:
           description: Current pre-send Content selection; the server refreshes the corresponding display-name snapshot.
           type: array
           items: { type: string, format: uuid }
+    LeadDeleteInput:
+      type: object
+      additionalProperties: false
+      required: [revision]
+      properties:
+        revision: { type: integer, minimum: 1 }
     LeadMediaInput:
       type: object
       additionalProperties: false

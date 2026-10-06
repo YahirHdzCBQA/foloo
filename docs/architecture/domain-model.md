@@ -62,6 +62,8 @@ ownership por su Lead o archivo. Email nunca sustituye el identificador estable.
   `deleted_at`; toda consulta se limita por workspace.
 - El tombstone de Evento conserva su fila y las FK de Leads asociados; Registros
   mantiene visibles esos Leads aunque el evento deje de aparecer en Mis eventos.
+- El tombstone de Lead conserva fila, media y seguimiento para reconciliación e
+  historia, pero Registros nunca lo muestra. No causa cascada a Content ni S3.
 - `lead_media`: metadata de tarjeta, referencia o Voice Note. Nunca contiene el
   binario. `upload_status` transita `pending → available`; `storage_object_key`
   es una referencia privada derivada por backend y `uploaded_at` solo existe

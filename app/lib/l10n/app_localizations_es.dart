@@ -571,6 +571,29 @@ class AppLocalizationsEs extends AppLocalizations {
   String get delete => 'Eliminar';
 
   @override
+  String get allRecords => 'Todos';
+
+  @override
+  String get directLeads => 'Leads directos';
+
+  @override
+  String get deleteLeadQuestion => '¿Eliminar lead?';
+
+  @override
+  String get deleteLeadWarning =>
+      '¿Estás seguro de que deseas eliminar este lead?';
+
+  @override
+  String get sendEmail => 'Enviar correo';
+
+  @override
+  String get resendEmail => 'Reenviar correo';
+
+  @override
+  String get leadEmailRequired =>
+      'Agrega un correo al lead antes de preparar el seguimiento.';
+
+  @override
   String get deleteFile => 'Eliminar archivo';
 
   @override
