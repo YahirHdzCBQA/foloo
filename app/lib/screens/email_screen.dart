@@ -19,6 +19,7 @@ import '../models/email_template.dart';
 import '../models/email_delivery_error.dart';
 import '../data/repositories/local_repositories.dart';
 import '../theme/foloo_theme.dart';
+import '../widgets/app_drawer.dart';
 import '../widgets/microsoft_account_notice.dart';
 import '../l10n/l10n.dart';
 import '../l10n/app_localizations.dart';
@@ -1593,6 +1594,16 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: FolooPalette.of(context).card,
+      endDrawer: AppDrawer(
+        contentCount: widget.contentCount,
+        profile: widget.profile,
+        activeDestination: AppDestination.email,
+        recordsCount: widget.recordsCount,
+        darkMode: widget.darkMode,
+        onDestinationSelected: widget.onDestinationSelected,
+        onAppearanceChanged: widget.onAppearanceChanged,
+        onLogout: widget.onLogout,
+      ),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -1603,10 +1614,10 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
               subtitle: _kind == _TemplateKind.event
                   ? context.l10n.eventTemplate
                   : context.l10n.directTemplate,
-              onBack: () {
+              onMenuPressed: () {
                 FocusManager.instance.primaryFocus?.unfocus();
                 _applyLanguage(context.l10n);
-                widget.onDestinationSelected(AppDestination.home);
+                _scaffoldKey.currentState?.openEndDrawer();
               },
             ),
             Divider(height: 1, color: FolooPalette.of(context).line),

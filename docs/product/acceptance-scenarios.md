@@ -303,8 +303,14 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 - Drawer derecho, logo Inicio, tema e idioma operan con un solo producto, sin
   textos, insignias o destinos Basic/Pro.
+- Desde “¿Dónde estás conectado hoy?” el Drawer permite consultar Registros,
+  Contenido, Mis eventos o Correo sin seleccionar Evento/Lead Directo ni iniciar
+  captura. Esos cuatro módulos usan título izquierdo y el mismo Drawer a la
+  derecha; alternarlos repetidamente reutiliza el shell sin apilar rutas.
 - ES↔EN y claro↔oscuro actualizan todas las superficies con contraste y estado
   no dependiente solo de color.
+- El estado En línea muestra punto verde y Sin conexión punto rojo; ambos
+  conservan texto y semántica accesible y no se comportan como botones.
 - Texto de negocio con caracteres Unicode sobrevive sin sustitución al ciclo
   Drift → outbox → API/PostgreSQL → pull → Drift y vuelve a renderizarse igual.
 - El binario no expone secretos; medios requieren acceso autorizado.

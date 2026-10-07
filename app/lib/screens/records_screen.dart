@@ -24,6 +24,7 @@ import '../services/voice_note_service.dart';
 import '../services/records_export_service.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
+import '../widgets/app_drawer.dart';
 import '../widgets/module_header.dart';
 import '../widgets/swipe_action_card.dart';
 import 'email_review_screen.dart';
@@ -86,7 +87,6 @@ class RecordsScreen extends StatefulWidget {
     this.ownerSub,
     this.deliveryRepository,
     this.onSendQueued,
-    this.onBack,
     this.onDelete,
     this.onEmailReviewRequested,
     this.onEmailReviewConfirmed,
@@ -113,7 +113,6 @@ class RecordsScreen extends StatefulWidget {
   final String? ownerSub;
   final EmailDeliveryRepository? deliveryRepository;
   final VoidCallback? onSendQueued;
-  final VoidCallback? onBack;
   final Future<void> Function(SessionLead record)? onDelete;
   final Future<EmailReviewDraft?> Function(SessionLead record)?
   onEmailReviewRequested;
@@ -128,6 +127,7 @@ class RecordsScreen extends StatefulWidget {
 
 class _RecordsScreenState extends State<RecordsScreen>
     with WidgetsBindingObserver {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _search = TextEditingController();
   late final VoiceNoteService _voice;
   late final StreamSubscription<void> _completed;
@@ -720,15 +720,24 @@ class _RecordsScreenState extends State<RecordsScreen>
         .length;
     final merelyPending = pending - failed - syncing - retryable;
     return Scaffold(
+      key: _scaffoldKey,
+      endDrawer: AppDrawer(
+        contentCount: widget.contentFiles.length,
+        profile: widget.profile,
+        activeDestination: AppDestination.records,
+        recordsCount: widget.records.length,
+        darkMode: widget.darkMode,
+        onDestinationSelected: widget.onDestinationSelected,
+        onAppearanceChanged: widget.onAppearanceChanged,
+        onLogout: widget.onLogout,
+      ),
       body: Column(
         children: [
           ModuleHeader(
             title: context.l10n.recordsTitle,
             subtitle:
                 '${context.l10n.leadCount(records.length)} · ${context.l10n.pendingCount(pending)}',
-            onBack:
-                widget.onBack ??
-                () => widget.onDestinationSelected(AppDestination.home),
+            onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
           Container(
             color: palette.card,
@@ -803,6 +812,8 @@ class _RecordsScreenState extends State<RecordsScreen>
                     separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (_, index) {
                       final record = records[index];
+                      final followUp = _followUpForLead(record.localId);
+                      final emailIntent = _intentFor(followUp);
                       return SwipeActionCard(
                         key: Key('recordSwipe-${record.uiKey}'),
                         open: _openSwipeLeadId == record.localId,
@@ -815,8 +826,10 @@ class _RecordsScreenState extends State<RecordsScreen>
                         },
                         startAction: SwipeCardAction(
                           actionKey: const Key('recordSwipeEmailAction'),
-                          icon: Icons.mail_outline,
-                          label: context.l10n.email,
+                          icon: Icons.outgoing_mail,
+                          label: emailIntent == null
+                              ? context.l10n.sendEmail
+                              : context.l10n.resendEmail,
                           color: FolooColors.lime.withValues(alpha: .32),
                           foregroundColor: palette.ink,
                           onTap: () => _openEmailReview(record),
@@ -838,11 +851,8 @@ class _RecordsScreenState extends State<RecordsScreen>
                               _busyAudioPath == record.lead.audioLocalPath,
                           onToggleAudio: () => _toggleAudio(record),
                           onOpen: () => _openDetail(record),
-                          emailIntent: _intentFor(
-                            _followUpForLead(record.localId),
-                          ),
-                          hasPreparedEmail:
-                              _followUpForLead(record.localId) != null,
+                          emailIntent: emailIntent,
+                          hasPreparedEmail: followUp != null,
                         ),
                       );
                     },
@@ -1693,7 +1703,7 @@ class ConnectionDetailScreen extends StatelessWidget {
             OutlinedButton.icon(
               key: const Key('detailEmailAction'),
               onPressed: onEmail,
-              icon: const Icon(Icons.mail_outline),
+              icon: const Icon(Icons.outgoing_mail),
               label: Text(
                 emailIntent == null
                     ? context.l10n.sendEmail

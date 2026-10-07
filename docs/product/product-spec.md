@@ -180,7 +180,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 |---|---|
 | `SYN-01` | Drift/SQLite es la fuente durable local para perfil, preferencias, eventos, leads y metadata de medios. |
 | `SYN-02` | Toda la app mantiene consulta y mutaciones locales útiles sin red: captura, registros, contenido, plantillas y cola de correo. |
-| `SYN-03` | ConnectivityState es visual y separado de AuthState y disponibilidad del backend. |
+| `SYN-03` | ConnectivityState es visual y separado de AuthState y disponibilidad del backend. En línea y sin conexión conservan texto/semántica accesible y un punto de estado verde/rojo no interactivo. |
 | `SYN-04` | Lead, tarjeta, voz, imágenes y PDF usan colas/reintentos independientes para evitar bloqueo en cascada; los medios respetan la dependencia del Lead remoto. |
 | `SYN-05` | Reintento automático al recuperar conexión y manual desde Registros. |
 | `SYN-06` | Sincronización es idempotente y reanudable; un medio conserva el mismo UUID/object key lógico aunque cambie su autorización temporal. |
@@ -209,7 +209,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `REG-14` | Tras compartir/exportar se informa éxito genérico ES/EN; cancelación o error se distinguen solo cuando la plataforma lo reporta y nunca se inventa una ruta de destino. |
 | `REG-15` | Cada renglón muestra entre voz y sync un icono accesible del estado de correo existente: no enviado, pendiente, enviando, enviado, error o por confirmar. El icono tiene tooltip/semantics y no depende solo del color. |
 | `REG-16` | El detalle incorpora Seguimiento después de Contenido compartido, preferentemente al final de los datos secundarios, usando la misma fuente Drift. Presenta una tarjeta compacta con contacto, correo y estado; al tocarla abre el asunto, mensaje, adjuntos, fecha, remitente/proveedor, error y acciones de retry/reenvío ya aprobadas. Correo deja de duplicar esa lista. |
-| `REG-17` | Registros usa el header secundario con Back. Cada tarjeta revela Correo y Eliminar mediante swipe opuesto sin ejecutar al completar el gesto; las mismas acciones permanecen accesibles en el detalle. Correo siempre abre Review y distingue Enviar/Reenviar por historial real. |
+| `REG-17` | Registros usa el header global de módulo con título a la izquierda y Drawer a la derecha. Cada tarjeta revela Correo y Eliminar mediante swipe opuesto sin ejecutar al completar el gesto; las mismas acciones permanecen accesibles en el detalle. Correo usa una acción saliente, siempre abre Review y distingue Enviar/Reenviar por historial real. |
 | `REG-18` | Eliminar exige confirmación y crea primero un tombstone Drift owner-scoped. La UI lo oculta de lista, búsqueda y filtros de inmediato; outbox sincroniza `DELETE /v1/leads/{leadId}` y pull no puede resucitarlo. Medios, historial de correo y adjuntos históricos se conservan; Content compartido nunca se elimina. La limpieza física permanece en D-13. |
 
 ### 4.7 Contenido, plantillas y correo
@@ -263,7 +263,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 
 | ID | Requerimiento |
 |---|---|
-| `NAV-01` | Drawer derecho cierra por scrim, cierre, gesto/back y contiene Inicio, Registros, Mis eventos, Contenido, Correo, Perfil, Apariencia, Idioma y Logout. |
+| `NAV-01` | Drawer derecho cierra por scrim, cierre, gesto/back y contiene Inicio, Registros, Mis eventos, Contenido, Correo, Perfil, Apariencia, Idioma y Logout. Está disponible desde la selección de origen —sin obligar a iniciar captura— y desde los módulos principales Registros, Mis eventos, Contenido y Correo, cuyos headers comparten título izquierdo y menú derecho. |
 | `NAV-02` | Logo Foloo superior izquierdo vuelve a Inicio donde sea aplicable. |
 | `NAV-03` | Drawer muestra identidad, evento activo y saldo del trial/suscripción; no muestra plan Basic/Pro. |
 | `NAV-04` | Claro/oscuro remapea tokens y conserva preferencia local por usuario. |

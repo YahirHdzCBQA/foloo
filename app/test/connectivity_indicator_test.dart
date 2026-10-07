@@ -11,6 +11,7 @@ import 'package:foloo/models/app_event.dart';
 import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/services/connectivity_service.dart';
 import 'package:foloo/sync/sync_models.dart';
+import 'package:foloo/theme/foloo_theme.dart';
 
 class _FakeConnectivityService implements ConnectivityService {
   _FakeConnectivityService(this.connected);
@@ -121,14 +122,32 @@ void main() {
       expect(find.text('SIN CONEXIÓN'), findsOneWidget);
       expect(find.byIcon(Icons.wifi_off_rounded), findsOneWidget);
       final status = find.byKey(const Key('connectivityStatus'));
+      final dot = find.byKey(const Key('connectivityStatusDot'));
       final statusContainer = tester.widget<Container>(
         find.descendant(of: status, matching: find.byType(Container)).first,
       );
       expect(statusContainer.decoration, isNull);
+      expect(
+        (tester.widget<DecoratedBox>(dot).decoration as BoxDecoration).color,
+        FolooPalette.of(tester.element(status)).error,
+      );
+      expect(
+        tester.getSemantics(status).getSemanticsData().label,
+        'SIN CONEXIÓN',
+      );
+      expect(
+        find.ancestor(of: status, matching: find.byType(InkWell)),
+        findsNothing,
+      );
       connectivity.emit(true);
       await tester.pumpAndSettle();
       expect(find.text('EN LÍNEA'), findsOneWidget);
       expect(find.byIcon(Icons.wifi_rounded), findsOneWidget);
+      expect(
+        (tester.widget<DecoratedBox>(dot).decoration as BoxDecoration).color,
+        FolooColors.lime,
+      );
+      expect(tester.getSemantics(status).getSemanticsData().label, 'EN LÍNEA');
 
       connectivity.emit(false);
       await tester.pumpAndSettle();

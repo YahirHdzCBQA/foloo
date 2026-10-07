@@ -21,6 +21,7 @@ import '../l10n/l10n.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/create_event_dialog.dart';
 import '../widgets/event_date_field.dart';
+import '../widgets/module_header.dart';
 
 /// Displays Mis eventos and its in-place editor (EVT-01–EVT-13).
 class EventScreen extends StatefulWidget {
@@ -35,7 +36,6 @@ class EventScreen extends StatefulWidget {
     this.onContentAdded,
     required this.onUpdate,
     required this.onDelete,
-    required this.onBack,
     this.contentFiles = const [],
     this.pdfPickerService,
     this.nowProvider,
@@ -56,7 +56,6 @@ class EventScreen extends StatefulWidget {
   final ValueChanged<ContentFile>? onContentAdded;
   final ValueChanged<AppEvent> onUpdate;
   final ValueChanged<AppEvent> onDelete;
-  final VoidCallback onBack;
   final DemoProfile profile;
   final List<ContentFile> contentFiles;
   final PdfPickerService? pdfPickerService;
@@ -296,10 +295,11 @@ class _EventScreenState extends State<EventScreen> {
       endDrawer: _drawer(),
       body: Column(
         children: [
-          _EventsHeader(
+          ModuleHeader(
+            title: context.l10n.eventsTitle,
             subtitle:
                 '${context.l10n.eventCount(widget.events.length)} · ${context.l10n.leadCount(total)}',
-            onBack: widget.onBack,
+            onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
           Divider(height: 1, color: palette.line),
           Expanded(
@@ -733,64 +733,6 @@ class _EventScreenState extends State<EventScreen> {
       'd MMM y',
       Localizations.localeOf(context).toLanguageTag(),
     ).format(date);
-  }
-}
-
-class _EventsHeader extends StatelessWidget {
-  const _EventsHeader({required this.subtitle, required this.onBack});
-
-  final String subtitle;
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = FolooPalette.of(context);
-    return Material(
-      color: palette.card,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 12, 12, 13),
-          child: Row(
-            children: [
-              IconButton.filled(
-                key: const Key('eventsBackButton'),
-                tooltip: context.l10n.back,
-                onPressed: onBack,
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(48, 48),
-                  backgroundColor: FolooColors.lime,
-                  foregroundColor: FolooColors.ink,
-                ),
-                icon: const Icon(Icons.arrow_back, size: 21),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.l10n.eventsTitle,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: palette.inkSecondary,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 

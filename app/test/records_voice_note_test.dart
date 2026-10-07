@@ -60,10 +60,11 @@ Widget recordsApp(
   Future<void> Function(SessionLead, LeadDraft)? onLeadUpdated,
   Future<String?> Function(String eventId)? eventNameForId,
   Locale locale = const Locale('es'),
-  VoidCallback? onBack,
   Future<void> Function(SessionLead)? onDelete,
   Future<EmailReviewDraft?> Function(SessionLead)? onEmailReviewRequested,
   Future<EmailReviewOutcome> Function(EmailReviewDraft)? onEmailReviewConfirmed,
+  String? ownerSub,
+  EmailDeliveryRepository? deliveryRepository,
 }) => MaterialApp(
   theme: FolooTheme.light,
   darkTheme: FolooTheme.dark,
@@ -84,10 +85,11 @@ Widget recordsApp(
     syncing: syncing,
     fileSharer: fileSharer,
     onLeadUpdated: onLeadUpdated,
-    onBack: onBack,
     onDelete: onDelete,
     onEmailReviewRequested: onEmailReviewRequested,
     onEmailReviewConfirmed: onEmailReviewConfirmed,
+    ownerSub: ownerSub,
+    deliveryRepository: deliveryRepository,
   ),
 );
 
@@ -153,7 +155,9 @@ void main() {
     await tester.pump();
     expect(service.playCount, 2);
 
-    await tester.tap(find.byKey(const Key('moduleBackButton')));
+    await tester.tap(find.byKey(const Key('hamburgerMenuButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('drawerHome')));
     await tester.pumpAndSettle();
     expect(selectedDestination, AppDestination.home);
     expect(service.stopPlaybackCount, greaterThanOrEqualTo(2));
@@ -178,7 +182,7 @@ void main() {
     }
   });
 
-  testWidgets('REG-17 uses secondary header and delete swipe confirms', (
+  testWidgets('REG-17 uses global header and delete swipe confirms', (
     tester,
   ) async {
     var deleted = false;
@@ -196,8 +200,13 @@ void main() {
       ),
     );
 
-    expect(find.byKey(const Key('moduleBackButton')), findsOneWidget);
-    expect(find.byKey(const Key('hamburgerMenuButton')), findsNothing);
+    expect(find.byKey(const Key('moduleBackButton')), findsNothing);
+    expect(find.byKey(const Key('hamburgerMenuButton')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('hamburgerMenuButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('appDrawer')), findsOneWidget);
+    await tester.tapAt(const Offset(4, 300));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('recordSwipeDeleteAction')), findsNothing);
     await tester.drag(
       find.byKey(const Key('record-lead-delete')),
@@ -275,12 +284,56 @@ void main() {
     );
     expect(actionSize.width, 92);
     expect(actionSize.height, cardSize.height);
+    expect(find.byIcon(Icons.outgoing_mail), findsOneWidget);
+    expect(find.bySemanticsLabel('Enviar correo'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.byKey(const Key('recordSwipeEmailAction')));
     await tester.pumpAndSettle();
     expect(reviewRequests, 1);
     expect(find.text('Revisar'), findsOneWidget);
+  });
+
+  testWidgets('REG-17 prior email intent labels the action as resend', (
+    tester,
+  ) async {
+    const owner = 'owner-email-history';
+    final persistence = LocalPersistence.inMemory();
+    addTearDown(persistence.close);
+    final record = await persistence.leads.saveDraft(
+      owner,
+      lead(originKind: LeadOriginKind.direct, place: 'León'),
+      capturedBy: const DemoProfile(name: 'Yahir', company: 'Foloo'),
+    );
+    final followUp = await persistence.emailDelivery.prepareForLead(
+      owner: owner,
+      leadId: record.localId,
+      lead: record.lead,
+      seller: const DemoProfile(name: 'Yahir', company: 'Foloo'),
+      language: 'es',
+    );
+    await persistence.emailDelivery.confirm(
+      owner: owner,
+      followUpId: followUp!.localId,
+    );
+
+    await tester.pumpWidget(
+      recordsApp(
+        FakeVoiceNoteService(),
+        records: [record],
+        ownerSub: owner,
+        deliveryRepository: persistence.emailDelivery,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.byKey(Key('record-${record.uiKey}')),
+      const Offset(120, 0),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.outgoing_mail), findsOneWidget);
+    expect(find.bySemanticsLabel('Reenviar correo'), findsOneWidget);
   });
 
   testWidgets('REG-02 distinguishes all events from direct leads', (

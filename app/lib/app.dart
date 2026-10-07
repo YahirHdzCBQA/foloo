@@ -102,7 +102,6 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   bool _accountJustConfirmed = false;
   ThemeMode _themeMode = ThemeMode.light;
   AppDestination _destination = AppDestination.home;
-  AppDestination _eventsReturnDestination = AppDestination.home;
   DemoProfile _profile = DemoProfile.empty;
   bool _profileCompleted = false;
   late List<AppEvent> _events;
@@ -662,20 +661,19 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
 
   void _selectDestination(AppDestination destination) {
     setState(() {
-      if (destination == AppDestination.events) {
-        _eventsReturnDestination = _destination == AppDestination.events
-            ? AppDestination.home
-            : _destination;
-      }
       _destination = destination;
       if (destination == AppDestination.home) {
-        _paywallVisible = !_entitlement.canCreateLead;
+        _paywallVisible = _origin != null && !_entitlement.canCreateLead;
       }
     });
   }
 
-  void _backFromEvents() {
-    setState(() => _destination = _eventsReturnDestination);
+  void _selectDestinationFromOrigin(AppDestination destination) {
+    setState(() {
+      _stage = _AuthenticatedStage.shell;
+      _destination = destination;
+      _paywallVisible = false;
+    });
   }
 
   void _changeCaptureOrigin(LeadOriginKind kind, AppEvent? event) {
@@ -1144,19 +1142,28 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
                 connectionService: _emailConnectionService,
                 onComplete: _completeEmailOnboarding,
               ),
-              _AuthenticatedStage.origin => OriginSelectionScreen(
-                key: const ValueKey('originScreen'),
-                events: List.unmodifiable(_eventsWithCounts),
-                onContinue: _selectOrigin,
-                onCreateEvent: _createEvent,
-                onContentAdded: _addContentFile,
-                pdfPickerService: widget.pdfPickerService,
-                contentFiles: List.unmodifiable(_contentFiles),
-              ),
+              _AuthenticatedStage.origin => _buildOriginSelectionScreen(),
               _AuthenticatedStage.shell => _buildShell(),
             },
     );
   }
+
+  /// Builds the pre-capture choice with the same global navigation as the shell.
+  Widget _buildOriginSelectionScreen() => OriginSelectionScreen(
+    key: const ValueKey('originScreen'),
+    events: List.unmodifiable(_eventsWithCounts),
+    onContinue: _selectOrigin,
+    onCreateEvent: _createEvent,
+    onContentAdded: _addContentFile,
+    pdfPickerService: widget.pdfPickerService,
+    contentFiles: List.unmodifiable(_contentFiles),
+    profile: _profile,
+    recordsCount: _sessionLeads.length,
+    darkMode: _themeMode == ThemeMode.dark,
+    onDestinationSelected: _selectDestinationFromOrigin,
+    onAppearanceChanged: _setAppearance,
+    onLogout: _logout,
+  );
 
   /// Keeps shared destinations alive so Drawer navigation reuses session state.
   Widget _buildShell() {
@@ -1167,7 +1174,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     return IndexedStack(
       index: _destination.index,
       children: [
-        if (_paywallVisible)
+        if (_origin == null)
+          _buildOriginSelectionScreen()
+        else if (_paywallVisible)
           PaywallScreen(
             key: const ValueKey('paywallScreen'),
             profile: _profile,
@@ -1228,7 +1237,6 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           deliveryRepository: _persistence.emailDelivery,
           onSendQueued: () =>
               unawaited(_synchronize(trigger: SyncTrigger.postSave)),
-          onBack: () => _selectDestination(AppDestination.home),
           onDelete: _deleteLead,
           onEmailReviewRequested: _emailReviewForLead,
           onEmailReviewConfirmed: _confirmEmailReview,
@@ -1251,7 +1259,6 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           templateRepository: _persistence.templates,
           eventEmailTemplateRepository: _persistence.eventEmailTemplates,
           onDelete: _deleteEvent,
-          onBack: _backFromEvents,
           contentFiles: List.unmodifiable(_contentFiles),
           nowProvider: widget.nowProvider,
         ),

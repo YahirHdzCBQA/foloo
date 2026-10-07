@@ -10,7 +10,7 @@ void usePhoneViewport(WidgetTester tester) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-Future<void> enterCapture(WidgetTester tester) async {
+Future<void> enterOrigin(WidgetTester tester) async {
   await tester.pumpAndSettle();
   await tester.enterText(
     find.byKey(const Key('loginEmailField')),
@@ -28,6 +28,10 @@ Future<void> enterCapture(WidgetTester tester) async {
   await tester.tap(find.byKey(const Key('emailOnboardingSkipButton')));
   await tester.pumpAndSettle();
   expect(find.byKey(const ValueKey('originScreen')), findsOneWidget);
+}
+
+Future<void> enterCapture(WidgetTester tester) async {
+  await enterOrigin(tester);
   await tester.tap(find.byKey(const Key('originContinueButton')));
   await tester.pumpAndSettle();
   expect(find.byKey(const Key('cardSection')), findsOneWidget);
@@ -68,6 +72,82 @@ Future<void> completeRequiredLead(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('primary modules share a left title and the global Drawer', (
+    tester,
+  ) async {
+    usePhoneViewport(tester);
+    await tester.pumpWidget(const FolooApp());
+    await enterCapture(tester);
+
+    final modules = <(Key, Key, String)>[
+      (
+        const Key('drawerRecords'),
+        const ValueKey('recordsScreen'),
+        'Registros',
+      ),
+      (
+        const Key('drawerContent'),
+        const ValueKey('contentScreen'),
+        'Contenido',
+      ),
+      (
+        const Key('drawerEvents'),
+        const ValueKey('eventsScreen'),
+        'Mis eventos',
+      ),
+      (const Key('drawerEmail'), const ValueKey('emailScreen'), 'Correo'),
+      (
+        const Key('drawerRecords'),
+        const ValueKey('recordsScreen'),
+        'Registros',
+      ),
+    ];
+
+    for (final (destination, screen, title) in modules) {
+      await selectDrawerDestination(tester, destination);
+      final module = find.byKey(screen);
+      expect(module, findsOneWidget);
+      expect(find.byKey(const Key('moduleBackButton')), findsNothing);
+      expect(find.byKey(const Key('eventsBackButton')), findsNothing);
+      expect(find.byKey(const Key('hamburgerMenuButton')), findsOneWidget);
+      final titleFinder = find.descendant(
+        of: module,
+        matching: find.text(title),
+      );
+      expect(titleFinder, findsOneWidget);
+      expect(tester.getTopLeft(titleFinder).dx, lessThan(30));
+      expect(
+        tester.getTopLeft(find.byKey(const Key('hamburgerMenuButton'))).dx,
+        greaterThan(300),
+      );
+      await openDrawer(tester);
+      expect(find.byKey(const Key('appDrawer')), findsOneWidget);
+      await tester.tapAt(const Offset(8, 300));
+      await tester.pumpAndSettle();
+    }
+  });
+
+  testWidgets('origin Drawer inspects modules without starting capture', (
+    tester,
+  ) async {
+    usePhoneViewport(tester);
+    await tester.pumpWidget(const FolooApp());
+    await enterOrigin(tester);
+
+    expect(find.byKey(const Key('hamburgerMenuButton')), findsOneWidget);
+    expect(find.byKey(const Key('cardSection')), findsNothing);
+    await selectDrawerDestination(tester, const Key('drawerRecords'));
+    expect(find.byKey(const ValueKey('recordsScreen')), findsOneWidget);
+    expect(find.byKey(const Key('cardSection')), findsNothing);
+
+    await selectDrawerDestination(tester, const Key('drawerHome'));
+    expect(find.byKey(const ValueKey('originScreen')), findsOneWidget);
+    expect(find.byKey(const Key('cardSection')), findsNothing);
+    await selectDrawerDestination(tester, const Key('drawerContent'));
+    expect(find.byKey(const ValueKey('contentScreen')), findsOneWidget);
+    expect(find.byKey(const Key('cardSection')), findsNothing);
+  });
+
   testWidgets('drawer navigates to records and closes from the scrim', (
     tester,
   ) async {
@@ -84,13 +164,12 @@ void main() {
     expect(find.byKey(const ValueKey('recordsScreen')), findsOneWidget);
     expect(find.text('Aún no hay registros'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('moduleBackButton')));
+    await openDrawer(tester);
+    await tester.tap(find.byKey(const Key('drawerHome')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('cardSection')), findsOneWidget);
 
     await selectDrawerDestination(tester, const Key('drawerRecords'));
-    await tester.tap(find.byKey(const Key('moduleBackButton')));
-    await tester.pumpAndSettle();
     await openDrawer(tester);
     await tester.tap(find.byKey(const Key('drawerLogoButton')));
     await tester.pumpAndSettle();
@@ -118,7 +197,8 @@ void main() {
     await tester.tap(find.byKey(const Key('closeEventEditorButton')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('eventsList')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('eventsBackButton')));
+    await openDrawer(tester);
+    await tester.tap(find.byKey(const Key('drawerHome')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('cardSection')), findsOneWidget);
   });
@@ -252,8 +332,6 @@ void main() {
       findsOneWidget,
     );
     await tester.tap(find.byKey(const Key('closeEventEditorButton')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('eventsBackButton')));
     await tester.pumpAndSettle();
     await selectDrawerDestination(tester, const Key('drawerRecords'));
     expect(find.text('Ana López'), findsOneWidget);

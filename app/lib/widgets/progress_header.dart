@@ -83,16 +83,17 @@ class ProgressHeader extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (isOnline) ...[
-                              const DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: FolooColors.lime,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: SizedBox.square(dimension: 7),
+                            DecoratedBox(
+                              key: const Key('connectivityStatusDot'),
+                              decoration: BoxDecoration(
+                                color: isOnline
+                                    ? FolooColors.lime
+                                    : FolooPalette.of(context).error,
+                                shape: BoxShape.circle,
                               ),
-                              const SizedBox(width: 6),
-                            ],
+                              child: const SizedBox.square(dimension: 7),
+                            ),
+                            const SizedBox(width: 6),
                             Icon(
                               isOnline
                                   ? Icons.wifi_rounded

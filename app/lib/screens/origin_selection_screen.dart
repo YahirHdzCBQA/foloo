@@ -6,6 +6,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../models/app_destination.dart';
 import '../models/app_event.dart';
 import '../models/content_file.dart';
 import '../models/lead_draft.dart';
@@ -14,6 +15,8 @@ import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 import '../widgets/create_event_dialog.dart';
+import '../widgets/app_drawer.dart';
+import '../widgets/module_header.dart';
 import '../widgets/segmented_bubble.dart';
 
 /// Result passed to the root shell when origin setup is complete.
@@ -31,6 +34,12 @@ class OriginSelectionScreen extends StatefulWidget {
     required this.onContinue,
     required this.onCreateEvent,
     required this.contentFiles,
+    required this.profile,
+    required this.recordsCount,
+    required this.darkMode,
+    required this.onDestinationSelected,
+    required this.onAppearanceChanged,
+    required this.onLogout,
     this.onContentAdded,
     this.pdfPickerService,
     super.key,
@@ -40,6 +49,12 @@ class OriginSelectionScreen extends StatefulWidget {
   final ValueChanged<OriginSelection> onContinue;
   final ValueChanged<AppEvent> onCreateEvent;
   final List<ContentFile> contentFiles;
+  final DemoProfile profile;
+  final int recordsCount;
+  final bool darkMode;
+  final ValueChanged<AppDestination> onDestinationSelected;
+  final ValueChanged<bool> onAppearanceChanged;
+  final VoidCallback onLogout;
   final ValueChanged<ContentFile>? onContentAdded;
   final PdfPickerService? pdfPickerService;
 
@@ -48,6 +63,7 @@ class OriginSelectionScreen extends StatefulWidget {
 }
 
 class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   LeadOriginKind _kind = LeadOriginKind.event;
   AppEvent? _event;
   bool _manuallySelected = false;
@@ -97,20 +113,37 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
     final palette = FolooPalette.of(context);
     final direct = _kind == LeadOriginKind.direct;
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: palette.card,
+      endDrawer: AppDrawer(
+        profile: widget.profile,
+        recordsCount: widget.recordsCount,
+        contentCount: widget.contentFiles.length,
+        activeDestination: AppDestination.home,
+        darkMode: widget.darkMode,
+        onDestinationSelected: widget.onDestinationSelected,
+        onAppearanceChanged: widget.onAppearanceChanged,
+        onLogout: widget.onLogout,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 30),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Image.asset(
-                  FolooBrand.logoFor(Theme.of(context).brightness),
-                  width: 56,
-                  fit: BoxFit.contain,
-                ),
+              Row(
+                children: [
+                  Image.asset(
+                    FolooBrand.logoFor(Theme.of(context).brightness),
+                    width: 56,
+                    fit: BoxFit.contain,
+                  ),
+                  const Spacer(),
+                  DrawerMenuButton(
+                    key: const Key('hamburgerMenuButton'),
+                    onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+                  ),
+                ],
               ),
               const SizedBox(height: 30),
               Text(

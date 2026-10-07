@@ -226,8 +226,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('contentScreen')), findsOneWidget);
     expect(find.byKey(const Key('uploadPdfButton')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('moduleBackButton')));
-    await tester.pumpAndSettle();
     await drawer(tester);
     await tester.tap(find.byKey(const Key('drawerEmail')));
     await tester.pumpAndSettle();
@@ -699,8 +697,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Nombre del contacto'), findsWidgets);
 
-      await tester.tap(find.byIcon(Icons.arrow_back).first);
-      await tester.pumpAndSettle();
       await drawer(tester);
       await tester.tap(find.byKey(const Key('drawerEmail')));
       await tester.pumpAndSettle();
@@ -720,8 +716,6 @@ void main() {
       await tester.tap(find.text('Restaurar').last);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('saveEmailTemplateButton')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.arrow_back).first);
       await tester.pumpAndSettle();
       await drawer(tester);
       await tester.tap(find.byKey(const Key('drawerEmail')));

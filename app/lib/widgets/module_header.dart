@@ -1,24 +1,26 @@
-/// Header for focused V1 modules that use a back action instead of the Drawer.
+/// Shared header for Foloo's primary modules.
 ///
-/// Used by Content and Email subflows to preserve a consistent hierarchy.
+/// Keeps module switching on the existing right-side Drawer without adding
+/// Navigator routes or duplicating menu contents (NAV-01).
 library;
 
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
 import '../theme/foloo_theme.dart';
 
-/// Displays a module title, context subtitle and accessible back control.
+/// Displays a left-aligned module title and the global Drawer action.
 class ModuleHeader extends StatelessWidget {
   const ModuleHeader({
     required this.title,
     required this.subtitle,
-    required this.onBack,
+    required this.onMenuPressed,
     super.key,
   });
 
   final String title;
   final String subtitle;
-  final VoidCallback onBack;
+  final VoidCallback onMenuPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -31,17 +33,6 @@ class ModuleHeader extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
           child: Row(
             children: [
-              IconButton.filled(
-                key: const Key('moduleBackButton'),
-                onPressed: onBack,
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(44, 44),
-                  backgroundColor: FolooColors.lime,
-                  foregroundColor: FolooColors.ink,
-                ),
-                icon: const Icon(Icons.arrow_back, size: 20),
-              ),
-              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -66,9 +57,36 @@ class ModuleHeader extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(width: 12),
+              DrawerMenuButton(
+                key: const Key('hamburgerMenuButton'),
+                onPressed: onMenuPressed,
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Accessible trigger shared by module and pre-capture headers.
+class DrawerMenuButton extends StatelessWidget {
+  const DrawerMenuButton({required this.onPressed, super.key});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = FolooPalette.of(context);
+    return IconButton.outlined(
+      tooltip: context.l10n.openMenu,
+      onPressed: onPressed,
+      icon: const Icon(Icons.menu_rounded),
+      style: IconButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        foregroundColor: palette.ink,
+        side: BorderSide(color: palette.ink.withValues(alpha: .5)),
       ),
     );
   }
