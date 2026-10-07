@@ -154,6 +154,9 @@ export class MemoryRepository implements FolooRepository {
     return {
       accountId: principal.accountId,
       workspaceId: principal.workspaceId,
+      subscriptionStatus: "trial",
+      trialLeadsUsed: 0,
+      entitlementUpdatedAt: new Date(0).toISOString(),
     };
   }
   async getProfile() {

@@ -171,6 +171,7 @@ paths:
   /workspace:
     get:
       operationId: getWorkspace
+      description: Returns the owner-scoped workspace and authoritative FL-020 entitlement snapshot.
       responses:
         "200": { $ref: "#/components/responses/DataResponse" }
         "401": { $ref: "#/components/responses/ErrorResponse" }
@@ -338,6 +339,7 @@ paths:
             schema: { $ref: "#/components/schemas/LeadInput" }
       responses:
         "201": { $ref: "#/components/responses/DataResponse" }
+        "402": { $ref: "#/components/responses/ErrorResponse" }
         "400": { $ref: "#/components/responses/ErrorResponse" }
         "404": { $ref: "#/components/responses/ErrorResponse" }
         "409": { $ref: "#/components/responses/ErrorResponse" }

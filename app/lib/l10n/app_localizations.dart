@@ -2364,6 +2364,48 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'{count, plural, =0{0 por subir} =1{1 por subir} other{{count} por subir}}'**
   String pendingCount(num count);
+
+  /// No description provided for @trialBalance.
+  ///
+  /// In es, this message translates to:
+  /// **'{count, plural, =0{Sin leads gratuitos disponibles} =1{1 lead gratuito disponible} other{{count} leads gratuitos disponibles}}'**
+  String trialBalance(num count);
+
+  /// No description provided for @subscriptionActive.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscripción activa'**
+  String get subscriptionActive;
+
+  /// No description provided for @subscriptionExpired.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscripción vencida'**
+  String get subscriptionExpired;
+
+  /// No description provided for @paywallTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tus 5 leads gratuitos ya fueron utilizados'**
+  String get paywallTitle;
+
+  /// No description provided for @paywallBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Necesitarás una suscripción para seguir creando leads. Todo lo que ya guardaste permanece disponible.'**
+  String get paywallBody;
+
+  /// No description provided for @paywallFutureAction.
+  ///
+  /// In es, this message translates to:
+  /// **'La suscripción estará disponible próximamente.'**
+  String get paywallFutureAction;
+
+  /// No description provided for @paywallViewRecords.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver registros'**
+  String get paywallViewRecords;
 }
 
 class _AppLocalizationsDelegate

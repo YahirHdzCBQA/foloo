@@ -166,6 +166,29 @@ class SyncDaoManager {
       );
 }
 
+mixin _$EntitlementDaoMixin on DatabaseAccessor<AppDatabase> {
+  $LocalEntitlementsTable get localEntitlements =>
+      attachedDatabase.localEntitlements;
+  $LocalTrialReservationsTable get localTrialReservations =>
+      attachedDatabase.localTrialReservations;
+  EntitlementDaoManager get managers => EntitlementDaoManager(this);
+}
+
+class EntitlementDaoManager {
+  final _$EntitlementDaoMixin _db;
+  EntitlementDaoManager(this._db);
+  $$LocalEntitlementsTableTableManager get localEntitlements =>
+      $$LocalEntitlementsTableTableManager(
+        _db.attachedDatabase,
+        _db.localEntitlements,
+      );
+  $$LocalTrialReservationsTableTableManager get localTrialReservations =>
+      $$LocalTrialReservationsTableTableManager(
+        _db.attachedDatabase,
+        _db.localTrialReservations,
+      );
+}
+
 class $LocalProfilesTable extends LocalProfiles
     with TableInfo<$LocalProfilesTable, StoredProfile> {
   @override
@@ -8833,6 +8856,689 @@ class SyncOperationsCompanion extends UpdateCompanion<StoredSyncOperation> {
   }
 }
 
+class $LocalEntitlementsTable extends LocalEntitlements
+    with TableInfo<$LocalEntitlementsTable, StoredEntitlement> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalEntitlementsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerUserIdMeta = const VerificationMeta(
+    'ownerUserId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerUserId = GeneratedColumn<String>(
+    'owner_user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _subscriptionStatusMeta =
+      const VerificationMeta('subscriptionStatus');
+  @override
+  late final GeneratedColumn<String> subscriptionStatus =
+      GeneratedColumn<String>(
+        'subscription_status',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _trialLeadsUsedMeta = const VerificationMeta(
+    'trialLeadsUsed',
+  );
+  @override
+  late final GeneratedColumn<int> trialLeadsUsed = GeneratedColumn<int>(
+    'trial_leads_used',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _serverUpdatedAtMeta = const VerificationMeta(
+    'serverUpdatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> serverUpdatedAt =
+      GeneratedColumn<DateTime>(
+        'server_updated_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _cachedAtMeta = const VerificationMeta(
+    'cachedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> cachedAt = GeneratedColumn<DateTime>(
+    'cached_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerUserId,
+    subscriptionStatus,
+    trialLeadsUsed,
+    serverUpdatedAt,
+    cachedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_entitlements';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StoredEntitlement> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_user_id')) {
+      context.handle(
+        _ownerUserIdMeta,
+        ownerUserId.isAcceptableOrUnknown(
+          data['owner_user_id']!,
+          _ownerUserIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerUserIdMeta);
+    }
+    if (data.containsKey('subscription_status')) {
+      context.handle(
+        _subscriptionStatusMeta,
+        subscriptionStatus.isAcceptableOrUnknown(
+          data['subscription_status']!,
+          _subscriptionStatusMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_subscriptionStatusMeta);
+    }
+    if (data.containsKey('trial_leads_used')) {
+      context.handle(
+        _trialLeadsUsedMeta,
+        trialLeadsUsed.isAcceptableOrUnknown(
+          data['trial_leads_used']!,
+          _trialLeadsUsedMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_trialLeadsUsedMeta);
+    }
+    if (data.containsKey('server_updated_at')) {
+      context.handle(
+        _serverUpdatedAtMeta,
+        serverUpdatedAt.isAcceptableOrUnknown(
+          data['server_updated_at']!,
+          _serverUpdatedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('cached_at')) {
+      context.handle(
+        _cachedAtMeta,
+        cachedAt.isAcceptableOrUnknown(data['cached_at']!, _cachedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cachedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {ownerUserId};
+  @override
+  StoredEntitlement map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StoredEntitlement(
+      ownerUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_user_id'],
+      )!,
+      subscriptionStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subscription_status'],
+      )!,
+      trialLeadsUsed: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}trial_leads_used'],
+      )!,
+      serverUpdatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}server_updated_at'],
+      ),
+      cachedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}cached_at'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalEntitlementsTable createAlias(String alias) {
+    return $LocalEntitlementsTable(attachedDatabase, alias);
+  }
+}
+
+class StoredEntitlement extends DataClass
+    implements Insertable<StoredEntitlement> {
+  final String ownerUserId;
+  final String subscriptionStatus;
+  final int trialLeadsUsed;
+  final DateTime? serverUpdatedAt;
+  final DateTime cachedAt;
+  const StoredEntitlement({
+    required this.ownerUserId,
+    required this.subscriptionStatus,
+    required this.trialLeadsUsed,
+    this.serverUpdatedAt,
+    required this.cachedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_user_id'] = Variable<String>(ownerUserId);
+    map['subscription_status'] = Variable<String>(subscriptionStatus);
+    map['trial_leads_used'] = Variable<int>(trialLeadsUsed);
+    if (!nullToAbsent || serverUpdatedAt != null) {
+      map['server_updated_at'] = Variable<DateTime>(serverUpdatedAt);
+    }
+    map['cached_at'] = Variable<DateTime>(cachedAt);
+    return map;
+  }
+
+  LocalEntitlementsCompanion toCompanion(bool nullToAbsent) {
+    return LocalEntitlementsCompanion(
+      ownerUserId: Value(ownerUserId),
+      subscriptionStatus: Value(subscriptionStatus),
+      trialLeadsUsed: Value(trialLeadsUsed),
+      serverUpdatedAt: serverUpdatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(serverUpdatedAt),
+      cachedAt: Value(cachedAt),
+    );
+  }
+
+  factory StoredEntitlement.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StoredEntitlement(
+      ownerUserId: serializer.fromJson<String>(json['ownerUserId']),
+      subscriptionStatus: serializer.fromJson<String>(
+        json['subscriptionStatus'],
+      ),
+      trialLeadsUsed: serializer.fromJson<int>(json['trialLeadsUsed']),
+      serverUpdatedAt: serializer.fromJson<DateTime?>(json['serverUpdatedAt']),
+      cachedAt: serializer.fromJson<DateTime>(json['cachedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerUserId': serializer.toJson<String>(ownerUserId),
+      'subscriptionStatus': serializer.toJson<String>(subscriptionStatus),
+      'trialLeadsUsed': serializer.toJson<int>(trialLeadsUsed),
+      'serverUpdatedAt': serializer.toJson<DateTime?>(serverUpdatedAt),
+      'cachedAt': serializer.toJson<DateTime>(cachedAt),
+    };
+  }
+
+  StoredEntitlement copyWith({
+    String? ownerUserId,
+    String? subscriptionStatus,
+    int? trialLeadsUsed,
+    Value<DateTime?> serverUpdatedAt = const Value.absent(),
+    DateTime? cachedAt,
+  }) => StoredEntitlement(
+    ownerUserId: ownerUserId ?? this.ownerUserId,
+    subscriptionStatus: subscriptionStatus ?? this.subscriptionStatus,
+    trialLeadsUsed: trialLeadsUsed ?? this.trialLeadsUsed,
+    serverUpdatedAt: serverUpdatedAt.present
+        ? serverUpdatedAt.value
+        : this.serverUpdatedAt,
+    cachedAt: cachedAt ?? this.cachedAt,
+  );
+  StoredEntitlement copyWithCompanion(LocalEntitlementsCompanion data) {
+    return StoredEntitlement(
+      ownerUserId: data.ownerUserId.present
+          ? data.ownerUserId.value
+          : this.ownerUserId,
+      subscriptionStatus: data.subscriptionStatus.present
+          ? data.subscriptionStatus.value
+          : this.subscriptionStatus,
+      trialLeadsUsed: data.trialLeadsUsed.present
+          ? data.trialLeadsUsed.value
+          : this.trialLeadsUsed,
+      serverUpdatedAt: data.serverUpdatedAt.present
+          ? data.serverUpdatedAt.value
+          : this.serverUpdatedAt,
+      cachedAt: data.cachedAt.present ? data.cachedAt.value : this.cachedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredEntitlement(')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('subscriptionStatus: $subscriptionStatus, ')
+          ..write('trialLeadsUsed: $trialLeadsUsed, ')
+          ..write('serverUpdatedAt: $serverUpdatedAt, ')
+          ..write('cachedAt: $cachedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    ownerUserId,
+    subscriptionStatus,
+    trialLeadsUsed,
+    serverUpdatedAt,
+    cachedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StoredEntitlement &&
+          other.ownerUserId == this.ownerUserId &&
+          other.subscriptionStatus == this.subscriptionStatus &&
+          other.trialLeadsUsed == this.trialLeadsUsed &&
+          other.serverUpdatedAt == this.serverUpdatedAt &&
+          other.cachedAt == this.cachedAt);
+}
+
+class LocalEntitlementsCompanion extends UpdateCompanion<StoredEntitlement> {
+  final Value<String> ownerUserId;
+  final Value<String> subscriptionStatus;
+  final Value<int> trialLeadsUsed;
+  final Value<DateTime?> serverUpdatedAt;
+  final Value<DateTime> cachedAt;
+  final Value<int> rowid;
+  const LocalEntitlementsCompanion({
+    this.ownerUserId = const Value.absent(),
+    this.subscriptionStatus = const Value.absent(),
+    this.trialLeadsUsed = const Value.absent(),
+    this.serverUpdatedAt = const Value.absent(),
+    this.cachedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalEntitlementsCompanion.insert({
+    required String ownerUserId,
+    required String subscriptionStatus,
+    required int trialLeadsUsed,
+    this.serverUpdatedAt = const Value.absent(),
+    required DateTime cachedAt,
+    this.rowid = const Value.absent(),
+  }) : ownerUserId = Value(ownerUserId),
+       subscriptionStatus = Value(subscriptionStatus),
+       trialLeadsUsed = Value(trialLeadsUsed),
+       cachedAt = Value(cachedAt);
+  static Insertable<StoredEntitlement> custom({
+    Expression<String>? ownerUserId,
+    Expression<String>? subscriptionStatus,
+    Expression<int>? trialLeadsUsed,
+    Expression<DateTime>? serverUpdatedAt,
+    Expression<DateTime>? cachedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerUserId != null) 'owner_user_id': ownerUserId,
+      if (subscriptionStatus != null) 'subscription_status': subscriptionStatus,
+      if (trialLeadsUsed != null) 'trial_leads_used': trialLeadsUsed,
+      if (serverUpdatedAt != null) 'server_updated_at': serverUpdatedAt,
+      if (cachedAt != null) 'cached_at': cachedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalEntitlementsCompanion copyWith({
+    Value<String>? ownerUserId,
+    Value<String>? subscriptionStatus,
+    Value<int>? trialLeadsUsed,
+    Value<DateTime?>? serverUpdatedAt,
+    Value<DateTime>? cachedAt,
+    Value<int>? rowid,
+  }) {
+    return LocalEntitlementsCompanion(
+      ownerUserId: ownerUserId ?? this.ownerUserId,
+      subscriptionStatus: subscriptionStatus ?? this.subscriptionStatus,
+      trialLeadsUsed: trialLeadsUsed ?? this.trialLeadsUsed,
+      serverUpdatedAt: serverUpdatedAt ?? this.serverUpdatedAt,
+      cachedAt: cachedAt ?? this.cachedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerUserId.present) {
+      map['owner_user_id'] = Variable<String>(ownerUserId.value);
+    }
+    if (subscriptionStatus.present) {
+      map['subscription_status'] = Variable<String>(subscriptionStatus.value);
+    }
+    if (trialLeadsUsed.present) {
+      map['trial_leads_used'] = Variable<int>(trialLeadsUsed.value);
+    }
+    if (serverUpdatedAt.present) {
+      map['server_updated_at'] = Variable<DateTime>(serverUpdatedAt.value);
+    }
+    if (cachedAt.present) {
+      map['cached_at'] = Variable<DateTime>(cachedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalEntitlementsCompanion(')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('subscriptionStatus: $subscriptionStatus, ')
+          ..write('trialLeadsUsed: $trialLeadsUsed, ')
+          ..write('serverUpdatedAt: $serverUpdatedAt, ')
+          ..write('cachedAt: $cachedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LocalTrialReservationsTable extends LocalTrialReservations
+    with TableInfo<$LocalTrialReservationsTable, StoredTrialReservation> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalTrialReservationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerUserIdMeta = const VerificationMeta(
+    'ownerUserId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerUserId = GeneratedColumn<String>(
+    'owner_user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _leadLocalIdMeta = const VerificationMeta(
+    'leadLocalId',
+  );
+  @override
+  late final GeneratedColumn<String> leadLocalId = GeneratedColumn<String>(
+    'lead_local_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [ownerUserId, leadLocalId, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_trial_reservations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StoredTrialReservation> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_user_id')) {
+      context.handle(
+        _ownerUserIdMeta,
+        ownerUserId.isAcceptableOrUnknown(
+          data['owner_user_id']!,
+          _ownerUserIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerUserIdMeta);
+    }
+    if (data.containsKey('lead_local_id')) {
+      context.handle(
+        _leadLocalIdMeta,
+        leadLocalId.isAcceptableOrUnknown(
+          data['lead_local_id']!,
+          _leadLocalIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_leadLocalIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {ownerUserId, leadLocalId};
+  @override
+  StoredTrialReservation map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StoredTrialReservation(
+      ownerUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_user_id'],
+      )!,
+      leadLocalId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}lead_local_id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalTrialReservationsTable createAlias(String alias) {
+    return $LocalTrialReservationsTable(attachedDatabase, alias);
+  }
+}
+
+class StoredTrialReservation extends DataClass
+    implements Insertable<StoredTrialReservation> {
+  final String ownerUserId;
+  final String leadLocalId;
+  final DateTime createdAt;
+  const StoredTrialReservation({
+    required this.ownerUserId,
+    required this.leadLocalId,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_user_id'] = Variable<String>(ownerUserId);
+    map['lead_local_id'] = Variable<String>(leadLocalId);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  LocalTrialReservationsCompanion toCompanion(bool nullToAbsent) {
+    return LocalTrialReservationsCompanion(
+      ownerUserId: Value(ownerUserId),
+      leadLocalId: Value(leadLocalId),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory StoredTrialReservation.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StoredTrialReservation(
+      ownerUserId: serializer.fromJson<String>(json['ownerUserId']),
+      leadLocalId: serializer.fromJson<String>(json['leadLocalId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerUserId': serializer.toJson<String>(ownerUserId),
+      'leadLocalId': serializer.toJson<String>(leadLocalId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  StoredTrialReservation copyWith({
+    String? ownerUserId,
+    String? leadLocalId,
+    DateTime? createdAt,
+  }) => StoredTrialReservation(
+    ownerUserId: ownerUserId ?? this.ownerUserId,
+    leadLocalId: leadLocalId ?? this.leadLocalId,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  StoredTrialReservation copyWithCompanion(
+    LocalTrialReservationsCompanion data,
+  ) {
+    return StoredTrialReservation(
+      ownerUserId: data.ownerUserId.present
+          ? data.ownerUserId.value
+          : this.ownerUserId,
+      leadLocalId: data.leadLocalId.present
+          ? data.leadLocalId.value
+          : this.leadLocalId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredTrialReservation(')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('leadLocalId: $leadLocalId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(ownerUserId, leadLocalId, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StoredTrialReservation &&
+          other.ownerUserId == this.ownerUserId &&
+          other.leadLocalId == this.leadLocalId &&
+          other.createdAt == this.createdAt);
+}
+
+class LocalTrialReservationsCompanion
+    extends UpdateCompanion<StoredTrialReservation> {
+  final Value<String> ownerUserId;
+  final Value<String> leadLocalId;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const LocalTrialReservationsCompanion({
+    this.ownerUserId = const Value.absent(),
+    this.leadLocalId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalTrialReservationsCompanion.insert({
+    required String ownerUserId,
+    required String leadLocalId,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : ownerUserId = Value(ownerUserId),
+       leadLocalId = Value(leadLocalId),
+       createdAt = Value(createdAt);
+  static Insertable<StoredTrialReservation> custom({
+    Expression<String>? ownerUserId,
+    Expression<String>? leadLocalId,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerUserId != null) 'owner_user_id': ownerUserId,
+      if (leadLocalId != null) 'lead_local_id': leadLocalId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalTrialReservationsCompanion copyWith({
+    Value<String>? ownerUserId,
+    Value<String>? leadLocalId,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return LocalTrialReservationsCompanion(
+      ownerUserId: ownerUserId ?? this.ownerUserId,
+      leadLocalId: leadLocalId ?? this.leadLocalId,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerUserId.present) {
+      map['owner_user_id'] = Variable<String>(ownerUserId.value);
+    }
+    if (leadLocalId.present) {
+      map['lead_local_id'] = Variable<String>(leadLocalId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalTrialReservationsCompanion(')
+          ..write('ownerUserId: $ownerUserId, ')
+          ..write('leadLocalId: $leadLocalId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -8858,6 +9564,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $LocalUserPreferencesTable localUserPreferences =
       $LocalUserPreferencesTable(this);
   late final $SyncOperationsTable syncOperations = $SyncOperationsTable(this);
+  late final $LocalEntitlementsTable localEntitlements =
+      $LocalEntitlementsTable(this);
+  late final $LocalTrialReservationsTable localTrialReservations =
+      $LocalTrialReservationsTable(this);
   late final Index profileOwnerIdx = Index(
     'profile_owner_idx',
     'CREATE UNIQUE INDEX profile_owner_idx ON local_profiles (owner_user_id)',
@@ -8912,6 +9622,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final LeadDao leadDao = LeadDao(this as AppDatabase);
   late final SyncDao syncDao = SyncDao(this as AppDatabase);
+  late final EntitlementDao entitlementDao = EntitlementDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -8930,6 +9643,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localPreferences,
     localUserPreferences,
     syncOperations,
+    localEntitlements,
+    localTrialReservations,
     profileOwnerIdx,
     eventOwnerIdx,
     contentOwnerIdx,
@@ -14408,6 +15123,435 @@ typedef $$SyncOperationsTableProcessedTableManager =
       StoredSyncOperation,
       PrefetchHooks Function()
     >;
+typedef $$LocalEntitlementsTableCreateCompanionBuilder =
+    LocalEntitlementsCompanion Function({
+      required String ownerUserId,
+      required String subscriptionStatus,
+      required int trialLeadsUsed,
+      Value<DateTime?> serverUpdatedAt,
+      required DateTime cachedAt,
+      Value<int> rowid,
+    });
+typedef $$LocalEntitlementsTableUpdateCompanionBuilder =
+    LocalEntitlementsCompanion Function({
+      Value<String> ownerUserId,
+      Value<String> subscriptionStatus,
+      Value<int> trialLeadsUsed,
+      Value<DateTime?> serverUpdatedAt,
+      Value<DateTime> cachedAt,
+      Value<int> rowid,
+    });
+
+class $$LocalEntitlementsTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalEntitlementsTable> {
+  $$LocalEntitlementsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get subscriptionStatus => $composableBuilder(
+    column: $table.subscriptionStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get trialLeadsUsed => $composableBuilder(
+    column: $table.trialLeadsUsed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get serverUpdatedAt => $composableBuilder(
+    column: $table.serverUpdatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get cachedAt => $composableBuilder(
+    column: $table.cachedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalEntitlementsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalEntitlementsTable> {
+  $$LocalEntitlementsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get subscriptionStatus => $composableBuilder(
+    column: $table.subscriptionStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get trialLeadsUsed => $composableBuilder(
+    column: $table.trialLeadsUsed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get serverUpdatedAt => $composableBuilder(
+    column: $table.serverUpdatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get cachedAt => $composableBuilder(
+    column: $table.cachedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalEntitlementsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalEntitlementsTable> {
+  $$LocalEntitlementsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get subscriptionStatus => $composableBuilder(
+    column: $table.subscriptionStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get trialLeadsUsed => $composableBuilder(
+    column: $table.trialLeadsUsed,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get serverUpdatedAt => $composableBuilder(
+    column: $table.serverUpdatedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get cachedAt =>
+      $composableBuilder(column: $table.cachedAt, builder: (column) => column);
+}
+
+class $$LocalEntitlementsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalEntitlementsTable,
+          StoredEntitlement,
+          $$LocalEntitlementsTableFilterComposer,
+          $$LocalEntitlementsTableOrderingComposer,
+          $$LocalEntitlementsTableAnnotationComposer,
+          $$LocalEntitlementsTableCreateCompanionBuilder,
+          $$LocalEntitlementsTableUpdateCompanionBuilder,
+          (
+            StoredEntitlement,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalEntitlementsTable,
+              StoredEntitlement
+            >,
+          ),
+          StoredEntitlement,
+          PrefetchHooks Function()
+        > {
+  $$LocalEntitlementsTableTableManager(
+    _$AppDatabase db,
+    $LocalEntitlementsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalEntitlementsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalEntitlementsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocalEntitlementsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerUserId = const Value.absent(),
+                Value<String> subscriptionStatus = const Value.absent(),
+                Value<int> trialLeadsUsed = const Value.absent(),
+                Value<DateTime?> serverUpdatedAt = const Value.absent(),
+                Value<DateTime> cachedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalEntitlementsCompanion(
+                ownerUserId: ownerUserId,
+                subscriptionStatus: subscriptionStatus,
+                trialLeadsUsed: trialLeadsUsed,
+                serverUpdatedAt: serverUpdatedAt,
+                cachedAt: cachedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerUserId,
+                required String subscriptionStatus,
+                required int trialLeadsUsed,
+                Value<DateTime?> serverUpdatedAt = const Value.absent(),
+                required DateTime cachedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => LocalEntitlementsCompanion.insert(
+                ownerUserId: ownerUserId,
+                subscriptionStatus: subscriptionStatus,
+                trialLeadsUsed: trialLeadsUsed,
+                serverUpdatedAt: serverUpdatedAt,
+                cachedAt: cachedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LocalEntitlementsTable, StoredEntitlement>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $LocalEntitlementsTable,
+                    StoredEntitlement
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalEntitlementsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalEntitlementsTable,
+      StoredEntitlement,
+      $$LocalEntitlementsTableFilterComposer,
+      $$LocalEntitlementsTableOrderingComposer,
+      $$LocalEntitlementsTableAnnotationComposer,
+      $$LocalEntitlementsTableCreateCompanionBuilder,
+      $$LocalEntitlementsTableUpdateCompanionBuilder,
+      (
+        StoredEntitlement,
+        BaseReferences<
+          _$AppDatabase,
+          $LocalEntitlementsTable,
+          StoredEntitlement
+        >,
+      ),
+      StoredEntitlement,
+      PrefetchHooks Function()
+    >;
+typedef $$LocalTrialReservationsTableCreateCompanionBuilder =
+    LocalTrialReservationsCompanion Function({
+      required String ownerUserId,
+      required String leadLocalId,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$LocalTrialReservationsTableUpdateCompanionBuilder =
+    LocalTrialReservationsCompanion Function({
+      Value<String> ownerUserId,
+      Value<String> leadLocalId,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$LocalTrialReservationsTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalTrialReservationsTable> {
+  $$LocalTrialReservationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get leadLocalId => $composableBuilder(
+    column: $table.leadLocalId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalTrialReservationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalTrialReservationsTable> {
+  $$LocalTrialReservationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get leadLocalId => $composableBuilder(
+    column: $table.leadLocalId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalTrialReservationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalTrialReservationsTable> {
+  $$LocalTrialReservationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerUserId => $composableBuilder(
+    column: $table.ownerUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get leadLocalId => $composableBuilder(
+    column: $table.leadLocalId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$LocalTrialReservationsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalTrialReservationsTable,
+          StoredTrialReservation,
+          $$LocalTrialReservationsTableFilterComposer,
+          $$LocalTrialReservationsTableOrderingComposer,
+          $$LocalTrialReservationsTableAnnotationComposer,
+          $$LocalTrialReservationsTableCreateCompanionBuilder,
+          $$LocalTrialReservationsTableUpdateCompanionBuilder,
+          (
+            StoredTrialReservation,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalTrialReservationsTable,
+              StoredTrialReservation
+            >,
+          ),
+          StoredTrialReservation,
+          PrefetchHooks Function()
+        > {
+  $$LocalTrialReservationsTableTableManager(
+    _$AppDatabase db,
+    $LocalTrialReservationsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalTrialReservationsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$LocalTrialReservationsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$LocalTrialReservationsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerUserId = const Value.absent(),
+                Value<String> leadLocalId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalTrialReservationsCompanion(
+                ownerUserId: ownerUserId,
+                leadLocalId: leadLocalId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerUserId,
+                required String leadLocalId,
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => LocalTrialReservationsCompanion.insert(
+                ownerUserId: ownerUserId,
+                leadLocalId: leadLocalId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $LocalTrialReservationsTable,
+                    StoredTrialReservation
+                  >(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $LocalTrialReservationsTable,
+                    StoredTrialReservation
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalTrialReservationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalTrialReservationsTable,
+      StoredTrialReservation,
+      $$LocalTrialReservationsTableFilterComposer,
+      $$LocalTrialReservationsTableOrderingComposer,
+      $$LocalTrialReservationsTableAnnotationComposer,
+      $$LocalTrialReservationsTableCreateCompanionBuilder,
+      $$LocalTrialReservationsTableUpdateCompanionBuilder,
+      (
+        StoredTrialReservation,
+        BaseReferences<
+          _$AppDatabase,
+          $LocalTrialReservationsTable,
+          StoredTrialReservation
+        >,
+      ),
+      StoredTrialReservation,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -14441,4 +15585,11 @@ class $AppDatabaseManager {
       $$LocalUserPreferencesTableTableManager(_db, _db.localUserPreferences);
   $$SyncOperationsTableTableManager get syncOperations =>
       $$SyncOperationsTableTableManager(_db, _db.syncOperations);
+  $$LocalEntitlementsTableTableManager get localEntitlements =>
+      $$LocalEntitlementsTableTableManager(_db, _db.localEntitlements);
+  $$LocalTrialReservationsTableTableManager get localTrialReservations =>
+      $$LocalTrialReservationsTableTableManager(
+        _db,
+        _db.localTrialReservations,
+      );
 }

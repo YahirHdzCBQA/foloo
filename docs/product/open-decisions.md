@@ -10,7 +10,8 @@ trabajo indicado.
 **Pregunta:** compra in-app, pago externo en navegador o external purchase link
 permitido por región/tienda.
 
-**Bloquea:** `MON-03`–`MON-06`, paywall, confirmación y revisión de tiendas.
+**Bloquea:** compra/checkout de FL-021, confirmación y revisión de tiendas. No
+bloquea el enforcement ni el paywall informativo sin precio de FL-020.
 
 ### `D-02` · Precio, moneda y regiones
 
@@ -18,7 +19,8 @@ permitido por región/tienda.
 
 ### `D-03` · Vencimiento, avisos y periodo de gracia
 
-**Bloquea:** estados y aceptación de `MON-06`, `MON-08`.
+**Bloquea:** reglas temporales reales que produzcan `expired`, avisos y gracia
+en FL-021. No bloquea representar ni aplicar un snapshot `expired`.
 
 ### `D-04` · Cancelación y reembolsos
 
@@ -50,7 +52,7 @@ Faltan diseños aprobados de paywall, confirmación de pago, subida de PDF,
 imágenes de referencia, controles post-grabación y el polish visual de Email
 Review. La UI existente es evidencia parcial, no una resolución de Diseño.
 
-**Bloquea:** fidelidad final de `MON-03`, `CON-02`, `CAP-08`, `VOZ-02` y
+**Bloquea:** fidelidad visual final de `MON-03`, `CON-02`, `CAP-08`, `VOZ-02` y
 FL-019.5. No reabre ni cambia la semántica funcional cerrada de FL-019.
 
 ### `D-13` · Retención, cifrado local y eliminación legal

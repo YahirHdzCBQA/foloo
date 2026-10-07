@@ -15,10 +15,10 @@ el runtime no contiene selector ni gating por edición.
 
 ## Límites actuales
 
-La monetización comienza en FL-020. Google Sheets y transcripción automática no
-pertenecen a V1. FL-019 está cerrada; FL-019.5 espera mockup y solo podrá pulir
-visualmente Review sin cambiar su semántica. Consulta
-`../docs/delivery/traceability.md`.
+FL-020 aporta el trial histórico de cinco Leads, enforcement offline/server y
+paywall informativo. Compra, precio y transiciones producidas por un proveedor
+de pago pertenecen a FL-021. Google Sheets y transcripción automática no
+pertenecen a V1. Consulta `../docs/delivery/traceability.md`.
 
 La URL DEV está centralizada en `FolooApiConfiguration.dev` y puede sustituirse
 sin cambiar código mediante `--dart-define=FOLOO_API_BASE_URL=https://...`.

@@ -13,7 +13,7 @@
 | `CON-*` | E-07 | D-11/D-13 | FL-018 durable; feedback Post-TestFlight añade selección explícita de Content en Lead directo y swipe Editar/Eliminar accesible en biblioteca sin cambiar tombstone/retención; D-13 retención física; f2-01–03 |
 | `PLT-*`, `SAL-*` | E-01/E-08 | ADR-006/007; D-09/D-14–D-20; D-16 superseded | FL-019 CLOSED conserva renderer, reconciliación, intención/outbox, Gmail/Graph y D-19. FL-019.5 mueve historial a Registros, añade Review/editor inline y chips humanos, retira unsubscribe activo preservando historia e informa antes del OAuth que Microsoft sender se limita a cuentas personales compatibles en esta versión; f2-04/05, f4-04/12 |
 | `NAV-*` | E-12 | ADR-001 | drawer/theme/l10n; f1-15/25/26 |
-| `MON-*` | E-11 | D-01–D-04/D-11 | sin implementación; f3-01–08 |
+| `MON-01`–`MON-11` | E-11 | ADR-004; D-01–D-04/D-11 | FL-020: cache/reservas Drift, workspace entitlement, contador PostgreSQL transaccional, bloqueo central y paywall informativo; compra real pendiente FL-021; f3-01–03/07 |
 | `INF-*`, `RC-*` | E-09/E-12/E-13 | ADR-001/002/003/005/006/007; D-10/D-13/D-16 superseded | backend AWS/S3/egreso seguro; FL-019.5 retira rutas/footer de unsubscribe sin borrar tablas; cumplimiento legal sigue pendiente |
 | `REL-*`, `RNF-*` | E-12 | decisiones aplicables | suite local parcial y round-trip UTF-8 en app/backend; f5-01–12 |
 
@@ -95,14 +95,14 @@ interna sea reutilizable.
 
 | ID | Estado | Evidencia actual | Cobertura / siguiente FL |
 |---|:---:|---|---|
-| f3-01 | F | sin contador server-side | FL de monetización; política bloqueada por D-01 |
-| f3-02 | F | no hay saldo de trial real | FL de monetización |
-| f3-03 | F | no hay paywall aprobado | bloqueado D-01/D-11 |
+| f3-01 | I | `accounts.trial_leads_used` con constraint y lock transaccional | FL-020; migration 007 + backend tests |
+| f3-02 | I | saldo efectivo snapshot remoto + reservas locales owner-scoped | FL-020; entitlement tests/UI |
+| f3-03 | I | paywall informativo ES/EN; solo bloquea nueva captura | FL-020; fidelidad final D-11 |
 | f3-04 | F | no hay precio/productos | bloqueado D-02 |
 | f3-05 | F | no hay compra | bloqueado D-01 |
-| f3-06 | F | no hay webhooks | FL backend/pago |
-| f3-07 | F | no hay caché de suscripción | FL monetización/offline |
-| f3-08 | F | no hay vencimiento/gracia | bloqueado D-03/D-04 |
+| f3-06 | F | no hay webhooks | FL-021 tras D-01 |
+| f3-07 | I | snapshot y reservas Drift schema v12 | FL-020 |
+| f3-08 | P | estado `expired` se aplica; lifecycle/gracia no implementados | FL-021; D-03/D-04 |
 
 ## F4 · Infraestructura (12)
 

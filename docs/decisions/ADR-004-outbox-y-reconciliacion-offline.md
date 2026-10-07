@@ -2,8 +2,8 @@
 
 - Estado: **Aceptado**
 - Fecha: 2026-09-09
-- Alcance: FL-015/FL-017, motor de sincronización móvil Foloo V1
-- Trazas: `SYN-04`–`SYN-10`, `REG-07`, `RNF-07`, E-06 y E-09
+- Alcance: FL-015/FL-017/FL-020, motor de sincronización móvil Foloo V1
+- Trazas: `SYN-04`–`SYN-10`, `REG-07`, `MON-05`–`MON-11`, `RNF-07`, E-06, E-09 y E-11
 
 ## Contexto
 
@@ -65,6 +65,21 @@ duplique datos o que un pull destruya trabajo local pendiente.
 Un delete local pendiente prevalece sobre snapshots remotos. Media, seguimientos
 y adjuntos históricos permanecen asociados; no se invoca borrado físico S3 ni
 se elimina Content. D-13 conserva la decisión de retención definitiva.
+
+## Extensión FL-020
+
+Cada Lead creado en `trial` reserva históricamente un uso owner-scoped dentro
+de la misma transacción Drift que crea Lead/outbox. El saldo efectivo suma el
+último contador remoto y reservas aún no confirmadas, por lo que funciona sin
+red y sobrevive restart/logout. Confirmación o pull del mismo UUID elimina una
+sola reserva; la idempotency key evita doble consumo. Borrar el Lead no toca la
+reserva ni el contador.
+
+PostgreSQL bloquea el row de `account` y consume el trial en la misma
+transacción idempotente de `POST /v1/leads`. Varios dispositivos offline pueden
+agotar localmente el mismo snapshot: el servidor acepta solo el saldo real y
+rechaza el excedente; el 4xx conserva Lead/outbox local como evidencia y nunca
+borra datos. Reactivarlo automáticamente tras una compra se define en FL-021.
 
 ## Límites conocidos
 

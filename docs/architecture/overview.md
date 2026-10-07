@@ -112,7 +112,8 @@ conserva. La retención/borrado definitivo continúa abierta en D-13.
 - Escritura durable local antes de red.
 - Consulta/edición local, contenido/plantillas y exportación por evento.
 - Estado de conectividad separado de AuthState y disponibilidad del backend.
-- Caché futura de suscripción sin conceder autoridad de pago al cliente.
+- Caché owner-scoped del entitlement y reservas offline sin conceder autoridad
+  de pago al cliente.
 
 ## Responsabilidades del backend desde FL-014
 
@@ -120,7 +121,10 @@ conserva. La retención/borrado definitivo continúa abierta en D-13.
   soportadas, incluidas las correcciones de Lead y Evento y tombstone de Evento.
 - Ownership/tenancy y persistencia de cuenta/workspace, perfil, eventos, Leads
   y metadata sin binarios.
-- Autoridad futura del trial y suscripción, webhooks y reconciliación.
+- Autoridad actual del trial y estado comercial en PostgreSQL. `GET
+  /v1/workspace` entrega el snapshot; `POST /v1/leads` bloquea el account row y
+  consume históricamente en la misma transacción idempotente. Webhooks y
+  transiciones producidas por pagos quedan para FL-021.
 - Storage S3 protegido, retención y URLs no públicas.
 - Sync reanudable de Leads y medios con colas independientes.
 - Plantillas server-side, sustitución, adjuntos y correo mediante la identidad

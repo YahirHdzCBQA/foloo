@@ -13,6 +13,7 @@ import 'package:uuid/uuid.dart';
 
 import '../data/local/app_database.dart';
 import '../data/local/private_media_storage.dart';
+import '../data/repositories/entitlement_repository.dart';
 import '../models/email_delivery_error.dart';
 import 'sync_models.dart';
 
@@ -674,6 +675,11 @@ class SyncStore {
           leadRevision,
         );
         await _advanceQueuedLeadUpdates(operation, leadRevision);
+        await EntitlementRepository(database).acknowledgeLead(
+          operation.ownerUserId,
+          operation.entityId,
+          incrementCachedUsage: true,
+        );
       } else if (operation.entityType == SyncEntityType.event.name &&
           leadRevision != null) {
         await database.eventDao.markRemoteRevision(
@@ -1316,6 +1322,8 @@ class SyncStore {
           id,
           _requiredRemoteRevision(lead['revision']),
         );
+        await EntitlementRepository(database)
+            .acknowledgeLead(ownerSub, id, incrementCachedUsage: false);
         continue;
       }
       if (await hasPending(ownerSub, SyncEntityType.lead, id)) continue;
@@ -1370,6 +1378,11 @@ class SyncStore {
       );
     }
   }
+
+  Future<void> applyRemoteEntitlement(
+    String ownerSub,
+    Map<String, Object?> workspace,
+  ) => EntitlementRepository(database).applyServerSnapshot(ownerSub, workspace);
 
   Future<void> applyRemoteMedia(
     String ownerSub,

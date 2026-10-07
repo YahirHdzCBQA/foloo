@@ -18,8 +18,10 @@ ownership por su Lead o archivo. Email nunca sustituye el identificador estable.
 - Preferencia: clave/valor por owner.
 - Content/PDF: id, owner, nombre visible, nombre de archivo, peso,
   asignación a eventos o todos, ruta privada, revisión y tombstone. Plantillas,
-  preparaciones e intenciones de correo tienen modelo durable; suscripción aún
-  no tiene un modelo productivo completo.
+  preparaciones e intenciones de correo tienen modelo durable.
+- Entitlement: por Cognito owner conserva `subscriptionStatus`, consumo
+  histórico autoritativo y timestamp remoto. Drift añade reservas de trial por
+  Lead local hasta su confirmación; no contienen precio ni autoridad de pago.
 - Conexión de correo/follow-up: ADR-006 fija la relación Cognito
   `sub`/workspace → identidad Google/Microsoft autorizada. Plantillas
   Event/Direct por idioma, intención de envío, intento, snapshot de remitente,
@@ -49,12 +51,15 @@ ownership por su Lead o archivo. Email nunca sustituye el identificador estable.
 - Adjuntos PDF enviados quedan congelados en la historia del Lead.
 - Correcciones no cambian owner ni eliminan medios sin una acción aprobada.
 - Pago inactivo no cambia visibilidad o propiedad de datos previos.
+- Eliminar un Lead no reduce el consumo histórico del trial.
 - Identidad/idempotencia remota no se infiere del folio comercial.
 
 ## Modelo remoto desde FL-014
 
 - `app_user`: identidad técnica por Cognito `sub`; email no es owner.
-- `account`: límite comercial personal actual.
+- `account`: límite comercial personal actual; guarda `trial_leads_used` 0…5 y
+  `subscription_status` (`trial`, `trial_exhausted`, `active`, `expired`). Un
+  row lock serializa el último cupo.
 - `workspace` + `workspace_member`: límite de datos y membresía owner inicial;
   prepara evolución sin implementar Teams.
 - `seller_profile`: perfil Foloo separado de Cognito.

@@ -27,7 +27,7 @@ seguimiento a contactos en eventos o encuentros directos, incluso sin señal.
 
 No existen ediciones Basic/Pro. Una cuenta nueva puede guardar cinco leads. Al
 intentar guardar el sexto, Foloo conserva el formulario y presenta el paywall.
-Una suscripción anual activa habilita captura ilimitada. Un estado de pago
+Una suscripción activa habilita captura ilimitada. Un estado comercial
 inactivo nunca elimina ni oculta datos existentes y no impide consulta,
 edición, exportación o reintentos pendientes.
 
@@ -45,7 +45,7 @@ edición, exportación o reintentos pendientes.
 - Biblioteca PDF, asignación a eventos, plantillas y correo con adjuntos.
 - Exportación XLSX y CSV por evento, incluida operación sobre datos locales.
 - Tema claro/oscuro, ES/EN y navegación móvil.
-- Trial de cinco leads, paywall y suscripción anual.
+- Trial histórico de cinco leads, paywall informativo y base de suscripción.
 
 ### 2.2 Fuera de V1
 
@@ -275,14 +275,17 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 
 | ID | Requerimiento |
 |---|---|
-| `MON-01` | Cada cuenta nueva dispone de cinco leads guardados gratis; el contador es server-side y no se reinicia al reinstalar. |
+| `MON-01` | Cada cuenta identificada por Cognito `sub` dispone de cinco creaciones gratuitas; `trialLeadsUsed` es histórico, server-side, acotado a 0…5 y no se reinicia al reinstalar, cambiar dispositivo o cerrar sesión. Evento y Directo consumen igual. |
 | `MON-02` | Saldo y aviso previo al límite son visibles en captura y Drawer. |
-| `MON-03` | El intento de guardar el sexto abre paywall y conserva íntegro el Lead en curso. |
-| `MON-04` | Suscripción anual activa habilita captura ilimitada; precio, moneda y regiones están bloqueados. |
-| `MON-05` | Backend/webhook es fuente de verdad del desbloqueo; el cliente no concede acceso por resultado visual de pago. |
-| `MON-06` | Estado de suscripción se cachea para no bloquear offline a quien ya pagó. |
-| `MON-07` | Pago inactivo bloquea solo nuevas capturas; datos existentes siguen visibles/editables/exportables. |
-| `MON-08` | Compra, vencimiento, gracia, cancelación y reembolso se implementan solo tras resolver `D-01`–`D-04`. |
+| `MON-03` | `trial_exhausted` y `expired` bloquean al iniciar una nueva captura y abren el paywall; `trial` con saldo y `active` permiten crear. |
+| `MON-04` | `active` habilita creación ilimitada. FL-020 representa el estado, pero solo FL-021 podrá activarlo desde una compra confiable; precio, moneda y periodo siguen abiertos. |
+| `MON-05` | PostgreSQL es autoridad: aceptación del Lead y consumo se realizan transaccional e idempotentemente; Flutter no puede enviar ni modificar estado o contador. |
+| `MON-06` | Drift cachea por owner el último snapshot remoto y reservas locales históricas. Offline puede consumir como máximo el saldo efectivo restante y restart/logout no lo reinician. |
+| `MON-07` | `trial_exhausted` o `expired` bloquean exclusivamente crear Leads; los datos y operaciones existentes siguen visibles/editables/exportables. |
+| `MON-08` | FL-020 ofrece paywall informativo sin precio ni compra; compra, periodo, gracia, cancelación, reembolso, receipts y webhooks pertenecen a FL-021 tras resolver `D-01`–`D-04`. |
+| `MON-09` | Eliminar o tombstonear un Lead nunca devuelve un uso, incluso si fue creado offline o eliminado antes de sincronizar. |
+| `MON-10` | Dos creaciones concurrentes server-side serializan el entitlement de la cuenta: 4/5 puede llegar solo a 5/5, nunca 6/5. |
+| `MON-11` | Si varios dispositivos consumen offline el mismo saldo, cada uno preserva sus Leads locales; al reconectar el servidor acepta solo el saldo autoritativo y los excedentes quedan visibles con error recuperable, sin pérdida ni duplicación. |
 
 ## 5. Infraestructura y no funcionales
 

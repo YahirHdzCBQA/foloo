@@ -115,16 +115,19 @@ idempotentes y reconciliación local-first.
 
 ## FL-020 — Trial & Subscription Foundation
 
-**Objetivo:** autoridad server-side y captura ilimitada tras pago.
+**Objetivo:** foundation y autoridad server-side de creación de Leads.
 
-- Contador, saldo, paywall, flujo aprobado, webhook, caché y vencimiento.
+- Contador histórico 0…5, cuatro estados, saldo, paywall informativo, caché
+  owner-scoped y enforcement transaccional/offline.
 - Nunca ocultar datos ni perder el sexto Lead en curso.
-- Trazas: `MON-*`, E-11.
-- Bloqueos: D-01–D-04 y mockups D-11.
+- Sin compra, precio, receipt, webhook o transición comercial real.
+- Trazas: `MON-01`–`MON-11`, E-11, ADR-004.
+- Estado: implementado en repositorio; requiere migraciones/QA físico.
 
 ## FL-021 — Paywall & Payments
 
-**Objetivo:** UI y compra aprobadas sobre la autoridad de FL-020.
+**Objetivo:** compra aprobada y transiciones comerciales confiables sobre la
+autoridad de FL-020.
 
 - Bloqueos: D-01–D-04 y mockups D-11.
 

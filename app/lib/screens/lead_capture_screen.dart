@@ -16,6 +16,7 @@ import '../models/app_destination.dart';
 import '../models/app_event.dart';
 import '../models/content_file.dart';
 import '../models/email_review.dart';
+import '../models/entitlement.dart';
 import '../models/lead_draft.dart';
 import '../models/session_lead.dart';
 import '../models/voice_note_state.dart';
@@ -28,6 +29,7 @@ import '../l10n/l10n.dart';
 import '../utils/business_card_parser.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/create_event_dialog.dart';
+import '../widgets/entitlement_scope.dart';
 import '../widgets/progress_header.dart';
 import '../widgets/section_card.dart';
 import '../widgets/segmented_bubble.dart';
@@ -65,6 +67,7 @@ class LeadCaptureScreen extends StatefulWidget {
     this.onEmailReviewRequested,
     this.onEmailReviewConfirmed,
     this.onEmailReviewUpdated,
+    this.onCaptureAnotherRequested,
     super.key,
   });
 
@@ -96,6 +99,7 @@ class LeadCaptureScreen extends StatefulWidget {
   final bool isOnline;
   final ContactImagePickerService? contactImagePickerService;
   final List<ContentFile> contentFiles;
+  final bool Function()? onCaptureAnotherRequested;
 
   @override
   State<LeadCaptureScreen> createState() => _LeadCaptureScreenState();
@@ -886,7 +890,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             },
             onCaptureAnother: () {
               Navigator.of(context).pop();
-              _reset();
+              if (widget.onCaptureAnotherRequested?.call() ?? true) _reset();
             },
           ),
         ),
@@ -899,7 +903,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
           record: record,
           onCaptureAnother: () {
             Navigator.of(context).pop();
-            _reset();
+            if (widget.onCaptureAnotherRequested?.call() ?? true) _reset();
           },
         ),
       ),
@@ -1026,6 +1030,11 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                     constraints: const BoxConstraints(maxWidth: 520),
                     child: Column(
                       children: [
+                        if (EntitlementScope.maybeOf(context)
+                            case final entitlement?) ...[
+                          _TrialBalance(entitlement: entitlement),
+                          const SizedBox(height: 14),
+                        ],
                         _buildOriginSection(),
                         const SizedBox(height: 14),
                         _buildCardSection(),
@@ -1896,6 +1905,41 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TrialBalance extends StatelessWidget {
+  const _TrialBalance({required this.entitlement});
+
+  final EntitlementSnapshot entitlement;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = switch (entitlement.effectiveStatus) {
+      SubscriptionStatus.active => context.l10n.subscriptionActive,
+      SubscriptionStatus.expired => context.l10n.subscriptionExpired,
+      SubscriptionStatus.trial || SubscriptionStatus.trialExhausted =>
+        context.l10n.trialBalance(entitlement.trialLeadsRemaining),
+    };
+    return Semantics(
+      label: text,
+      child: Container(
+        key: const Key('captureTrialBalance'),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: FolooPalette.of(context).sunken,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.bolt_outlined, size: 20),
+            const SizedBox(width: 8),
+            Expanded(child: Text(text)),
+          ],
+        ),
       ),
     );
   }

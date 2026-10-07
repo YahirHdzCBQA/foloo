@@ -11,11 +11,13 @@ import 'package:flutter/material.dart';
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
 import '../models/session_lead.dart';
+import '../models/entitlement.dart';
 import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 import 'auth_account_scope.dart';
 import 'language_selector.dart';
+import 'entitlement_scope.dart';
 
 /// Resolves only an existing owner-scoped photo; callers retain initials as
 /// the fallback when the local file is unavailable.
@@ -68,6 +70,7 @@ class AppDrawer extends StatelessWidget {
     final ink = theme.colorScheme.onSurface;
     final accountEmail = AuthAccountScope.maybeOf(context)?.email ?? '';
     final profileImage = drawerProfileImageFor(profile);
+    final entitlement = EntitlementScope.maybeOf(context);
     return Drawer(
       key: const Key('appDrawer'),
       width: MediaQuery.sizeOf(context).width.clamp(300, 360).toDouble(),
@@ -180,6 +183,30 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
             Divider(height: 1, color: ink.withValues(alpha: 0.35)),
+            if (entitlement != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 12, 22, 4),
+                child: Row(
+                  key: const Key('drawerEntitlement'),
+                  children: [
+                    const Icon(Icons.bolt_outlined, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(switch (entitlement.effectiveStatus) {
+                        SubscriptionStatus.active =>
+                          context.l10n.subscriptionActive,
+                        SubscriptionStatus.expired =>
+                          context.l10n.subscriptionExpired,
+                        SubscriptionStatus.trial ||
+                        SubscriptionStatus.trialExhausted =>
+                          context.l10n.trialBalance(
+                            entitlement.trialLeadsRemaining,
+                          ),
+                      }, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ),
+              ),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),

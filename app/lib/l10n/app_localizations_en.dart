@@ -1349,4 +1349,35 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String trialBalance(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count free leads available',
+      one: '1 free lead available',
+      zero: 'No free leads available',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get subscriptionActive => 'Active subscription';
+
+  @override
+  String get subscriptionExpired => 'Subscription expired';
+
+  @override
+  String get paywallTitle => 'Your 5 free leads have been used';
+
+  @override
+  String get paywallBody =>
+      'A subscription is required to keep creating leads. Everything you already saved remains available.';
+
+  @override
+  String get paywallFutureAction => 'Subscriptions will be available soon.';
+
+  @override
+  String get paywallViewRecords => 'View records';
 }

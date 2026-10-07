@@ -217,6 +217,32 @@ class LocalLeads extends Table {
   Set<Column<Object>> get primaryKey => {localId};
 }
 
+/// Last server entitlement snapshot for one Cognito owner (MON-01/MON-06).
+@DataClassName('StoredEntitlement')
+class LocalEntitlements extends Table {
+  TextColumn get ownerUserId => text()();
+  TextColumn get subscriptionStatus => text()();
+  IntColumn get trialLeadsUsed => integer()();
+  DateTimeColumn get serverUpdatedAt => dateTime().nullable()();
+  DateTimeColumn get cachedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {ownerUserId};
+}
+
+/// Durable offline trial reservations keyed by the Lead id.
+///
+/// Tombstoning a Lead deliberately does not delete this row (MON-09).
+@DataClassName('StoredTrialReservation')
+class LocalTrialReservations extends Table {
+  TextColumn get ownerUserId => text()();
+  TextColumn get leadLocalId => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {ownerUserId, leadLocalId};
+}
+
 @DataClassName('StoredLeadMedia')
 @TableIndex(name: 'media_lead_idx', columns: {#leadLocalId})
 class LocalLeadMedia extends Table {
@@ -1057,6 +1083,58 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
       );
 }
 
+@DriftAccessor(tables: [LocalEntitlements, LocalTrialReservations])
+class EntitlementDao extends DatabaseAccessor<AppDatabase>
+    with _$EntitlementDaoMixin {
+  EntitlementDao(super.db);
+
+  Future<StoredEntitlement?> snapshot(String owner) => (select(
+    localEntitlements,
+  )..where((row) => row.ownerUserId.equals(owner))).getSingleOrNull();
+
+  Future<int> pendingReservations(String owner) async =>
+      await (selectOnly(localTrialReservations)
+            ..addColumns([localTrialReservations.leadLocalId.count()])
+            ..where(localTrialReservations.ownerUserId.equals(owner)))
+          .map(
+            (row) => row.read(localTrialReservations.leadLocalId.count()) ?? 0,
+          )
+          .getSingle();
+
+  Future<void> reserve(String owner, String leadId, DateTime now) =>
+      into(localTrialReservations).insert(
+        LocalTrialReservationsCompanion.insert(
+          ownerUserId: owner,
+          leadLocalId: leadId,
+          createdAt: now,
+        ),
+        mode: InsertMode.insertOrIgnore,
+      );
+
+  Future<bool> hasReservation(String owner, String leadId) async =>
+      await (selectOnly(localTrialReservations)
+            ..addColumns([localTrialReservations.leadLocalId.count()])
+            ..where(
+              localTrialReservations.ownerUserId.equals(owner) &
+                  localTrialReservations.leadLocalId.equals(leadId),
+            ))
+          .map(
+            (row) =>
+                (row.read(localTrialReservations.leadLocalId.count()) ?? 0) > 0,
+          )
+          .getSingle();
+
+  Future<void> removeReservation(String owner, String leadId) =>
+      (delete(localTrialReservations)..where(
+            (row) =>
+                row.ownerUserId.equals(owner) & row.leadLocalId.equals(leadId),
+          ))
+          .go();
+
+  Future<void> saveSnapshot(LocalEntitlementsCompanion snapshot) =>
+      into(localEntitlements).insertOnConflictUpdate(snapshot);
+}
+
 @DriftDatabase(
   tables: [
     LocalProfiles,
@@ -1072,6 +1150,8 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
     LocalPreferences,
     LocalUserPreferences,
     SyncOperations,
+    LocalEntitlements,
+    LocalTrialReservations,
   ],
   daos: [
     ProfilePreferencesDao,
@@ -1082,6 +1162,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
     EmailDeliveryDao,
     LeadDao,
     SyncDao,
+    EntitlementDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -1097,7 +1178,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1172,6 +1253,22 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 11) {
         await migrator.addColumn(localLeads, localLeads.deletedAt);
+      }
+      if (from < 12) {
+        await migrator.createTable(localEntitlements);
+        await migrator.createTable(localTrialReservations);
+        await customStatement('''
+          INSERT INTO local_entitlements
+            (owner_user_id, subscription_status, trial_leads_used,
+             server_updated_at, cached_at)
+          SELECT owner_user_id,
+                 CASE WHEN COUNT(*) >= 5 THEN 'trial_exhausted' ELSE 'trial' END,
+                 MIN(COUNT(*), 5), NULL,
+                 CAST(strftime('%s', 'now') AS INTEGER)
+          FROM local_leads
+          WHERE owner_user_id IS NOT NULL
+          GROUP BY owner_user_id
+        ''');
       }
     },
     beforeOpen: (details) async {

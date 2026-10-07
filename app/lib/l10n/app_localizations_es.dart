@@ -1356,4 +1356,36 @@ class AppLocalizationsEs extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String trialBalance(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count leads gratuitos disponibles',
+      one: '1 lead gratuito disponible',
+      zero: 'Sin leads gratuitos disponibles',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get subscriptionActive => 'Suscripción activa';
+
+  @override
+  String get subscriptionExpired => 'Suscripción vencida';
+
+  @override
+  String get paywallTitle => 'Tus 5 leads gratuitos ya fueron utilizados';
+
+  @override
+  String get paywallBody =>
+      'Necesitarás una suscripción para seguir creando leads. Todo lo que ya guardaste permanece disponible.';
+
+  @override
+  String get paywallFutureAction =>
+      'La suscripción estará disponible próximamente.';
+
+  @override
+  String get paywallViewRecords => 'Ver registros';
 }

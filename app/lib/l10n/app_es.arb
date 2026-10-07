@@ -378,5 +378,12 @@
   "noAttachments": "Sin archivos adjuntos",
   "leadCount": "{count, plural, =0{0 leads} =1{1 lead} other{{count} leads}}",
   "eventCount": "{count, plural, =0{0 eventos} =1{1 evento} other{{count} eventos}}",
-  "pendingCount": "{count, plural, =0{0 por subir} =1{1 por subir} other{{count} por subir}}"
+  "pendingCount": "{count, plural, =0{0 por subir} =1{1 por subir} other{{count} por subir}}",
+  "trialBalance": "{count, plural, =0{Sin leads gratuitos disponibles} =1{1 lead gratuito disponible} other{{count} leads gratuitos disponibles}}",
+  "subscriptionActive": "Suscripción activa",
+  "subscriptionExpired": "Suscripción vencida",
+  "paywallTitle": "Tus 5 leads gratuitos ya fueron utilizados",
+  "paywallBody": "Necesitarás una suscripción para seguir creando leads. Todo lo que ya guardaste permanece disponible.",
+  "paywallFutureAction": "La suscripción estará disponible próximamente.",
+  "paywallViewRecords": "Ver registros"
 }

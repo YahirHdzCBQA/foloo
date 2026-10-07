@@ -24,6 +24,7 @@ import '../../sync/sync_models.dart';
 import '../../sync/sync_store.dart';
 import '../local/app_database.dart';
 import '../local/private_media_storage.dart';
+import 'entitlement_repository.dart';
 
 typedef LocalIdFactory = String Function();
 
@@ -1107,15 +1108,18 @@ class LeadRepository {
   LeadRepository(
     this._database,
     this._mediaStorage, {
+    EntitlementRepository? entitlements,
     LocalIdFactory? idFactory,
     SyncStore? syncStore,
-  }) : _idFactory = idFactory ?? _defaultLocalId,
+  }) : _entitlements = entitlements ?? EntitlementRepository(_database),
+       _idFactory = idFactory ?? _defaultLocalId,
        _syncStore = syncStore ?? SyncStore(_database);
 
   final AppDatabase _database;
   final PrivateMediaStorage _mediaStorage;
   final LocalIdFactory _idFactory;
   final SyncStore _syncStore;
+  final EntitlementRepository _entitlements;
 
   Future<SessionLead> saveDraft(
     String userId,
@@ -1171,6 +1175,7 @@ class LeadRepository {
       }
       final now = DateTime.now().toUtc();
       await _database.transaction(() async {
+        await _entitlements.reserveLead(userId, localId, now);
         await _database.leadDao.insertLead(
           LocalLeadsCompanion.insert(
             localId: localId,
@@ -1706,7 +1711,8 @@ class LocalPersistence {
     this.database,
     this.mediaStorage, {
     this.deleteMediaOnClose = false,
-  }) : profiles = ProfileRepository(database, mediaStorage: mediaStorage),
+  }) : entitlements = EntitlementRepository(database),
+       profiles = ProfileRepository(database, mediaStorage: mediaStorage),
        preferences = PreferencesRepository(database),
        templates = EmailTemplateRepository(database),
        eventEmailTemplates = EventEmailTemplateRepository(database),
@@ -1714,12 +1720,17 @@ class LocalPersistence {
        globalPreferences = GlobalPreferencesRepository(database),
        events = EventRepository(database),
        content = ContentRepository(database, mediaStorage),
-       leads = LeadRepository(database, mediaStorage),
+       leads = LeadRepository(
+         database,
+         mediaStorage,
+         entitlements: EntitlementRepository(database),
+       ),
        syncStore = SyncStore(database, mediaStorage: mediaStorage);
 
   final AppDatabase database;
   final PrivateMediaStorage mediaStorage;
   final bool deleteMediaOnClose;
+  final EntitlementRepository entitlements;
   final ProfileRepository profiles;
   final PreferencesRepository preferences;
   final EmailTemplateRepository templates;

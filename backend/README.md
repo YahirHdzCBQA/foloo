@@ -9,9 +9,11 @@ on RDS. Flutter stays write-first in Drift and synchronizes through the outbox.
 
 Implemented: account/workspace bootstrap, seller profile, events, leads, lead
 media metadata, validation, idempotent creates, safe errors, migrations,
-structured logging, private S3 media/Content transfer, Event/Lead sync and the
-FL-019 Google/Microsoft email boundary. Mobile sync uses the Flutter outbox.
-Not implemented: payments/trial, Teams, transcription or later phases.
+structured logging, private S3 media/Content transfer, Event/Lead sync, the
+FL-019 Google/Microsoft email boundary, and FL-020 server-authoritative trial
+enforcement. Mobile sync uses the Flutter outbox. Not implemented: payment
+processing or purchase-driven entitlement changes, Teams, transcription or
+later phases.
 
 The OpenAPI contract is in `openapi/foloo-v1.yaml`. `ownerId`, `workspaceId`,
 `sub` and email from request payloads are never authorization inputs.

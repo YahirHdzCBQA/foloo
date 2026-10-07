@@ -13,6 +13,10 @@ const contentMigrationUrl = new URL(
   "../migrations/003_content_pdf.sql",
   import.meta.url,
 );
+const entitlementMigrationUrl = new URL(
+  "../migrations/007_trial_entitlements.sql",
+  import.meta.url,
+);
 
 test("migration scopes resource foreign keys by workspace and excludes blobs", async () => {
   const sql = await readFile(migrationUrl, "utf8");
@@ -51,4 +55,15 @@ test("FL-018 constrains each PDF and freezes Lead Content without destructive ca
   assert.match(sql, /content_file_ids uuid\[\]/);
   assert.match(sql, /content_names text\[\]/);
   assert.doesNotMatch(sql, /DELETE FROM|ON DELETE CASCADE|bytea/i);
+});
+
+test("FL-020 stores constrained historical trial consumption on accounts", async () => {
+  const sql = await readFile(entitlementMigrationUrl, "utf8");
+  assert.match(
+    sql,
+    /subscription_status IN \('trial', 'trial_exhausted', 'active', 'expired'\)/,
+  );
+  assert.match(sql, /trial_leads_used BETWEEN 0 AND 5/);
+  assert.match(sql, /LEAST\(COUNT\(l\.id\), 5\)/);
+  assert.doesNotMatch(sql, /DELETE FROM leads|DROP TABLE|DROP COLUMN/i);
 });

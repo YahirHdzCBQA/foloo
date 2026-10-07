@@ -278,15 +278,23 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 ## E-11 · Trial y suscripción
 
-**Trazas:** `MON-01`–`MON-08`, Constitución Art. 9.
+**Trazas:** `MON-01`–`MON-11`, Constitución Art. 9.
 
 - Leads 1–5 se guardan; el sexto conserva borrador y abre paywall.
-- Reinstalar no reinicia contador server-side.
-- Webhook/autoridad remota activa captura ilimitada y la caché permite operar
-  offline a una persona ya suscrita.
+- Evento y Directo consumen un uso histórico; borrar, tombstonear, reiniciar o
+  logout/login no devuelve usos ni reinicia el contador.
+- Con snapshot remoto 2/5, offline admite exactamente tres Leads adicionales;
+  reservas Drift sobreviven restart y cada retry conserva identidad sin doble consumo.
+- `active` permite creación ilimitada; `trial_exhausted` y `expired` abren un
+  paywall informativo al intentar comenzar otra captura.
+- El backend bloquea el sexto y serializa dos solicitudes concurrentes por el
+  último cupo. El cliente no puede concederse `active` ni cambiar el contador.
 - Vencimiento bloquea solo nuevas capturas; datos previos siguen visibles,
   editables y exportables.
-- La construcción queda bloqueada por `D-01`–`D-04`.
+- Dos dispositivos offline pueden reservar sobre el mismo snapshot. Al volver,
+  el servidor acepta solo su saldo; Foloo conserva cualquier excedente local y
+  lo marca recuperable, nunca lo borra.
+- D-01–D-04 bloquean compra y lifecycle comercial, no la foundation FL-020.
 
 ## E-12 · Shell, idioma, seguridad y salida
 

@@ -379,5 +379,12 @@
   "noAttachments": "No attachments",
   "leadCount": "{count, plural, =0{0 leads} =1{1 lead} other{{count} leads}}",
   "eventCount": "{count, plural, =0{0 events} =1{1 event} other{{count} events}}",
-  "pendingCount": "{count, plural, =0{0 pending} =1{1 pending} other{{count} pending}}"
+  "pendingCount": "{count, plural, =0{0 pending} =1{1 pending} other{{count} pending}}",
+  "trialBalance": "{count, plural, =0{No free leads available} =1{1 free lead available} other{{count} free leads available}}",
+  "subscriptionActive": "Active subscription",
+  "subscriptionExpired": "Subscription expired",
+  "paywallTitle": "Your 5 free leads have been used",
+  "paywallBody": "A subscription is required to keep creating leads. Everything you already saved remains available.",
+  "paywallFutureAction": "Subscriptions will be available soon.",
+  "paywallViewRecords": "View records"
 }

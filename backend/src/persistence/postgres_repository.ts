@@ -10,6 +10,7 @@ import type {
 
 import {
   ApplicationError,
+  entitlementRequired,
   conflict,
   notFound,
   revisionConflict,
@@ -185,7 +186,10 @@ export class PostgresFolooRepository implements FolooRepository {
 
   async getWorkspace(principal: Principal): Promise<unknown> {
     const result = await this.pool.query(
-      `SELECT a.id AS "accountId", a.kind, w.id AS "workspaceId", w.name
+      `SELECT a.id AS "accountId", a.kind, w.id AS "workspaceId", w.name,
+              a.subscription_status AS "subscriptionStatus",
+              a.trial_leads_used AS "trialLeadsUsed",
+              a.entitlement_updated_at AS "entitlementUpdatedAt"
        FROM workspace_members m
        JOIN workspaces w ON w.id = m.workspace_id AND w.deleted_at IS NULL
        JOIN accounts a ON a.id = w.account_id AND a.deleted_at IS NULL
@@ -547,6 +551,24 @@ export class PostgresFolooRepository implements FolooRepository {
       key,
       hash,
       async (db) => {
+        const entitlement = await db.query<{
+          subscription_status: string;
+          trial_leads_used: number;
+        }>(
+          `SELECT subscription_status, trial_leads_used FROM accounts
+           WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
+          [principal.accountId],
+        );
+        const account = entitlement.rows[0];
+        if (!account) throw notFound("Account");
+        const consumesTrial = account.subscription_status !== "active";
+        if (
+          consumesTrial &&
+          (account.subscription_status !== "trial" ||
+            account.trial_leads_used >= 5)
+        ) {
+          throw entitlementRequired();
+        }
         const selected = [...new Set(input.contentFileIds ?? [])];
         const attachments =
           selected.length === 0
@@ -598,6 +620,17 @@ export class PostgresFolooRepository implements FolooRepository {
             selected.map((id) => names.get(id)!),
           ],
         );
+        if (consumesTrial) {
+          await db.query(
+            `UPDATE accounts SET
+               trial_leads_used = trial_leads_used + 1,
+               subscription_status = CASE WHEN trial_leads_used + 1 >= 5
+                 THEN 'trial_exhausted' ELSE 'trial' END,
+               entitlement_updated_at = now(), updated_at = now()
+             WHERE id = $1`,
+            [principal.accountId],
+          );
+        }
         return result.rows[0];
       },
     );

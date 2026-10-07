@@ -104,6 +104,27 @@ test("accepts the mobile email syntax used by the physical FL-016 case", () => {
   );
 });
 
+test("Lead input strips client attempts to grant commercial entitlement", () => {
+  const result = leadSchema.safeParse({
+    id: "57d8ce9a-dcc4-4b78-8fd9-552c216a62a1",
+    capturedAt: "2026-10-06T10:00:00Z",
+    origin: "direct",
+    place: "León",
+    firstName: "Ada",
+    company: "Foloo",
+    email: "ada@example.com",
+    leadType: "customer",
+    interest: "high",
+    subscriptionStatus: "active",
+    trialLeadsUsed: 0,
+  });
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.equal("subscriptionStatus" in result.data, false);
+    assert.equal("trialLeadsUsed" in result.data, false);
+  }
+});
+
 test("media accepts metadata but exposes no binary or client storage key", () => {
   const result = mediaSchema.safeParse({
     id: "63b21d9f-8532-4ca0-b45e-cf8336bb807c",

@@ -22,6 +22,7 @@ import 'models/app_event.dart';
 import 'models/lead_draft.dart';
 import 'models/content_file.dart';
 import 'models/email_review.dart';
+import 'models/entitlement.dart';
 import 'models/session_lead.dart';
 import 'screens/event_screen.dart';
 import 'screens/account_access_screen.dart';
@@ -31,6 +32,7 @@ import 'screens/email_onboarding_screen.dart';
 import 'screens/lead_capture_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/origin_selection_screen.dart';
+import 'screens/paywall_screen.dart';
 import 'screens/profile_setup_screen.dart';
 import 'screens/records_screen.dart';
 import 'services/connectivity_service.dart';
@@ -43,6 +45,7 @@ import 'sync/media_binary_transfer.dart';
 import 'sync/sync_models.dart';
 import 'theme/foloo_theme.dart';
 import 'widgets/auth_account_scope.dart';
+import 'widgets/entitlement_scope.dart';
 
 enum _AuthenticatedStage { profile, email, origin, shell }
 
@@ -123,6 +126,8 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   String? _eventSelectionMode;
   SyncEngine? _syncEngine;
   EmailConnectionService? _emailConnectionService;
+  EntitlementSnapshot _entitlement = EntitlementSnapshot.newTrial();
+  bool _paywallVisible = false;
 
   DateTime get _now => widget.nowProvider?.call() ?? DateTime.now();
 
@@ -332,6 +337,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     }
     final storedLeads = await _persistence.leads.listAll(userId);
     final storedContent = await _persistence.content.list(userId);
+    final entitlement = await _persistence.entitlements.load(userId);
     if (!mounted || _authRepository.state.user?.id != userId) return;
     setState(() {
       _profile = storedProfile ?? DemoProfile.empty;
@@ -346,6 +352,8 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       _sessionLeads
         ..clear()
         ..addAll(storedLeads);
+      _entitlement = entitlement;
+      _paywallVisible = false;
       _origin = null;
       _destination = AppDestination.home;
       _stage = !_profileCompleted
@@ -381,7 +389,13 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       seller: _profile,
       language: _locale.languageCode == 'en' ? 'en' : 'es',
     );
-    if (mounted) setState(() => _sessionLeads.insert(0, record));
+    final entitlement = await _persistence.entitlements.load(_userId);
+    if (mounted) {
+      setState(() {
+        _sessionLeads.insert(0, record);
+        _entitlement = entitlement;
+      });
+    }
     unawaited(_synchronize(trigger: SyncTrigger.postSave));
     return record;
   }
@@ -641,6 +655,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     setState(() {
       _origin = selection;
       _destination = AppDestination.home;
+      _paywallVisible = !_entitlement.canCreateLead;
       _stage = _AuthenticatedStage.shell;
     });
   }
@@ -653,6 +668,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
             : _destination;
       }
       _destination = destination;
+      if (destination == AppDestination.home) {
+        _paywallVisible = !_entitlement.canCreateLead;
+      }
     });
   }
 
@@ -688,6 +706,8 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           : [];
       _sessionLeads.clear();
       _origin = null;
+      _entitlement = EntitlementSnapshot.newTrial();
+      _paywallVisible = false;
       _accessStage = _AccessStage.login;
       _pendingConfirmationEmail = null;
       _accountJustConfirmed = false;
@@ -926,12 +946,14 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     final content = widget.useDemoFixtures
         ? null
         : await _persistence.content.list(userId);
+    final entitlement = await _persistence.entitlements.load(userId);
     if (!mounted || _authRepository.state.user?.id != userId) return;
     setState(() {
       _sessionLeads
         ..clear()
         ..addAll(leads);
       if (content != null) _contentFiles = content;
+      _entitlement = entitlement;
     });
   }
 
@@ -952,6 +974,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     final content = widget.useDemoFixtures
         ? null
         : await _persistence.content.list(user.id);
+    final entitlement = await _persistence.entitlements.load(user.id);
     if (!mounted || _authRepository.state.user?.id != user.id) return;
     setState(() {
       _sessionLeads
@@ -959,6 +982,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
         ..addAll(leads);
       _events = events;
       if (content != null) _contentFiles = content;
+      _entitlement = entitlement;
       if (profile != null) {
         _profile = profile;
         _profileCompleted = true;
@@ -1030,22 +1054,25 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       builder: (context, child) => AuthAccountScope(
         email: authenticatedUser?.email ?? '',
         provider: authenticatedUser?.provider,
-        child: AppLanguageScope(
-          locale: _locale,
-          onLocaleChanged: (locale) {
-            final user = _authRepository.state.user;
-            if (user != null) {
-              unawaited(
-                _persistence.preferences.write(
-                  user.id,
-                  'locale',
-                  locale.languageCode,
-                ),
-              );
-            }
-            setState(() => _locale = locale);
-          },
-          child: child ?? const SizedBox.shrink(),
+        child: EntitlementScope(
+          entitlement: _entitlement,
+          child: AppLanguageScope(
+            locale: _locale,
+            onLocaleChanged: (locale) {
+              final user = _authRepository.state.user;
+              if (user != null) {
+                unawaited(
+                  _persistence.preferences.write(
+                    user.id,
+                    'locale',
+                    locale.languageCode,
+                  ),
+                );
+              }
+              setState(() => _locale = locale);
+            },
+            child: child ?? const SizedBox.shrink(),
+          ),
         ),
       ),
       home: !_appInitialized || resolvingAuthenticatedOwner
@@ -1140,32 +1167,48 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     return IndexedStack(
       index: _destination.index,
       children: [
-        LeadCaptureScreen(
-          key: const ValueKey('leadCaptureScreen'),
-          originKind: origin.kind,
-          eventId: origin.event?.id,
-          eventName: origin.event?.name,
-          initialPlace: origin.place,
-          events: List.unmodifiable(events),
-          profile: _profile,
-          recordsCount: _sessionLeads.length,
-          darkMode: darkMode,
-          onLeadSaved: _saveLead,
-          onLeadRevised: _reviseLeadPreparation,
-          onEmailReviewRequested: _emailReviewForLead,
-          onEmailReviewConfirmed: _confirmEmailReview,
-          onEmailReviewUpdated: _saveEmailReviewDraft,
-          onOriginChanged: _changeCaptureOrigin,
-          onCreateEvent: _createEvent,
-          onContentAdded: _addContentFile,
-          pdfPickerService: widget.pdfPickerService,
-          onDestinationSelected: _selectDestination,
-          onAppearanceChanged: _setAppearance,
-          onLogout: _logout,
-          contentFiles: List.unmodifiable(_contentFiles),
-          isOnline: _isOnline,
-          contactImagePickerService: widget.contactImagePickerService,
-        ),
+        if (_paywallVisible)
+          PaywallScreen(
+            key: const ValueKey('paywallScreen'),
+            profile: _profile,
+            recordsCount: _sessionLeads.length,
+            contentCount: _contentFiles.length,
+            darkMode: darkMode,
+            onDestinationSelected: _selectDestination,
+            onAppearanceChanged: _setAppearance,
+            onLogout: _logout,
+          )
+        else
+          LeadCaptureScreen(
+            key: const ValueKey('leadCaptureScreen'),
+            originKind: origin.kind,
+            eventId: origin.event?.id,
+            eventName: origin.event?.name,
+            initialPlace: origin.place,
+            events: List.unmodifiable(events),
+            profile: _profile,
+            recordsCount: _sessionLeads.length,
+            darkMode: darkMode,
+            onLeadSaved: _saveLead,
+            onLeadRevised: _reviseLeadPreparation,
+            onEmailReviewRequested: _emailReviewForLead,
+            onEmailReviewConfirmed: _confirmEmailReview,
+            onEmailReviewUpdated: _saveEmailReviewDraft,
+            onOriginChanged: _changeCaptureOrigin,
+            onCreateEvent: _createEvent,
+            onContentAdded: _addContentFile,
+            pdfPickerService: widget.pdfPickerService,
+            onDestinationSelected: _selectDestination,
+            onAppearanceChanged: _setAppearance,
+            onLogout: _logout,
+            contentFiles: List.unmodifiable(_contentFiles),
+            isOnline: _isOnline,
+            contactImagePickerService: widget.contactImagePickerService,
+            onCaptureAnotherRequested: () {
+              setState(() => _paywallVisible = !_entitlement.canCreateLead);
+              return _entitlement.canCreateLead;
+            },
+          ),
         RecordsScreen(
           key: const ValueKey('recordsScreen'),
           records: List.unmodifiable(_sessionLeads),

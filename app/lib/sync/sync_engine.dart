@@ -785,6 +785,22 @@ class SyncEngine extends ChangeNotifier {
 
   Future<void> _pull(String ownerSub, String token) async {
     try {
+      try {
+        final workspace = _data(
+          await _api.send(
+            token,
+            const SyncRequest(method: 'GET', path: '/v1/workspace'),
+          ),
+        );
+        if (workspace is Map<String, Object?> &&
+            workspace.containsKey('subscriptionStatus') &&
+            workspace.containsKey('trialLeadsUsed')) {
+          await _store.applyRemoteEntitlement(ownerSub, workspace);
+        }
+      } on Object {
+        // Entitlement refresh is opportunistic; the last owner-scoped cache
+        // remains enforceable while staged/legacy adapters catch up.
+      }
       final profile = _data(
         await _api.send(
           token,

@@ -27,3 +27,10 @@ export const revisionConflict = () =>
     409,
     "The record changed remotely. The local edit was preserved and can be retried.",
   );
+
+export const entitlementRequired = () =>
+  new ApplicationError(
+    "entitlement_required",
+    402,
+    "A subscription is required to create another lead.",
+  );
