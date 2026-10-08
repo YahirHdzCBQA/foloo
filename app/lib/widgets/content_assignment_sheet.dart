@@ -138,16 +138,17 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                TextField(
-                  key: const Key('contentDisplayNameField'),
-                  controller: _name,
-                  inputFormatters: [LengthLimitingTextInputFormatter(160)],
-                  decoration: InputDecoration(
-                    hintText: context.l10n.displayName,
-                  ),
-                ),
-                const SizedBox(height: 14),
               ],
+              TextField(
+                key: const Key('contentDisplayNameField'),
+                controller: _name,
+                inputFormatters: [LengthLimitingTextInputFormatter(160)],
+                decoration: InputDecoration(
+                  labelText: context.l10n.displayName,
+                  hintText: context.l10n.displayName,
+                ),
+              ),
+              const SizedBox(height: 14),
               Text(
                 context.l10n.eventAssignmentCount(
                   _all ? widget.events.length : _selected.length,

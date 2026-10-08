@@ -147,4 +147,48 @@ void main() {
     await EventRepository(database).delete('user-a', event);
     expect((await content.list('user-a')).single.eventIds, {eventId});
   });
+
+  test(
+    'CON-05 rename persists, keeps the PDF identity and queues update',
+    () async {
+      final source = File('${temp.path}/rename.pdf');
+      await source.writeAsString('%PDF-1.7 rename');
+      final saved = await content.import(
+        'user-a',
+        ContentFile(
+          id: contentId,
+          displayName: 'Nombre anterior',
+          fileName: 'physical-file.pdf',
+          sizeLabel: '1 KB',
+          localPath: source.path,
+          eventIds: {eventId},
+        ),
+      );
+      await content.update(
+        'user-a',
+        saved.copyWith(displayName: 'Nombre nuevo', allEvents: true),
+      );
+      final updated = (await content.list('user-a')).single;
+      expect(updated.displayName, 'Nombre nuevo');
+      expect(updated.fileName, 'physical-file.pdf');
+      expect(updated.localPath, saved.localPath);
+      expect(updated.id, saved.id);
+      expect(updated.allEvents, isTrue);
+      expect(await content.list('user-b'), isEmpty);
+      expect(
+        (await database.syncDao.allForOwner('user-a'))
+            .where((operation) => operation.entityId == contentId)
+            .map((operation) => operation.action),
+        contains('update'),
+      );
+
+      await database.close();
+      database = AppDatabase(NativeDatabase(File('${temp.path}/db.sqlite')));
+      content = ContentRepository(
+        database,
+        PrivateMediaStorage(Directory('${temp.path}/private')),
+      );
+      expect((await content.list('user-a')).single.displayName, 'Nombre nuevo');
+    },
+  );
 }

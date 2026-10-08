@@ -73,8 +73,9 @@ idempotentes y reconciliación local-first.
 **Objetivo:** sustituir contenido PDF demo por persistencia local/remota.
 
 - Biblioteca PDF, asignación/evento y adjuntos congelados.
-- Feedback Post-TestFlight: Content explícito para Lead directo y swipe
-  Editar/Eliminar con alternativa accesible en biblioteca.
+- Feedback Post-TestFlight: Content explícito para Lead directo, swipe
+  Editar/Eliminar y edición conjunta de nombre visible/asignaciones con
+  alternativa accesible en biblioteca.
 - Trazas: `CON-01`–`CON-13`, E-07.
 - D-08 resuelta el 2026-09-17: 25 MB/PDF, sin cuota comercial total ni desalojo automático; borrado lógico sin `DeleteObject`. D-11 no bloquea funcionalidad técnica, solo fidelidad visual final.
 
@@ -100,6 +101,9 @@ idempotentes y reconciliación local-first.
 - Feedback de demo: login/alta unificados, perfil sin fixtures, onboarding de
   sender, helpers Content, Review/editor inline, acuse de siete segundos,
   seguimiento en Registros, feedback de exportación y templates con chips.
+- Feedback adicional: Mis eventos reutiliza swipe accesible, su override usa el
+  editor compartido de variables y Registros exporta también Leads directos con
+  el mismo contrato XLSX/CSV.
 - Google usa federación Cognito ya configurada. Microsoft Sign-In/OIDC queda
   temporalmente fuera de esta versión por el conflicto de issuer observado con
   Entra; Login y Crear cuenta no muestran esa opción, aunque conservan el código

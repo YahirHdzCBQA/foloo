@@ -1030,11 +1030,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                     constraints: const BoxConstraints(maxWidth: 520),
                     child: Column(
                       children: [
-                        if (EntitlementScope.maybeOf(context)
-                            case final entitlement?) ...[
-                          _TrialBalance(entitlement: entitlement),
-                          const SizedBox(height: 14),
-                        ],
                         _buildOriginSection(),
                         const SizedBox(height: 14),
                         _buildCardSection(),
@@ -1077,15 +1072,25 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               heightFactor: 1,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 520),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    key: const Key('saveLeadButton'),
-                    onPressed: _submit,
-                    iconAlignment: IconAlignment.end,
-                    icon: const Icon(Icons.send_outlined),
-                    label: Text(context.l10n.saveAndFoloo),
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        key: const Key('saveLeadButton'),
+                        onPressed: _submit,
+                        iconAlignment: IconAlignment.end,
+                        icon: const Icon(Icons.send_outlined),
+                        label: Text(context.l10n.saveAndFoloo),
+                      ),
+                    ),
+                    if (EntitlementScope.maybeOf(context)
+                        case final entitlement?) ...[
+                      const SizedBox(height: 8),
+                      _TrialBalance(entitlement: entitlement),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -1925,20 +1930,15 @@ class _TrialBalance extends StatelessWidget {
     };
     return Semantics(
       label: text,
-      child: Container(
+      child: SizedBox(
         key: const Key('captureTrialBalance'),
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: FolooPalette.of(context).sunken,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.bolt_outlined, size: 20),
-            const SizedBox(width: 8),
-            Expanded(child: Text(text)),
-          ],
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.visible,
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
     );

@@ -747,7 +747,7 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get editFileEvents => 'Editar eventos del archivo';
+  String get editFileEvents => 'Editar contenido';
 
   @override
   String get uploadContent => 'Subir contenido';
@@ -1070,7 +1070,7 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get chooseExportEvent => 'Elige el evento que deseas exportar';
+  String get chooseExportEvent => 'Elige qué registros deseas exportar';
 
   @override
   String get exportFailed => 'No se pudo crear o compartir el archivo.';

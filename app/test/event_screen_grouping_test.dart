@@ -1,8 +1,12 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/l10n/app_localizations.dart';
 import 'package:foloo/models/app_event.dart';
+import 'package:foloo/data/local/app_database.dart';
+import 'package:foloo/data/repositories/local_repositories.dart';
 import 'package:foloo/screens/event_screen.dart';
 import 'package:foloo/theme/foloo_theme.dart';
 
@@ -111,16 +115,169 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.byTooltip('Eliminar evento'));
+    await tester.drag(
+      find.byKey(const Key('event-evento-1')),
+      const Offset(-120, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('eventSwipeDelete-evento-1')), findsOneWidget);
+    expect(deleted, 0);
+    await tester.tap(find.byKey(const Key('eventSwipeDelete-evento-1')));
     await tester.pumpAndSettle();
     expect(find.textContaining('leads permanecerán guardados'), findsOneWidget);
     await tester.tap(find.text('Cancelar'));
     await tester.pumpAndSettle();
     expect(deleted, 0);
-    await tester.tap(find.byTooltip('Eliminar evento'));
+
+    final eventMenu = find.byKey(const Key('eventMenu-evento-1'));
+    expect(
+      find.descendant(of: eventMenu, matching: find.byIcon(Icons.more_vert)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: eventMenu, matching: find.byIcon(Icons.more_horiz)),
+      findsNothing,
+    );
+    await tester.tap(eventMenu);
+    await tester.pumpAndSettle();
+    expect(find.text('Editar evento'), findsOneWidget);
+    expect(find.text('Eliminar evento'), findsOneWidget);
+    expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+    final deleteIcon = tester.widget<Icon>(find.byIcon(Icons.delete_outline));
+    expect(
+      deleteIcon.color,
+      FolooPalette.of(tester.element(find.byIcon(Icons.delete_outline))).error,
+    );
+    expect(
+      tester.widget<Text>(find.text('Eliminar evento')).style?.color,
+      isNull,
+    );
+    await tester.tap(find.text('Editar evento'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('closeEventEditorButton')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('closeEventEditorButton')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('eventMenu-evento-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Eliminar evento').last);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirmDeleteEventButton')));
     await tester.pumpAndSettle();
     expect(deleted, 1);
+  });
+
+  testWidgets('PLT-01 event template saves variables and safely reopens', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    const owner = 'owner-event-template';
+    final item = event(
+      'event-template',
+      DateTime(2026, 9, 16),
+      DateTime(2026, 9, 17),
+      active: true,
+    );
+    await EventRepository(database).save(owner, item);
+    final templates = EventEmailTemplateRepository(database);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: FolooTheme.light,
+        locale: const Locale('es'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: EventScreen(
+          events: [item],
+          recordsCount: 0,
+          darkMode: false,
+          onDestinationSelected: (_) {},
+          onAppearanceChanged: (_) {},
+          onLogout: () {},
+          onCreate: (_) {},
+          onUpdate: (_) {},
+          onDelete: (_) {},
+          ownerSub: owner,
+          eventEmailTemplateRepository: templates,
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('event-event-template')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('eventEmailTemplateTile')));
+    await tester.tap(find.byKey(const Key('eventEmailTemplateTile')));
+    await tester.pumpAndSettle();
+    final saveTemplateButton = find.byKey(
+      const Key('saveEventEmailTemplateButton'),
+    );
+    final cancelTemplateButton = find.byKey(
+      const Key('cancelEventEmailTemplateButton'),
+    );
+    expect(
+      tester.getSize(saveTemplateButton).width,
+      tester.getSize(cancelTemplateButton).width,
+    );
+    expect(
+      tester.getTopLeft(saveTemplateButton).dy,
+      greaterThan(tester.getBottomLeft(cancelTemplateButton).dy),
+    );
+    final saveText = find.descendant(
+      of: saveTemplateButton,
+      matching: find.text('Guardar cambios'),
+    );
+    final saveTextBoxes = tester
+        .renderObject<RenderParagraph>(saveText)
+        .getBoxesForSelection(
+          const TextSelection(baseOffset: 0, extentOffset: 15),
+        );
+    expect(saveTextBoxes.map((box) => box.top).toSet(), hasLength(1));
+    expect(tester.takeException(), isNull);
+    expect(
+      find.byKey(const Key('event-friendlyDocument-body')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('event-templateEdit-body')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('event-templateLightning-body')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('event-templateVariableSheet')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const Key('event-templateVariableChoice-{empresa}')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('event-insertTemplateVariable')));
+    await tester.pumpAndSettle();
+    FocusManager.instance.primaryFocus?.unfocus();
+    tester.testTextInput.hide();
+    await tester.pumpAndSettle();
+    tester
+        .widget<FilledButton>(
+          find.byKey(const Key('saveEventEmailTemplateButton')),
+        )
+        .onPressed!();
+    await tester.pumpAndSettle();
+    expect(await templates.get(owner, item.id, 'es'), isNotNull);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('eventEmailTemplateTile')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('cancelEventEmailTemplateButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('eventEmailTemplateTile')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 }

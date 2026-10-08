@@ -491,10 +491,14 @@ class _RecordsScreenState extends State<RecordsScreen>
   }
 
   Future<void> _showExportDialog() async {
-    var event = _selectedEvent;
-    if (event == null) {
-      event = await _chooseExportEvent();
-      if (event == null || !mounted) return;
+    _RecordsExportTarget? target;
+    if (_eventId == _directLeadsFilterId) {
+      target = const _RecordsExportTarget.direct();
+    } else if (_selectedEvent case final event?) {
+      target = _RecordsExportTarget.event(event);
+    } else {
+      target = await _chooseExportTarget();
+      if (target == null || !mounted) return;
     }
     var format = RecordsExportFormat.xlsx;
     await showDialog<void>(
@@ -520,14 +524,8 @@ class _RecordsScreenState extends State<RecordsScreen>
                   const SizedBox(height: 5),
                   Text(
                     context.l10n.exportLeadSummary(
-                      context.l10n.leadCount(
-                        widget.records
-                            .where(
-                              (record) => record.lead.eventLocalId == event!.id,
-                            )
-                            .length,
-                      ),
-                      event!.name,
+                      context.l10n.leadCount(_recordsForExport(target!).length),
+                      target.label(context),
                     ),
                     style: TextStyle(
                       color: FolooPalette.of(context).inkSecondary,
@@ -574,7 +572,7 @@ class _RecordsScreenState extends State<RecordsScreen>
                           key: const Key('confirmExportButton'),
                           onPressed: () async {
                             Navigator.pop(dialogContext);
-                            await _export(event!, format);
+                            await _export(target!, format);
                           },
                           style: FilledButton.styleFrom(
                             backgroundColor: FolooPalette.of(context).ink,
@@ -595,102 +593,145 @@ class _RecordsScreenState extends State<RecordsScreen>
     );
   }
 
-  Future<AppEvent?> _chooseExportEvent() => showDialog<AppEvent>(
-    context: context,
-    builder: (context) => Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                context.l10n.chooseExportEvent,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                ),
+  Future<_RecordsExportTarget?> _chooseExportTarget() =>
+      showDialog<_RecordsExportTarget>(
+        context: context,
+        builder: (context) => Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    context.l10n.chooseExportEvent,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: widget.events.length > 3
+                        ? 300
+                        : (widget.events.length + 1) * 64.0,
+                    child: ListView.separated(
+                      itemCount: widget.events.length + 1,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (_, index) {
+                        if (index == 0) {
+                          return _ExportFormatOption(
+                            key: const Key('exportDirectLeads'),
+                            icon: Icons.person_add_alt_1_outlined,
+                            title: context.l10n.directLeads,
+                            subtitle: context.l10n.leadCount(
+                              _recordsForExport(
+                                const _RecordsExportTarget.direct(),
+                              ).length,
+                            ),
+                            selected: false,
+                            showSelectionIndicator: false,
+                            onTap: () => Navigator.pop(
+                              context,
+                              const _RecordsExportTarget.direct(),
+                            ),
+                          );
+                        }
+                        final event = widget.events[index - 1];
+                        return _ExportFormatOption(
+                          key: Key('exportEvent-${event.id}'),
+                          icon: Icons.event_outlined,
+                          title: event.name,
+                          subtitle: MaterialLocalizations.of(context)
+                              .formatMediumDate(event.startsOn),
+                          selected: false,
+                          showSelectionIndicator: false,
+                          onTap: () => Navigator.pop(
+                            context,
+                            _RecordsExportTarget.event(event),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: FolooPalette.of(context).paper,
+                      foregroundColor: FolooPalette.of(context).ink,
+                    ),
+                    child: Text(context.l10n.cancel),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: widget.events.length > 4
-                    ? 300
-                    : widget.events.length * 64.0,
-                child: ListView.separated(
-                  itemCount: widget.events.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (_, index) {
-                    final event = widget.events[index];
-                    return _ExportFormatOption(
-                      key: Key('exportEvent-${event.id}'),
-                      icon: Icons.event_outlined,
-                      title: event.name,
-                      subtitle: MaterialLocalizations.of(context)
-                          .formatMediumDate(event.startsOn),
-                      selected: false,
-                      showSelectionIndicator: false,
-                      onTap: () => Navigator.pop(context, event),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: () => Navigator.pop(context),
-                style: FilledButton.styleFrom(
-                  backgroundColor: FolooPalette.of(context).paper,
-                  foregroundColor: FolooPalette.of(context).ink,
-                ),
-                child: Text(context.l10n.cancel),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
-    ),
-  );
+      );
 
-  Future<void> _export(AppEvent event, RecordsExportFormat format) async {
+  List<SessionLead> _recordsForExport(_RecordsExportTarget target) =>
+      widget.records.where((record) {
+        if (target.direct) {
+          return record.lead.originKind == LeadOriginKind.direct;
+        }
+        return record.lead.eventLocalId == target.event!.id;
+      }).toList();
+
+  Future<void> _export(
+    _RecordsExportTarget target,
+    RecordsExportFormat format,
+  ) async {
     final l10n = context.l10n;
     final box = context.findRenderObject() as RenderBox?;
     final origin = box == null
         ? null
         : box.localToGlobal(Offset.zero) & box.size;
     try {
-      final file = widget.exportService.build(
-        event: event,
-        records: widget.records,
-        format: format,
-        labels: RecordsExportLabels(
-          headers: [
-            l10n.dateAndTime,
-            l10n.exportFirstName,
-            l10n.exportLastName,
-            l10n.exportPosition,
-            l10n.company,
-            l10n.contactEmail,
-            l10n.contactPhone,
-            l10n.exportType,
-            l10n.exportInterest,
-            l10n.origin,
-            l10n.event,
-            l10n.place,
-            l10n.writtenNote,
-          ],
-          customer: l10n.client,
-          partner: l10n.partner,
-          supplier: l10n.supplier,
-          low: l10n.interestLow,
-          medium: l10n.interestMedium,
-          high: l10n.interestHigh,
-          event: l10n.event,
-          direct: l10n.directLead,
-        ),
+      final labels = RecordsExportLabels(
+        headers: [
+          l10n.dateAndTime,
+          l10n.exportFirstName,
+          l10n.exportLastName,
+          l10n.exportPosition,
+          l10n.company,
+          l10n.contactEmail,
+          l10n.contactPhone,
+          l10n.exportType,
+          l10n.exportInterest,
+          l10n.origin,
+          l10n.event,
+          l10n.place,
+          l10n.writtenNote,
+        ],
+        customer: l10n.client,
+        partner: l10n.partner,
+        supplier: l10n.supplier,
+        low: l10n.interestLow,
+        medium: l10n.interestMedium,
+        high: l10n.interestHigh,
+        event: l10n.event,
+        direct: l10n.directLead,
       );
+      final file = target.direct
+          ? widget.exportService.buildDirect(
+              scopeName: l10n.directLeads,
+              records: widget.records,
+              format: format,
+              labels: labels,
+            )
+          : widget.exportService.build(
+              event: target.event!,
+              records: widget.records,
+              format: format,
+              labels: labels,
+            );
       await widget.fileSharer.share(file, origin: origin);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -1014,6 +1055,17 @@ class _RecordsEventSelector extends StatelessWidget {
       ),
     );
   }
+}
+
+class _RecordsExportTarget {
+  const _RecordsExportTarget.event(this.event) : direct = false;
+  const _RecordsExportTarget.direct() : event = null, direct = true;
+
+  final AppEvent? event;
+  final bool direct;
+
+  String label(BuildContext context) =>
+      direct ? context.l10n.directLeads : event!.name;
 }
 
 class _ExportFormatOption extends StatelessWidget {

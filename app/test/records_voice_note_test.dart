@@ -735,7 +735,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('exportButton')));
     await tester.pumpAndSettle();
-    expect(find.text('Elige el evento que deseas exportar'), findsOneWidget);
+    expect(find.text('Elige qué registros deseas exportar'), findsOneWidget);
+    expect(find.byKey(const Key('exportDirectLeads')), findsOneWidget);
     expect(find.byType(Dialog), findsOneWidget);
     expect(find.byType(AlertDialog), findsNothing);
     expect(

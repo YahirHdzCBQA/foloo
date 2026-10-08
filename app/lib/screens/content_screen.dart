@@ -198,7 +198,7 @@ class _ContentScreenState extends State<ContentScreen> {
             title: context.l10n.contentTitle,
             subtitle: widget.files.isEmpty
                 ? context.l10n.noFiles
-                : context.l10n.filesSummary(widget.files.length),
+                : context.l10n.fileCount(widget.files.length),
             onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
           Divider(height: 1, color: palette.line),

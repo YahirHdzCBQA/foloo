@@ -461,6 +461,43 @@ void main() {
     expect(card, findsNothing);
   });
 
+  testWidgets('CON-05 edit changes display name and cancel preserves it', (
+    tester,
+  ) async {
+    phone(tester);
+    await login(tester);
+    await drawer(tester);
+    await tester.tap(find.byKey(const Key('drawerContent')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('contentActions-scanley-ims')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Editar contenido').last);
+    await tester.pumpAndSettle();
+    final name = find.byKey(const Key('contentDisplayNameField'));
+    expect(
+      tester.widget<TextField>(name).controller?.text,
+      'Scanley IMS · Ficha técnica',
+    );
+    await tester.enterText(name, 'Ficha Scanley actualizada');
+    await tester.tap(find.byKey(const Key('confirmContentButton')));
+    await tester.pumpAndSettle();
+    expect(find.text('Ficha Scanley actualizada'), findsOneWidget);
+
+    await tester.drag(
+      find.byKey(const Key('contentFile-scanley-ims')),
+      const Offset(120, 0),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('contentSwipeEdit-scanley-ims')));
+    await tester.pumpAndSettle();
+    await tester.enterText(name, 'No debe guardarse');
+    await tester.tap(find.text('Cancelar').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Ficha Scanley actualizada'), findsOneWidget);
+    expect(find.text('No debe guardarse'), findsNothing);
+  });
+
   testWidgets('V1 templates are independent and reject unknown variables', (
     tester,
   ) async {
@@ -570,9 +607,12 @@ void main() {
     expect(subjectController.text, isNot(contains('{nombre}')));
 
     final eventBody = find.byKey(const ValueKey('emailBody-event'));
-    await tester.ensureVisible(find.byKey(const Key('templateEdit-body')));
-    await tester.tap(find.byKey(const Key('templateEdit-body')));
-    await tester.pump();
+    final editBody = find.byKey(const Key('templateEdit-body'));
+    if (editBody.evaluate().isNotEmpty) {
+      await tester.ensureVisible(editBody);
+      await tester.tap(editBody);
+      await tester.pump();
+    }
     final bodyController = tester.widget<TextField>(eventBody).controller!;
     await tester.tap(eventBody);
     bodyController.selection = const TextSelection(

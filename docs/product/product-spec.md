@@ -120,7 +120,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | ID | Requerimiento |
 |---|---|
 | `EVT-01` | Crear evento con nombre, fecha inicial y fecha final editables mediante el calendario Foloo. |
-| `EVT-02` | Editar nombre/fechas y eliminar lógicamente un evento sin borrar, reasignar ni ocultar sus leads en Registros; la mutación persiste localmente y se sincroniza mediante outbox. |
+| `EVT-02` | Editar nombre/fechas y eliminar lógicamente un evento sin borrar, reasignar ni ocultar sus leads en Registros; la mutación persiste localmente y se sincroniza mediante outbox. En Mis eventos, swipe derecha revela Editar y swipe izquierda Eliminar sin ejecutar la acción por el gesto; un menú accesible conserva ambas alternativas. |
 | `EVT-03` | Mostrar conteo total y por subir calculado desde los leads persistidos del evento. |
 | `EVT-04` | Permitir seleccionar manualmente un evento activo y conservarlo al reingresar. |
 | `EVT-05` | Un evento recién creado queda activo. |
@@ -201,10 +201,10 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `REG-06` | La tarjeta e imágenes de referencia se abren completas en un visor modal. |
 | `REG-07` | El detalle permite corregir nombre, apellido, puesto, empresa, correo, teléfono, tipo, interés, nota escrita y, solo en lead directo, lugar. UUID, owner, fecha original, origen, evento, capturó y medios son inmutables. La edición persiste primero en Drift y usa `PUT /v1/leads/{leadId}` con revisión optimista; un conflicto conserva el cambio local y queda recuperable sin duplicar. |
 | `REG-08` | Voice Note se reproduce desde lista/detalle; controles post-guardado siguen la política de `D-06`. |
-| `REG-09` | Exportar ofrece XLSX real y CSV por evento; XLSX es la opción inicial. |
-| `REG-10` | Exporta datos locales, incluidos pendientes, exclusivamente del owner y evento elegidos. Desde “Todos los eventos” exige seleccionar un evento antes de generar. |
+| `REG-09` | Exportar ofrece XLSX real y CSV por evento o para Leads directos; XLSX es la opción inicial. |
+| `REG-10` | Exporta datos locales, incluidos pendientes, exclusivamente del owner y del evento o del origen Directo elegidos. Desde “Todos” o “Todos los eventos” exige seleccionar un alcance antes de generar y nunca mezcla ambos orígenes. |
 | `REG-11` | Columnas, en orden: Fecha/hora, Nombre, Apellido, Puesto, Empresa, Correo, Teléfono, Tipo, Interés, Origen, Evento, Lugar y Nota escrita. Vacíos producen celda vacía; fecha/hora usa representación local con offset explícito; encabezados siguen ES/EN activo. CSV usa UTF-8 con BOM y escaping RFC 4180; XLSX/CSV conservan Unicode. |
-| `REG-12` | El archivo temporal privado se nombra `foloo_<evento>_<YYYY-MM-DD>.xlsx|csv`, sanitizando solo el filename, y se comparte mediante la hoja del sistema. |
+| `REG-12` | El archivo temporal privado se nombra `foloo_<evento-o-leads-directos>_<YYYY-MM-DD>.xlsx|csv`, sanitizando solo el filename, y se comparte mediante la hoja del sistema. |
 | `REG-13` | Exportación no incluye estado técnico, Voice Note, conteo de imágenes, rutas, URLs firmadas, object keys, IDs técnicos ni binarios. |
 | `REG-14` | Tras compartir/exportar se informa éxito genérico ES/EN; cancelación o error se distinguen solo cuando la plataforma lo reporta y nunca se inventa una ruta de destino. |
 | `REG-15` | Cada renglón muestra entre voz y sync un icono accesible del estado de correo existente: no enviado, pendiente, enviando, enviado, error o por confirmar. El icono tiene tooltip/semantics y no depende solo del color. |
@@ -220,7 +220,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `CON-02` | Estado vacío “Sin contenido todavía” y Subir PDF abren el selector local, solo PDF. |
 | `CON-03` | Al seleccionar PDF se captura nombre visible y eventos aplicables con buscador, contador y scroll propio. |
 | `CON-04` | “Todos los eventos” domina la selección individual sin destruirla. |
-| `CON-05` | Se puede editar asignación o eliminar un archivo con confirmación. Eliminar es lógico: deja de ofrecerse para nuevas asociaciones sin borrar Events, Leads, adjuntos históricos ni el objeto S3; el tombstone se sincroniza. |
+| `CON-05` | Se puede editar en un mismo flujo el nombre visible y la asignación, o eliminar un archivo con confirmación. Renombrar conserva binario, nombre físico y UUID, persiste local-first y sincroniza por outbox; las referencias futuras usan el nombre vigente sin reescribir snapshots históricos. Eliminar es lógico: deja de ofrecerse para nuevas asociaciones sin borrar Events, Leads, adjuntos históricos ni el objeto S3; el tombstone se sincroniza. |
 | `CON-06` | Crear evento permite asignar contenido y comenzar la selección de un PDF. |
 | `CON-07` | Captura muestra contenido del evento preseleccionado y desmarcable por Lead. |
 | `CON-08` | Adjuntos elegidos quedan congelados en el Lead; cambios posteriores no reescriben historia. |
@@ -232,7 +232,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 
 | ID | Requerimiento de plantilla |
 |---|---|
-| `PLT-01` | Hay plantillas predeterminadas del vendedor separadas para origen Evento y Directo, elegidas por el origen estructurado del Lead, no por texto visible. Un Evento puede guardar opcionalmente un override ES/EN propio; Directo nunca usa override de Evento. |
+| `PLT-01` | Hay plantillas predeterminadas del vendedor separadas para origen Evento y Directo, elegidas por el origen estructurado del Lead, no por texto visible. Un Evento puede guardar opcionalmente un override ES/EN propio mediante el mismo editor de chips, selector y validación de Correo; Directo nunca usa override de Evento. |
 | `PLT-02` | Cada variante ES/EN conserva asunto, cuerpo y firma editables por cuenta; el default oficial Foloo es un mensaje personal sin diseño de marketing. El asunto inicial es `Damos seguimiento, {nombre}` en ES y `Following up, {nombre}` en EN. Evento menciona `{evento}` y Directo `{lugar}`. Se genera HTML ligero y plain text compatible. Cambiar defaults no sobrescribe snapshots concretos o históricos. |
 | `PLT-03` | La whitelist única V1 es `{nombre}`, `{apellido}`, `{empresa}`, `{puesto}`, `{evento}`, `{lugar}`, `{contenido}`, `{nombreVendedor}` y `{empresaVendedor}`. `{contenido}` representa los nombres congelados en el Lead, no IDs ni el estado actual de la biblioteca. |
 | `PLT-04` | Variables desconocidas o llaves abiertas bloquean guardar. El render defensivo de datos históricos omite valores ausentes y nunca envía tokens sin resolver, `null` ni `undefined`. No ejecuta expresiones. |

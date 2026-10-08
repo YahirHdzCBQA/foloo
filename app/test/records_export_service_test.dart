@@ -56,6 +56,26 @@ SessionLead record(String eventId, {String name = 'José, "Pepe"'}) =>
       ),
     );
 
+SessionLead directRecord({required String name}) => SessionLead(
+  localId: 'direct-$name',
+  folio: 'hidden',
+  capturedAt: DateTime(2026, 9, 15, 12),
+  lead: LeadDraft(
+    name: name,
+    lastName: '',
+    role: '',
+    company: 'Foloo',
+    email: 'direct@example.com',
+    phone: '',
+    type: LeadType.customer,
+    interest: InterestLevel.high,
+    note: '',
+    originKind: LeadOriginKind.direct,
+    audioSeconds: 0,
+    place: 'León',
+  ),
+);
+
 void main() {
   final event = AppEvent(
     id: 'event-a',
@@ -105,5 +125,33 @@ void main() {
     expect(rows[1], hasLength(13));
     expect(rows[1][1]?.value.toString(), 'José, "Pepe"');
     expect(rows[1][4]?.value.toString(), 'Niñez\nMéxico');
+  });
+
+  test('REG-09 direct XLSX/CSV include only direct leads', () {
+    final service = const RecordsExportService();
+    for (final format in RecordsExportFormat.values) {
+      final file = service.buildDirect(
+        scopeName: 'Leads directos',
+        records: [
+          directRecord(name: 'Directo'),
+          record('event-a'),
+        ],
+        format: format,
+        labels: labels,
+        generatedAt: DateTime(2026, 9, 15),
+      );
+      expect(file.filename, 'foloo_Leads directos_2026-09-15.${format.name}');
+      if (format == RecordsExportFormat.csv) {
+        final text = utf8.decode(file.bytes.skip(3).toList());
+        expect(text, contains('Directo'));
+        expect(text, isNot(contains('José')));
+        expect(text, contains(',Lead directo,,León,'));
+      } else {
+        final rows = Excel.decodeBytes(file.bytes).tables['Records']!.rows;
+        expect(rows, hasLength(2));
+        expect(rows[1][1]?.value.toString(), 'Directo');
+        expect(rows[1][10]?.value.toString(), '');
+      }
+    }
   });
 }

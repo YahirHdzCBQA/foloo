@@ -25,135 +25,11 @@ import '../l10n/l10n.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/module_header.dart';
 import '../widgets/segmented_bubble.dart';
+import '../widgets/email_template_field_editor.dart';
 import '../services/email_connection_service.dart';
 import '../data/local/app_database.dart';
 
 enum _TemplateKind { event, direct }
-
-enum _TemplateField { subject, body, signature }
-
-/// Editable projection that keeps canonical tokens out of the visible text.
-///
-/// Invisible separators preserve native selection/copy/paste while the text
-/// between them is the localized, human label shown as a highlighted chip.
-class _FriendlyTemplateEditingController extends TextEditingController {
-  static const _marker = '\u2063';
-  Map<String, String> _tokenToLabel = const {};
-  Map<String, String> _labelToToken = const {};
-
-  void loadCanonical(String source, Map<String, String> labels) {
-    _tokenToLabel = labels;
-    _labelToToken = {
-      for (final entry in labels.entries) entry.value: entry.key,
-    };
-    final projected = source.replaceAllMapped(RegExp(r'\{[^}]+\}'), (match) {
-      final token = match.group(0)!;
-      final label = labels[token];
-      return label == null ? token : '$_marker$label$_marker';
-    });
-    value = TextEditingValue(
-      text: projected,
-      selection: TextSelection.collapsed(offset: projected.length),
-    );
-  }
-
-  String get canonicalText {
-    final buffer = StringBuffer();
-    var offset = 0;
-    while (offset < text.length) {
-      if (text[offset] != _marker) {
-        buffer.write(text[offset]);
-        offset++;
-        continue;
-      }
-      final end = text.indexOf(_marker, offset + 1);
-      if (end < 0) {
-        offset++;
-        continue;
-      }
-      final label = text.substring(offset + 1, end);
-      buffer.write(_labelToToken[label] ?? label);
-      offset = end + 1;
-    }
-    return buffer.toString();
-  }
-
-  void insertToken(String token) {
-    final label = _tokenToLabel[token] ?? token;
-    final insertion = label == token ? token : '$_marker$label$_marker';
-    final current = selection.isValid
-        ? selection
-        : TextSelection.collapsed(offset: text.length);
-    final next = text.replaceRange(current.start, current.end, insertion);
-    value = TextEditingValue(
-      text: next,
-      selection: TextSelection.collapsed(
-        offset: current.start + insertion.length,
-      ),
-    );
-  }
-
-  @override
-  TextSpan buildTextSpan({
-    required BuildContext context,
-    TextStyle? style,
-    required bool withComposing,
-  }) {
-    final cleanStyle = (style ?? const TextStyle()).copyWith(
-      decoration: TextDecoration.none,
-      decorationColor: Colors.transparent,
-      decorationThickness: 0,
-      fontWeight: FontWeight.w400,
-    );
-    final children = <InlineSpan>[];
-    var offset = 0;
-    while (offset < text.length) {
-      final start = text.indexOf(_marker, offset);
-      if (start < 0) {
-        children.add(TextSpan(text: text.substring(offset), style: cleanStyle));
-        break;
-      }
-      if (start > offset) {
-        children.add(
-          TextSpan(text: text.substring(offset, start), style: cleanStyle),
-        );
-      }
-      final end = text.indexOf(_marker, start + 1);
-      if (end < 0) {
-        children.add(TextSpan(text: text.substring(start), style: cleanStyle));
-        break;
-      }
-      children.add(
-        TextSpan(
-          text: _marker,
-          style: cleanStyle.copyWith(fontSize: 0, letterSpacing: 0),
-        ),
-      );
-      children.add(
-        TextSpan(
-          text: text.substring(start + 1, end),
-          style: cleanStyle.copyWith(
-            color: FolooPalette.of(context).ink,
-            backgroundColor: Theme.of(context).brightness == Brightness.dark
-                ? FolooColors.lime.withValues(alpha: .20)
-                : FolooColors.lime.withValues(alpha: .28),
-            fontWeight: FontWeight.w600,
-            fontSize: 12,
-            height: 1.2,
-          ),
-        ),
-      );
-      children.add(
-        TextSpan(
-          text: _marker,
-          style: cleanStyle.copyWith(fontSize: 0, letterSpacing: 0),
-        ),
-      );
-      offset = end + 1;
-    }
-    return TextSpan(style: cleanStyle, children: children);
-  }
-}
 
 /// Edits the Event or Direct template without initiating a send.
 class EmailScreen extends StatefulWidget {
@@ -205,12 +81,6 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
   final _directBody = TextEditingController();
   final _eventSignature = TextEditingController();
   final _directSignature = TextEditingController();
-  final _subjectEditor = _FriendlyTemplateEditingController();
-  final _bodyEditor = _FriendlyTemplateEditingController();
-  final _signatureEditor = _FriendlyTemplateEditingController();
-  final _subjectFocus = FocusNode();
-  final _bodyFocus = FocusNode();
-  final _signatureFocus = FocusNode();
   final Map<String, EmailTemplateData> _stored = {};
   _TemplateKind _kind = _TemplateKind.event;
   String? _error;
@@ -221,8 +91,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
   bool _connectionBusy = false;
   bool _connectionUnavailable = false;
   int _deliveryRequestGeneration = 0;
-  _TemplateField _lastTemplateField = _TemplateField.body;
-  _TemplateField? _editingField;
+  int _templateEditorRevision = 0;
   StreamSubscription<List<StoredEmailFollowUp>>? _followUpsSubscription;
   StreamSubscription<List<StoredEmailSendIntent>>? _intentsSubscription;
 
@@ -847,7 +716,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
   void _applyLanguage(AppLocalizations l10n) {
     final language = l10n.localeName.startsWith('en') ? 'en' : 'es';
     _languageCode = language;
-    _editingField = null;
+    _templateEditorRevision++;
     for (final origin in ['event', 'direct']) {
       final stored = _stored['$origin:$language'];
       final subject = origin == 'event' ? _eventSubject : _directSubject;
@@ -881,59 +750,10 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
       _directBody,
       _eventSignature,
       _directSignature,
-      _subjectEditor,
-      _bodyEditor,
-      _signatureEditor,
     ]) {
       controller.dispose();
     }
-    _subjectFocus.dispose();
-    _bodyFocus.dispose();
-    _signatureFocus.dispose();
     super.dispose();
-  }
-
-  /// Inserts a supported token at the current caret without changing its name.
-  void _insert(String variable) {
-    final target = _subjectFocus.hasFocus
-        ? _TemplateField.subject
-        : _bodyFocus.hasFocus
-        ? _TemplateField.body
-        : _signatureFocus.hasFocus
-        ? _TemplateField.signature
-        : _lastTemplateField;
-    final controller = switch (target) {
-      _TemplateField.subject => _subject,
-      _TemplateField.body => _body,
-      _TemplateField.signature => _signature,
-    };
-    final focusNode = switch (target) {
-      _TemplateField.subject => _subjectFocus,
-      _TemplateField.body => _bodyFocus,
-      _TemplateField.signature => _signatureFocus,
-    };
-    if (_editingField == target) {
-      final editor = _editorFor(target);
-      editor.insertToken(variable);
-      controller.text = editor.canonicalText;
-      _lastTemplateField = target;
-      focusNode.requestFocus();
-      setState(() {});
-      return;
-    }
-    final selection = controller.selection;
-    final offset = selection.isValid ? selection.start : controller.text.length;
-    controller.text = controller.text.replaceRange(
-      offset,
-      selection.isValid ? selection.end : offset,
-      variable,
-    );
-    controller.selection = TextSelection.collapsed(
-      offset: offset + variable.length,
-    );
-    _lastTemplateField = target;
-    focusNode.requestFocus();
-    setState(() {});
   }
 
   SessionLead? _recordForFollowUp(String localId) {
@@ -1029,7 +849,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
       _subject.text = official.subject;
       _body.text = official.body;
       _signature.text = official.signature;
-      _editingField = null;
+      _templateEditorRevision++;
       _error = null;
     });
   }
@@ -1091,504 +911,6 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
     return rendered.trim();
   }
 
-  String _friendlyToken(String token) => switch (token) {
-    '{nombre}' => _english ? 'Contact name' : 'Nombre del contacto',
-    '{apellido}' => _english ? 'Last name' : 'Apellido',
-    '{empresa}' => _english ? 'Contact company' : 'Empresa del contacto',
-    '{puesto}' => _english ? 'Role' : 'Puesto',
-    '{evento}' => _english ? 'Event' : 'Evento',
-    '{lugar}' => _english ? 'Place' : 'Lugar',
-    '{contenido}' => _english ? 'Content' : 'Contenido',
-    '{nombreVendedor}' => _english ? 'Your name' : 'Tu nombre',
-    '{empresaVendedor}' => _english ? 'Your company' : 'Tu empresa',
-    _ => token,
-  };
-
-  String _tokenSource(String token) => switch (token) {
-    '{nombre}' || '{apellido}' || '{empresa}' || '{puesto}' =>
-      _english ? 'From the captured lead' : 'Se toma del lead capturado',
-    '{evento}' =>
-      _english ? 'From the active event' : 'Se toma del evento activo',
-    '{lugar}' => _english ? 'From the direct lead' : 'Se toma del lead directo',
-    '{contenido}' =>
-      _english ? 'From selected PDFs' : 'Se toma del contenido elegido',
-    _ => _english ? 'From your profile' : 'Se toma de tu perfil',
-  };
-
-  _FriendlyTemplateEditingController _editorFor(_TemplateField field) =>
-      switch (field) {
-        _TemplateField.subject => _subjectEditor,
-        _TemplateField.body => _bodyEditor,
-        _TemplateField.signature => _signatureEditor,
-      };
-
-  void _prepareEditor(_TemplateField field, TextEditingController canonical) {
-    _editorFor(field).loadCanonical(canonical.text, {
-      for (final token in _variables) token: _friendlyToken(token),
-    });
-  }
-
-  Future<void> _chooseVariable({
-    String? replacing,
-    int? replacementStart,
-    _TemplateField? replacementField,
-  }) async {
-    FocusManager.instance.primaryFocus?.unfocus();
-    String? pendingSelection = replacing;
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: .42),
-      builder: (sheetContext) => FractionallySizedBox(
-        key: const Key('templateVariableSheet'),
-        heightFactor: .78,
-        alignment: Alignment.bottomCenter,
-        child: Material(
-          color: FolooPalette.of(sheetContext).card,
-          clipBehavior: Clip.antiAlias,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(FolooRadii.xl),
-            ),
-          ),
-          child: StatefulBuilder(
-            builder: (sheetContext, setSheetState) => SafeArea(
-              top: false,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 38,
-                      height: 4,
-                      margin: const EdgeInsets.only(top: 10, bottom: 14),
-                      decoration: BoxDecoration(
-                        color: FolooPalette.of(sheetContext).lineStrong,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _english ? 'Insert data' : 'Insertar dato',
-                          style: Theme.of(sheetContext).textTheme.headlineSmall,
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          _english
-                              ? 'It fills automatically from the lead, event, or your profile. It is not edited here.'
-                              : 'Se llena solo con la información del lead, el evento o tu perfil. No se edita aquí.',
-                          style: TextStyle(
-                            color: FolooPalette.of(sheetContext).inkSecondary,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Expanded(
-                    child: ListView(
-                      key: const Key('templateVariableList'),
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      children: [
-                        _variableGroupLabel(
-                          _english ? 'From the contact' : 'Del contacto',
-                        ),
-                        for (final token in _variables.take(4))
-                          _variableChoice(
-                            sheetContext,
-                            token,
-                            selected: token == pendingSelection,
-                            onTap: () =>
-                                setSheetState(() => pendingSelection = token),
-                          ),
-                        _variableGroupLabel(
-                          _english ? 'From the record' : 'Del registro',
-                        ),
-                        for (final token in _variables.skip(4).take(3))
-                          _variableChoice(
-                            sheetContext,
-                            token,
-                            selected: token == pendingSelection,
-                            onTap: () =>
-                                setSheetState(() => pendingSelection = token),
-                          ),
-                        _variableGroupLabel(_english ? 'Yours' : 'Tuyos'),
-                        for (final token in _variables.skip(7))
-                          _variableChoice(
-                            sheetContext,
-                            token,
-                            selected: token == pendingSelection,
-                            onTap: () =>
-                                setSheetState(() => pendingSelection = token),
-                          ),
-                      ],
-                    ),
-                  ),
-                  Divider(height: 1, color: FolooPalette.of(sheetContext).line),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: FilledButton(
-                            key: const Key('cancelTemplateVariable'),
-                            onPressed: () => Navigator.pop(sheetContext),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: FolooPalette.of(sheetContext)
-                                  .paper,
-                              foregroundColor: FolooPalette.of(sheetContext)
-                                  .ink,
-                            ),
-                            child: Text(context.l10n.cancel),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: FilledButton(
-                            key: const Key('insertTemplateVariable'),
-                            onPressed: pendingSelection == null
-                                ? null
-                                : () => Navigator.pop(
-                                    sheetContext,
-                                    pendingSelection,
-                                  ),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: FolooPalette.of(sheetContext)
-                                  .ink,
-                              foregroundColor: FolooPalette.of(sheetContext)
-                                  .card,
-                            ),
-                            child: Text(_english ? 'Insert' : 'Insertar'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    if (selected == null) return;
-    if (replacing == null) {
-      _insert(selected);
-      return;
-    }
-    final field = replacementField ?? _lastTemplateField;
-    final controller = switch (field) {
-      _TemplateField.subject => _subject,
-      _TemplateField.body => _body,
-      _TemplateField.signature => _signature,
-    };
-    final start = replacementStart ?? controller.text.indexOf(replacing);
-    if (start < 0 ||
-        start + replacing.length > controller.text.length ||
-        controller.text.substring(start, start + replacing.length) !=
-            replacing) {
-      return;
-    }
-    controller.text = controller.text.replaceRange(
-      start,
-      start + replacing.length,
-      selected,
-    );
-    controller.selection = TextSelection.collapsed(
-      offset: start + selected.length,
-    );
-    if (mounted) setState(() {});
-  }
-
-  Widget _variableGroupLabel(String label) => Padding(
-    padding: const EdgeInsets.fromLTRB(2, 8, 2, 7),
-    child: Text(
-      label,
-      style: TextStyle(
-        color: FolooPalette.of(context).inkSecondary,
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-      ),
-    ),
-  );
-
-  Widget _variableChoice(
-    BuildContext sheetContext,
-    String token, {
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    final palette = FolooPalette.of(sheetContext);
-    final icon = switch (token) {
-      '{evento}' => Icons.calendar_today_outlined,
-      '{lugar}' => Icons.person_add_alt_1_outlined,
-      '{contenido}' => Icons.description_outlined,
-      '{empresa}' || '{empresaVendedor}' => Icons.business_outlined,
-      _ => Icons.verified_outlined,
-    };
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: selected
-            ? FolooColors.lime.withValues(alpha: .28)
-            : palette.paper,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FolooRadii.md),
-          side: selected
-              ? BorderSide(color: palette.ink, width: 2)
-              : BorderSide.none,
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          key: Key('templateVariableChoice-$token'),
-          onTap: onTap,
-          child: SizedBox(
-            height: 72,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Row(
-                children: [
-                  Icon(icon, size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _friendlyToken(token),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          _tokenSource(token),
-                          style: TextStyle(
-                            color: palette.inkSecondary,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (selected)
-                    Container(
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        color: palette.ink,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.check,
-                        size: 16,
-                        color: FolooColors.lime,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _friendlyDocument(
-    TextEditingController controller,
-    _TemplateField field,
-  ) {
-    final matches = RegExp(r'\{[^}]+\}').allMatches(controller.text).toList();
-    final palette = FolooPalette.of(context);
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final textStyle = DefaultTextStyle.of(context).style.copyWith(
-      color: palette.ink,
-      fontSize: 15,
-      fontWeight: FontWeight.w400,
-      height: 1.45,
-      decoration: TextDecoration.none,
-      decorationColor: Colors.transparent,
-      decorationThickness: 0,
-    );
-    final children = <InlineSpan>[];
-    var offset = 0;
-    for (final match in matches) {
-      if (match.start > offset) {
-        children.add(
-          TextSpan(text: controller.text.substring(offset, match.start)),
-        );
-      }
-      final token = match.group(0)!;
-      final remainder = controller.text.substring(match.end);
-      final punctuation =
-          RegExp(r'^[,.;:!?…]+').firstMatch(remainder)?.group(0) ?? '';
-      children.add(
-        WidgetSpan(
-          alignment: PlaceholderAlignment.baseline,
-          baseline: TextBaseline.alphabetic,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  key: Key('friendlyToken-${field.name}-$token-${match.start}'),
-                  borderRadius: BorderRadius.circular(999),
-                  onTap: () {
-                    _lastTemplateField = field;
-                    _chooseVariable(
-                      replacing: token,
-                      replacementStart: match.start,
-                      replacementField: field,
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 1,
-                    ),
-                    decoration: BoxDecoration(
-                      color: dark
-                          ? FolooColors.lime.withValues(alpha: .20)
-                          : FolooColors.lime.withValues(alpha: .25),
-                      border: Border.all(color: palette.lineStrong),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      _friendlyToken(token),
-                      style: textStyle.copyWith(
-                        color: palette.ink,
-                        fontSize: 12,
-                        height: 1.15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              if (punctuation.isNotEmpty) Text(punctuation, style: textStyle),
-            ],
-          ),
-        ),
-      );
-      offset = match.end + punctuation.length;
-    }
-    if (offset < controller.text.length) {
-      children.add(TextSpan(text: controller.text.substring(offset)));
-    }
-    return Text.rich(
-      TextSpan(style: textStyle, children: children),
-      key: Key('friendlyDocument-${field.name}'),
-    );
-  }
-
-  Widget _templateField({
-    required _TemplateField field,
-    required TextEditingController controller,
-    required FocusNode focusNode,
-    required Key key,
-    int minLines = 1,
-    int maxLines = 4,
-  }) {
-    final editing = _editingField == field;
-    final editor = _editorFor(field);
-    final palette = FolooPalette.of(context);
-    return Container(
-      padding: editing
-          ? EdgeInsets.zero
-          : const EdgeInsets.fromLTRB(14, 10, 4, 10),
-      decoration: BoxDecoration(
-        color: palette.paper,
-        borderRadius: BorderRadius.circular(FolooRadii.md),
-        border: editing ? Border.all(color: palette.ink, width: 2) : null,
-      ),
-      child: editing
-          ? Stack(
-              children: [
-                TextField(
-                  key: key,
-                  controller: editor,
-                  focusNode: focusNode,
-                  minLines: minLines,
-                  maxLines: maxLines,
-                  onTap: () => _lastTemplateField = field,
-                  onChanged: (_) {
-                    controller.text = editor.canonicalText;
-                    setState(() {});
-                  },
-                  decoration: const InputDecoration(
-                    filled: false,
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    disabledBorder: InputBorder.none,
-                    errorBorder: InputBorder.none,
-                    focusedErrorBorder: InputBorder.none,
-                    contentPadding: EdgeInsets.fromLTRB(14, 14, 52, 14),
-                  ),
-                ),
-                Positioned(
-                  top: 5,
-                  right: 5,
-                  child: IconButton.filled(
-                    key: Key('templateLightning-${field.name}'),
-                    tooltip: _english ? 'Insert data' : 'Insertar dato',
-                    onPressed: _chooseVariable,
-                    style: IconButton.styleFrom(
-                      fixedSize: const Size.square(42),
-                      backgroundColor: FolooColors.ink,
-                      foregroundColor: FolooColors.lime,
-                    ),
-                    icon: const Icon(Icons.bolt, size: 22),
-                  ),
-                ),
-              ],
-            )
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _friendlyDocument(controller, field)),
-                Material(
-                  color: palette.card,
-                  shape: const CircleBorder(),
-                  child: IconButton(
-                    key: Key('templateEdit-${field.name}'),
-                    tooltip: context.l10n.edit,
-                    style: IconButton.styleFrom(
-                      fixedSize: const Size.square(42),
-                      foregroundColor: palette.ink,
-                    ),
-                    onPressed: () {
-                      _prepareEditor(field, controller);
-                      setState(() {
-                        _editingField = field;
-                        _lastTemplateField = field;
-                      });
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        focusNode.requestFocus();
-                        controller.selection = TextSelection.collapsed(
-                          offset: controller.text.length,
-                        );
-                      });
-                    },
-                    icon: const Icon(Icons.edit_outlined, size: 20),
-                  ),
-                ),
-              ],
-            ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1635,7 +957,6 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                       onSelected: (value) => setState(() {
                         _kind = value;
                         _error = null;
-                        _editingField = null;
                       }),
                       selectedHorizontalPadding: 8,
                       options: [
@@ -1673,11 +994,14 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                       style: const TextStyle(fontSize: 11),
                     ),
                     const SizedBox(height: 7),
-                    _templateField(
-                      key: ValueKey('emailSubject-${_kind.name}'),
-                      field: _TemplateField.subject,
+                    EmailTemplateFieldEditor(
+                      key: ValueKey(
+                        'emailSubjectEditor-${_kind.name}-$_templateEditorRevision',
+                      ),
+                      fieldName: 'subject',
                       controller: _subject,
-                      focusNode: _subjectFocus,
+                      textFieldKey: ValueKey('emailSubject-${_kind.name}'),
+                      onChanged: () => setState(() {}),
                       maxLines: 2,
                     ),
                     const SizedBox(height: 14),
@@ -1686,11 +1010,14 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                       style: const TextStyle(fontSize: 11),
                     ),
                     const SizedBox(height: 7),
-                    _templateField(
-                      key: ValueKey('emailBody-${_kind.name}'),
-                      field: _TemplateField.body,
+                    EmailTemplateFieldEditor(
+                      key: ValueKey(
+                        'emailBodyEditor-${_kind.name}-$_templateEditorRevision',
+                      ),
+                      fieldName: 'body',
                       controller: _body,
-                      focusNode: _bodyFocus,
+                      textFieldKey: ValueKey('emailBody-${_kind.name}'),
+                      onChanged: () => setState(() {}),
                       minLines: 8,
                       maxLines: 12,
                     ),
@@ -1700,11 +1027,14 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                       style: const TextStyle(fontSize: 11),
                     ),
                     const SizedBox(height: 7),
-                    _templateField(
-                      key: ValueKey('emailSignature-${_kind.name}'),
-                      field: _TemplateField.signature,
+                    EmailTemplateFieldEditor(
+                      key: ValueKey(
+                        'emailSignatureEditor-${_kind.name}-$_templateEditorRevision',
+                      ),
+                      fieldName: 'signature',
                       controller: _signature,
-                      focusNode: _signatureFocus,
+                      textFieldKey: ValueKey('emailSignature-${_kind.name}'),
+                      onChanged: () => setState(() {}),
                       minLines: 2,
                       maxLines: 4,
                     ),

@@ -66,16 +66,49 @@ class RecordsExportService {
     required RecordsExportLabels labels,
     DateTime? generatedAt,
   }) {
+    return _build(
+      scopeName: event.name,
+      records: records.where((record) => record.lead.eventLocalId == event.id),
+      event: event,
+      format: format,
+      labels: labels,
+      generatedAt: generatedAt,
+    );
+  }
+
+  /// Builds the REG-19 direct-lead scope without manufacturing an Event.
+  RecordsExportFile buildDirect({
+    required String scopeName,
+    required List<SessionLead> records,
+    required RecordsExportFormat format,
+    required RecordsExportLabels labels,
+    DateTime? generatedAt,
+  }) => _build(
+    scopeName: scopeName,
+    records: records.where(
+      (record) => record.lead.originKind == LeadOriginKind.direct,
+    ),
+    event: null,
+    format: format,
+    labels: labels,
+    generatedAt: generatedAt,
+  );
+
+  RecordsExportFile _build({
+    required String scopeName,
+    required Iterable<SessionLead> records,
+    required AppEvent? event,
+    required RecordsExportFormat format,
+    required RecordsExportLabels labels,
+    required DateTime? generatedAt,
+  }) {
     if (labels.headers.length != 13) {
       throw ArgumentError.value(labels.headers.length, 'headers');
     }
-    final rows = records
-        .where((record) => record.lead.eventLocalId == event.id)
-        .map((record) => _row(record, event, labels))
-        .toList();
+    final rows = records.map((record) => _row(record, event, labels)).toList();
     final extension = format.name;
     final day = _date((generatedAt ?? DateTime.now()).toLocal());
-    final filename = 'foloo_${_safeFilename(event.name)}_$day.$extension';
+    final filename = 'foloo_${_safeFilename(scopeName)}_$day.$extension';
     if (format == RecordsExportFormat.csv) {
       final text = <List<String>>[
         labels.headers,
@@ -106,7 +139,7 @@ class RecordsExportService {
 
   List<String> _row(
     SessionLead record,
-    AppEvent event,
+    AppEvent? event,
     RecordsExportLabels labels,
   ) => [
     _timestamp(record.capturedAt),
@@ -129,7 +162,7 @@ class RecordsExportService {
     record.lead.originKind == LeadOriginKind.event
         ? labels.event
         : labels.direct,
-    event.name,
+    event?.name ?? '',
     record.lead.originKind == LeadOriginKind.direct
         ? (record.lead.place ?? '')
         : '',

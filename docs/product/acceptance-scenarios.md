@@ -128,7 +128,10 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Todos los eventos sigue siendo semántica exclusiva de Evento. Un Lead directo
   inicia sin Content preseleccionado, permite elegir explícitamente cualquier
   PDF activo y conserva esa selección offline en su snapshot local.
-- Editar asignación y eliminar requieren resultado persistente/confirmado.
+- Editar abre nombre visible y asignaciones actuales en un mismo flujo. Guardar
+  persiste ambos local-first y encola sync sin renombrar el archivo físico;
+  cancelar no cambia nada. Las selecciones futuras leen el nombre vigente y
+  los snapshots históricos conservan el nombre congelado.
 - Swipe derecha abre el mismo editor de asignaciones y swipe izquierda revela
   Eliminar sin ejecutar por gesto; el menú accesible ofrece ambas acciones sin
   depender del swipe.
@@ -159,6 +162,9 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   Directo omite el nivel Evento. Restaurar Foloo solo cambia el editor hasta
   Guardar; “Usar plantilla predeterminada” elimina el override y recupera
   herencia viva. Ninguna edición de plantilla crea preparación o envío.
+- El override de Evento reutiliza los mismos chips, rayo, selector, inserción al
+  cursor y validación ES/EN de Correo; guardar/cancelar y reabrir el sheet no
+  deja overlays ni controladores desmontados, y persiste solo para ese evento.
 - Solo los nueve tokens `PLT-03` se guardan; tokens desconocidos o llaves
   incompletas se rechazan. Datos históricos ausentes nunca producen tokens
   literales, `null`, `undefined` ni información inventada. `{contenido}` usa
@@ -259,13 +265,14 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   el retry solicita otra autorización para la misma key. Un segundo dispositivo
   obtiene únicamente lectura temporal autenticada, nunca una URL pública.
 
-## E-10 · Exportación por evento
+## E-10 · Exportación por evento o Leads directos
 
 **Trazas:** `REG-09`–`REG-13`, `REL-08`.
 
 - Exportar abre XLSX/CSV con XLSX inicial.
-- Elegir evento produce exclusivamente datos locales de ese owner/evento,
-  incluidos pendientes; “Todos los eventos” exige elegir uno.
+- Elegir evento produce exclusivamente datos locales de ese owner/evento;
+  elegir Leads directos incluye únicamente origen Directo. Ambos incluyen
+  pendientes, funcionan offline y una vista agregada exige elegir un alcance.
 - La elección de evento es de una sola acción: la fila completa es táctil y no
   muestra un indicador circular de selección múltiple.
 - Las trece columnas aparecen en el orden de `REG-11`, con vacíos como celda

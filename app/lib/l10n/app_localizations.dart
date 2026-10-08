@@ -1457,7 +1457,7 @@ abstract class AppLocalizations {
   /// No description provided for @editFileEvents.
   ///
   /// In es, this message translates to:
-  /// **'Editar eventos del archivo'**
+  /// **'Editar contenido'**
   String get editFileEvents;
 
   /// No description provided for @uploadContent.
@@ -1997,7 +1997,7 @@ abstract class AppLocalizations {
   /// No description provided for @chooseExportEvent.
   ///
   /// In es, this message translates to:
-  /// **'Elige el evento que deseas exportar'**
+  /// **'Elige qué registros deseas exportar'**
   String get chooseExportEvent;
 
   /// No description provided for @exportFailed.

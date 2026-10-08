@@ -22,6 +22,8 @@ import '../widgets/app_drawer.dart';
 import '../widgets/create_event_dialog.dart';
 import '../widgets/event_date_field.dart';
 import '../widgets/module_header.dart';
+import '../widgets/swipe_action_card.dart';
+import '../widgets/email_template_field_editor.dart';
 
 /// Displays Mis eventos and its in-place editor (EVT-01–EVT-13).
 class EventScreen extends StatefulWidget {
@@ -74,6 +76,7 @@ class _EventScreenState extends State<EventScreen> {
   AppEvent? _editing;
   DateTime? _editingStartsOn;
   DateTime? _editingEndsOn;
+  String? _openSwipeEventId;
 
   @override
   void dispose() {
@@ -85,6 +88,7 @@ class _EventScreenState extends State<EventScreen> {
   void _startEditing(AppEvent event) {
     _editingName.text = event.name;
     setState(() {
+      _openSwipeEventId = null;
       _editing = event;
       _editingStartsOn = event.startsOn;
       _editingEndsOn = event.endsOn;
@@ -169,98 +173,26 @@ class _EventScreenState extends State<EventScreen> {
     final inherited =
         seller ?? FolooEmailDefaults.forContext('event', language);
     if (!mounted) return;
-    final subject = TextEditingController(
-      text: existing?.subject ?? inherited.subject,
-    );
-    final body = TextEditingController(text: existing?.body ?? inherited.body);
-    final signature = TextEditingController(
-      text: existing?.signature ?? inherited.signature,
-    );
-    final action = await showModalBottomSheet<String>(
+    final result = await showModalBottomSheet<_EventTemplateResult>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (sheetContext) => Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom + 20,
-        ),
-        child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                sheetContext.l10n.customizeEventEmail,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                key: const Key('eventEmailSubjectField'),
-                controller: subject,
-                textInputAction: TextInputAction.next,
-                onTapOutside: (_) =>
-                    FocusManager.instance.primaryFocus?.unfocus(),
-                decoration: InputDecoration(
-                  labelText: sheetContext.l10n.subject,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const Key('eventEmailBodyField'),
-                controller: body,
-                minLines: 7,
-                maxLines: 12,
-                decoration: InputDecoration(labelText: sheetContext.l10n.body),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const Key('eventEmailSignatureField'),
-                controller: signature,
-                textInputAction: TextInputAction.done,
-                decoration: InputDecoration(
-                  labelText: sheetContext.l10n.emailSignatureV1,
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (existing != null)
-                TextButton(
-                  key: const Key('useDefaultEventTemplateButton'),
-                  onPressed: () => Navigator.pop(sheetContext, 'default'),
-                  child: Text(sheetContext.l10n.useDefaultTemplate),
-                ),
-              FilledButton(
-                key: const Key('saveEventEmailTemplateButton'),
-                onPressed: () => Navigator.pop(sheetContext, 'save'),
-                child: Text(sheetContext.l10n.saveChanges),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (action == 'default') {
-      await repository.remove(owner, event.id, language);
-    } else if (action == 'save') {
-      await repository.save(
-        owner,
-        EventEmailTemplateData(
+      builder: (_) => _EventEmailTemplateSheet(
+        initial: EventEmailTemplateData(
           eventId: event.id,
           language: language,
-          subject: subject.text,
-          body: body.text,
-          signature: signature.text,
+          subject: existing?.subject ?? inherited.subject,
+          body: existing?.body ?? inherited.body,
+          signature: existing?.signature ?? inherited.signature,
         ),
-      );
+        canUseDefault: existing != null,
+      ),
+    );
+    if (result?.useDefault == true) {
+      await repository.remove(owner, event.id, language);
+    } else if (result?.template != null) {
+      await repository.save(owner, result!.template!);
     }
-    subject.dispose();
-    body.dispose();
-    signature.dispose();
     if (mounted) setState(() {});
   }
 
@@ -430,83 +362,133 @@ class _EventScreenState extends State<EventScreen> {
     );
   }
 
-  Widget _buildEventCard(AppEvent event, FolooPalette palette) => InkWell(
-    key: Key('event-${event.id}'),
-    onTap: () => _startEditing(event),
-    borderRadius: BorderRadius.circular(FolooRadii.md),
-    child: Container(
-      height: 62,
-      padding: const EdgeInsets.fromLTRB(13, 5, 6, 5),
-      decoration: BoxDecoration(
-        color: palette.paper,
-        borderRadius: BorderRadius.circular(FolooRadii.md),
-        border: event.active ? Border.all(color: palette.ink) : null,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+  Widget _buildEventCard(
+    AppEvent event,
+    FolooPalette palette,
+  ) => SwipeActionCard(
+    key: Key('eventSwipe-${event.id}'),
+    open: _openSwipeEventId == event.id,
+    onOpened: () => setState(() => _openSwipeEventId = event.id),
+    onClosed: () {
+      if (_openSwipeEventId == event.id) {
+        setState(() => _openSwipeEventId = null);
+      }
+    },
+    startAction: SwipeCardAction(
+      actionKey: Key('eventSwipeEdit-${event.id}'),
+      icon: Icons.edit_outlined,
+      label: context.l10n.edit,
+      color: FolooColors.lime.withValues(alpha: .32),
+      foregroundColor: palette.ink,
+      onTap: () => _startEditing(event),
+    ),
+    endAction: SwipeCardAction(
+      actionKey: Key('eventSwipeDelete-${event.id}'),
+      icon: Icons.delete_outline,
+      label: context.l10n.delete,
+      color: palette.error,
+      foregroundColor: Colors.white,
+      onTap: () => _confirmDelete(event),
+    ),
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: Key('event-${event.id}'),
+        onTap: () => _startEditing(event),
+        child: Container(
+          height: 62,
+          padding: const EdgeInsets.fromLTRB(13, 5, 5, 5),
+          decoration: BoxDecoration(
+            color: palette.paper,
+            borderRadius: BorderRadius.circular(FolooRadii.md),
+            border: event.active ? Border.all(color: palette.ink) : null,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Flexible(
-                      child: Text(
-                        event.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (event.active) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: palette.card,
-                          border: Border.all(color: palette.ink),
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                        child: Text(
-                          context.l10n.active,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            event.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
+                        if (event.active) ...[
+                          const SizedBox(width: 7),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: palette.card,
+                              border: Border.all(color: palette.ink),
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                            child: Text(
+                              context.l10n.active,
+                              style: const TextStyle(fontSize: 9),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      context.l10n.eventStats(
+                        _date(event.startsOn),
+                        context.l10n.leadCount(event.demoLeadCount),
+                        event.demoPendingCount > 0
+                            ? ' · ${context.l10n.pendingCount(event.demoPendingCount)}'
+                            : '',
                       ),
-                    ],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: palette.inkSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  context.l10n.eventStats(
-                    _date(event.startsOn),
-                    context.l10n.leadCount(event.demoLeadCount),
-                    event.demoPendingCount > 0
-                        ? ' · ${context.l10n.pendingCount(event.demoPendingCount)}'
-                        : '',
+              ),
+              PopupMenuButton<String>(
+                key: Key('eventMenu-${event.id}'),
+                tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+                onSelected: (value) => value == 'edit'
+                    ? _startEditing(event)
+                    : _confirmDelete(event),
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: ListTile(
+                      leading: const Icon(Icons.edit_outlined),
+                      title: Text(context.l10n.editEvent),
+                    ),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: palette.inkSecondary, fontSize: 12),
-                ),
-              ],
-            ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: ListTile(
+                      leading: Icon(Icons.delete_outline, color: palette.error),
+                      title: Text(context.l10n.deleteEvent),
+                    ),
+                  ),
+                ],
+                icon: const Icon(Icons.more_vert, size: 20),
+              ),
+            ],
           ),
-          IconButton(
-            tooltip: context.l10n.deleteEvent,
-            onPressed: () => _confirmDelete(event),
-            icon: const Icon(Icons.delete_outline, size: 19),
-          ),
-        ],
+        ),
       ),
     ),
   );
@@ -669,13 +651,12 @@ class _EventScreenState extends State<EventScreen> {
                     ),
                     const SizedBox(height: 16),
                   ],
-                  FilledButton.icon(
+                  OutlinedButton.icon(
                     key: const Key('deleteEventButton'),
                     onPressed: () => _confirmDelete(event),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: palette.ink,
-                      foregroundColor: palette.card,
-                      minimumSize: const Size.fromHeight(48),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: palette.error,
+                      side: BorderSide(color: palette.error),
                     ),
                     icon: const Icon(Icons.delete_outline),
                     label: Text(context.l10n.deleteEvent),
@@ -734,6 +715,196 @@ class _EventScreenState extends State<EventScreen> {
       Localizations.localeOf(context).toLanguageTag(),
     ).format(date);
   }
+}
+
+class _EventTemplateResult {
+  const _EventTemplateResult.save(this.template) : useDefault = false;
+  const _EventTemplateResult.useDefault() : template = null, useDefault = true;
+
+  final EventEmailTemplateData? template;
+  final bool useDefault;
+}
+
+/// Route-owned editor that keeps its controllers alive through sheet teardown.
+class _EventEmailTemplateSheet extends StatefulWidget {
+  const _EventEmailTemplateSheet({
+    required this.initial,
+    required this.canUseDefault,
+  });
+
+  final EventEmailTemplateData initial;
+  final bool canUseDefault;
+
+  @override
+  State<_EventEmailTemplateSheet> createState() =>
+      _EventEmailTemplateSheetState();
+}
+
+class _EventEmailTemplateSheetState extends State<_EventEmailTemplateSheet> {
+  late final TextEditingController _subject;
+  late final TextEditingController _body;
+  late final TextEditingController _signature;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _subject = TextEditingController(text: widget.initial.subject);
+    _body = TextEditingController(text: widget.initial.body);
+    _signature = TextEditingController(text: widget.initial.signature);
+  }
+
+  @override
+  void dispose() {
+    _subject.dispose();
+    _body.dispose();
+    _signature.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final source = '${_subject.text} ${_body.text} ${_signature.text}';
+    final found = RegExp(r'\{[^}]+\}')
+        .allMatches(source)
+        .map((match) => match.group(0)!)
+        .toSet();
+    final invalid = found.difference(emailTemplateVariables.toSet());
+    final balanced =
+        RegExp(r'\{').allMatches(source).length ==
+        RegExp(r'\}').allMatches(source).length;
+    setState(() {
+      _error = !balanced
+          ? context.l10n.unclosedVariable
+          : invalid.isEmpty
+          ? null
+          : context.l10n.invalidVariable(invalid.join(', '));
+    });
+    if (_error != null) return;
+    Navigator.pop(
+      context,
+      _EventTemplateResult.save(
+        EventEmailTemplateData(
+          eventId: widget.initial.eventId,
+          language: widget.initial.language,
+          subject: _subject.text,
+          body: _body.text,
+          signature: _signature.text,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: FolooPalette.of(context).card,
+    body: SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            context.l10n.customizeEventEmail,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 18),
+          Text(context.l10n.subject),
+          const SizedBox(height: 7),
+          EmailTemplateFieldEditor(
+            fieldName: 'subject',
+            controller: _subject,
+            textFieldKey: const Key('eventEmailSubjectField'),
+            keyPrefix: 'event',
+            maxLines: 2,
+            onChanged: () => setState(() {}),
+          ),
+          const SizedBox(height: 14),
+          Text(context.l10n.body),
+          const SizedBox(height: 7),
+          EmailTemplateFieldEditor(
+            fieldName: 'body',
+            controller: _body,
+            textFieldKey: const Key('eventEmailBodyField'),
+            keyPrefix: 'event',
+            minLines: 7,
+            maxLines: 12,
+            onChanged: () => setState(() {}),
+          ),
+          const SizedBox(height: 14),
+          Text(context.l10n.emailSignatureV1),
+          const SizedBox(height: 7),
+          EmailTemplateFieldEditor(
+            fieldName: 'signature',
+            controller: _signature,
+            textFieldKey: const Key('eventEmailSignatureField'),
+            keyPrefix: 'event',
+            minLines: 2,
+            maxLines: 4,
+            onChanged: () => setState(() {}),
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _error!,
+                key: const Key('eventEmailVariableError'),
+                style: TextStyle(color: FolooPalette.of(context).error),
+              ),
+            ),
+          if (widget.canUseDefault)
+            TextButton(
+              key: const Key('useDefaultEventTemplateButton'),
+              onPressed: () => Navigator.pop(
+                context,
+                const _EventTemplateResult.useDefault(),
+              ),
+              child: Text(context.l10n.useDefaultTemplate),
+            ),
+        ],
+      ),
+    ),
+    bottomNavigationBar: SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final useVerticalLayout =
+                constraints.maxWidth < 420 ||
+                MediaQuery.textScalerOf(context).scale(14) > 18;
+            final cancel = FilledButton(
+              key: const Key('cancelEventEmailTemplateButton'),
+              onPressed: () => Navigator.pop(context),
+              style: FilledButton.styleFrom(
+                backgroundColor: FolooPalette.of(context).paper,
+                foregroundColor: FolooPalette.of(context).ink,
+              ),
+              child: Text(context.l10n.cancel),
+            );
+            final save = FilledButton(
+              key: const Key('saveEventEmailTemplateButton'),
+              onPressed: _save,
+              child: Text(context.l10n.saveChanges),
+            );
+            if (useVerticalLayout) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [cancel, const SizedBox(height: 8), save],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: cancel),
+                const SizedBox(width: 10),
+                Expanded(flex: 2, child: save),
+              ],
+            );
+          },
+        ),
+      ),
+    ),
+  );
 }
 
 class _Metric extends StatelessWidget {
