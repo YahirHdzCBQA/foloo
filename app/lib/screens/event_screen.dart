@@ -390,105 +390,95 @@ class _EventScreenState extends State<EventScreen> {
       foregroundColor: Colors.white,
       onTap: () => _confirmDelete(event),
     ),
-    child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        key: Key('event-${event.id}'),
-        onTap: () => _startEditing(event),
-        child: Container(
-          height: 62,
-          padding: const EdgeInsets.fromLTRB(13, 5, 5, 5),
-          decoration: BoxDecoration(
-            color: palette.paper,
-            borderRadius: BorderRadius.circular(FolooRadii.md),
-            border: event.active ? Border.all(color: palette.ink) : null,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    child: Container(
+      key: Key('event-${event.id}'),
+      height: 62,
+      padding: const EdgeInsets.fromLTRB(13, 5, 5, 5),
+      decoration: BoxDecoration(
+        color: palette.paper,
+        borderRadius: BorderRadius.circular(FolooRadii.md),
+        border: event.active ? Border.all(color: palette.ink) : null,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            event.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                    Flexible(
+                      child: Text(
+                        event.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
                         ),
-                        if (event.active) ...[
-                          const SizedBox(width: 7),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: palette.card,
-                              border: Border.all(color: palette.ink),
-                              borderRadius: BorderRadius.circular(99),
-                            ),
-                            child: Text(
-                              context.l10n.active,
-                              style: const TextStyle(fontSize: 9),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      context.l10n.eventStats(
-                        _date(event.startsOn),
-                        context.l10n.leadCount(event.demoLeadCount),
-                        event.demoPendingCount > 0
-                            ? ' · ${context.l10n.pendingCount(event.demoPendingCount)}'
-                            : '',
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: palette.inkSecondary,
-                        fontSize: 12,
                       ),
                     ),
+                    if (event.active) ...[
+                      const SizedBox(width: 7),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: palette.card,
+                          border: Border.all(color: palette.ink),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Text(
+                          context.l10n.active,
+                          style: const TextStyle(fontSize: 9),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  context.l10n.eventStats(
+                    _date(event.startsOn),
+                    context.l10n.leadCount(event.demoLeadCount),
+                    event.demoPendingCount > 0
+                        ? ' · ${context.l10n.pendingCount(event.demoPendingCount)}'
+                        : '',
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: palette.inkSecondary, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          PopupMenuButton<String>(
+            key: Key('eventMenu-${event.id}'),
+            tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+            onSelected: (value) =>
+                value == 'edit' ? _startEditing(event) : _confirmDelete(event),
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'edit',
+                child: ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: Text(context.l10n.editEvent),
+                ),
               ),
-              PopupMenuButton<String>(
-                key: Key('eventMenu-${event.id}'),
-                tooltip: MaterialLocalizations.of(context).showMenuTooltip,
-                onSelected: (value) => value == 'edit'
-                    ? _startEditing(event)
-                    : _confirmDelete(event),
-                itemBuilder: (_) => [
-                  PopupMenuItem(
-                    value: 'edit',
-                    child: ListTile(
-                      leading: const Icon(Icons.edit_outlined),
-                      title: Text(context.l10n.editEvent),
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: ListTile(
-                      leading: Icon(Icons.delete_outline, color: palette.error),
-                      title: Text(context.l10n.deleteEvent),
-                    ),
-                  ),
-                ],
-                icon: const Icon(Icons.more_vert, size: 20),
+              PopupMenuItem(
+                value: 'delete',
+                child: ListTile(
+                  leading: Icon(Icons.delete_outline, color: palette.error),
+                  title: Text(context.l10n.deleteEvent),
+                ),
               ),
             ],
+            icon: const Icon(Icons.more_vert, size: 20),
           ),
-        ),
+        ],
       ),
     ),
   );

@@ -15,12 +15,16 @@ AppEvent event(
   DateTime startsOn,
   DateTime endsOn, {
   bool active = false,
+  int leadCount = 0,
+  int pendingCount = 0,
 }) => AppEvent(
   id: id,
   name: id,
   startsOn: startsOn,
   endsOn: endsOn,
   active: active,
+  demoLeadCount: leadCount,
+  demoPendingCount: pendingCount,
 );
 
 void main() {
@@ -167,6 +171,109 @@ void main() {
     expect(deleted, 1);
   });
 
+  testWidgets('EVT-02 card taps are inert while explicit actions still work', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var updated = 0;
+    var deleted = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: FolooTheme.light,
+        locale: const Locale('es'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: EventScreen(
+          events: [
+            event(
+              'evento-inerte',
+              DateTime(2026, 10, 8),
+              DateTime(2026, 10, 8),
+              active: true,
+              leadCount: 7,
+              pendingCount: 2,
+            ),
+          ],
+          recordsCount: 0,
+          darkMode: false,
+          onDestinationSelected: (_) {},
+          onAppearanceChanged: (_) {},
+          onLogout: () {},
+          onCreate: (_) {},
+          onUpdate: (_) => updated++,
+          onDelete: (_) => deleted++,
+          nowProvider: () => DateTime(2026, 10, 8),
+        ),
+      ),
+    );
+
+    final card = find.byKey(const Key('event-evento-inerte'));
+    final stats = find.descendant(
+      of: card,
+      matching: find.textContaining('7 leads'),
+    );
+    expect(
+      find.ancestor(of: card, matching: find.byType(InkWell)),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('evento-inerte'));
+    await tester.pumpAndSettle();
+    await tester.tap(stats);
+    await tester.pumpAndSettle();
+    await tester.tapAt(tester.getRect(card).centerLeft + const Offset(8, 0));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('closeEventEditorButton')), findsNothing);
+    expect(updated, 0);
+    expect(deleted, 0);
+
+    await tester.drag(card, const Offset(120, 0));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('eventSwipeEdit-evento-inerte')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('closeEventEditorButton')), findsNothing);
+    expect(updated, 0);
+    await tester.tap(find.byKey(const Key('eventSwipeEdit-evento-inerte')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('closeEventEditorButton')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('closeEventEditorButton')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('eventMenu-evento-inerte')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Editar evento'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('closeEventEditorButton')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('closeEventEditorButton')));
+    await tester.pumpAndSettle();
+
+    await tester.drag(card, const Offset(-120, 0));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('eventSwipeDelete-evento-inerte')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('confirmDeleteEventButton')), findsNothing);
+    expect(deleted, 0);
+    await tester.tap(find.byKey(const Key('eventSwipeDelete-evento-inerte')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('confirmDeleteEventButton')), findsOneWidget);
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(deleted, 0);
+    expect(updated, 0);
+  });
+
   testWidgets('PLT-01 event template saves variables and safely reopens', (
     tester,
   ) async {
@@ -212,7 +319,9 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.byKey(const Key('event-event-template')));
+    await tester.tap(find.byKey(const Key('eventMenu-event-template')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Editar evento'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('eventEmailTemplateTile')));
     await tester.tap(find.byKey(const Key('eventEmailTemplateTile')));

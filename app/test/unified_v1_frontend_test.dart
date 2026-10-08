@@ -267,11 +267,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Expo Nueva'), findsOneWidget);
 
-    final activeTop = tester.getTopLeft(
-      find
-          .ancestor(of: find.text('Expo Nueva'), matching: find.byType(InkWell))
-          .first,
-    );
+    final activeTop = tester.getTopLeft(find.text('Expo Nueva'));
     final previousActive = tester.getTopLeft(
       find.byKey(const Key('event-expo-alimentaria')),
     );

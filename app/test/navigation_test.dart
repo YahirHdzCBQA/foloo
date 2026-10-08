@@ -3,6 +3,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/app.dart';
 import 'package:foloo/widgets/event_date_field.dart';
 
+Finder eventMenuFor(String eventName) {
+  final card = find.ancestor(
+    of: find.text(eventName),
+    matching: find.byWidgetPredicate(
+      (widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith('event-'),
+    ),
+  );
+  return find.descendant(
+    of: card,
+    matching: find.byType(PopupMenuButton<String>),
+  );
+}
+
 void usePhoneViewport(WidgetTester tester) {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -190,7 +205,9 @@ void main() {
       tester.getSize(find.byKey(const Key('event-expo-alimentaria'))).height,
       62,
     );
-    await tester.tap(find.byKey(const Key('event-expo-alimentaria')));
+    await tester.tap(find.byKey(const Key('eventMenu-expo-alimentaria')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Editar evento'));
     await tester.pumpAndSettle();
     expect(find.text('Editar evento'), findsOneWidget);
     expect(find.byKey(const Key('editEventNameField')), findsOneWidget);
@@ -267,7 +284,9 @@ void main() {
     await tester.pumpAndSettle();
 
     await selectDrawerDestination(tester, const Key('drawerEvents'));
-    await tester.tap(find.text('Expo Fecha Editable'));
+    await tester.tap(eventMenuFor('Expo Fecha Editable'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Editar evento'));
     await tester.pumpAndSettle();
     expect(
       find.descendant(
@@ -291,7 +310,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('saveEventButton')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Expo Fecha Editable'));
+    await tester.tap(eventMenuFor('Expo Fecha Editable'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Editar evento'));
     await tester.pumpAndSettle();
     expect(
       find.descendant(
@@ -315,7 +336,9 @@ void main() {
     await tester.tap(find.byKey(const Key('captureAnotherButton')));
     await tester.pumpAndSettle();
     await selectDrawerDestination(tester, const Key('drawerEvents'));
-    await tester.tap(find.byKey(const Key('event-expo-alimentaria')));
+    await tester.tap(find.byKey(const Key('eventMenu-expo-alimentaria')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Editar evento'));
     await tester.pumpAndSettle();
     expect(
       find.descendant(
