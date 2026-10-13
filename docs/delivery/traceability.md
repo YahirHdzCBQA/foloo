@@ -4,7 +4,7 @@
 
 | IDs | Escenario | Decisión/ADR | Evidencia / pendientes |
 |---|---|---|---|
-| `AUT-*` | E-01 | ADR-002/006 | FL-019.5: login/alta email + federación Cognito Google; Microsoft Sign-In/OIDC queda temporalmente fuera de esta versión por conflicto de issuer y se oculta en Login/Crear cuenta sin retirar código reutilizable. Microsoft sender permanece independiente bajo SAL-*. Confirmación solo email y perfil sin fixtures; f1-01/02, f4-02 |
+| `AUT-*` | E-01 | ADR-002/006; D-21 | FL-019.5: login/alta email + federación Cognito Google; Microsoft Sign-In/OIDC queda temporalmente fuera de esta versión por conflicto de issuer y se oculta en Login/Crear cuenta sin retirar código reutilizable. Microsoft sender permanece independiente bajo SAL-*. STORE-02C documenta el riesgo Apple 4.8 y deja pendiente Sign in with Apple o retiro de Google en iOS; f1-01/02, f4-02 |
 | `EVT-*` | E-02 | ADR-001/004 | FL-017 estabiliza CRUD/tombstones; feedback Post-TestFlight homologa swipe Editar/Eliminar con alternativa accesible sin cambiar persistencia; tests event sync/UI/backend; f1-03–05 |
 | `CAP-*`, `OCR-*` | E-03–E-05 | ADR-001; D-11 | captura/ML Kit/Drift; f1-06–09, 11–14, 24 |
 | `VOZ-*` | E-04 | ADR-001; D-05/D-06 | voice service/media/tests; f1-10, 21–23 |
@@ -14,8 +14,8 @@
 | `PLT-*`, `SAL-*` | E-01/E-08 | ADR-006/007; D-09/D-14–D-20; D-16 superseded | FL-019 CLOSED conserva renderer, reconciliación, intención/outbox, Gmail/Graph y D-19. FL-019.5 comparte editor de chips/rayo/selector con overrides event-specific y corrige el ciclo de vida del sheet; mantiene el alcance Microsoft sender informado; f2-04/05, f4-04/12 |
 | `NAV-*` | E-12 | ADR-001 | Drawer global desde origen y módulos; header compartido; navegación IndexedStack sin acumulación; theme/l10n; f1-15/25/26 |
 | `MON-01`–`MON-11` | E-11 | ADR-004; D-01–D-04/D-11 | FL-020: cache/reservas Drift, workspace entitlement, contador PostgreSQL transaccional, bloqueo central y paywall informativo; compra real pendiente FL-021; f3-01–03/07 |
-| `INF-*`, `RC-*` | E-09/E-12/E-13 | ADR-001/002/003/005/006/007; D-10/D-13/D-16 superseded | backend AWS/S3/egreso seguro; FL-019.5 retira rutas/footer de unsubscribe sin borrar tablas; cumplimiento legal sigue pendiente |
-| `REL-*`, `RNF-*` | E-12 | decisiones aplicables | suite local parcial y round-trip UTF-8 en app/backend; f5-01–12 |
+| `INF-*`, `RC-*` | E-09/E-12/E-13 | ADR-001/002/003/005/006/007; D-10/D-13/D-16 superseded | backend AWS/S3/egreso seguro; FL-019.5 retira rutas/footer de unsubscribe sin borrar tablas; STORE-02C inventaría datos y propone eliminación integral sin cerrar D-13 en `privacy-compliance.md` |
+| `REL-*`, `RNF-*` | E-12 | D-13/D-21 y decisiones aplicables | suite local parcial y round-trip UTF-8; STORE-01 readiness en `store-readiness.md`; STORE-02B metadata/assets en `store-listing-materials.md`; STORE-02C matrices Apple/Google, permisos, Legal y plan P0/P1/P2 en `privacy-compliance.md`; f5-01–12 |
 
 Los IDs antiguos aún presentes en código/tests describen el origen histórico de
 una implementación. El texto actual de `docs/product/product-spec.md` gobierna;
@@ -131,9 +131,9 @@ interna sea reutilizable.
 | f5-04 | P | unit tests parser/preprocessor/ML Kit boundary | falta evento/tarjetas reales |
 | f5-05 | F | no hay pagos | después de monetización |
 | f5-06 | F | sin beta de campo documentada | salida a producción |
-| f5-07 | F | no hay evidencia repo de cuentas vigentes | operación externa |
-| f5-08 | F | sin paquete completo de tienda ES/EN | salida a producción |
-| f5-09 | P | permisos cámara/micrófono existen | faltan privacidad/términos/suscripción |
+| f5-07 | P | STORE-01 confirma publisher/Apple; Producto confirma Play Console Organization CBQA e invitación enviada | Apple requiere validar seller/membership/roles; Play requiere resolver acceso corporativo y verificaciones de identidad/sitio/teléfono |
+| f5-08 | P | STORE-02B deja fichas ES/EN, matriz visual y plan de screenshots; confirma iconos Flutter y launch base como placeholders | faltan aprobación CBQA, assets finales, capturas RC y carga STORE-03/04 |
+| f5-09 | P | STORE-02C inventaría datos/SDKs/permisos, matrices preliminares Apple/Google y diseño de eliminación | faltan decisión D-13/D-21, strings ES/EN, implementación P0, política legal, Privacy Report y formularios finales |
 | f5-10 | F | sin envío/revisión de tiendas | salida a producción |
 | f5-11 | F | sin tag/release notes/soporte V1 | salida a producción |
 | f5-12 | I | exportador XLSX/CSV real, Unicode y share sheet | FL-017 CLOSED; f2-06/f2-07 |

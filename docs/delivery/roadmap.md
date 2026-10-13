@@ -153,6 +153,49 @@ autoridad de FL-020.
 
 **Objetivo:** ficha, revisión de tiendas, tag, release notes y soporte V1.
 
+### STORE-01 — Store Publication Readiness Audit
+
+**Estado:** **COMPLETADA como auditoría documental el 2026-10-08; no autoriza
+publicación ni implementación.**
+
+- Matriz Apple/Google, inventario de privacidad, eliminación de cuenta,
+  dependencias FL-021, checklist empresarial y plan STORE-02–04:
+  [`store-readiness.md`](store-readiness.md).
+- Publisher confirmado: CBQA Solutions. Se reutiliza la cuenta Apple existente;
+  Google Play Console Organization ya existe; quedan pendientes la aceptación
+  de acceso corporativo y verificaciones de identidad, sitio y teléfono.
+- Bloqueos principales: eliminación de cuenta, privacidad/términos, Apple 4.8,
+  PROD, firma Android Release, assets Foloo, `D-01`–`D-04` y `D-13`.
+- STORE-02 remedia; STORE-03 prepara/valida RC y consolas; STORE-04 envía con
+  autorización explícita. Ninguna fase se inicia automáticamente.
+
+### STORE-02B — Identidad visual y materiales de tienda
+
+**Estado:** **PREPARADA documentalmente el 2026-10-09; pendiente aprobación de
+CBQA y producción de assets.**
+
+- Inventario de marca, iconos/splash placeholders, requisitos Apple/Google,
+  fichas ES/EN, plan de screenshots y checklist de carga:
+  [`store-listing-materials.md`](store-listing-materials.md).
+- No cambia Flutter ni reemplaza recursos. El logo/mark Foloo requiere
+  aprobación formal y los iconos/launch actuales siguen siendo placeholders.
+- Permanece dentro de FL-024/`REL-06`–`REL-07`; no resuelve STORE-01, FL-021,
+  `D-01`–`D-04`, `D-11` ni `D-13`, y no autoriza publicación.
+
+### STORE-02C — Privacy, Data Protection & Store Compliance
+
+**Estado:** **ESPECIFICADA documentalmente el 2026-10-09; sin implementación ni
+formularios enviados.**
+
+- Inventario técnico de datos, matrices preliminares Apple/Google, auditoría de
+  permisos, propuesta D-13, evaluación Apple 4.8 y plan P0/P1/P2:
+  [`privacy-compliance.md`](privacy-compliance.md).
+- Confirma que no existe eliminación integral; los tombstones actuales no la
+  sustituyen. `D-13` permanece abierta y `D-21` registra la elección pendiente
+  de Sign in with Apple o retiro de Google en iOS.
+- Requiere aprobación Legal/Producto y evidencia del RC antes de llenar App
+  Privacy/Data Safety. No cambia Flutter, backend, infraestructura ni cuentas.
+
 ## Exclusiones del plan V1
 
 No existen fases Basic E2E, capability Basic/Pro, Pro E2E, transcripción Pro ni

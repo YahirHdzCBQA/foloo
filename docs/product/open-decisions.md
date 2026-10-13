@@ -57,7 +57,28 @@ FL-019.5. No reabre ni cambia la semántica funcional cerrada de FL-019.
 
 ### `D-13` · Retención, cifrado local y eliminación legal
 
-**Bloquea:** producción de `INF-02`, `RC-02`–`RC-04`.
+STORE-02C confirmó que los tombstones de Event/Lead/Content y el logout no son
+eliminación integral de cuenta. Antes de implementar deben decidirse, por cada
+categoría de datos: base y plazo de retención, backups/logs, borrado físico S3,
+revocación OAuth, cifrado local adicional, tratamiento del outbox y barrera
+anti-resurrección, excepciones legales, SLA/confirmación y derechos del titular.
+La propuesta y alternativas están en
+[`../delivery/privacy-compliance.md`](../delivery/privacy-compliance.md).
+
+**Bloquea:** producción de `INF-02`, `RC-02`–`RC-04`, el flujo de eliminación
+in-app/web y las declaraciones finales App Privacy/Data Safety. No bloquea la
+documentación preliminar ni permite omitir la eliminación exigida por tiendas.
+
+### `D-21` · Alternativa equivalente para Google Sign-In en iOS
+
+**Pregunta:** aprobar Sign in with Apple mediante Cognito o retirar Google
+Sign-In de iOS. La lectura conservadora de Apple 4.8 no considera suficiente el
+login email/password mientras Google autentique la cuenta primaria; las
+excepciones publicadas no describen claramente el producto actual.
+
+**Bloquea:** configuración/implementación de la alternativa, account linking y
+submission pública iOS. No cambia `sub` como owner, no autoriza unir cuentas por
+email y no afecta el OAuth de sender.
 
 ## FL-019 · Decisiones resueltas el 2026-09-18
 
