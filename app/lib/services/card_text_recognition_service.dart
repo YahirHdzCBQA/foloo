@@ -4,6 +4,8 @@
 /// before returning ordered text lines for parsing.
 library;
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:foloo/utils/ocr/ocr_image_preprocessor.dart';
 
@@ -11,30 +13,146 @@ import 'package:foloo/utils/ocr/ocr_image_preprocessor.dart';
 // Google ML Kit is used on-device for early Foloo validation.
 // Final card extraction will move behind the Foloo backend
 // according to Article 3 and OCR-03/OCR-04.
-/// Wraps ML Kit recognition without exposing provider types to capture UI.
-class CardTextRecognitionService {
-  CardTextRecognitionService()
+enum OcrFailureStage { preprocessing, recognition }
+
+enum OcrTechnicalResult {
+  preprocessingSucceeded,
+  recognitionSucceededWithText,
+  recognitionSucceededWithoutText,
+  failed,
+}
+
+/// Enables sanitized OCR diagnostics only in an explicitly configured QA build.
+const bool ocrQaDiagnosticsEnabled = bool.fromEnvironment(
+  'FOLOO_OCR_QA_DIAGNOSTICS',
+  defaultValue: false,
+);
+
+/// Non-sensitive failure metadata emitted for physical Release diagnostics.
+class OcrDiagnostic {
+  const OcrDiagnostic({
+    required this.stage,
+    required this.result,
+    this.errorType,
+    this.platformCode,
+    this.candidateIndex,
+  });
+
+  final OcrFailureStage stage;
+  final OcrTechnicalResult result;
+  final String? errorType;
+  final String? platformCode;
+  final int? candidateIndex;
+
+  String get logMessage =>
+      'stage=${stage.name} result=${result.name} '
+      'errorType=${errorType ?? 'none'} '
+      'platformCode=${platformCode ?? 'none'} '
+      'candidate=${candidateIndex ?? 'none'}';
+}
+
+/// Technical OCR failure after every viable candidate failed to process.
+class OcrRecognitionException implements Exception {
+  const OcrRecognitionException(this.diagnostic);
+
+  final OcrDiagnostic diagnostic;
+}
+
+abstract interface class CardTextRecognizerEngine {
+  Future<List<String>> recognize(String imagePath);
+
+  Future<void> close();
+}
+
+class MlKitCardTextRecognizerEngine implements CardTextRecognizerEngine {
+  MlKitCardTextRecognizerEngine()
     : _recognizer = TextRecognizer(script: TextRecognitionScript.latin);
 
   final TextRecognizer _recognizer;
+
+  @override
+  Future<List<String>> recognize(String imagePath) async => _orderedLines(
+    await _recognizer.processImage(InputImage.fromFilePath(imagePath)),
+  );
+
+  @override
+  Future<void> close() => _recognizer.close();
+}
+
+typedef OcrCandidatePreparer = Future<List<String>> Function(String sourcePath);
+typedef OcrCandidateCleaner = Future<void> Function(Iterable<String> paths);
+typedef OcrDiagnosticReporter = void Function(OcrDiagnostic diagnostic);
+
+/// Wraps ML Kit recognition without exposing provider types to capture UI.
+class CardTextRecognitionService {
+  CardTextRecognitionService({
+    CardTextRecognizerEngine? engine,
+    OcrCandidatePreparer? prepareCandidates,
+    OcrCandidateCleaner? cleanCandidates,
+    OcrDiagnosticReporter? reportDiagnostic,
+  }) : _engine = engine ?? MlKitCardTextRecognizerEngine(),
+       _prepareCandidates =
+           prepareCandidates ?? OcrImagePreprocessor.prepareTemporaryCandidates,
+       _cleanCandidates =
+           cleanCandidates ?? OcrImagePreprocessor.deleteTemporaryCandidates,
+       _reportDiagnostic = reportDiagnostic ?? _defaultDiagnosticReporter;
+
+  final CardTextRecognizerEngine _engine;
+  final OcrCandidatePreparer _prepareCandidates;
+  final OcrCandidateCleaner _cleanCandidates;
+  final OcrDiagnosticReporter _reportDiagnostic;
 
   /// Recognizes an original card image through derived orientation candidates.
   ///
   /// The first sufficiently complete result wins; otherwise the highest-scored
   /// candidate is returned and uncertain field mapping remains the parser's job.
   Future<List<String>> recognizeLines(String imagePath) async {
-    final candidates = await OcrImagePreprocessor.prepareTemporaryCandidates(
-      imagePath,
+    late final List<String> candidates;
+    try {
+      candidates = await _prepareCandidates(imagePath);
+    } catch (error) {
+      final diagnostic = _diagnostic(
+        stage: OcrFailureStage.preprocessing,
+        error: error,
+      );
+      _reportDiagnostic(diagnostic);
+      throw OcrRecognitionException(diagnostic);
+    }
+    _reportDiagnostic(
+      const OcrDiagnostic(
+        stage: OcrFailureStage.preprocessing,
+        result: OcrTechnicalResult.preprocessingSucceeded,
+      ),
     );
     var bestLines = const <String>[];
     var bestScore = -1;
+    OcrDiagnostic? lastFailure;
+    var successfulCandidates = 0;
 
     try {
-      for (final candidatePath in candidates) {
-        final result = await _recognizer.processImage(
-          InputImage.fromFilePath(candidatePath),
-        );
-        final lines = _orderedLines(result);
+      for (var index = 0; index < candidates.length; index++) {
+        late final List<String> lines;
+        try {
+          lines = await _engine.recognize(candidates[index]);
+          successfulCandidates++;
+          _reportDiagnostic(
+            OcrDiagnostic(
+              stage: OcrFailureStage.recognition,
+              result: lines.isEmpty
+                  ? OcrTechnicalResult.recognitionSucceededWithoutText
+                  : OcrTechnicalResult.recognitionSucceededWithText,
+              candidateIndex: index,
+            ),
+          );
+        } catch (error) {
+          lastFailure = _diagnostic(
+            stage: OcrFailureStage.recognition,
+            error: error,
+            candidateIndex: index,
+          );
+          _reportDiagnostic(lastFailure);
+          continue;
+        }
         final score = scoreOcrLines(lines);
         if (score > bestScore) {
           bestScore = score;
@@ -45,13 +163,36 @@ class CardTextRecognitionService {
         // always invoking ML Kit for all four rotations (RNF-01).
         if (isHighConfidenceBusinessCardRead(lines)) break;
       }
+      if (successfulCandidates == 0 && lastFailure != null) {
+        throw OcrRecognitionException(lastFailure);
+      }
       return bestLines;
     } finally {
-      await OcrImagePreprocessor.deleteTemporaryCandidates(candidates);
+      await _cleanCandidates(candidates);
     }
   }
 
-  Future<void> close() => _recognizer.close();
+  Future<void> close() => _engine.close();
+}
+
+OcrDiagnostic _diagnostic({
+  required OcrFailureStage stage,
+  required Object error,
+  int? candidateIndex,
+}) => OcrDiagnostic(
+  stage: stage,
+  result: OcrTechnicalResult.failed,
+  errorType: error.runtimeType.toString(),
+  platformCode: error is PlatformException ? error.code : null,
+  candidateIndex: candidateIndex,
+);
+
+void _defaultDiagnosticReporter(OcrDiagnostic diagnostic) {
+  if (!ocrQaDiagnosticsEnabled) return;
+  // STORE-03D: excludes image/text/path and arbitrary exception messages.
+  // debugPrint reaches Android logcat in Release while the compile-time flag
+  // keeps ordinary distribution builds silent.
+  debugPrint('foloo.ocr: ${diagnostic.logMessage}');
 }
 
 List<String> _orderedLines(RecognizedText result) {

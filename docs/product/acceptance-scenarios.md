@@ -278,8 +278,11 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Las trece columnas aparecen en el orden de `REG-11`, con vacíos como celda
   vacía, encabezados ES/EN y fecha local con offset.
 - CSV usa BOM UTF-8 y escaping RFC 4180; XLSX es un archivo real. Ambos
-  preservan Unicode, omiten medios/IDs/estado técnico y se comparten mediante
-  la hoja del sistema con el filename de `REG-12`.
+  preservan Unicode, omiten medios/IDs/estado técnico y conservan Compartir
+  mediante la hoja del sistema con el filename de `REG-12`.
+- En Android 10+, Guardar en dispositivo abre el selector nativo, propone el
+  filename y MIME correctos, no solicita acceso amplio al almacenamiento y
+  distingue éxito, cancelación y error sin inventar una ubicación.
 - El retorno del share sheet muestra éxito genérico; solo diferencia
   cancelación/destino cuando la plataforma lo reporta, sin inventar rutas.
 

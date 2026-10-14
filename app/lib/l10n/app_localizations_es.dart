@@ -254,6 +254,21 @@ class AppLocalizationsEs extends AppLocalizations {
   String get exportCompleted => 'Exportación completada';
 
   @override
+  String get shareExport => 'Compartir';
+
+  @override
+  String get saveExportToDevice => 'Guardar en dispositivo';
+
+  @override
+  String get exportSavedToDevice => 'Archivo guardado en el dispositivo.';
+
+  @override
+  String get exportSaveCancelled => 'Guardado cancelado.';
+
+  @override
+  String get exportSaveFailed => 'No se pudo guardar el archivo.';
+
+  @override
   String get emailNotSent => 'Sin seguimiento enviado';
 
   @override
@@ -787,6 +802,10 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get cardReadIncomplete =>
       'Lectura completada. Completa los datos faltantes manualmente.';
+
+  @override
+  String get cardNoTextDetected =>
+      'No se detectó texto. Puedes intentarlo otra vez o continuar manualmente.';
 
   @override
   String get cardReadError =>

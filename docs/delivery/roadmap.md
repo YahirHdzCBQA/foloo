@@ -196,6 +196,99 @@ formularios enviados.**
 - Requiere aprobación Legal/Producto y evidencia del RC antes de llenar App
   Privacy/Data Safety. No cambia Flutter, backend, infraestructura ni cuentas.
 
+### STORE-03B — Android Release APK y distribución privada
+
+**Estado:** **CLOSED TÉCNICAMENTE; QA privado consolidado en Build 6.**
+
+- Sustituye la firma Debug del build Release por un keystore Foloo externo al
+  repositorio y credenciales locales inyectadas por entorno. El desarrollador
+  es custodio temporal; respaldo cifrado y transferencia formal a TI siguen
+  pendientes de confirmación empresarial.
+- Produce un APK `1.0.0+2` exclusivamente para pruebas autorizadas contra DEV;
+  no crea PROD, no publica en Google Play y no cambia iOS.
+- Procedimiento reproducible, instalación, actualización y checklist manual:
+  [`android-private-distribution.md`](android-private-distribution.md).
+- El QA físico privado quedó completado en Build 6; `REL-01`, `REL-02`,
+  `REL-06` y `REL-07` conservan pendientes el acceso a Play Console y los
+  requisitos de publicación pública restantes.
+
+### STORE-03C — Corrección OCR y exportaciones Android Release
+
+**Estado:** **CLOSED; exportación validada y OCR resuelto por STORE-03D–03F.**
+
+- El primer QA físico aprobó 8/10 áreas de STORE-03B y dejó abiertos OCR y
+  exportación. El APK contiene el modelo latino bundled; la causa técnica OCR
+  no puede cerrarse sin la excepción actualmente descartada y se instrumenta
+  sin registrar imagen, texto reconocido, rutas ni PII.
+- Conserva Compartir y añade Guardar en dispositivo para XLSX/CSV mediante el
+  selector nativo Android 10+, sin permisos amplios de almacenamiento.
+- Las actualizaciones privadas conservaron package/certificado y aumentaron
+  `versionCode`; la validación final consolidada corresponde al build 6.
+
+### STORE-03D — Diagnóstico definitivo de OCR Android Release
+
+**Estado:** **EVIDENCIA NATIVA OBTENIDA; superseded operacionalmente por
+STORE-03E.**
+
+- Dos dispositivos Android reproducen el fallo en Cámara y Galería. El build 3
+  no entregó la excepción nativa porque el diagnóstico no estaba controlado por
+  una configuración Release de QA recuperable.
+- Un build privado 4 puede habilitar exclusivamente con
+  `FOLOO_OCR_QA_DIAGNOSTICS=true` eventos técnicos sanitizados de preparación,
+  intento ML Kit y resultado, deshabilitados por defecto en distribución.
+- No cambia R8, modelo, pipeline ni dependencias sin conocer primero etapa,
+  tipo/código de plataforma e intento reales. STORE-03D solo puede cerrarse
+  cuando Cámara y Galería reconozcan texto latino en Android Release físico.
+
+### STORE-03E — Aislamiento del fallo nativo OCR Android Release
+
+**Estado:** **COMPLETADA COMO DIAGNÓSTICO; Build 5 validado físicamente.**
+
+- Build 4 confirmó preprocesamiento exitoso y un `PlatformException(error)`
+  nativo repetible en las cinco orientaciones. Retrace con el mapping exacto
+  ubica el `NullPointerException` en `vision-common:17.3.0`, dentro de
+  `zzmj.<init>` invocado por `zzmr.create`; eso identifica el punto de fallo,
+  pero no prueba por sí solo causalidad de R8.
+- Build 5 conserva package, certificado, AWS DEV, dependencias y pipeline OCR;
+  solo desactiva minificación y resource shrinking mediante el flag local de
+  QA `FOLOO_ANDROID_DISABLE_R8_FOR_OCR_QA=true`.
+- Durante STORE-03E no se agregó una regla ProGuard ni se cambió permanentemente
+  Release antes de comparar Cámara y Galería en el mismo Android físico. La
+  revalidación con R8 activo corresponde a STORE-03F.
+
+Build 5 reconoció correctamente desde Cámara y Galería. Esto confirma que la
+diferencia de optimización del build 4 es causal, pero no convierte desactivar
+R8 en solución permanente.
+
+### STORE-03F — Corrección ML Kit OCR con R8 habilitado
+
+**Estado:** **CLOSED — BUILD 6 OPTIMIZADO VALIDADO FÍSICAMENTE.**
+
+- `firebase-components:16.1.0` conserva las clases `ComponentRegistrar` con una
+  regla anterior a AGP 9 strict full mode. En build 4 R8 mantuvo
+  `CommonComponentRegistrar`, pero eliminó su constructor público sin
+  argumentos; el descubrimiento reflectivo no pudo crear el registrar y
+  `SharedPrefManager` nunca quedó registrado.
+- La corrección conserva exclusivamente el constructor público sin argumentos
+  de implementaciones `ComponentRegistrar`. R8, optimización, obfuscación y
+  resource shrinking permanecen activos; no se conserva globalmente ML Kit ni
+  Google.
+- QA físico del responsable aprobó en `1.0.0+6`: OCR desde Cámara y Galería,
+  conservación de datos/sesión, exportación CSV/XLSX, sincronización AWS DEV y
+  persistencia tras reinicio. La regla mínima queda como configuración Release.
+
+### STORE-03G — Cierre técnico y distribución Android privada
+
+**Estado:** **PREPARADA; pendientes autorización de distribución y commits.**
+
+- Consolida la auditoría STORE-03B–03F y conserva build 6 como candidato privado
+  para testers autorizados, siempre contra AWS DEV.
+- No publica en Google Play, no crea un enlace público y no distribuye el APK
+  automáticamente. Firma, hash, instrucciones y reporte están documentados en
+  [`android-private-distribution.md`](android-private-distribution.md).
+- Los cambios Git quedan listos para commits lógicos, sin ejecutarlos ni hacer
+  push hasta autorización expresa.
+
 ## Exclusiones del plan V1
 
 No existen fases Basic E2E, capability Basic/Pro, Pro E2E, transcripción Pro ni

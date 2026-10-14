@@ -548,6 +548,36 @@ abstract class AppLocalizations {
   /// **'Exportación completada'**
   String get exportCompleted;
 
+  /// No description provided for @shareExport.
+  ///
+  /// In es, this message translates to:
+  /// **'Compartir'**
+  String get shareExport;
+
+  /// No description provided for @saveExportToDevice.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar en dispositivo'**
+  String get saveExportToDevice;
+
+  /// No description provided for @exportSavedToDevice.
+  ///
+  /// In es, this message translates to:
+  /// **'Archivo guardado en el dispositivo.'**
+  String get exportSavedToDevice;
+
+  /// No description provided for @exportSaveCancelled.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardado cancelado.'**
+  String get exportSaveCancelled;
+
+  /// No description provided for @exportSaveFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo guardar el archivo.'**
+  String get exportSaveFailed;
+
   /// No description provided for @emailNotSent.
   ///
   /// In es, this message translates to:
@@ -1531,6 +1561,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Lectura completada. Completa los datos faltantes manualmente.'**
   String get cardReadIncomplete;
+
+  /// No description provided for @cardNoTextDetected.
+  ///
+  /// In es, this message translates to:
+  /// **'No se detectó texto. Puedes intentarlo otra vez o continuar manualmente.'**
+  String get cardNoTextDetected;
 
   /// No description provided for @cardReadError.
   ///

@@ -33,6 +33,8 @@ const _allRecordsFilterId = '__all_records__';
 const _allEventsFilterId = '__all_events__';
 const _directLeadsFilterId = '__direct_leads__';
 
+enum _ExportDelivery { share, saveToDevice }
+
 String _leadTypeLabel(BuildContext context, LeadType type) => switch (type) {
   LeadType.supplier => context.l10n.supplier,
   LeadType.partner => context.l10n.partner,
@@ -84,6 +86,8 @@ class RecordsScreen extends StatefulWidget {
     this.onLeadUpdated,
     this.exportService = const RecordsExportService(),
     this.fileSharer = const DeviceRecordsFileSharer(),
+    this.fileSaver = const DeviceRecordsFileSaver(),
+    this.deviceSaveAvailable,
     this.ownerSub,
     this.deliveryRepository,
     this.onSendQueued,
@@ -110,6 +114,8 @@ class RecordsScreen extends StatefulWidget {
   onLeadUpdated;
   final RecordsExportService exportService;
   final RecordsFileSharer fileSharer;
+  final RecordsFileSaver fileSaver;
+  final bool? deviceSaveAvailable;
   final String? ownerSub;
   final EmailDeliveryRepository? deliveryRepository;
   final VoidCallback? onSendQueued;
@@ -138,6 +144,9 @@ class _RecordsScreenState extends State<RecordsScreen>
   String _eventId = _allRecordsFilterId;
   String? _openSwipeLeadId;
   List<StoredEmailFollowUp> _followUps = const [];
+
+  bool get _canSaveExportToDevice =>
+      widget.deviceSaveAvailable ?? Platform.isAndroid;
   List<StoredEmailSendIntent> _emailIntents = const [];
   StreamSubscription<List<StoredEmailFollowUp>>? _followUpsSubscription;
   StreamSubscription<List<StoredEmailSendIntent>>? _intentsSubscription;
@@ -554,35 +563,39 @@ class _RecordsScreenState extends State<RecordsScreen>
                         setDialogState(() => format = RecordsExportFormat.csv),
                   ),
                   const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: () => Navigator.pop(dialogContext),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: FolooPalette.of(context).paper,
-                            foregroundColor: FolooPalette.of(context).ink,
-                          ),
-                          child: Text(context.l10n.cancel),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: FilledButton.icon(
-                          key: const Key('confirmExportButton'),
-                          onPressed: () async {
-                            Navigator.pop(dialogContext);
-                            await _export(target!, format);
-                          },
-                          style: FilledButton.styleFrom(
-                            backgroundColor: FolooPalette.of(context).ink,
-                            foregroundColor: FolooPalette.of(context).card,
-                          ),
-                          icon: const Icon(Icons.download_outlined, size: 17),
-                          label: Text(context.l10n.export),
-                        ),
-                      ),
-                    ],
+                  if (_canSaveExportToDevice) ...[
+                    OutlinedButton.icon(
+                      key: const Key('saveExportToDeviceButton'),
+                      onPressed: () async {
+                        Navigator.pop(dialogContext);
+                        await _export(
+                          target!,
+                          format,
+                          _ExportDelivery.saveToDevice,
+                        );
+                      },
+                      icon: const Icon(Icons.save_alt_outlined, size: 17),
+                      label: Text(context.l10n.saveExportToDevice),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  FilledButton.icon(
+                    key: const Key('confirmExportButton'),
+                    onPressed: () async {
+                      Navigator.pop(dialogContext);
+                      await _export(target!, format, _ExportDelivery.share);
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: FolooPalette.of(context).ink,
+                      foregroundColor: FolooPalette.of(context).card,
+                    ),
+                    icon: const Icon(Icons.ios_share_outlined, size: 17),
+                    label: Text(context.l10n.shareExport),
+                  ),
+                  const SizedBox(height: 4),
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: Text(context.l10n.cancel),
                   ),
                 ],
               ),
@@ -687,6 +700,7 @@ class _RecordsScreenState extends State<RecordsScreen>
   Future<void> _export(
     _RecordsExportTarget target,
     RecordsExportFormat format,
+    _ExportDelivery delivery,
   ) async {
     final l10n = context.l10n;
     final box = context.findRenderObject() as RenderBox?;
@@ -732,14 +746,27 @@ class _RecordsScreenState extends State<RecordsScreen>
               format: format,
               labels: labels,
             );
+      if (delivery == _ExportDelivery.saveToDevice) {
+        final outcome = await widget.fileSaver.save(file);
+        if (!mounted) return;
+        final message = outcome == RecordsFileSaveOutcome.saved
+            ? context.l10n.exportSavedToDevice
+            : context.l10n.exportSaveCancelled;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
+        return;
+      }
       await widget.fileSharer.share(file, origin: origin);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(context.l10n.exportCompleted)));
     } on Object {
       if (!mounted) return;
+      final message = delivery == _ExportDelivery.saveToDevice
+          ? context.l10n.exportSaveFailed
+          : context.l10n.exportFailed;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(context.l10n.exportFailed)));
+          .showSnackBar(SnackBar(content: Text(message)));
     }
   }
 

@@ -250,6 +250,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exportCompleted => 'Export completed';
 
   @override
+  String get shareExport => 'Share';
+
+  @override
+  String get saveExportToDevice => 'Save to device';
+
+  @override
+  String get exportSavedToDevice => 'File saved to the device.';
+
+  @override
+  String get exportSaveCancelled => 'Save cancelled.';
+
+  @override
+  String get exportSaveFailed => 'The file could not be saved.';
+
+  @override
   String get emailNotSent => 'No follow-up sent';
 
   @override
@@ -782,6 +797,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get cardReadIncomplete =>
       'Scan complete. Complete the missing details manually.';
+
+  @override
+  String get cardNoTextDetected =>
+      'No text was detected. Try again or continue manually.';
 
   @override
   String get cardReadError =>

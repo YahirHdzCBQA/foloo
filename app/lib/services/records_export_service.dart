@@ -1,4 +1,4 @@
-/// Builds owner/event-scoped Records exports and shares one private temp file.
+/// Builds owner/event-scoped exports and delivers them through platform UI.
 ///
 /// The service owns the exact REG-09–REG-13 column contract. It never includes
 /// technical identifiers, sync metadata, media paths or binary content.
@@ -10,6 +10,7 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:excel_community/excel_community.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -202,6 +203,30 @@ class RecordsExportService {
 
 abstract interface class RecordsFileSharer {
   Future<void> share(RecordsExportFile file, {Rect? origin});
+}
+
+enum RecordsFileSaveOutcome { saved, cancelled }
+
+abstract interface class RecordsFileSaver {
+  Future<RecordsFileSaveOutcome> save(RecordsExportFile file);
+}
+
+/// Uses Android's document picker/Storage Access Framework without broad
+/// storage permission. The caller decides whether this action is exposed.
+class DeviceRecordsFileSaver implements RecordsFileSaver {
+  const DeviceRecordsFileSaver();
+
+  @override
+  Future<RecordsFileSaveOutcome> save(RecordsExportFile file) async {
+    final uri = await FilePicker.saveFile(
+      fileName: file.filename,
+      bytes: file.bytes,
+      mimeType: file.mimeType,
+    );
+    return uri == null
+        ? RecordsFileSaveOutcome.cancelled
+        : RecordsFileSaveOutcome.saved;
+  }
 }
 
 /// Writes only to the app temp area and removes the file after the share sheet.

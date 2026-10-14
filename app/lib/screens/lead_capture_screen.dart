@@ -505,7 +505,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
           card.email.isNotEmpty &&
           card.phone.isNotEmpty;
       setState(() {
-        _imageMessage = coreFieldsDetected
+        _imageMessage = lines.isEmpty
+            ? context.l10n.cardNoTextDetected
+            : coreFieldsDetected
             ? context.l10n.cardReadSuccess
             : context.l10n.cardReadIncomplete;
       });

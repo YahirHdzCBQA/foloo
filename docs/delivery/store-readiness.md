@@ -85,10 +85,10 @@ roles, acuerdos y el build que realmente está en TestFlight.
 | Cuenta Organization | Parcial / validación externa | Producto confirma cuenta CBQA e invitación developer enviada | Resolver acceso corporativo y verificar owner/roles; completar identidad, sitio web y teléfono sin crear otra cuenta. |
 | Application ID | Listo y verificado | `com.foloo.foloo` en `app/android/app/build.gradle.kts` | Confirmar disponibilidad/titularidad en Play Console antes de crear el app record. |
 | SDK | Listo técnico / revalidar al envío | minSdk 29; Flutter 3.47.4 resuelve compile/target SDK 36 | API 36 satisface el requisito vigente desde 2026-08-31; volver a consultar política en STORE-04. |
-| Gradle/JDK | Parcial | AGP 9.1.0, Kotlin 2.4.0, Java 17; Gradle offline no pudo resolver artefactos transitorios no cacheados | Fijar toolchain CI y ejecutar build Release limpio con red controlada. |
-| Firma Release | Pendiente crítico | `release.signingConfig` apunta explícitamente a `debug` | Definir upload key segura y Play App Signing. No reutilizar debug ni guardar claves/contraseñas en Git. |
+| Gradle/JDK | Listo para APK privado / revalidar | AGP 9.1.0, Kotlin 2.4.0 y Java 17 produjeron el APK Release de STORE-03B; Flutter advierte una migración futura de plugins Amplify a Built-in Kotlin | Fijar toolchain CI, vigilar la compatibilidad Amplify/Kotlin y repetir un build limpio antes del RC público. |
+| Firma Release | Parcial / STORE-03B | Release usa una clave Foloo independiente fuera de Git y credenciales por entorno; el desarrollador es custodio temporal | Confirmar respaldo cifrado, transferir custodia a TI y decidir upload/app-signing keys antes de Play. |
 | AAB | Pendiente | No existe `.aab` en artifacts locales inspeccionados | Generar AAB Release firmado solo en STORE-02/03, luego validar con bundletool/Play. |
-| Permisos | Parcial | Main manifest declara `RECORD_AUDIO`; cámara/galería usan intents/pickers | Confirmar manifest fusionado Release y justificación de micrófono. `INTERNET` solo aparece directamente en manifests debug/profile; la generación fusionada no pudo cerrarse offline. |
+| Permisos | Listo técnico / QA físico pendiente | Main y manifest fusionado Release declaran `INTERNET` y `RECORD_AUDIO`; cámara/galería usan intents/pickers sin permisos amplios de almacenamiento | Validar concesión/denegación y recuperación en Android físico. |
 | OAuth/deep links | Listo parcial | `foloo://callback` y `foloo://signout` con VIEW/BROWSABLE; Custom Tabs query | Probar Google login/sign-out con AAB de internal testing y verificar configuración Android en Cognito. |
 | Icono | Pendiente | Solo mipmaps legacy 48–192 con icono Flutter; sin adaptive/monochrome icon | Crear icono Foloo adaptive, foreground/background y monochrome según el soporte objetivo. |
 | Nombre visible | Pendiente | `android:label="foloo"` | Confirmar capitalización `Foloo` y localización si aplica. |
@@ -251,14 +251,16 @@ como consecuencia de STORE-01.
   únicamente matrices preliminares.
 - Revisión Apple 4.8 por Google Sign-In sin alternativa equivalente confirmada.
 - Runtime exclusivamente DEV.
-- Android Release firmado con debug.
+- Firma Android apta solo para distribución privada; respaldo, transferencia a
+  TI y estrategia Play App Signing siguen pendientes.
 - Assets de icono Flutter, no Foloo.
 - FL-021/D-01–D-04 si la versión pública mantiene el bloqueo por suscripción.
 
 ### P1 — alta probabilidad de rechazo o fallo
 
 - Retención/eliminación física y revocación sender abiertas por D-13.
-- Manifest Release Android no verificado; `INTERNET` no está declarado en main.
+- Distribución privada de build 6 aún requiere autorización y canal restringido;
+  instalación y QA físico ya fueron completados.
 - Purpose strings iOS solo ES e incompletos para todos los usos de fotos.
 - Falta AAB/internal testing, QA iPad/orientaciones y cuenta demo de review.
 - `ITSAppUsesNonExemptEncryption=false` sin determinación documentada.
@@ -289,6 +291,31 @@ Generar archives/AAB de Release reproducibles; ejecutar E2E en iOS/Android,
 restore/offline/delete-account/pagos sandbox; subir únicamente a TestFlight e
 internal/closed testing cuando se autorice; completar borradores de fichas y
 formularios sin enviar a producción.
+
+STORE-03B adelanta únicamente un APK Android Release firmado para pruebas
+privadas contra DEV mientras el acceso Play continúa pendiente. El procedimiento
+y sus límites están en
+[`android-private-distribution.md`](android-private-distribution.md). No es un
+artefacto público ni sustituye un AAB/Play App Signing. La instalación y el QA
+físico privados concluyeron satisfactoriamente con Build 6; el acceso a Play y
+la preparación de publicación pública permanecen pendientes.
+
+La primera ronda física aprobó 8/10 áreas y dejó abiertos OCR y exportación.
+STORE-03C implementó Guardar XLSX/CSV mediante el selector nativo Android sin
+retirar Compartir. STORE-03D diagnosticó en Build 4 un NPE de
+`vision-common:17.3.0` después de preprocesamiento exitoso y STORE-03E confirmó
+en Build 5 que el fallo dependía de R8. STORE-03F aplicó la regla mínima de
+conservación y el QA físico de Build 6 cerró ambas áreas con R8 y resource
+shrinking activos.
+
+Build 5 funcionó físicamente desde Cámara y Galería. STORE-03F encontró que el
+consumer rule de `firebase-components:16.1.0` no conserva el constructor
+reflectivo de `ComponentRegistrar` con AGP 9 strict full mode. Build 6 agrega
+solo esa conservación y vuelve a habilitar R8 y resource shrinking. El QA
+físico reportado aprobó OCR Cámara/Galería, conservación de datos y sesión,
+CSV/XLSX, sincronización AWS DEV y persistencia tras reinicio. STORE-03F queda
+CLOSED; STORE-03G limita el siguiente paso a distribución privada autorizada y
+preparación de commits, sin publicación automática.
 
 ### STORE-04 — Submission & Review
 
@@ -344,7 +371,7 @@ Consulta: **2026-10-08**. Estas políticas deben revalidarse antes de STORE-04.
 - Revisión estática completa de SDD, ADRs, Flutter, iOS, Android, auth, datos,
   backend, infraestructura, permisos, OAuth, storage y pagos.
 - Se inspeccionó el archive iOS local sin modificar cuentas ni certificados.
-- Se intentó generar el manifest fusionado Android Release con Gradle offline;
-  la tarea no pudo completarse porque faltan artefactos transitivos de build en
-  caché. No se descargaron dependencias ni se generó AAB.
+- STORE-03B generó e inspeccionó un APK Release firmado para DEV y su manifest
+  fusionado: `INTERNET`, `RECORD_AUDIO`, callbacks Cognito y SDK 29–36 quedaron
+  confirmados. No se generó AAB ni se publicó o instaló el APK.
 - No se ejecutaron app, deploy, migraciones, uploads, inscripciones ni pagos.

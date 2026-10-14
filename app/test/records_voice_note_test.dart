@@ -57,6 +57,8 @@ Widget recordsApp(
   Future<void> Function()? onSync,
   bool syncing = false,
   RecordsFileSharer fileSharer = const _FakeRecordsFileSharer(),
+  RecordsFileSaver fileSaver = const _FakeRecordsFileSaver(),
+  bool? deviceSaveAvailable,
   Future<void> Function(SessionLead, LeadDraft)? onLeadUpdated,
   Future<String?> Function(String eventId)? eventNameForId,
   Locale locale = const Locale('es'),
@@ -84,6 +86,8 @@ Widget recordsApp(
     onSync: onSync,
     syncing: syncing,
     fileSharer: fileSharer,
+    fileSaver: fileSaver,
+    deviceSaveAvailable: deviceSaveAvailable,
     onLeadUpdated: onLeadUpdated,
     onDelete: onDelete,
     onEmailReviewRequested: onEmailReviewRequested,
@@ -106,6 +110,27 @@ class _CapturingRecordsFileSharer implements RecordsFileSharer {
   @override
   Future<void> share(RecordsExportFile file, {Rect? origin}) async {
     this.file = file;
+  }
+}
+
+class _FakeRecordsFileSaver implements RecordsFileSaver {
+  const _FakeRecordsFileSaver();
+
+  @override
+  Future<RecordsFileSaveOutcome> save(RecordsExportFile file) async =>
+      RecordsFileSaveOutcome.saved;
+}
+
+class _CapturingRecordsFileSaver implements RecordsFileSaver {
+  _CapturingRecordsFileSaver(this.outcome);
+
+  final RecordsFileSaveOutcome outcome;
+  RecordsExportFile? file;
+
+  @override
+  Future<RecordsFileSaveOutcome> save(RecordsExportFile file) async {
+    this.file = file;
+    return outcome;
   }
 }
 
@@ -653,6 +678,87 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Exportar registros'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Android export can save CSV without replacing Share', (
+    tester,
+  ) async {
+    final sharer = _CapturingRecordsFileSharer();
+    final saver = _CapturingRecordsFileSaver(RecordsFileSaveOutcome.saved);
+    await tester.pumpWidget(
+      recordsApp(
+        FakeVoiceNoteService(),
+        records: [
+          SessionLead(
+            localId: 'android-export',
+            folio: null,
+            capturedAt: DateTime(2026, 10, 14),
+            lead: lead(),
+          ),
+        ],
+        events: [
+          AppEvent(
+            id: 'expo-alimentaria',
+            name: 'Evento Android',
+            startsOn: DateTime(2026, 10, 14),
+            endsOn: DateTime(2026, 10, 14),
+            active: true,
+          ),
+        ],
+        fileSharer: sharer,
+        fileSaver: saver,
+        deviceSaveAvailable: true,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('exportButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Evento Android').last);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('saveExportToDeviceButton')), findsOneWidget);
+    expect(find.byKey(const Key('confirmExportButton')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('exportCsvOption')));
+    await tester.tap(find.byKey(const Key('saveExportToDeviceButton')));
+    await tester.pumpAndSettle();
+
+    expect(saver.file?.filename, endsWith('.csv'));
+    expect(saver.file?.mimeType, 'text/csv');
+    expect(saver.file?.bytes.take(3), [0xEF, 0xBB, 0xBF]);
+    expect(sharer.file, isNull);
+    expect(find.text('Archivo guardado en el dispositivo.'), findsOneWidget);
+  });
+
+  testWidgets('Android native save cancellation is not reported as failure', (
+    tester,
+  ) async {
+    final saver = _CapturingRecordsFileSaver(RecordsFileSaveOutcome.cancelled);
+    await tester.pumpWidget(
+      recordsApp(
+        FakeVoiceNoteService(),
+        records: const [],
+        events: [
+          AppEvent(
+            id: 'event-cancel',
+            name: 'Evento Cancelar',
+            startsOn: DateTime(2026, 10, 14),
+            endsOn: DateTime(2026, 10, 14),
+            active: true,
+          ),
+        ],
+        fileSaver: saver,
+        deviceSaveAvailable: true,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('exportButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Evento Cancelar').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('saveExportToDeviceButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Guardado cancelado.'), findsOneWidget);
+    expect(find.text('No se pudo guardar el archivo.'), findsNothing);
   });
 
   testWidgets('REG-07 detail edits structured data and leaves media out', (

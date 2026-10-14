@@ -39,8 +39,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   # Prototipo: cámara/galería requeridas por RF-01.
   image_picker: ^1.2.1
-  # Prototipo demo heredado: OCR local, separado de la arquitectura productiva
-  # OCR-03/OCR-04, que exige extracción detrás del backend Foloo.
+  # OCR-02/OCR-03: bundled on-device Latin text recognition for card capture.
   google_mlkit_text_recognition: ^0.17.1
   # OCR-02/OCR-04: on-device preprocessing of temporary image copies.
   # Flutter and ML Kit do not expose EXIF baking or pixel-level normalization.
