@@ -50,9 +50,12 @@ void main() {
   Future<LocalPersistence> persistenceFor(
     String owner,
     String status,
-    int used,
-  ) async {
-    final persistence = LocalPersistence.inMemory();
+    int used, {
+    bool unlimitedQaMode = false,
+  }) async {
+    final persistence = LocalPersistence.inMemory(
+      unlimitedQaMode: unlimitedQaMode,
+    );
     await persistence.profiles.save(
       owner,
       const DemoProfile(name: 'Seller', company: 'Foloo'),
@@ -122,5 +125,40 @@ void main() {
 
     expect(find.byKey(const Key('leadCaptureScreen')), findsOneWidget);
     expect(find.byKey(const ValueKey('paywallScreen')), findsNothing);
+  });
+
+  testWidgets('Unlimited QA bypasses Paywall and hides trial balance', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    const owner = 'unlimited-owner';
+    final persistence = await persistenceFor(
+      owner,
+      'trial_exhausted',
+      5,
+      unlimitedQaMode: true,
+    );
+    addTearDown(persistence.close);
+
+    await tester.pumpWidget(
+      FolooApp(
+        persistence: persistence,
+        authRepository: AuthRepository(const _RestoredAuthService(owner)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('originContinueButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('leadCaptureScreen')), findsOneWidget);
+    expect(find.byKey(const ValueKey('paywallScreen')), findsNothing);
+    expect(find.byKey(const Key('captureTrialBalance')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('hamburgerMenuButton')).first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('drawerEntitlement')), findsNothing);
   });
 }

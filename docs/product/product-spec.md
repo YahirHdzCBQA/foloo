@@ -286,6 +286,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `MON-09` | Eliminar o tombstonear un Lead nunca devuelve un uso, incluso si fue creado offline o eliminado antes de sincronizar. |
 | `MON-10` | Dos creaciones concurrentes server-side serializan el entitlement de la cuenta: 4/5 puede llegar solo a 5/5, nunca 6/5. |
 | `MON-11` | Si varios dispositivos consumen offline el mismo saldo, cada uno preserva sus Leads locales; al reconectar el servidor acepta solo el saldo autoritativo y los excedentes quedan visibles con error recuperable, sin pérdida ni duplicación. |
+| `MON-12` | FL-020.5 permite suspender temporalmente solo el bloqueo de nuevas capturas en builds QA conectados a AWS DEV mediante opt-in explícito y coincidente en Flutter/backend. La excepción no concede `active`, no altera pagos ni incrementa/reinicia `trialLeadsUsed`; desactivada, `MON-01`–`MON-11` vuelven a regir. Leads creados durante QA permanecen visibles, editables, exportables y sincronizables. |
 
 ## 5. Infraestructura y no funcionales
 

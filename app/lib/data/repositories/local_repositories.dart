@@ -12,6 +12,7 @@ import 'package:drift/native.dart';
 import 'package:uuid/uuid.dart';
 import 'package:path/path.dart' as p;
 
+import '../../config/qa_runtime_flags.dart';
 import '../../models/app_event.dart';
 import '../../models/content_file.dart';
 import '../../models/email_template.dart';
@@ -1711,7 +1712,11 @@ class LocalPersistence {
     this.database,
     this.mediaStorage, {
     this.deleteMediaOnClose = false,
-  }) : entitlements = EntitlementRepository(database),
+    bool unlimitedQaMode = false,
+  }) : entitlements = EntitlementRepository(
+         database,
+         unlimitedQaMode: unlimitedQaMode,
+       ),
        profiles = ProfileRepository(database, mediaStorage: mediaStorage),
        preferences = PreferencesRepository(database),
        templates = EmailTemplateRepository(database),
@@ -1723,9 +1728,16 @@ class LocalPersistence {
        leads = LeadRepository(
          database,
          mediaStorage,
-         entitlements: EntitlementRepository(database),
+         entitlements: EntitlementRepository(
+           database,
+           unlimitedQaMode: unlimitedQaMode,
+         ),
        ),
-       syncStore = SyncStore(database, mediaStorage: mediaStorage);
+       syncStore = SyncStore(
+         database,
+         mediaStorage: mediaStorage,
+         unlimitedQaMode: unlimitedQaMode,
+       );
 
   final AppDatabase database;
   final PrivateMediaStorage mediaStorage;
@@ -1742,10 +1754,16 @@ class LocalPersistence {
   final LeadRepository leads;
   final SyncStore syncStore;
 
-  static Future<LocalPersistence> production() async =>
-      LocalPersistence._(AppDatabase(), await PrivateMediaStorage.production());
+  static Future<LocalPersistence> production() async => LocalPersistence._(
+    AppDatabase(),
+    await PrivateMediaStorage.production(),
+    unlimitedQaMode: folooUnlimitedQaMode,
+  );
 
-  static LocalPersistence inMemory({Directory? mediaRoot}) {
+  static LocalPersistence inMemory({
+    Directory? mediaRoot,
+    bool unlimitedQaMode = false,
+  }) {
     final root =
         mediaRoot ??
         Directory(
@@ -1755,6 +1773,7 @@ class LocalPersistence {
       AppDatabase(NativeDatabase.memory()),
       PrivateMediaStorage(root),
       deleteMediaOnClose: mediaRoot == null,
+      unlimitedQaMode: unlimitedQaMode,
     );
   }
 

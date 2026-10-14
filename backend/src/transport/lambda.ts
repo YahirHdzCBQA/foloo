@@ -22,7 +22,9 @@ async function initialize() {
   const bucketName = process.env.MEDIA_BUCKET_NAME;
   if (!bucketName) throw new Error("MEDIA_BUCKET_NAME is required");
   const environment = loadEnvironment();
-  const repository = new PostgresFolooRepository(pool);
+  const repository = new PostgresFolooRepository(pool, {
+    unlimitedQaMode: environment.FOLOO_UNLIMITED_QA_MODE,
+  });
   const media = new S3MediaStorage(bucketName);
   return createRouter(
     new FolooApplication(repository, media),

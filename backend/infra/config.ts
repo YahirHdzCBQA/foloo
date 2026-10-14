@@ -21,3 +21,15 @@ export function environmentConfig(name: string): EnvironmentConfig {
     throw new Error(`Environment ${name} has no approved configuration.`);
   return dev;
 }
+
+/** Allows the temporary unlimited switch only in an explicitly selected DEV stack. */
+export function unlimitedQaModeForEnvironment(
+  environment: string,
+  rawValue: unknown,
+): boolean {
+  const enabled = rawValue === true || rawValue === "true";
+  if (enabled && environment !== "dev") {
+    throw new Error("FOLOO unlimited QA mode is restricted to DEV.");
+  }
+  return enabled;
+}

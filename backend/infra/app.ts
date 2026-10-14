@@ -2,7 +2,7 @@
 
 import * as cdk from "aws-cdk-lib";
 
-import { environmentConfig } from "./config.js";
+import { environmentConfig, unlimitedQaModeForEnvironment } from "./config.js";
 import { FolooBackendStack } from "./foloo_backend_stack.js";
 
 const app = new cdk.App();
@@ -10,9 +10,14 @@ const environment = app.node.tryGetContext("environment");
 const config = environmentConfig(
   typeof environment === "string" ? environment : "dev",
 );
+const unlimitedQaMode = unlimitedQaModeForEnvironment(
+  config.name,
+  app.node.tryGetContext("unlimitedQaMode"),
+);
 
 new FolooBackendStack(app, `FolooBackend-${config.name}`, {
   config,
+  unlimitedQaMode,
   env: process.env.CDK_DEFAULT_ACCOUNT
     ? { account: process.env.CDK_DEFAULT_ACCOUNT, region: config.region }
     : { region: config.region },

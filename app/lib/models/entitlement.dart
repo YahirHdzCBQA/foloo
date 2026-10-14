@@ -15,21 +15,26 @@ class EntitlementSnapshot {
     required this.pendingLocalLeads,
     required this.verified,
     this.serverUpdatedAt,
+    this.unlimitedQaMode = false,
   });
 
-  factory EntitlementSnapshot.newTrial({bool verified = false}) =>
-      EntitlementSnapshot(
-        status: SubscriptionStatus.trial,
-        serverTrialLeadsUsed: 0,
-        pendingLocalLeads: 0,
-        verified: verified,
-      );
+  factory EntitlementSnapshot.newTrial({
+    bool verified = false,
+    bool unlimitedQaMode = false,
+  }) => EntitlementSnapshot(
+    status: SubscriptionStatus.trial,
+    serverTrialLeadsUsed: 0,
+    pendingLocalLeads: 0,
+    verified: verified,
+    unlimitedQaMode: unlimitedQaMode,
+  );
 
   final SubscriptionStatus status;
   final int serverTrialLeadsUsed;
   final int pendingLocalLeads;
   final bool verified;
   final DateTime? serverUpdatedAt;
+  final bool unlimitedQaMode;
 
   int get trialLeadsUsed =>
       (serverTrialLeadsUsed + pendingLocalLeads).clamp(0, trialLeadLimit);
@@ -40,6 +45,7 @@ class EntitlementSnapshot {
       ? SubscriptionStatus.trialExhausted
       : status;
   bool get canCreateLead =>
+      unlimitedQaMode ||
       effectiveStatus == SubscriptionStatus.active ||
       (effectiveStatus == SubscriptionStatus.trial &&
           trialLeadsUsed < trialLeadLimit);

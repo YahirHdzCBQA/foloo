@@ -523,3 +523,54 @@ contraseñas, tokens, contenido de tarjetas, Leads reales ni logs sin sanitizar.
 Para un incidente registrar modelo, versión Android, hora aproximada, módulo,
 pasos, resultado esperado/observado y un identificador del reporte. Evidencia
 adicional solo se solicita y comparte sanitizada por el canal aprobado.
+
+## FL-020.5 — Candidato Android Unlimited QA
+
+**Estado:** bloqueado hasta desplegar y comprobar el opt-in correspondiente en
+la Lambda AWS DEV. Build 6 continúa siendo el último APK aprobado; todavía no
+existe un APK Unlimited autorizado para compartir.
+
+Unlimited requiere dos configuraciones independientes y coincidentes:
+
+```sh
+# Backend DEV: solo después de autorización explícita de deploy.
+cd backend
+npm run cdk -- deploy FolooBackend-dev \
+  --context environment=dev \
+  --context unlimitedQaMode=true
+
+# Android Release: solo después de validar el backend DEV anterior.
+cd ../app
+flutter build apk --release \
+  --build-name=1.0.0 \
+  --build-number=7 \
+  --dart-define=FOLOO_UNLIMITED_QA_MODE=true \
+  --dart-define=FOLOO_API_BASE_URL=https://zbc91cpy10.execute-api.us-east-1.amazonaws.com \
+  --dart-define=FOLOO_COGNITO_HOSTED_UI_DOMAIN=us-east-1qvm3dwe4o.auth.us-east-1.amazoncognito.com \
+  --dart-define=FOLOO_AUTH_SIGN_IN_REDIRECT=foloo://callback/ \
+  --dart-define=FOLOO_AUTH_SIGN_OUT_REDIRECT=foloo://signout/
+```
+
+La firma Release continúa entrando mediante las variables de entorno descritas
+en “Build reproducible DEV”; nunca se escriben en el comando o repositorio. El
+build debe conservar `com.foloo.foloo`, el mismo certificado, R8/resource
+shrinking y la regla ML Kit; no debe incluir
+`FOLOO_OCR_QA_DIAGNOSTICS=true` ni el flag que desactiva R8.
+
+### Restaurar el límite
+
+1. Detener nuevas pruebas y sincronizar todos los outbox pendientes mientras
+   backend y APK Unlimited todavía coinciden.
+2. Desplegar el mismo stack DEV con `--context unlimitedQaMode=false` o sin el
+   contexto; no requiere migración.
+3. Generar e instalar una versión superior sin
+   `FOLOO_UNLIMITED_QA_MODE=true` y retirar el APK Unlimited de distribución.
+4. Verificar que el paywall original reaparece para `trial_exhausted`/`expired`
+   y que Registros, edición y exportación conservan todo lo existente.
+
+Los Leads creados durante Unlimited no se eliminan ni se ocultan. El modo no
+incrementa el contador histórico; al desactivarlo vuelve a aplicarse el snapshot
+comercial que la cuenta ya tenía. Un APK Unlimited instalado seguirá admitiendo
+guardados locales aunque el backend se desactive, pero esos nuevos POST serán
+rechazados; por eso la actualización coordinada y el vaciado previo del outbox
+son obligatorios.

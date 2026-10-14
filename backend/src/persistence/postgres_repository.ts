@@ -35,13 +35,21 @@ import type {
 } from "../domain/models.js";
 
 type Queryable = Pick<pg.Pool, "query">;
+type PostgresRepositoryOptions = { unlimitedQaMode?: boolean };
 
 export function requestHash(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
 export class PostgresFolooRepository implements FolooRepository {
-  constructor(private readonly pool: pg.Pool) {}
+  private readonly unlimitedQaMode: boolean;
+
+  constructor(
+    private readonly pool: pg.Pool,
+    options: PostgresRepositoryOptions = {},
+  ) {
+    this.unlimitedQaMode = options.unlimitedQaMode ?? false;
+  }
 
   async listEmailTemplates(principal: Principal): Promise<EmailTemplate[]> {
     const result = await this.pool.query<EmailTemplate>(
@@ -561,7 +569,8 @@ export class PostgresFolooRepository implements FolooRepository {
         );
         const account = entitlement.rows[0];
         if (!account) throw notFound("Account");
-        const consumesTrial = account.subscription_status !== "active";
+        const consumesTrial =
+          !this.unlimitedQaMode && account.subscription_status !== "active";
         if (
           consumesTrial &&
           (account.subscription_status !== "trial" ||

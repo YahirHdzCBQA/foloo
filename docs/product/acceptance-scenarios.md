@@ -305,6 +305,13 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   el servidor acepta solo su saldo; Foloo conserva cualquier excedente local y
   lo marca recuperable, nunca lo borra.
 - D-01–D-04 bloquean compra y lifecycle comercial, no la foundation FL-020.
+- En un build FL-020.5 con Unlimited QA habilitado tanto en Flutter como en el
+  backend DEV, una cuenta con 0, 5 o 10 Leads puede guardar y sincronizar otro
+  Lead manual u OCR, online u offline, sin paywall ni saldo engañoso. El estado
+  comercial y `trialLeadsUsed` no cambian.
+- Sin ambos opt-ins, el sexto Lead vuelve a conservar el borrador y abrir el
+  paywall original. Desactivar Unlimited nunca borra ni oculta los Leads ya
+  creados; antes de apagar el backend se sincroniza la cola QA pendiente.
 
 ## E-12 · Shell, idioma, seguridad y salida
 

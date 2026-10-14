@@ -3,13 +3,18 @@ library;
 
 import 'package:drift/drift.dart';
 
+import '../../config/qa_runtime_flags.dart';
 import '../../models/entitlement.dart';
 import '../local/app_database.dart';
 
 class EntitlementRepository {
-  EntitlementRepository(this._database);
+  EntitlementRepository(
+    this._database, {
+    this.unlimitedQaMode = folooUnlimitedQaMode,
+  });
 
   final AppDatabase _database;
+  final bool unlimitedQaMode;
 
   Future<EntitlementSnapshot> load(String owner) async {
     final stored = await _database.entitlementDao.snapshot(owner);
@@ -20,6 +25,7 @@ class EntitlementRepository {
       pendingLocalLeads: pending,
       verified: stored != null,
       serverUpdatedAt: stored?.serverUpdatedAt,
+      unlimitedQaMode: unlimitedQaMode,
     );
   }
 
@@ -28,6 +34,7 @@ class EntitlementRepository {
     if (!entitlement.canCreateLead) {
       throw LeadCreationBlockedException(entitlement.effectiveStatus);
     }
+    if (unlimitedQaMode) return;
     if (entitlement.effectiveStatus == SubscriptionStatus.trial) {
       await _database.entitlementDao.reserve(owner, leadId, now);
     }
@@ -65,7 +72,8 @@ class EntitlementRepository {
   }) async {
     if (!await _database.entitlementDao.hasReservation(owner, leadId)) return;
     final stored = await _database.entitlementDao.snapshot(owner);
-    if (incrementCachedUsage &&
+    if (!unlimitedQaMode &&
+        incrementCachedUsage &&
         stored != null &&
         stored.subscriptionStatus != 'active') {
       final used = (stored.trialLeadsUsed + 1).clamp(0, trialLeadLimit);

@@ -79,10 +79,13 @@ class EntitlementClient {
   release() {}
 }
 
-function repository(client: EntitlementClient) {
-  return new PostgresFolooRepository({
-    connect: async () => client,
-  } as unknown as pg.Pool);
+function repository(client: EntitlementClient, unlimitedQaMode = false) {
+  return new PostgresFolooRepository(
+    {
+      connect: async () => client,
+    } as unknown as pg.Pool,
+    { unlimitedQaMode },
+  );
 }
 
 test("Lead creation locks entitlement and consumes one historical use", async () => {
@@ -135,4 +138,28 @@ test("active subscription bypasses the trial counter", async () => {
     requestHash(lead),
   );
   assert.equal(client.used, 5);
+});
+
+test("Unlimited QA accepts exhausted and additional Leads without consumption", async () => {
+  const client = new EntitlementClient();
+  client.used = 5;
+  client.status = "trial_exhausted";
+  const adapter = repository(client, true);
+
+  for (let index = 6; index <= 11; index += 1) {
+    await adapter.createLead(
+      principal,
+      { ...lead, id: `f225b79b-2504-4a5f-94f8-f8db264aa9${index}` },
+      `unlimited-key-${index}`,
+      requestHash({ ...lead, index }),
+    );
+    client.stored = undefined;
+  }
+
+  assert.equal(client.used, 5);
+  assert.equal(client.status, "trial_exhausted");
+  assert.equal(
+    client.calls.filter((sql) => sql.includes("UPDATE accounts SET")).length,
+    0,
+  );
 });

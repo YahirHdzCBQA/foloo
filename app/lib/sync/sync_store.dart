@@ -47,13 +47,19 @@ class SyncStore {
     this.mediaStorage,
     String Function()? idFactory,
     String Function()? legacyEventIdFactory,
+    bool unlimitedQaMode = false,
   }) : _idFactory = idFactory ?? const Uuid().v4,
-       _legacyEventIdFactory = legacyEventIdFactory ?? const Uuid().v4;
+       _legacyEventIdFactory = legacyEventIdFactory ?? const Uuid().v4,
+       _entitlements = EntitlementRepository(
+         database,
+         unlimitedQaMode: unlimitedQaMode,
+       );
 
   final AppDatabase database;
   final PrivateMediaStorage? mediaStorage;
   final String Function() _idFactory;
   final String Function() _legacyEventIdFactory;
+  final EntitlementRepository _entitlements;
 
   Future<void> enqueue({
     required String ownerSub,
@@ -675,7 +681,7 @@ class SyncStore {
           leadRevision,
         );
         await _advanceQueuedLeadUpdates(operation, leadRevision);
-        await EntitlementRepository(database).acknowledgeLead(
+        await _entitlements.acknowledgeLead(
           operation.ownerUserId,
           operation.entityId,
           incrementCachedUsage: true,
@@ -1322,8 +1328,11 @@ class SyncStore {
           id,
           _requiredRemoteRevision(lead['revision']),
         );
-        await EntitlementRepository(database)
-            .acknowledgeLead(ownerSub, id, incrementCachedUsage: false);
+        await _entitlements.acknowledgeLead(
+          ownerSub,
+          id,
+          incrementCachedUsage: false,
+        );
         continue;
       }
       if (await hasPending(ownerSub, SyncEntityType.lead, id)) continue;
@@ -1382,7 +1391,7 @@ class SyncStore {
   Future<void> applyRemoteEntitlement(
     String ownerSub,
     Map<String, Object?> workspace,
-  ) => EntitlementRepository(database).applyServerSnapshot(ownerSub, workspace);
+  ) => _entitlements.applyServerSnapshot(ownerSub, workspace);
 
   Future<void> applyRemoteMedia(
     String ownerSub,

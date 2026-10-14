@@ -19,7 +19,10 @@ import type { Construct } from "constructs";
 
 import type { EnvironmentConfig } from "./config.js";
 
-type FolooBackendStackProps = cdk.StackProps & { config: EnvironmentConfig };
+type FolooBackendStackProps = cdk.StackProps & {
+  config: EnvironmentConfig;
+  unlimitedQaMode?: boolean;
+};
 
 export class FolooBackendStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: FolooBackendStackProps) {
@@ -196,6 +199,8 @@ export class FolooBackendStack extends cdk.Stack {
         MEDIA_BUCKET_NAME: mediaBucket.bucketName,
         EMAIL_PROVIDER_FUNCTION_NAME: providerFunction.functionName,
         PUBLIC_API_BASE_URL: "https://placeholder.invalid",
+        FOLOO_UNLIMITED_QA_MODE:
+          props.unlimitedQaMode === true ? "true" : "false",
       },
       bundling: { minify: true, sourceMap: true },
     });

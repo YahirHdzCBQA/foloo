@@ -35,6 +35,62 @@ LeadDraft trialDraft(
 void main() {
   const owner = 'owner-a';
 
+  test('Unlimited QA allows creation at zero, five, and ten Leads', () async {
+    final persistence = LocalPersistence.inMemory(unlimitedQaMode: true);
+    addTearDown(persistence.close);
+
+    expect((await persistence.entitlements.load(owner)).canCreateLead, isTrue);
+    for (var index = 1; index <= 11; index++) {
+      await persistence.leads.saveDraft(
+        owner,
+        trialDraft(index),
+        capturedBy: profile,
+      );
+      if (index == 5 || index == 10) {
+        expect(
+          (await persistence.entitlements.load(owner)).canCreateLead,
+          isTrue,
+        );
+      }
+    }
+
+    expect(await persistence.leads.listAll(owner), hasLength(11));
+    final entitlement = await persistence.entitlements.load(owner);
+    expect(entitlement.unlimitedQaMode, isTrue);
+    expect(entitlement.trialLeadsUsed, 0);
+    expect(entitlement.status, SubscriptionStatus.trial);
+  });
+
+  test(
+    'Unlimited QA bypasses an exhausted snapshot without changing it',
+    () async {
+      final persistence = LocalPersistence.inMemory(unlimitedQaMode: true);
+      addTearDown(persistence.close);
+      final now = DateTime.utc(2026, 10, 14);
+      await persistence.database.entitlementDao.saveSnapshot(
+        LocalEntitlementsCompanion.insert(
+          ownerUserId: owner,
+          subscriptionStatus: 'trial_exhausted',
+          trialLeadsUsed: 5,
+          serverUpdatedAt: Value(now),
+          cachedAt: now,
+        ),
+      );
+
+      await persistence.leads.saveDraft(
+        owner,
+        trialDraft(6),
+        capturedBy: profile,
+      );
+
+      final entitlement = await persistence.entitlements.load(owner);
+      expect(entitlement.canCreateLead, isTrue);
+      expect(entitlement.status, SubscriptionStatus.trialExhausted);
+      expect(entitlement.serverTrialLeadsUsed, 5);
+      expect(entitlement.pendingLocalLeads, 0);
+    },
+  );
+
   test(
     'new account starts with five offline uses and sixth is blocked',
     () async {

@@ -128,6 +128,24 @@ idempotentes y reconciliación local-first.
 - Trazas: `MON-01`–`MON-11`, E-11, ADR-004.
 - Estado: implementado en repositorio; requiere migraciones/QA físico.
 
+## FL-020.5 — Unlimited temporal para QA
+
+**Estado:** **IMPLEMENTADO EN REPOSITORIO; DEPLOY DEV Y APK PENDIENTES.**
+
+- Excepción temporal de `MON-12`, no cambio del producto comercial V1.
+- Flutter requiere `--dart-define=FOLOO_UNLIMITED_QA_MODE=true`; sin el define
+  conserva el paywall y el límite de cinco.
+- La API requiere contexto CDK `unlimitedQaMode=true`, validado exclusivamente
+  para DEV. No hay migración: PostgreSQL conserva estado y contador 0…5.
+- Con ambos opt-ins, crear Leads no reserva ni consume trial y la UI oculta el
+  saldo/paywall que sería engañoso. Consultar, editar, exportar, offline y sync
+  mantienen la arquitectura existente.
+- Desactivar exige una nueva configuración/backend y un build móvil sin el
+  define. Los Leads existentes permanecen; las colas QA deben sincronizarse
+  antes de retirar la excepción server-side.
+- No generar/distribuir APK Unlimited hasta desplegar y validar primero la
+  Lambda DEV. No autoriza deploy, publicación, pagos ni cambios PROD.
+
 ## FL-021 — Paywall & Payments
 
 **Objetivo:** compra aprobada y transiciones comerciales confiables sobre la

@@ -12,6 +12,10 @@ const environmentSchema = z.object({
   MEDIA_BUCKET_NAME: z.string().min(3),
   EMAIL_PROVIDER_FUNCTION_NAME: z.string().min(1),
   PUBLIC_API_BASE_URL: z.string().url(),
+  FOLOO_UNLIMITED_QA_MODE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
 });
 
 export type BackendEnvironment = z.infer<typeof environmentSchema>;

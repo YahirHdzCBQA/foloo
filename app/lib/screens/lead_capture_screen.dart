@@ -1089,8 +1089,10 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                     ),
                     if (EntitlementScope.maybeOf(context)
                         case final entitlement?) ...[
-                      const SizedBox(height: 8),
-                      _TrialBalance(entitlement: entitlement),
+                      if (!entitlement.unlimitedQaMode) ...[
+                        const SizedBox(height: 8),
+                        _TrialBalance(entitlement: entitlement),
+                      ],
                     ],
                   ],
                 ),
