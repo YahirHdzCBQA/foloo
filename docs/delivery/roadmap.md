@@ -279,15 +279,31 @@ R8 en solución permanente.
 
 ### STORE-03G — Cierre técnico y distribución Android privada
 
-**Estado:** **PREPARADA; pendientes autorización de distribución y commits.**
+**Estado:** **COMPLETADA COMO AUDITORÍA TÉCNICA.**
 
 - Consolida la auditoría STORE-03B–03F y conserva build 6 como candidato privado
   para testers autorizados, siempre contra AWS DEV.
 - No publica en Google Play, no crea un enlace público y no distribuye el APK
   automáticamente. Firma, hash, instrucciones y reporte están documentados en
   [`android-private-distribution.md`](android-private-distribution.md).
-- Los cambios Git quedan listos para commits lógicos, sin ejecutarlos ni hacer
-  push hasta autorización expresa.
+- La auditoría entregó los cambios listos para integración; las operaciones Git
+  posteriores permanecieron bajo control exclusivo del desarrollador y fuera
+  del alcance de STORE-03G.
+
+### STORE-03H — Preparación final de distribución Android
+
+**Estado:** **PREPARADA; distribución privada pendiente de autorización.**
+
+- Build 6 (`1.0.0+6`) permanece como único candidato privado aprobado, firmado
+  y conectado a AWS DEV; STORE-03F continúa CLOSED.
+- Firma, SHA-256, manifest, versión y configuración Release se verifican sobre
+  el APK existente, sin reconstruirlo ni modificar funcionalidad.
+- Instrucciones de actualización, checklist de tester, mensaje de entrega y
+  registro de resultados se consolidan en
+  [`android-private-distribution.md`](android-private-distribution.md).
+- Cargar, compartir o publicar el artefacto requiere autorización humana. Las
+  operaciones Git quedan reservadas al desarrollador: esta actividad no hace
+  add, commit, push, checkout, switch, merge, pull, reset ni stash.
 
 ## Exclusiones del plan V1
 

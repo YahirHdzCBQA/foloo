@@ -419,6 +419,107 @@ aproximada, módulo, pasos y resultado observado/esperado. Adjuntar únicamente
 logs sanitizados solicitados por el equipo; nunca incluir imágenes de tarjetas,
 datos de Leads, correos, tokens, contraseñas, rutas privadas o el keystore.
 
-STORE-03G queda pendiente de autorización humana para cargar/compartir el APK y
-para ejecutar los commits propuestos. No se publicó en Google Play ni se creó
+STORE-03G completó la auditoría técnica. La carga o entrega del APK permaneció
+pendiente de autorización humana y cualquier operación Git posterior quedó bajo
+control exclusivo del desarrollador. No se publicó en Google Play ni se creó
 un enlace de distribución.
+
+## STORE-03H — Paquete operativo de distribución privada
+
+**Estado:** preparado, no distribuido. STORE-03F permanece **CLOSED** y Build 6
+es el candidato aprobado. La distribución y cualquier operación Git están
+reservadas al desarrollador y requieren su autorización expresa.
+
+### Artefacto que debe compartirse
+
+- `foloo-dev-1.0.0+6-store-03f-r8-ocr-fix-release.apk`
+- versión `1.0.0`, `versionCode` 6, package `com.foloo.foloo`;
+- firma Release: `CN=Foloo Android Release, O=CBQA Solutions`;
+- certificado SHA-256:
+  `288297a790533fd4f09fd4b262e310bbb4201efc8d0c02c5f4b9991fbb6ee002`;
+- APK SHA-256:
+  `d9d0ceee25c9f91baa690b9526f777ad24223b9193570a0f9ca3c6bb70e9d53f`;
+- entorno: **AWS DEV**; no contiene configuración de producción.
+
+Antes de cada entrega debe recalcularse el hash del archivo que realmente se
+subirá. Un nombre, tamaño o hash diferente se trata como otro artefacto y no
+hereda la aprobación de Build 6.
+
+### Almacenamiento corporativo propuesto
+
+Usar SharePoint u OneDrive empresarial administrado por CBQA, sujeto a
+confirmación de TI, dentro de una carpeta específica de distribución Android:
+
+- acceso nominal solo para responsable de release y testers autorizados;
+- enlace restringido a personas invitadas, sin acceso anónimo ni indexación;
+- descarga permitida, pero sin edición ni reemplazo por testers;
+- fecha de expiración y revocación al terminar la ronda;
+- auditoría de accesos habilitada cuando la plataforma lo permita;
+- APK separado de keystore, contraseñas y cualquier credencial;
+- SHA-256 comunicado por un canal corporativo distinto del enlace.
+
+No usar enlaces públicos, servicios personales, adjuntos masivos ni grupos sin
+control de membresía. STORE-03H no crea la carpeta, sube el APK ni genera el
+enlace.
+
+### Instrucciones para instalar o actualizar
+
+1. Confirmar que el dispositivo usa Android 10 o superior y tiene espacio
+   suficiente.
+2. Descargar el APK desde el enlace privado y comprobar que su SHA-256 coincide
+   exactamente con el valor aprobado.
+3. Si Foloo ya está instalada, **no desinstalarla ni borrar sus datos**. Abrir
+   el APK y elegir Actualizar; mismo package, certificado y un `versionCode`
+   superior permiten conservar la instalación.
+4. Si Android lo solicita, autorizar temporalmente a la aplicación usada para
+   descargar/abrir el archivo a instalar aplicaciones desconocidas. No
+   desactivar Play Protect.
+5. Abrir Foloo y confirmar versión `1.0.0+6`, sesión y datos conservados.
+6. Retirar inmediatamente el permiso para instalar aplicaciones desconocidas.
+7. Usar exclusivamente cuentas y datos de prueba autorizados: el APK se conecta
+   a AWS DEV.
+
+Ante “Aplicación no instalada”, detenerse y reportar el mensaje. No desinstalar
+como solución: primero verificar hash, espacio, package, firma y versión previa.
+
+### Checklist mínimo del tester
+
+- [ ] APK recibido desde el enlace corporativo restringido.
+- [ ] SHA-256 verificado antes de instalar.
+- [ ] Instalación o actualización completada sin desinstalar.
+- [ ] Aplicación abre y muestra `1.0.0+6`.
+- [ ] Sesión y datos locales existentes permanecen disponibles, si aplicaba.
+- [ ] Login de prueba y restore de sesión funcionan.
+- [ ] OCR Cámara reconoce una tarjeta latina autorizada.
+- [ ] OCR Galería reconoce una imagen latina autorizada.
+- [ ] CSV y XLSX pueden generarse, compartirse/guardarse y abrirse.
+- [ ] Sincronización AWS DEV completa sin duplicar ni perder registros.
+- [ ] Reiniciar la aplicación conserva datos y sesión esperados.
+- [ ] Se retiró el permiso de instalación desde fuentes desconocidas.
+- [ ] Resultado e incidentes quedaron asentados en el registro de la ronda.
+
+### Borrador de mensaje de entrega
+
+> Foloo Android `1.0.0+6` está disponible para una prueba privada autorizada.
+> Este build utiliza AWS DEV y debe usarse únicamente con cuentas y datos de
+> prueba. Descarga el APK desde el enlace corporativo restringido y verifica
+> antes de instalar el SHA-256 enviado por el canal separado. Si ya tienes
+> Foloo, elige Actualizar: no desinstales ni borres datos. Al terminar, retira
+> el permiso de instalación desde fuentes desconocidas y registra el resultado
+> en el formato de QA. No reenvíes el APK ni el enlace.
+
+El responsable añade manualmente el enlace restringido, el canal donde se
+comunicó el hash, la fecha límite y el contacto de soporte antes de enviarlo.
+
+### Registro de testers, dispositivos y resultados
+
+Mantener el registro en una ubicación corporativa restringida. No incluir
+contraseñas, tokens, contenido de tarjetas, Leads reales ni logs sin sanitizar.
+
+| Ronda | Tester autorizado | Modelo | Android | Build previo | Build probado | Hash verificado | Instalación/actualización | QA | Incidente | Fecha |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `STORE-03H-01` | Alias corporativo | Pendiente | Pendiente | Pendiente | `1.0.0+6` | Sí/No | Pendiente | Pendiente | ID o ninguno | Pendiente |
+
+Para un incidente registrar modelo, versión Android, hora aproximada, módulo,
+pasos, resultado esperado/observado y un identificador del reporte. Evidencia
+adicional solo se solicita y comparte sanitizada por el canal aprobado.

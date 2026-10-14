@@ -314,8 +314,10 @@ reflectivo de `ComponentRegistrar` con AGP 9 strict full mode. Build 6 agrega
 solo esa conservación y vuelve a habilitar R8 y resource shrinking. El QA
 físico reportado aprobó OCR Cámara/Galería, conservación de datos y sesión,
 CSV/XLSX, sincronización AWS DEV y persistencia tras reinicio. STORE-03F queda
-CLOSED; STORE-03G limita el siguiente paso a distribución privada autorizada y
-preparación de commits, sin publicación automática.
+CLOSED; STORE-03G completó la auditoría técnica y STORE-03H deja preparado el
+paquete operativo para distribución privada. La carga, el enlace y el envío a
+testers permanecen pendientes de autorización y no forman parte de la
+preparación automática.
 
 ### STORE-04 — Submission & Review
 
