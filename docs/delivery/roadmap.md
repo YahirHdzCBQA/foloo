@@ -130,7 +130,8 @@ idempotentes y reconciliación local-first.
 
 ## FL-020.5 — Unlimited temporal para QA
 
-**Estado:** **IMPLEMENTADO EN REPOSITORIO; DEPLOY DEV Y APK PENDIENTES.**
+**Estado:** **CERRADO — implementado, desplegado y validado en Android físico
+contra AWS DEV (2026-10-14).**
 
 - Excepción temporal de `MON-12`, no cambio del producto comercial V1.
 - Flutter requiere `--dart-define=FOLOO_UNLIMITED_QA_MODE=true`; sin el define
@@ -143,8 +144,14 @@ idempotentes y reconciliación local-first.
 - Desactivar exige una nueva configuración/backend y un build móvil sin el
   define. Los Leads existentes permanecen; las colas QA deben sincronizarse
   antes de retirar la excepción server-side.
-- No generar/distribuir APK Unlimited hasta desplegar y validar primero la
-  Lambda DEV. No autoriza deploy, publicación, pagos ni cambios PROD.
+- `FolooBackend-dev` quedó en `UPDATE_COMPLETE` con el flag global DEV activo.
+  El APK Release `1.0.0+7`, firmado con el mismo certificado del Build 6,
+  aprobó 8/8 pruebas físicas Android reportadas: actualización sin pérdida,
+  Leads 6/7/10 sin paywall, sync online/offline, OCR Cámara/Galería,
+  XLSX/CSV y persistencia tras reinicio. La evidencia detallada está en
+  `android-private-distribution.md`.
+- El cierre no autoriza publicación, Google Play, pagos, suscripciones reales,
+  uso en PROD ni declara validación Unlimited en iOS.
 
 ## FL-021 — Paywall & Payments
 

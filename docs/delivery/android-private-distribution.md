@@ -526,9 +526,9 @@ adicional solo se solicita y comparte sanitizada por el canal aprobado.
 
 ## FL-020.5 — Candidato Android Unlimited QA
 
-**Estado:** bloqueado hasta desplegar y comprobar el opt-in correspondiente en
-la Lambda AWS DEV. Build 6 continúa siendo el último APK aprobado; todavía no
-existe un APK Unlimited autorizado para compartir.
+**Estado:** **CERRADO — implementado, desplegado y validado en Android físico
+contra AWS DEV el 2026-10-14.** Build 7 es el candidato Unlimited QA validado;
+esto no constituye publicación ni autorización de distribución.
 
 Unlimited requiere dos configuraciones independientes y coincidentes:
 
@@ -556,6 +556,56 @@ en “Build reproducible DEV”; nunca se escriben en el comando o repositorio. 
 build debe conservar `com.foloo.foloo`, el mismo certificado, R8/resource
 shrinking y la regla ML Kit; no debe incluir
 `FOLOO_OCR_QA_DIAGNOSTICS=true` ni el flag que desactiva R8.
+
+### Evidencia de cierre
+
+- Fecha: 2026-10-14.
+- Ambiente: AWS DEV, stack `FolooBackend-dev` en `UPDATE_COMPLETE` y
+  `FOLOO_UNLIMITED_QA_MODE=true` en `ApiFunction`.
+- APK: `foloo-dev-1.0.0+7-fl-020.5-unlimited-release.apk`, versión
+  `1.0.0`, `versionCode` 7 y package `com.foloo.foloo`.
+- SHA-256 del APK:
+  `f24b88caadd12a8d1ee60ce75675bb2955afc26406ec3dbb032db35f214042de`.
+- SHA-256 del certificado Release:
+  `288297a790533fd4f09fd4b262e310bbb4201efc8d0c02c5f4b9991fbb6ee002`;
+  coincide con Build 6.
+
+Evidencia automatizada ejecutada durante la preparación: `flutter analyze` sin
+errores, 284 pruebas Flutter aprobadas, firma Release válida, R8 y resource
+shrinking activos, endpoint DEV compilado y backend protegido por autenticación.
+No se ejecutó un smoke autenticado porque no había credenciales QA autorizadas.
+
+Evidencia manual reportada por el responsable de QA sobre un dispositivo
+Android físico, 8/8 aprobada:
+
+1. actualización Build 6 → Build 7 sin perder sesión, Leads, Eventos, PDF ni
+   medios;
+2. creación de los Leads sexto, séptimo y décimo sin paywall;
+3. sincronización de los nuevos Leads con AWS DEV;
+4. captura offline y sincronización posterior;
+5. OCR desde Cámara;
+6. OCR desde Galería;
+7. exportación CSV y XLSX;
+8. persistencia después de cerrar y reabrir Foloo.
+
+No se atribuyen a este cierre pruebas iOS, publicación en Google Play, pagos,
+capturas, logs adicionales ni evidencia distinta de la indicada arriba.
+
+### Condiciones operativas
+
+- Unlimited es temporal, exclusivo de AWS DEV y el flag backend afecta
+  globalmente a quienes usen ese backend compartido.
+- Build 7 depende de que backend y Flutter mantengan los dos opt-ins activos.
+- El trial original de cinco Leads permanece implementado; Unlimited no otorga
+  suscripción, no activa un plan comercial y no modifica pagos.
+- Durante Unlimited no aumenta `trial_leads_used`. Los Leads creados permanecen
+  visibles, editables, exportables y sincronizables después de desactivarlo.
+- Antes del rollback deben sincronizarse todos los outbox pendientes. Después
+  se desactiva el flag backend y se distribuye un build móvil de número superior
+  sin `FOLOO_UNLIMITED_QA_MODE=true`.
+- Desactivar solo el backend mientras Build 7 sigue instalado permite nuevos
+  guardados locales que el servidor rechazará; por eso el rollback debe ser
+  coordinado.
 
 ### Restaurar el límite
 
