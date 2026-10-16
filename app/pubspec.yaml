@@ -39,6 +39,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   # Prototipo: cámara/galería requeridas por RF-01.
   image_picker: ^1.2.1
+  # OCR-10: request camera access contextually and open platform settings when blocked.
+  permission_handler: ^12.0.1
   # OCR-02/OCR-03: bundled on-device Latin text recognition for card capture.
   google_mlkit_text_recognition: ^0.17.1
   # OCR-02/OCR-04: on-device preprocessing of temporary image copies.

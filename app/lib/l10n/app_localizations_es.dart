@@ -794,6 +794,27 @@ class AppLocalizationsEs extends AppLocalizations {
       'No se pudo abrir la imagen. Puedes continuar capturando los datos a mano.';
 
   @override
+  String get cameraPermissionTitle => 'Activa el acceso a la cámara';
+
+  @override
+  String get cameraPermissionDescription =>
+      'Para tomar fotografías desde Foloo, permite el acceso a la cámara en los ajustes de tu dispositivo.';
+
+  @override
+  String get cameraPermissionDenied =>
+      'Se denegó el acceso a la cámara. Puedes intentarlo de nuevo o continuar manualmente.';
+
+  @override
+  String get cameraUnavailable =>
+      'No hay una cámara disponible. Puedes continuar manualmente o elegir una imagen de tu galería.';
+
+  @override
+  String get openSettings => 'Abrir configuración';
+
+  @override
+  String get notNow => 'Ahora no';
+
+  @override
   String get cardReadSuccess => 'Lectura completada. Revisa los datos.';
 
   @override
@@ -814,6 +835,16 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get microphoneDenied =>
       'Permiso de micrófono rechazado. Puedes continuar con la nota escrita.';
+
+  @override
+  String get microphonePermissionTitle => 'Activa el acceso al micrófono';
+
+  @override
+  String get microphonePermissionDescription =>
+      'Para grabar una nota de voz, permite el acceso al micrófono en los ajustes de tu dispositivo.';
+
+  @override
+  String get continueWithWrittenNote => 'Continuar con nota escrita';
 
   @override
   String get recordStartError =>

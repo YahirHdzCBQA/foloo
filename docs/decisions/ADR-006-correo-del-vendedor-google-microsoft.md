@@ -24,6 +24,10 @@ no demuestra control del buzón externo.
   Google/Microsoft en widgets ni de un `From` suministrado por Flutter.
 - Backend vincula la identidad externa autorizada al Cognito `sub`/workspace y
   deriva de ella el remitente efectivo.
+- FL-020.6 agrega únicamente el nombre visible: se deriva de
+  `seller_profiles.name` del mismo owner/workspace, se normaliza y se solicita
+  como `{nombre} - Foloo`. La dirección efectiva continúa siendo exactamente la
+  autorizada por OAuth. Graph puede sustituir el nombre por política propia.
 - La cuenta Cognito/Foloo y la cuenta externa de envío son identidades distintas
   que pueden usar direcciones diferentes. Después del perfil, Foloo ofrece la
   conexión como onboarding opcional; “Configurar después” no limita captura y

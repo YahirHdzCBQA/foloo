@@ -36,7 +36,9 @@ import 'screens/paywall_screen.dart';
 import 'screens/profile_setup_screen.dart';
 import 'screens/records_screen.dart';
 import 'services/connectivity_service.dart';
+import 'services/camera_access_service.dart';
 import 'services/contact_image_picker_service.dart';
+import 'services/microphone_access_service.dart';
 import 'services/event_selection_policy.dart';
 import 'services/email_connection_service.dart';
 import 'services/pdf_picker_service.dart';
@@ -64,6 +66,8 @@ class FolooApp extends StatefulWidget {
     this.pdfPickerService,
     this.authRepository,
     this.contactImagePickerService,
+    this.cameraAccessCoordinator,
+    this.microphoneAccessCoordinator,
     this.nowProvider,
     this.syncApi,
     this.syncSessionProvider,
@@ -80,6 +84,8 @@ class FolooApp extends StatefulWidget {
   final PdfPickerService? pdfPickerService;
   final AuthRepository? authRepository;
   final ContactImagePickerService? contactImagePickerService;
+  final CameraAccessCoordinator? cameraAccessCoordinator;
+  final MicrophoneAccessCoordinator? microphoneAccessCoordinator;
   final DateTime Function()? nowProvider;
   final SyncApi? syncApi;
   final SyncSessionProvider? syncSessionProvider;
@@ -1133,6 +1139,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
                     ? DemoAppData.profile
                     : DemoProfile.empty,
                 onContinue: _completeProfile,
+                cameraAccessCoordinator: widget.cameraAccessCoordinator,
               ),
               _AuthenticatedStage.email => EmailOnboardingScreen(
                 key: const ValueKey('emailOnboardingStage'),
@@ -1213,6 +1220,8 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
             contentFiles: List.unmodifiable(_contentFiles),
             isOnline: _isOnline,
             contactImagePickerService: widget.contactImagePickerService,
+            cameraAccessCoordinator: widget.cameraAccessCoordinator,
+            microphoneAccessCoordinator: widget.microphoneAccessCoordinator,
             onCaptureAnotherRequested: () {
               setState(() => _paywallVisible = !_entitlement.canCreateLead);
               return _entitlement.canCreateLead;

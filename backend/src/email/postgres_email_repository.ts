@@ -30,6 +30,15 @@ export class PostgresEmailRepository implements EmailRepository {
     return result.rows[0] ?? null;
   }
 
+  async sellerProfileName(principal: Principal): Promise<string | null> {
+    const result = await this.pool.query<{ name: string | null }>(
+      `SELECT name FROM seller_profiles
+       WHERE workspace_id=$1 AND user_id=$2 AND deleted_at IS NULL LIMIT 1`,
+      [principal.workspaceId, principal.userId],
+    );
+    return result.rows[0]?.name ?? null;
+  }
+
   async beginOAuth(
     principal: Principal,
     provider: EmailProviderName,
@@ -314,14 +323,15 @@ export class PostgresEmailRepository implements EmailRepository {
       omittedContentIds: string[];
       parentIntentId?: string;
       kind: "initial" | "manual_resend";
+      senderDisplayName: string;
     },
   ): Promise<StoredSendIntent> {
     const result = await this.pool.query<StoredSendIntent>(
       `INSERT INTO email_send_intents
-       (id,workspace_id,follow_up_id,connection_id,provider,sender_address,
+       (id,workspace_id,follow_up_id,connection_id,provider,sender_address,sender_display_name,
         recipient_address,subject,plain_body,html_body,attached_content_ids,
         omitted_content_ids,parent_intent_id,last_attempt_kind)
-       SELECT $1,f.workspace_id,f.id,c.id,c.provider,c.sender_address,
+       SELECT $1,f.workspace_id,f.id,c.id,c.provider,c.sender_address,$8,
               f.recipient_address,f.subject,f.plain_body,f.html_body,
               ARRAY(SELECT unnest(f.content_file_ids) EXCEPT SELECT unnest($4::uuid[])),
               $4::uuid[],$5,$6
@@ -332,6 +342,7 @@ export class PostgresEmailRepository implements EmailRepository {
        ON CONFLICT (id) DO NOTHING
        RETURNING id,workspace_id AS "workspaceId",follow_up_id AS "followUpId",
          connection_id AS "connectionId",provider,sender_address AS "senderAddress",
+         sender_display_name AS "senderDisplayName",
          recipient_address AS "recipientAddress",subject,plain_body AS "plainBody",
          html_body AS "htmlBody",attached_content_ids AS "attachedContentIds",
          omitted_content_ids AS "omittedContentIds",status,attempt_count AS "attemptCount",
@@ -344,6 +355,7 @@ export class PostgresEmailRepository implements EmailRepository {
         input.parentIntentId ?? null,
         input.kind,
         input.followUpId,
+        input.senderDisplayName,
       ],
     );
     if (!result.rows[0]) {
@@ -370,6 +382,7 @@ export class PostgresEmailRepository implements EmailRepository {
     const result = await this.pool.query<StoredSendIntent>(
       `SELECT i.id,i.workspace_id AS "workspaceId",i.follow_up_id AS "followUpId",
         i.connection_id AS "connectionId",i.provider,i.sender_address AS "senderAddress",
+        i.sender_display_name AS "senderDisplayName",
         i.recipient_address AS "recipientAddress",i.subject,i.plain_body AS "plainBody",
         i.html_body AS "htmlBody",i.attached_content_ids AS "attachedContentIds",
         i.omitted_content_ids AS "omittedContentIds",i.status,

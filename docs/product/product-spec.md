@@ -160,6 +160,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `OCR-07` | La foto original se conserva como medio privado del Lead. |
 | `OCR-08` | Se prueban orientación, sombras, tarjetas a dos columnas y material real de evento. |
 | `OCR-09` | Procesamiento, memoria y resolución deben ser compatibles con el presupuesto móvil y el flujo menor a 60 segundos. |
+| `OCR-10` | Toda acción de cámara consulta y solicita el permiso de forma contextual. Una denegación temporal permite reintento; bloqueo permanente/restricción explica el caso y ofrece Ajustes. Al volver se revalida sin abrir cámara automáticamente. Cancelación, cámara no disponible, archivo inválido y fallo OCR permanecen estados distintos; galería y captura manual no dependen de CAMERA. Android recupera de forma segura datos perdidos de `image_picker`. |
 
 ### 4.4 Voz y medios
 
@@ -170,7 +171,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `VOZ-03` | Después de guardar el detalle reproduce la nota; editarla después depende de la misma política definida para el detalle. |
 | `VOZ-04` | Audio y tarjeta se copian a storage privado local y sobreviven reinicio/logout. El borrador de voz previo a guardar también permanece en storage privado durante navegación temporal; solo guardar lo promueve al Lead y solo cancelar/descartar lo elimina. Después de Guardar → Revisar → Back, Capture adopta el path definitivo promovido y conserva reproducción, regrabación y borrado sin duplicar el Lead ni el medio. |
 | `VOZ-05` | La subida futura es asíncrona y no bloquea guardar. |
-| `VOZ-06` | Permiso denegado deja disponible la nota escrita. |
+| `VOZ-06` | El micrófono se solicita solo al intentar grabar. Una denegación temporal permite reintento; bloqueo permanente/restricción ofrece Ajustes y continuar con nota escrita. Al volver se revalida sin iniciar grabación automáticamente. La nota escrita permanece disponible. |
 | `VOZ-07` | Duración/peso máximo y aviso están bloqueados por `D-05`; no se inventa un límite. |
 | `VOZ-08` | No existe transcripción automática/IA ni UI que la prometa en V1. |
 
@@ -258,6 +259,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `SAL-08` | La conexión OAuth del correo se vincula en backend al Cognito `sub`/workspace; el remitente efectivo deriva de la identidad autorizada por el proveedor, nunca de un `From` arbitrario enviado por Flutter. La cuenta Foloo/Cognito y la cuenta de envío son conceptos independientes y pueden ser distintas. Tokens, secretos y credenciales del proveedor no se guardan en Flutter, Drift, SharedPreferences ni Git. Flutter obtiene del backend solo proveedor, identidad enmascarada segura y estado, y refresca esa autoridad al abrir Correo y al regresar de OAuth. Conectar o cambiar cuenta muestra el selector explícito de identidad de Google/Microsoft sin ampliar scopes; antes de iniciar Microsoft, la UI informa discretamente el alcance limitado a cuentas personales de esta versión. El usuario puede identificar la cuenta conectada, cambiarla, reconectar y desconectar sin ocultar follow-ups históricos. |
 | `SAL-09` | Sin cuenta conectada se puede omitir el paso inicial y seguir usando Foloo/capturando Leads; solo enviar pide conectar Google/Microsoft. Una autorización revocada pide reconectar sin pérdida. Un pendiente creado bajo otra identidad no se envía desde la nueva sin confirmación explícita; el historial conserva proveedor, remitente, destinatario, fecha, estado e intención originales sin secretos. |
 | `SAL-10` | Seguimiento observa Drift desde Registros/detalle: transiciones Pendiente/Enviando/Enviado/Error/Estado por confirmar actualizan la pantalla visible sin polling. El copy añade causa solo si el estado real la conoce. Preparaciones antiguas duplicadas sin intención no se borran automáticamente y solo se presenta la más reciente por Lead. |
+| `SAL-11` | Gmail/Graph intentan presentar `{seller_profiles.name} - Foloo` como nombre visible, manteniendo exactamente la dirección OAuth autorizada. Backend normaliza Unicode y bloquea CR/LF; nombre ausente/inválido usa `Foloo`. Cada intención congela un snapshot nullable: retry conserva el original, reenvío manual toma el vigente y filas históricas nulas usan `Foloo` sin recalcular perfil. Graph es best effort y el cliente/proveedor puede sustituir la presentación. Correos de seguridad Cognito quedan fuera de la personalización por vendedor. |
 
 ### 4.8 Navegación, apariencia e idioma
 

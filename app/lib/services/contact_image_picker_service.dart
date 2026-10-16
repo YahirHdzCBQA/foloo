@@ -8,6 +8,8 @@ import 'dart:typed_data';
 
 import 'package:image_picker/image_picker.dart';
 
+import 'image_capture_service.dart';
+
 class PickedContactImage {
   PickedContactImage({required this.path, required List<int> bytes})
     : bytes = bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
@@ -22,15 +24,20 @@ abstract interface class ContactImagePickerService {
   Future<PickedContactImage?> pick(ImageSource source);
 }
 
-class DeviceContactImagePickerService implements ContactImagePickerService {
-  DeviceContactImagePickerService([ImagePicker? picker])
-    : _picker = picker ?? ImagePicker();
+abstract interface class RecoverableContactImagePickerService {
+  Future<PickedContactImage?> retrieveLostImage();
+}
 
-  final ImagePicker _picker;
+class DeviceContactImagePickerService
+    implements ContactImagePickerService, RecoverableContactImagePickerService {
+  DeviceContactImagePickerService([ImageCaptureService? picker])
+    : _picker = picker ?? DeviceImageCaptureService();
+
+  final ImageCaptureService _picker;
 
   @override
   Future<PickedContactImage?> pick(ImageSource source) async {
-    final image = await _picker.pickImage(
+    final image = await _picker.pick(
       source: source,
       maxWidth: 1568,
       maxHeight: 1568,
@@ -38,9 +45,14 @@ class DeviceContactImagePickerService implements ContactImagePickerService {
       preferredCameraDevice: CameraDevice.rear,
     );
     if (image == null) return null;
-    return PickedContactImage(
-      path: image.path,
-      bytes: await image.readAsBytes(),
-    );
+    return PickedContactImage(path: image.path, bytes: image.bytes);
+  }
+
+  @override
+  Future<PickedContactImage?> retrieveLostImage() async {
+    final image = await _picker.retrieveLostImage();
+    return image == null
+        ? null
+        : PickedContactImage(path: image.path, bytes: image.bytes);
   }
 }

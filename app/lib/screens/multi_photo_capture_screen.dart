@@ -4,14 +4,17 @@
 /// seller confirms, keeping the platform image picker behind its service boundary.
 library;
 
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../l10n/l10n.dart';
+import '../services/camera_access_service.dart';
 import '../services/contact_image_picker_service.dart';
 import '../theme/foloo_theme.dart';
+import '../widgets/camera_access_dialog.dart';
 
 /// Captures the remaining CAP-23 photos without returning to the lead form.
 class MultiPhotoCaptureScreen extends StatefulWidget {
@@ -19,31 +22,76 @@ class MultiPhotoCaptureScreen extends StatefulWidget {
     required this.initialImages,
     required this.picker,
     this.maximumImages = 3,
+    this.cameraAccessCoordinator,
     super.key,
   });
 
   final List<PickedContactImage> initialImages;
   final ContactImagePickerService picker;
   final int maximumImages;
+  final CameraAccessCoordinator? cameraAccessCoordinator;
 
   @override
   State<MultiPhotoCaptureScreen> createState() =>
       _MultiPhotoCaptureScreenState();
 }
 
-class _MultiPhotoCaptureScreenState extends State<MultiPhotoCaptureScreen> {
+class _MultiPhotoCaptureScreenState extends State<MultiPhotoCaptureScreen>
+    with WidgetsBindingObserver {
   late final List<PickedContactImage> _images;
+  late final CameraAccessCoordinator _cameraAccess;
   bool _openingCamera = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _cameraAccess = widget.cameraAccessCoordinator ?? CameraAccessCoordinator();
     _images = List.of(widget.initialImages.take(widget.maximumImages));
-    WidgetsBinding.instance.addPostFrameCallback((_) => _capture());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _recoverOrCapture());
+  }
+
+  Future<void> _recoverOrCapture() async {
+    final picker = widget.picker;
+    if (picker is RecoverableContactImagePickerService) {
+      try {
+        final recovered = await (picker as RecoverableContactImagePickerService)
+            .retrieveLostImage();
+        if (mounted &&
+            recovered != null &&
+            _images.length < widget.maximumImages &&
+            !_images.any((image) => image.path == recovered.path)) {
+          setState(() => _images.add(recovered));
+          return;
+        }
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(imageCaptureFailureMessage(context, error))),
+          );
+        }
+        return;
+      }
+    }
+    await _capture();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_cameraAccess.revalidateAfterSettings());
+    }
   }
 
   Future<void> _capture() async {
     if (_openingCamera || _images.length >= widget.maximumImages) return;
+    if (!await ensureCameraAccess(context, _cameraAccess) || !mounted) return;
     setState(() => _openingCamera = true);
     try {
       final image = await widget.picker.pick(ImageSource.camera);
@@ -51,10 +99,11 @@ class _MultiPhotoCaptureScreenState extends State<MultiPhotoCaptureScreen> {
         return;
       }
       setState(() => _images.add(image));
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(context.l10n.imageOpenError)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(imageCaptureFailureMessage(context, error))),
+      );
     } finally {
       if (mounted) setState(() => _openingCamera = false);
     }

@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/l10n/app_localizations.dart';
 import 'package:foloo/screens/multi_photo_capture_screen.dart';
+import 'package:foloo/services/camera_access_service.dart';
 import 'package:foloo/services/contact_image_picker_service.dart';
 import 'package:foloo/theme/foloo_theme.dart';
 import 'package:image/image.dart' as image_codec;
@@ -19,6 +20,17 @@ class _FakeCameraPicker implements ContactImagePickerService {
       bytes: image_codec.encodePng(image_codec.Image(width: 2, height: 2)),
     );
   }
+}
+
+class _GrantedCameraPermission implements CameraPermissionGateway {
+  @override
+  Future<CameraAccessState> check() async => CameraAccessState.granted;
+
+  @override
+  Future<CameraAccessState> request() async => CameraAccessState.granted;
+
+  @override
+  Future<bool> openSettings() async => true;
 }
 
 class _PhotoSessionHost extends StatefulWidget {
@@ -44,6 +56,9 @@ class _PhotoSessionHostState extends State<_PhotoSessionHost> {
         builder: (_) => MultiPhotoCaptureScreen(
           initialImages: widget.initialImages,
           picker: widget.picker,
+          cameraAccessCoordinator: CameraAccessCoordinator(
+            _GrantedCameraPermission(),
+          ),
         ),
       ),
     );

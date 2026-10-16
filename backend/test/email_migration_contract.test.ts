@@ -55,3 +55,13 @@ test("event template override is isolated and absence preserves inheritance", as
   assert.doesNotMatch(sql, /DEFAULT.*subject|DEFAULT.*body/i);
   assert.doesNotMatch(sql, /\bDROP\s+(TABLE|COLUMN)\b/i);
 });
+
+test("FL-020.6 sender identity migration keeps history nullable", async () => {
+  const sql = await readFile(
+    join(import.meta.dirname, "../migrations/008_email_sender_identity.sql"),
+    "utf8",
+  );
+  assert.match(sql, /ADD COLUMN IF NOT EXISTS sender_display_name text/);
+  assert.match(sql, /sender_display_name IS NULL/);
+  assert.doesNotMatch(sql, /UPDATE email_send_intents/u);
+});

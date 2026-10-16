@@ -4,52 +4,70 @@
 /// profile persistence remains part of AUT-04/AUT-05 product work.
 library;
 
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/app_event.dart';
+import '../services/camera_access_service.dart';
+import '../services/image_capture_service.dart';
 import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 import '../widgets/auth_text_form_field.dart';
+import '../widgets/camera_access_dialog.dart';
 
 /// Collects the minimum seller identity required before lead capture.
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({
     required this.onContinue,
     this.initialProfile = DemoProfile.empty,
+    this.cameraAccessCoordinator,
+    this.imageCaptureService,
     super.key,
   });
 
   final ValueChanged<DemoProfile> onContinue;
   final DemoProfile initialProfile;
+  final CameraAccessCoordinator? cameraAccessCoordinator;
+  final ImageCaptureService? imageCaptureService;
 
   @override
   State<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
 }
 
-class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
+class _ProfileSetupScreenState extends State<ProfileSetupScreen>
+    with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name;
   late final TextEditingController _company;
   final _nameFocus = FocusNode();
   final _companyFocus = FocusNode();
-  final _picker = ImagePicker();
+  late final CameraAccessCoordinator _cameraAccess;
+  late final ImageCaptureService _imageCapture;
   Uint8List? _profileBytes;
   String? _profileSourcePath;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _cameraAccess = widget.cameraAccessCoordinator ?? CameraAccessCoordinator();
+    _imageCapture = widget.imageCaptureService ?? DeviceImageCaptureService();
     _name = TextEditingController(text: widget.initialProfile.name);
     _company = TextEditingController(text: widget.initialProfile.company);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _recoverLostImage());
   }
 
   Future<void> _pickProfileImage(ImageSource source) async {
+    if (source == ImageSource.camera &&
+        !await ensureCameraAccess(context, _cameraAccess)) {
+      return;
+    }
     try {
-      final image = await _picker.pickImage(
+      final image = await _imageCapture.pick(
         source: source,
         maxWidth: 1024,
         maxHeight: 1024,
@@ -57,22 +75,46 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         preferredCameraDevice: CameraDevice.front,
       );
       if (image == null) return;
-      final bytes = await image.readAsBytes();
       if (mounted) {
         setState(() {
-          _profileBytes = bytes;
+          _profileBytes = image.bytes;
           _profileSourcePath = image.path;
         });
       }
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(context.l10n.imageOpenError)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(imageCaptureFailureMessage(context, error))),
+      );
+    }
+  }
+
+  Future<void> _recoverLostImage() async {
+    try {
+      final image = await _imageCapture.retrieveLostImage();
+      if (!mounted || image == null || image.path == _profileSourcePath) return;
+      setState(() {
+        _profileBytes = image.bytes;
+        _profileSourcePath = image.path;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(imageCaptureFailureMessage(context, error))),
+      );
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_cameraAccess.revalidateAfterSettings());
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _name.dispose();
     _company.dispose();
     _nameFocus.dispose();

@@ -1544,6 +1544,42 @@ abstract class AppLocalizations {
   /// **'No se pudo abrir la imagen. Puedes continuar capturando los datos a mano.'**
   String get cardOpenError;
 
+  /// No description provided for @cameraPermissionTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Activa el acceso a la cámara'**
+  String get cameraPermissionTitle;
+
+  /// No description provided for @cameraPermissionDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Para tomar fotografías desde Foloo, permite el acceso a la cámara en los ajustes de tu dispositivo.'**
+  String get cameraPermissionDescription;
+
+  /// No description provided for @cameraPermissionDenied.
+  ///
+  /// In es, this message translates to:
+  /// **'Se denegó el acceso a la cámara. Puedes intentarlo de nuevo o continuar manualmente.'**
+  String get cameraPermissionDenied;
+
+  /// No description provided for @cameraUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay una cámara disponible. Puedes continuar manualmente o elegir una imagen de tu galería.'**
+  String get cameraUnavailable;
+
+  /// No description provided for @openSettings.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir configuración'**
+  String get openSettings;
+
+  /// No description provided for @notNow.
+  ///
+  /// In es, this message translates to:
+  /// **'Ahora no'**
+  String get notNow;
+
   /// No description provided for @cardReadSuccess.
   ///
   /// In es, this message translates to:
@@ -1579,6 +1615,24 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Permiso de micrófono rechazado. Puedes continuar con la nota escrita.'**
   String get microphoneDenied;
+
+  /// No description provided for @microphonePermissionTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Activa el acceso al micrófono'**
+  String get microphonePermissionTitle;
+
+  /// No description provided for @microphonePermissionDescription.
+  ///
+  /// In es, this message translates to:
+  /// **'Para grabar una nota de voz, permite el acceso al micrófono en los ajustes de tu dispositivo.'**
+  String get microphonePermissionDescription;
+
+  /// No description provided for @continueWithWrittenNote.
+  ///
+  /// In es, this message translates to:
+  /// **'Continuar con nota escrita'**
+  String get continueWithWrittenNote;
 
   /// No description provided for @recordStartError.
   ///

@@ -22,6 +22,7 @@ function intent(overrides: Partial<StoredSendIntent> = {}): StoredSendIntent {
     connectionId: "connection-a",
     provider: "google",
     senderAddress: "seller@example.com",
+    senderDisplayName: "Seller Example - Foloo",
     recipientAddress: "lead@example.com",
     subject: "Follow-up",
     plainBody: "Hello",
@@ -42,6 +43,7 @@ function harness(options: {
   optedOut?: boolean;
   attachmentCount?: 1 | 2;
   intentOverride?: Partial<StoredSendIntent>;
+  sellerName?: string | null;
 }) {
   let current = intent(options.intentOverride);
   let providerCalls = 0;
@@ -58,7 +60,20 @@ function harness(options: {
       status: "connected",
       updatedAt: new Date().toISOString(),
     }),
-    createIntent: async () => current,
+    sellerProfileName: async () =>
+      options.sellerName === undefined ? "Seller Example" : options.sellerName,
+    createIntent: async (
+      _principal: unknown,
+      input: { senderDisplayName: string },
+    ) => {
+      if (current.status === "pending" && current.attemptCount === 0) {
+        current = intent({
+          ...current,
+          senderDisplayName: input.senderDisplayName,
+        });
+      }
+      return current;
+    },
     intent: async () => current,
     isOptedOut: async () => options.optedOut ?? false,
     intentAttachments: async () =>
@@ -72,7 +87,7 @@ function harness(options: {
       })),
     markSending: async () => {
       current = intent({
-        ...options.intentOverride,
+        ...current,
         status: "sending",
         attemptCount: 1,
       });
@@ -176,6 +191,41 @@ test("provider acceptance is persisted as sent", async () => {
   );
   assert.equal(result.intent.status, "sent");
   assert.equal(value.providerCalls(), 1);
+});
+
+test("SAL-11 confirmation snapshots the scoped profile display name", async () => {
+  const value = harness({ outcome: "accepted", sellerName: "María Núñez" });
+  await value.application.confirm(principal.userId, intent().followUpId, {
+    intentId: intent().id,
+  });
+  const command = value.providerCommand();
+  assert.ok(command && command.action === "send");
+  assert.equal(command.senderDisplayName, "María Núñez - Foloo");
+});
+
+test("SAL-11 retry keeps the frozen snapshot and legacy null uses Foloo", async () => {
+  const frozen = harness({
+    outcome: "accepted",
+    sellerName: "New Profile",
+    intentOverride: {
+      status: "error",
+      senderDisplayName: "Original Profile - Foloo",
+    },
+  });
+  await frozen.application.retry(principal.userId, intent().id);
+  let command = frozen.providerCommand();
+  assert.ok(command && command.action === "send");
+  assert.equal(command.senderDisplayName, "Original Profile - Foloo");
+
+  const legacy = harness({
+    outcome: "accepted",
+    sellerName: "Current Profile",
+    intentOverride: { status: "error", senderDisplayName: null },
+  });
+  await legacy.application.retry(principal.userId, intent().id);
+  command = legacy.providerCommand();
+  assert.ok(command && command.action === "send");
+  assert.equal(command.senderDisplayName, "Foloo");
 });
 
 test("two available PDFs reach the provider payload without truncation", async () => {

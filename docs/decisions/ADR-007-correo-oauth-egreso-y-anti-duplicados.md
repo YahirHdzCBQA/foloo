@@ -32,7 +32,10 @@ como retry seguro aun si Foloo deduplica la operación API.
    reanudar desde el navegador; una marca local de onboarding nunca acredita
    conexión OAuth.
 3. Una intención explícita usa UUID/idempotency key única y snapshot de
-   destinatario, identidad remitente, template y adjuntos. Al iniciar una
+   destinatario, identidad remitente —incluido el nombre visible nullable—,
+   template y adjuntos. El nombre visible se obtiene server-side de
+   `seller_profiles`; retry conserva ese snapshot y un reenvío manual nuevo toma
+   el perfil vigente. Filas históricas nulas usan `Foloo` sin recalcular. Al iniciar una
    llamada potencialmente aceptable, persistir intento `sending`. Si se
    pierde la respuesta después de iniciar la llamada, pasar a
    `confirmation_required`; prohibir retry automático. Solo fallos

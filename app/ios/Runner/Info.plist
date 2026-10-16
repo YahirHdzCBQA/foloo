@@ -50,7 +50,7 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Foloo usa la cámara para fotografiar tarjetas de presentación.</string>
+	<string>Foloo uses the camera for business cards, contact reference photos, and your profile photo.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Foloo usa el micrófono para grabar una nota de voz de la conversación.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

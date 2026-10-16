@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/app.dart';
+import 'package:foloo/services/camera_access_service.dart';
 import 'package:foloo/services/contact_image_picker_service.dart';
 import 'package:foloo/theme/foloo_theme.dart';
 import 'package:foloo/services/pdf_picker_service.dart';
@@ -31,6 +32,17 @@ class _FakeContactImagePicker implements ContactImagePickerService {
   }
 }
 
+class _GrantedCameraPermission implements CameraPermissionGateway {
+  @override
+  Future<CameraAccessState> check() async => CameraAccessState.granted;
+
+  @override
+  Future<CameraAccessState> request() async => CameraAccessState.granted;
+
+  @override
+  Future<bool> openSettings() async => true;
+}
+
 void phone(WidgetTester tester) {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -48,6 +60,9 @@ Future<void> login(
     FolooApp(
       pdfPickerService: pdfPickerService,
       contactImagePickerService: contactImagePickerService,
+      cameraAccessCoordinator: CameraAccessCoordinator(
+        _GrantedCameraPermission(),
+      ),
     ),
   );
   await tester.pumpAndSettle();

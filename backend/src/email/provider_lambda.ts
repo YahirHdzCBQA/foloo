@@ -12,6 +12,7 @@ import {
 } from "@aws-sdk/client-secrets-manager";
 import {
   GOOGLE_SCOPES,
+  hasHeaderControlCharacters,
   MICROSOFT_SCOPES,
   classifyProviderHttpStatus,
   opaqueToken,
@@ -228,13 +229,35 @@ async function loadAttachments(items: ProviderAttachment[]) {
   );
 }
 
-function mime(
+function safeDisplayName(value: string | undefined) {
+  if (!value || hasHeaderControlCharacters(value)) return "Foloo";
+  const normalized = value
+    .normalize("NFC")
+    .trim()
+    .replace(/[ \t]+/gu, " ");
+  return normalized.length > 0 ? normalized : "Foloo";
+}
+
+/** Encodes the immutable display label without altering the authorized address. */
+export function senderMailboxHeader(
+  displayName: string | undefined,
+  senderAddress: string,
+) {
+  if (/\r|\n/u.test(senderAddress)) throw new Error("invalid_sender_address");
+  const safeName = safeDisplayName(displayName);
+  const encodedName = /[^\x20-\x7e]/u.test(safeName)
+    ? `=?UTF-8?B?${Buffer.from(safeName).toString("base64")}?=`
+    : `"${safeName.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+  return `${encodedName} <${senderAddress}>`;
+}
+
+export function gmailMime(
   command: Extract<ProviderCommand, { action: "send" }>,
   attachments: Awaited<ReturnType<typeof loadAttachments>>,
 ) {
   const boundary = `foloo_${randomUUID()}`;
   const lines = [
-    `From: ${command.senderAddress}`,
+    `From: ${senderMailboxHeader(command.senderDisplayName, command.senderAddress)}`,
     `To: ${command.recipientAddress}`,
     `Subject: =?UTF-8?B?${Buffer.from(command.subject).toString("base64")}?=`,
     "MIME-Version: 1.0",
@@ -268,6 +291,33 @@ function mime(
   return lines.join("\r\n");
 }
 
+/** Produces the Graph message body independently from network dispatch. */
+export function microsoftGraphBody(
+  command: Extract<ProviderCommand, { action: "send" }>,
+  attachments: Awaited<ReturnType<typeof loadAttachments>>,
+) {
+  return {
+    message: {
+      subject: command.subject,
+      body: { contentType: "HTML", content: command.htmlBody },
+      toRecipients: [{ emailAddress: { address: command.recipientAddress } }],
+      from: {
+        emailAddress: {
+          address: command.senderAddress,
+          name: safeDisplayName(command.senderDisplayName),
+        },
+      },
+      attachments: attachments.map((item) => ({
+        "@odata.type": "#microsoft.graph.fileAttachment",
+        name: item.name,
+        contentType: item.contentType,
+        contentBytes: item.bytes.toString("base64"),
+      })),
+    },
+    saveToSentItems: true,
+  };
+}
+
 async function send(
   command: Extract<ProviderCommand, { action: "send" }>,
 ): Promise<ProviderResult> {
@@ -284,27 +334,14 @@ async function send(
       ? {
           url: "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
           body: JSON.stringify({
-            raw: Buffer.from(mime(command, attachments)).toString("base64url"),
+            raw: Buffer.from(gmailMime(command, attachments)).toString(
+              "base64url",
+            ),
           }),
         }
       : {
           url: "https://graph.microsoft.com/v1.0/me/sendMail",
-          body: JSON.stringify({
-            message: {
-              subject: command.subject,
-              body: { contentType: "HTML", content: command.htmlBody },
-              toRecipients: [
-                { emailAddress: { address: command.recipientAddress } },
-              ],
-              attachments: attachments.map((item) => ({
-                "@odata.type": "#microsoft.graph.fileAttachment",
-                name: item.name,
-                contentType: item.contentType,
-                contentBytes: item.bytes.toString("base64"),
-              })),
-            },
-            saveToSentItems: true,
-          }),
+          body: JSON.stringify(microsoftGraphBody(command, attachments)),
         };
   let dispatched = false;
   try {

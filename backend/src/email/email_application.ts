@@ -12,6 +12,7 @@ import {
   type EmailLanguage,
 } from "../domain/email_templates.js";
 import {
+  followUpSenderDisplayName,
   incompatibleAttachments,
   maskedAddress,
   tokenHash,
@@ -203,12 +204,16 @@ export class EmailApplication {
         409,
         "Connect or reconnect an email account.",
       );
+    const senderDisplayName = followUpSenderDisplayName(
+      await this.repository.sellerProfileName(principal),
+    );
     const intent = await this.repository.createIntent(principal, {
       id: options.intentId ?? randomUUID(),
       followUpId,
       omittedContentIds: options.omittedContentIds ?? [],
       parentIntentId: options.parentIntentId,
       kind: options.manualResend ? "manual_resend" : "initial",
+      senderDisplayName,
     });
     if (intent.status === "sending") {
       const ambiguous = await this.repository.finishIntent(
@@ -364,6 +369,7 @@ export class EmailApplication {
       encryptedCredentials: intent.encryptedCredentials!,
       workspaceId: principal.workspaceId,
       senderAddress: intent.senderAddress!,
+      senderDisplayName: intent.senderDisplayName ?? "Foloo",
       recipientAddress: intent.recipientAddress,
       subject: providerContent.subject,
       plainBody: providerContent.plainText,

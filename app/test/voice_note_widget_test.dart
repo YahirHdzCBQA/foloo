@@ -5,13 +5,49 @@ import 'package:foloo/models/lead_draft.dart';
 import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/models/email_review.dart';
 import 'package:foloo/screens/lead_capture_screen.dart';
+import 'package:foloo/services/microphone_access_service.dart';
 import 'package:foloo/theme/foloo_theme.dart';
 
 import 'support/fake_voice_note_service.dart';
 
+class _GrantedMicrophoneGateway implements MicrophonePermissionGateway {
+  @override
+  Future<MicrophoneAccessState> check() async => MicrophoneAccessState.granted;
+
+  @override
+  Future<bool> openSettings() async => true;
+
+  @override
+  Future<MicrophoneAccessState> request() async =>
+      MicrophoneAccessState.granted;
+}
+
+MicrophoneAccessCoordinator grantedMicrophone() =>
+    MicrophoneAccessCoordinator(_GrantedMicrophoneGateway());
+
+class _MutableMicrophoneGateway implements MicrophonePermissionGateway {
+  _MutableMicrophoneGateway(this.state);
+
+  MicrophoneAccessState state;
+  int settingsOpens = 0;
+
+  @override
+  Future<MicrophoneAccessState> check() async => state;
+
+  @override
+  Future<bool> openSettings() async {
+    settingsOpens++;
+    return true;
+  }
+
+  @override
+  Future<MicrophoneAccessState> request() async => state;
+}
+
 Widget voiceNoteApp(
   FakeVoiceNoteService service, {
   ValueChanged<LeadDraft>? onSaved,
+  MicrophoneAccessCoordinator? microphoneAccessCoordinator,
 }) => MaterialApp(
   theme: FolooTheme.light,
   home: LeadCaptureScreen(
@@ -21,6 +57,8 @@ Widget voiceNoteApp(
     recordsCount: 0,
     darkMode: false,
     voiceNoteService: service,
+    microphoneAccessCoordinator:
+        microphoneAccessCoordinator ?? grantedMicrophone(),
     onLeadSaved: (lead) {
       onSaved?.call(lead);
       return DemoEventData.createSessionLead(lead: lead, sequence: 1);
@@ -59,6 +97,7 @@ class _VoiceNavigationHostState extends State<_VoiceNavigationHost> {
             recordsCount: 0,
             darkMode: false,
             voiceNoteService: widget.service,
+            microphoneAccessCoordinator: grantedMicrophone(),
             onLeadSaved: (lead) =>
                 DemoEventData.createSessionLead(lead: lead, sequence: 1),
             onOriginChanged: (_, _) {},
@@ -132,6 +171,7 @@ void main() {
             recordsCount: 0,
             darkMode: false,
             voiceNoteService: service,
+            microphoneAccessCoordinator: grantedMicrophone(),
             onLeadSaved: (lead) {
               saves++;
               return SessionLead(
@@ -284,6 +324,44 @@ void main() {
     expect(find.byKey(const Key('noteField')), findsOneWidget);
     expect(find.byKey(const Key('recordButton')), findsOneWidget);
   });
+
+  testWidgets(
+    'VOZ-06 returning from Settings revalidates without auto-recording',
+    (tester) async {
+      final service = FakeVoiceNoteService();
+      final gateway = _MutableMicrophoneGateway(
+        MicrophoneAccessState.permanentlyDenied,
+      );
+      await tester.pumpWidget(
+        voiceNoteApp(
+          service,
+          microphoneAccessCoordinator: MicrophoneAccessCoordinator(gateway),
+        ),
+      );
+      await showRecorder(tester);
+
+      await tester.tap(find.byKey(const Key('recordButton')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('microphonePermissionSettingsDialog')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const Key('microphonePermissionOpenSettings')),
+      );
+      await tester.pumpAndSettle();
+      expect(service.startCount, 0);
+
+      gateway.state = MicrophoneAccessState.granted;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(service.startCount, 0);
+
+      await tester.tap(find.byKey(const Key('recordButton')));
+      await tester.pump();
+      expect(service.startCount, 1);
+    },
+  );
 
   testWidgets('form saves normally without a voice note', (tester) async {
     final service = FakeVoiceNoteService();

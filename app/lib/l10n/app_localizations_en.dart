@@ -789,6 +789,27 @@ class AppLocalizationsEn extends AppLocalizations {
       'The image could not be opened. You can continue entering the details manually.';
 
   @override
+  String get cameraPermissionTitle => 'Enable camera access';
+
+  @override
+  String get cameraPermissionDescription =>
+      'To take photos in Foloo, allow camera access in your device settings.';
+
+  @override
+  String get cameraPermissionDenied =>
+      'Camera access was denied. You can try again or continue manually.';
+
+  @override
+  String get cameraUnavailable =>
+      'No camera is available. You can continue manually or choose an image from your gallery.';
+
+  @override
+  String get openSettings => 'Open settings';
+
+  @override
+  String get notNow => 'Not now';
+
+  @override
   String get cardReadSuccess => 'Scan complete. Review the details.';
 
   @override
@@ -809,6 +830,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get microphoneDenied =>
       'Microphone permission was denied. You can continue with the written note.';
+
+  @override
+  String get microphonePermissionTitle => 'Enable microphone access';
+
+  @override
+  String get microphonePermissionDescription =>
+      'To record a voice note, allow microphone access in your device settings.';
+
+  @override
+  String get continueWithWrittenNote => 'Continue with written note';
 
   @override
   String get recordStartError =>

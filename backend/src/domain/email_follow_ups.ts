@@ -25,6 +25,25 @@ export const MICROSOFT_SCOPES = [
   "Mail.Send",
 ] as const;
 
+/** Builds the immutable, header-safe seller label used by follow-up sends. */
+export function followUpSenderDisplayName(name: string | null | undefined) {
+  if (typeof name !== "string" || hasHeaderControlCharacters(name)) {
+    return "Foloo";
+  }
+  const normalized = name
+    .normalize("NFC")
+    .trim()
+    .replace(/[ \t]+/gu, " ");
+  return normalized.length > 0 ? `${normalized} - Foloo` : "Foloo";
+}
+
+export function hasHeaderControlCharacters(value: string) {
+  return Array.from(value).some((character) => {
+    const code = character.codePointAt(0) ?? 0;
+    return code <= 31 || code === 127;
+  });
+}
+
 export const MICROSOFT_SIMPLE_ATTACHMENT_LIMIT = 3_000_000;
 export const GMAIL_MESSAGE_LIMIT = 25_000_000;
 

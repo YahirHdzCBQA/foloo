@@ -55,7 +55,7 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 ## E-03 · Tarjeta, OCR y captura manual
 
-**Trazas:** `CAP-01`–`CAP-06`, `OCR-01`–`OCR-09`.
+**Trazas:** `CAP-01`–`CAP-06`, `OCR-01`–`OCR-10`.
 
 - Cámara o galería ejecutan ML Kit local y precargan solo valores reconocidos.
 - Correcciones manuales no se sobrescriben sin acción explícita.
@@ -63,16 +63,29 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Foto puede reprocesarse, reemplazarse o quitarse antes de guardar.
 - La captura conserva cuatro pasos en un scroll, progreso superior y CTA fijo.
 - Guardar con faltantes desplaza al primero y lo identifica sin perder datos.
+- Cámara de tarjeta pide permiso solo al tocar cámara. Denegación temporal puede
+  reintentarse; bloqueo/restricción ofrece Ajustes. Al volver se revalida sin
+  abrir cámara, mientras galería y captura manual siguen disponibles. Cancelar,
+  cámara ausente, archivo inválido y OCR fallido nunca se presentan como el
+  mismo error. Android recupera una selección perdida sin duplicarla.
 
 ## E-04 · Voz, texto e imágenes de referencia
 
-**Trazas:** `CAP-07`, `CAP-08`, `VOZ-01`–`VOZ-08`.
+**Trazas:** `CAP-07`, `CAP-08`, `OCR-10`, `VOZ-01`–`VOZ-08`.
 
 - Grabar muestra onda/tiempo, detener no usa micrófono y después permite
   reproducir, borrar o regrabar.
-- Permiso denegado mantiene nota escrita; voz y texto son opcionales.
+- Micrófono se solicita solo al intentar grabar. Una denegación temporal permite
+  reintento; bloqueo permanente/restricción ofrece Ajustes y continuar con nota
+  escrita. Al volver se revalida sin iniciar grabación automáticamente; voz y
+  texto siguen siendo opcionales.
 - Una sesión de cámara acepta una, dos o tres imágenes y finaliza con ✓; si ya
   existen dos solo agrega una. Galería respeta el mismo máximo.
+- Cámara de referencias y foto de perfil usan el mismo contrato de permiso,
+  Settings, revalidación y errores que la tarjeta, sin pedir CAMERA para galería.
+- La recuperación de imágenes perdidas de `image_picker` se ejecuta únicamente
+  en Android; entrar a Perfil/Captura en iOS sin imagen es un estado normal y no
+  muestra error ni inicia cámara.
 - Guardar y reabrir conserva voz e imágenes. V1 no muestra transcripción.
 - Una voz detenida pero todavía no guardada sobrevive navegación temporal a
   otra sección o al navegador OAuth y reaparece al volver; cancelar/descartar
@@ -151,7 +164,7 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 ## E-08 · Plantillas y correo
 
-**Trazas:** `PLT-01`–`PLT-13`, `SAL-01`–`SAL-10`, `RC-01`, ADR-006/007.
+**Trazas:** `PLT-01`–`PLT-13`, `SAL-01`–`SAL-11`, `RC-01`, ADR-006/007.
 
 - Event/Direct ES/EN eligen por origen estructurado; asunto, cuerpo y firma
   editados sobreviven reinicio y cambio de cuenta. Preview del Lead real no envía.
@@ -179,6 +192,12 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - FL-019.5 no genera footer/enlace de baja, no expone GET/POST unsubscribe ni
   crea nuevos bloqueos por destinatario. Migraciones/tablas históricas se
   preservan y la decisión no se presenta como cumplimiento legal.
+- Al confirmar, backend obtiene el nombre del perfil owner/workspace y congela
+  `{nombre} - Foloo` en la intención; nombre vacío o inseguro congela `Foloo`.
+  Gmail lo codifica en MIME y Graph lo solicita como `from.emailAddress.name`
+  sin cambiar la dirección autorizada. Retry mantiene el snapshot, reenvío
+  manual toma el nombre vigente e intenciones históricas nulas usan `Foloo` sin
+  recalcular. La representación final en Gmail/Outlook es best effort.
 - Guardar Lead confirma primero la persistencia local y abre “Revisar” con
   destinatario no editable, texto concreto sin tokens y todos los adjuntos
   seleccionados. Antes de `foloo`, Back → editar Lead → Guardar actualiza la

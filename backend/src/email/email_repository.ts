@@ -41,6 +41,7 @@ export type StoredSendIntent = {
   connectionId: string | null;
   provider: EmailProviderName | null;
   senderAddress: string | null;
+  senderDisplayName: string | null;
   recipientAddress: string;
   subject: string;
   plainBody: string;
@@ -55,6 +56,7 @@ export type StoredSendIntent = {
 
 export interface EmailRepository {
   connection(principal: Principal): Promise<SafeEmailConnection | null>;
+  sellerProfileName(principal: Principal): Promise<string | null>;
   beginOAuth(
     principal: Principal,
     provider: EmailProviderName,
@@ -99,6 +101,7 @@ export interface EmailRepository {
       omittedContentIds: string[];
       parentIntentId?: string;
       kind: "initial" | "manual_resend";
+      senderDisplayName: string;
     },
   ): Promise<StoredSendIntent>;
   intent(principal: Principal, id: string): Promise<StoredSendIntent>;

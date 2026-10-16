@@ -35,6 +35,8 @@ export type ProviderCommand =
       encryptedCredentials: string;
       workspaceId: string;
       senderAddress: string;
+      /** Immutable profile snapshot. Optional during gradual deployments. */
+      senderDisplayName?: string;
       recipientAddress: string;
       subject: string;
       plainBody: string;

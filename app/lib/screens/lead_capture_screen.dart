@@ -21,15 +21,20 @@ import '../models/lead_draft.dart';
 import '../models/session_lead.dart';
 import '../models/voice_note_state.dart';
 import '../services/card_text_recognition_service.dart';
+import '../services/camera_access_service.dart';
 import '../services/contact_image_picker_service.dart';
+import '../services/image_capture_service.dart';
+import '../services/microphone_access_service.dart';
 import '../services/voice_note_service.dart';
 import '../services/pdf_picker_service.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 import '../utils/business_card_parser.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/camera_access_dialog.dart';
 import '../widgets/create_event_dialog.dart';
 import '../widgets/entitlement_scope.dart';
+import '../widgets/microphone_access_dialog.dart';
 import '../widgets/progress_header.dart';
 import '../widgets/section_card.dart';
 import '../widgets/segmented_bubble.dart';
@@ -64,6 +69,9 @@ class LeadCaptureScreen extends StatefulWidget {
     this.voiceNoteService,
     this.isOnline = false,
     this.contactImagePickerService,
+    this.cameraAccessCoordinator,
+    this.microphoneAccessCoordinator,
+    this.imageCaptureService,
     this.onEmailReviewRequested,
     this.onEmailReviewConfirmed,
     this.onEmailReviewUpdated,
@@ -98,6 +106,9 @@ class LeadCaptureScreen extends StatefulWidget {
   final VoiceNoteService? voiceNoteService;
   final bool isOnline;
   final ContactImagePickerService? contactImagePickerService;
+  final CameraAccessCoordinator? cameraAccessCoordinator;
+  final MicrophoneAccessCoordinator? microphoneAccessCoordinator;
+  final ImageCaptureService? imageCaptureService;
   final List<ContentFile> contentFiles;
   final bool Function()? onCaptureAnotherRequested;
 
@@ -111,7 +122,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _formKey = GlobalKey<FormState>();
   final _scrollController = ScrollController();
-  final _picker = ImagePicker();
   final _textRecognitionService = CardTextRecognitionService();
   final _cardParser = const BusinessCardParser();
   final _name = TextEditingController();
@@ -131,12 +141,16 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   final _relationshipContentKey = GlobalKey();
   late final VoiceNoteService _voiceNoteService;
   late final ContactImagePickerService _contactImagePicker;
+  late final CameraAccessCoordinator _cameraAccess;
+  late final MicrophoneAccessCoordinator _microphoneAccess;
+  late final ImageCaptureService _imageCapture;
   late final StreamSubscription<void> _playbackCompletedSubscription;
 
   // Derived media and manual-edit guards for OCR-05.
   Uint8List? _cardBytes;
   String? _cardPath;
   String? _imageMessage;
+  ImageCaptureFailureKind? _imageFailureKind;
   bool _isReadingCard = false;
   bool _ocrFailed = false;
   bool _nameEdited = false;
@@ -164,6 +178,10 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     _voiceNoteService = widget.voiceNoteService ?? DeviceVoiceNoteService();
     _contactImagePicker =
         widget.contactImagePickerService ?? DeviceContactImagePickerService();
+    _cameraAccess = widget.cameraAccessCoordinator ?? CameraAccessCoordinator();
+    _microphoneAccess =
+        widget.microphoneAccessCoordinator ?? MicrophoneAccessCoordinator();
+    _imageCapture = widget.imageCaptureService ?? DeviceImageCaptureService();
     _place.text = widget.initialPlace ?? '';
     _selectedContentIds = _defaultContentIds();
     _playbackCompletedSubscription = _voiceNoteService.playbackCompleted.listen(
@@ -186,6 +204,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       _observedControllerText[controller] = controller.text;
       controller.addListener(() => _refreshProgress(controller));
     }
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _recoverLostCardImage(),
+    );
   }
 
   Set<String> _defaultContentIds() {
@@ -232,6 +253,10 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_revalidateAccessAfterSettings());
+      return;
+    }
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
@@ -241,6 +266,25 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
         unawaited(_pausePlayback());
       }
     }
+  }
+
+  Future<void> _revalidateAccessAfterSettings() async {
+    final camera = await _cameraAccess.revalidateAfterSettings();
+    final microphone = await _microphoneAccess.revalidateAfterSettings();
+    if (!mounted) return;
+    final clearImageFailure =
+        camera == CameraAccessState.granted &&
+        _imageFailureKind == ImageCaptureFailureKind.permissionDenied;
+    final clearVoiceFailure = microphone == MicrophoneAccessState.granted;
+    if (!clearImageFailure && !clearVoiceFailure) return;
+    setState(() {
+      if (clearImageFailure) {
+        _imageMessage = null;
+        _imageFailureKind = null;
+        _ocrFailed = false;
+      }
+      if (clearVoiceFailure) _voiceNoteMessage = null;
+    });
   }
 
   @override
@@ -296,8 +340,12 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
 
   /// Selects the original card image and immediately starts local demo OCR.
   Future<void> _pickImage(ImageSource source) async {
+    if (source == ImageSource.camera &&
+        !await ensureCameraAccess(context, _cameraAccess)) {
+      return;
+    }
     try {
-      final image = await _picker.pickImage(
+      final image = await _imageCapture.pick(
         source: source,
         maxWidth: 1568,
         maxHeight: 1568,
@@ -305,19 +353,42 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
         preferredCameraDevice: CameraDevice.rear,
       );
       if (image == null) return;
-      final bytes = await image.readAsBytes();
       if (!mounted) return;
       setState(() {
-        _cardBytes = bytes;
+        _cardBytes = image.bytes;
         _cardPath = image.path;
         _imageMessage = context.l10n.cardReading;
+        _imageFailureKind = null;
         _ocrFailed = false;
       });
       await _readCard(image.path);
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
-        _imageMessage = context.l10n.cardOpenError;
+        _imageMessage = imageCaptureFailureMessage(context, error);
+        _imageFailureKind = error is ImageCaptureFailure ? error.kind : null;
+        _ocrFailed = true;
+      });
+    }
+  }
+
+  Future<void> _recoverLostCardImage() async {
+    try {
+      final image = await _imageCapture.retrieveLostImage();
+      if (!mounted || image == null || _cardPath == image.path) return;
+      setState(() {
+        _cardBytes = image.bytes;
+        _cardPath = image.path;
+        _imageMessage = context.l10n.cardReading;
+        _imageFailureKind = null;
+        _ocrFailed = false;
+      });
+      await _readCard(image.path);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _imageMessage = imageCaptureFailureMessage(context, error);
+        _imageFailureKind = error is ImageCaptureFailure ? error.kind : null;
         _ocrFailed = true;
       });
     }
@@ -328,6 +399,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       _cardBytes = null;
       _cardPath = null;
       _imageMessage = null;
+      _imageFailureKind = null;
       _ocrFailed = false;
     });
   }
@@ -371,12 +443,14 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     );
     if (source == null || !mounted) return;
     if (source == ImageSource.camera) {
+      if (!await ensureCameraAccess(context, _cameraAccess) || !mounted) return;
       final images = await Navigator.push<List<PickedContactImage>>(
         context,
         MaterialPageRoute(
           builder: (_) => MultiPhotoCaptureScreen(
             initialImages: List.unmodifiable(_referenceImages),
             picker: _contactImagePicker,
+            cameraAccessCoordinator: _cameraAccess,
           ),
         ),
       );
@@ -550,6 +624,12 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   }
 
   Future<void> _startRecording() async {
+    if (!await ensureMicrophoneAccess(context, _microphoneAccess) || !mounted) {
+      if (mounted) {
+        setState(() => _voiceNoteMessage = context.l10n.microphoneDenied);
+      }
+      return;
+    }
     final previous = _voiceNote;
     final previousTransferred = _voiceNoteTransferred;
     setState(() {
