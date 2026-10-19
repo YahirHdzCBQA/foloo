@@ -1,4 +1,4 @@
-/// On-device OCR adapter used by the current card-capture prototype.
+/// On-device OCR adapter for Foloo's business-card capture flow.
 ///
 /// It keeps ML Kit APIs outside the UI and selects the best preprocessed image
 /// before returning ordered text lines for parsing.
@@ -9,10 +9,6 @@ import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:foloo/utils/ocr/ocr_image_preprocessor.dart';
 
-// DEMO:
-// Google ML Kit is used on-device for early Foloo validation.
-// Final card extraction will move behind the Foloo backend
-// according to Article 3 and OCR-03/OCR-04.
 enum OcrFailureStage { preprocessing, recognition }
 
 enum OcrTechnicalResult {

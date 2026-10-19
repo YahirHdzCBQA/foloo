@@ -1,7 +1,7 @@
 # Especificación de producto — Foloo V1
 
 - Estado: vigente
-- Corte funcional: 2026-09-09
+- Corte funcional: 2026-10-16 (FL-020.6)
 - Producto: una sola app móvil Flutter para iOS y Android
 - Autoridad: alcance validado 2026-09-07 con actualización explícita del tablero
   operativo 2026-09-08
@@ -368,4 +368,8 @@ la transcripción automática queda fuera. Las decisiones de producto
 2026-09-18 resuelven `D-09` y `D-14`–`D-20` mediante `PLT-*`/`SAL-*`, E-08 y
 ADR-006/007. FL-019 quedó CLOSED tras implementación, despliegue y validación
 física final el 2026-09-22. El polish visual posterior de Review pertenece a
-FL-019.5, espera mockup aprobado y no altera este contrato funcional.
+FL-019.5, espera mockup aprobado y no altera este contrato funcional. FL-020.6
+cerró el 2026-10-16 sin cambiar el alcance: `SAL-11` quedó desplegado y
+validado con Gmail/Outlook, y `OCR-10`/`VOZ-06` quedaron validados físicamente
+en iOS y Android. `D-05`, `D-06` y `D-11` permanecen abiertas en los límites
+que declara `open-decisions.md`.

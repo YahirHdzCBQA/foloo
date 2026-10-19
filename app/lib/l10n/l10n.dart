@@ -17,9 +17,6 @@ extension FolooLocalizations on BuildContext {
 }
 
 /// Exposes the single locale selection shared by the complete application.
-///
-/// TODO(PRODUCTION): Persist the preference after a local-storage foundation
-/// is approved; the current implementation intentionally lasts one session.
 class AppLanguageScope extends InheritedWidget {
   const AppLanguageScope({
     required this.locale,

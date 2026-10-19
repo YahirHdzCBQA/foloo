@@ -155,8 +155,8 @@ contra AWS DEV (2026-10-14).**
 
 ## FL-020.6 — QA Corrections: sender identity + camera permissions
 
-**Estado:** **DESPLEGADA EN AWS DEV — FL-020.6-A VALIDADA; CORRECCIONES
-FL-020.6-B PENDIENTES DE REVALIDACIÓN FÍSICA (2026-10-16).**
+**Estado:** **CERRADO — implementado, desplegado en AWS DEV y validado
+físicamente en iOS y Android el 2026-10-16.**
 
 - **FL-020.6-A:** `SAL-11` congela en cada intención el nombre visible derivado
   exclusivamente de `seller_profiles.name`, con fallback `Foloo`, seguridad de
@@ -166,31 +166,29 @@ FL-020.6-B PENDIENTES DE REVALIDACIÓN FÍSICA (2026-10-16).**
 - **FL-020.6-B:** `OCR-10` centraliza CAMERA, Settings/revalidación, errores
   diferenciados y recuperación Android de `image_picker` para tarjeta,
   referencias y perfil; galería/captura manual permanecen independientes.
-  El QA iOS confirmó OCR y el modal CAMERA, pero detectó que la recuperación
-  Android se intentaba durante la inicialización iOS y bloqueaba referencias.
-  La corrección local limita esa recuperación a Android y amplía `VOZ-06` con
-  permiso contextual de micrófono, Ajustes y retorno sin autograbación.
-- Validación local: backend typecheck/tests; Flutter analyze/tests. FL-020.6-B
-  requiere repetir QA real Android/iOS antes de cerrar.
+  La corrección limita la recuperación de datos perdidos a Android y amplía
+  `VOZ-06` con permiso contextual de micrófono, Ajustes y retorno sin
+  autograbación. El responsable de QA validó funcionalmente el flujo en iPhone
+  y tablet Android.
+- Infraestructura: `FolooBackend-dev` quedó `UPDATE_COMPLETE`, ApiFunction
+  `Active / Successful`, migration `008_email_sender_identity.sql` aplicada y
+  Unlimited QA activo exclusivamente en DEV.
+- Android: APK Release Build 8 `1.0.0+8`, package `com.foloo.foloo`, conectado
+  a AWS DEV y firmado con el mismo certificado de Build 7; validado en tablet.
+- Evidencia automatizada final: `flutter analyze` sin problemas y 292/292
+  pruebas Flutter aprobadas. La evidencia física fue reportada por el
+  responsable de QA; no se inventan logs ni pruebas adicionales.
 - No modifica Unlimited QA, trial, pagos ni la dirección OAuth autorizada.
 - Trazas: `OCR-10`, `VOZ-06`, `SAL-11`, E-03/E-04/E-08; ADR-001/006/007.
 
-**Validación pendiente para cierre:**
-
-- Email real: Gmail→Gmail, Gmail→Outlook, Microsoft→Gmail y
-  Microsoft→Outlook; comprobar nombre solicitado, dirección efectiva, Unicode,
-  fallback, retry y reenvío manual. La presentación exacta depende del
-  proveedor/cliente. Verificar por separado que Cognito ya use identidad
-  genérica Foloo en confirmación/recuperación; no forma parte del despliegue.
-- Android/iOS: primer permiso, concesión, denegación temporal,
-  permanente/restringida, Abrir configuración, retorno sin apertura automática,
-  revocación, cancelación, cámara ausente, archivo inválido y OCR fallido en
-  tarjeta, referencias y perfil. Confirmar galería/manual y recuperación
-  `retrieveLostData()` Android sin duplicados.
-- Evidencia local asociada: `email_sender_identity.test.ts`,
+**Evidencia asociada:** `email_sender_identity.test.ts`,
   `email_application.test.ts`, `email_migration_contract.test.ts`,
   `camera_access_service_test.dart`, `multi_photo_capture_test.dart` y
   `unified_v1_frontend_test.dart`.
+
+El cierre no resuelve el límite de Voice Note `D-05`, la edición postguardado
+de medios `D-06` ni los mockups finales `D-11`. Tampoco implementa FL-021,
+FL-022, pagos, PROD o publicación en tiendas.
 
 ## FL-021 — Paywall & Payments
 

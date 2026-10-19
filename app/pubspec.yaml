@@ -1,5 +1,5 @@
 name: foloo
-description: "Frontend prototype for Foloo's mobile lead-capture flow."
+description: "Foloo's offline-first mobile lead-capture application."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -34,10 +34,7 @@ dependencies:
     sdk: flutter
   intl: any
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
-  # Prototipo: cámara/galería requeridas por RF-01.
+  # OCR-01/CAP-08: capture cards and durable reference images from camera/gallery.
   image_picker: ^1.2.1
   # OCR-10: request camera access contextually and open platform settings when blocked.
   permission_handler: ^12.0.1
@@ -46,7 +43,7 @@ dependencies:
   # OCR-02/OCR-04: on-device preprocessing of temporary image copies.
   # Flutter and ML Kit do not expose EXIF baking or pixel-level normalization.
   image: ^4.3.0
-  # RF-13/RF-15: grabación local del micrófono y revisión del archivo.
+  # VOZ-01/VOZ-06: record local voice notes after contextual permission.
   record: ^7.1.1
   audioplayers: ^6.8.1
   # CAP-15/SYN-01/SYN-02: durable, queryable local-first structured storage.

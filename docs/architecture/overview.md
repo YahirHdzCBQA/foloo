@@ -147,8 +147,8 @@ No forman parte de V1 Google Sheets, Transcribe/IA, QR, Teams o HQ dashboard.
    ese follow-up ni crea intención. El CTA `foloo` congela la edición concreta,
    encola follow-up + intención en orden y dispara sync cuando hay conectividad.
    El snapshot revisado queda congelado antes de sync;
-   destinatario, adjuntos y footer de baja se resuelven server-side. El backend
-   envía con Google/Microsoft autorizada;
+   destinatario, adjuntos e identidad visible se resuelven server-side. V1 no
+   agrega un footer de baja activo. El backend envía con Google/Microsoft autorizada;
    los estados regresan al dispositivo. Una aceptación ambigua no se reintenta
    automáticamente.
 8. Vencimiento limita solo nuevas capturas y nunca oculta datos existentes.

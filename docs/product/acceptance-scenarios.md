@@ -376,3 +376,13 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   admite el Security Group de Lambda. DEV no crea NAT ni RDS Proxy.
 - Guardar local en Drift continúa sin depender de esta API; FL-014 no activa
   sincronización ni subida de binarios.
+
+## Evidencia de cierre FL-020.6
+
+El 2026-10-16 el responsable de QA reportó aprobados en dispositivos físicos
+los branches afectados de E-03, E-04 y E-08: permisos/captura multimedia en
+iPhone y tablet Android, y nombre visible del remitente mediante Gmail y
+Outlook. Android usó el APK Release `1.0.0+8`, package `com.foloo.foloo`,
+firmado con el mismo certificado de Build 7 y conectado a AWS DEV con Unlimited
+QA. Esta evidencia cierra FL-020.6, no cierra los criterios globales `REL-*`, no
+resuelve `D-05`, `D-06` o `D-11` y no declara FL-021/FL-022 implementadas.

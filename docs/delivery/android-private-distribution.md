@@ -1,6 +1,8 @@
 # STORE-03B — APK Android Release para pruebas privadas
 
-- Estado: preparación técnica; distribución y QA físico pendientes.
+- Estado: procedimiento vigente para distribución privada; Build 8 validado
+  físicamente en Android el 2026-10-16. La distribución sigue requiriendo
+  autorización humana.
 - Alcance: APK firmado `com.foloo.foloo`, versión `1.0.0+2`, conectado solo a
   AWS DEV.
 - Trazas: `RNF-02`, `RNF-05`–`RNF-07`, `REL-01`, `REL-02`, `REL-06`, `REL-07`
@@ -624,3 +626,28 @@ comercial que la cuenta ya tenía. Un APK Unlimited instalado seguirá admitiend
 guardados locales aunque el backend se desactive, pero esos nuevos POST serán
 rechazados; por eso la actualización coordinada y el vaciado previo del outbox
 son obligatorios.
+
+## FL-020.6 — Build 8 para QA multimedia
+
+**Estado:** validado físicamente en tablet Android el 2026-10-16; no publicado
+ni distribuido automáticamente.
+
+- APK: `foloo-dev-1.0.0+8-fl-020.6-unlimited-release.apk`.
+- Versión: `1.0.0+8`; package `com.foloo.foloo`.
+- AWS DEV y `FOLOO_UNLIMITED_QA_MODE=true`.
+- SHA-256 del APK:
+  `1906166f2e0861e8bfd216068eb8680276044d18ff8d16ab24f1af70cba76d1d`.
+- SHA-256 del certificado Release:
+  `288297a790533fd4f09fd4b262e310bbb4201efc8d0c02c5f4b9991fbb6ee002`;
+  coincide con Build 7.
+- Firma APK v2 válida, R8/resource shrinking activos y sin permisos amplios de
+  almacenamiento.
+- Automatizado: `flutter analyze` sin problemas y 292/292 tests aprobados.
+- Manual reportado por QA: permisos de cámara/micrófono, tarjeta, fotografías
+  de referencia y comportamiento multimedia aprobado en tablet Android. La
+  validación complementaria de iPhone pertenece al cierre FL-020.6, no al APK.
+
+Build 8 es el artefacto canónico de QA actual y debe preservarse junto con su
+hash antes de limpiar `app/build/`. Las copias genéricas `app-release.apk` no
+son artefactos distintos si su SHA-256 coincide. FL-020.6 queda cerrado, pero
+los criterios globales de release y la distribución pública siguen pendientes.

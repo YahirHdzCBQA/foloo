@@ -48,7 +48,6 @@ bool shouldApplyExtractedValue({
     currentValue.trim().isEmpty &&
     extractedValue.trim().isNotEmpty;
 
-// TODO(PRODUCTION): Replace local parsing with server-side OCR-03 extraction.
 /// Applies cautious card-specific heuristics to ML Kit text lines.
 class BusinessCardParser {
   static final RegExp _emailPattern = RegExp(
