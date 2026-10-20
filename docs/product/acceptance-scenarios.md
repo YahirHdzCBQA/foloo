@@ -307,7 +307,7 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 ## E-11 · Trial y suscripción
 
-**Trazas:** `MON-01`–`MON-11`, Constitución Art. 9.
+**Trazas:** `MON-01`–`MON-12`, Constitución Art. 9.
 
 - Leads 1–5 se guardan; el sexto conserva borrador y abre paywall.
 - Evento y Directo consumen un uso histórico; borrar, tombstonear, reiniciar o
@@ -376,6 +376,64 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   admite el Security Group de Lambda. DEV no crea NAT ni RDS Proxy.
 - Guardar local en Drift continúa sin depender de esta API; FL-014 no activa
   sincronización ni subida de binarios.
+
+## E-14 · Eliminación integral de cuenta
+
+**Trazas:** `AUT-18`–`AUT-21`, `SYN-11`, `SYN-12`, `MON-13`,
+`INF-15`–`INF-21`, `RNF-09`, `RNF-10`, `RC-06`–`RC-10`, `D-13`,
+`REL-01`, `REL-06`, `REL-07`, `DEC-AD-01`–`DEC-AD-14` y ADR candidatas
+`ADR-AD-01`–`ADR-AD-06`.
+
+**Precondiciones:** cuenta Cognito autenticada y datos sintéticos owner-scoped;
+políticas Legal/Seguridad/Infra/Payments aplicables aprobadas antes de ejecutar
+pruebas destructivas. La ruta pública web usa una cuenta sintética y el mismo
+backend que Android/iOS.
+
+- Android, iOS y la página pública permiten llegar al mismo preflight. Offline
+  no crea una solicitud ni muestra aceptación; conocer un email o usar soporte
+  no autoriza eliminar.
+- El preflight muestra alcance, operaciones locales pendientes, exportación
+  opcional, límites externos y estado PRO disponible. **Sincronizar primero**
+  conserva el flujo normal; continuar sin sincronizar exige consentimiento
+  explícito y no presenta la exportación como requisito.
+- Sin evidencia Cognito reciente el backend rechaza la confirmación y solicita
+  reautenticación. Credenciales o un booleano enviados por el cliente nunca
+  sustituyen esa verificación. El valor productivo de frescura se prueba solo
+  después de la aprobación de Seguridad.
+- Confirmar crea atómicamente una única solicitud y su barrera. Dos taps, dos
+  dispositivos o la misma idempotency key devuelven esa solicitud, sin doble
+  cancelación, revocación, borrado o receipt. Abandonar el preflight no bloquea
+  la cuenta; después de `requested` no existe cancelación ni recuperación.
+- Desde `requested`, tokens antiguos, callbacks OAuth, replays, pulls, sync y
+  toda mutación reciben `account_deletion_pending` antes de resolver o crear un
+  workspace. Ningún dispositivo puede reprovisionar la cuenta.
+- El orquestador congela el inventario, cancela renovaciones PRO cuando exista
+  un proveedor aprobado, revoca OAuth, elimina/verifica S3 y PostgreSQL y
+  finaliza Cognito al último. Fallos parciales reintentan solo su etapa,
+  conservan la barrera y pasan a `blocked` con escalamiento; nunca se informa
+  `completed` prematuramente.
+- La purga móvil elimina Drift, outbox y archivos gestionados únicamente del
+  owner borrado. Conserva intactos otro owner y filas legacy sin owner; un
+  fallo de filesystem conserva un manifest reintentable y no sigue paths fuera
+  del storage privado Foloo.
+- `completed` requiere conteos cero para datos eliminables, objetos S3 ausentes,
+  OAuth inutilizable y Cognito no encontrado, salvo categorías retenidas bajo
+  política aprobada y aislada. El receipt permite consultar estado sin exponer
+  email, `sub`, tokens, paths, object keys o IDs internos.
+- El proceso comienza cuanto antes y, a más tardar al día 15, termina en
+  `completed` o `blocked` con incidente escalado. Publicar ese máximo como SLA
+  espera validación regional de Operación/Legal.
+- Durante 30 días, email/password y Google con una identidad equivalente son
+  rechazados sin revelar historial. Después se crea `sub`, account y workspace
+  nuevos, sin datos, PRO, conexiones o beneficios anteriores; la elegibilidad
+  de trial usa la política que Producto/Legal aprueben.
+- Restaurar un snapshot PostgreSQL anterior no reabre cuenta, workspace,
+  callbacks ni sesiones: antes de tráfico se reaplica el ledger vigente. La
+  expiración ordinaria de backups se comprueba contra el plazo aprobado; la
+  propuesta de 15 días no se prueba como política mientras `D-13` siga abierta.
+- Los avisos ES/EN distinguen solicitud, trabajo en curso, bloqueo y
+  finalización; explican copias externas y retenciones aprobadas sin prometer
+  eliminar datos fuera del control de Foloo.
 
 ## Evidencia de cierre FL-020.6
 

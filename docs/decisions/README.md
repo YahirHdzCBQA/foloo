@@ -12,6 +12,9 @@ Los ADR aceptados complementan, pero no sustituyen, el alcance V1.
 - ADR-007: frontera OAuth, almacenamiento de credenciales, egreso y
   anti-duplicados para FL-019.
 - Pendientes: retención/eliminación de medios, compliance postal y pagos.
+- Account Deletion tiene seis decisiones agrupadas todavía **no aceptadas** en
+  [`ADR-AD-account-deletion-candidates.md`](ADR-AD-account-deletion-candidates.md):
+  ledger, HMAC, Cognito, guard anterior a provisioning, restore y reauth.
 
 Las decisiones de producto/técnica aún abiertas están en
 `../product/open-decisions.md`. No se aprueba un

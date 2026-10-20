@@ -267,8 +267,8 @@ implementación.**
 - Matriz de datos, barrera anti-resurrección, solicitud autenticada, job durable,
   PostgreSQL/S3/OAuth/Cognito, purga Drift owner-scoped, UX ES/EN y recurso web:
   [`account-deletion-contract.md`](account-deletion-contract.md).
-- Define criterios candidatos y subtareas STORE-02E, pero no los convierte en
-  requisitos aprobados ni autoriza endpoints, migraciones, AWS, pantallas o
+- Define los criterios candidatos que STORE-02E-01 formalizó después en el SDD;
+  STORE-02D por sí sola no autoriza endpoints, migraciones, AWS, pantallas o
   borrados reales.
 - El registro posterior a revisión, acciones pendientes y espacio de validación
   están en
@@ -280,8 +280,9 @@ implementación.**
 - `D-13` permanece abierta hasta cerrar categorías/base/plazos de retención,
   backups/restore, registro mínimo y barrera de 30 días, reautenticación,
   operación/escalamiento, suscripciones, rol legal sobre terceros, alcance
-  regional y recurso web. STORE-02E no inicia implementación funcional antes de
-  promover los criterios a requisitos/escenarios y recibir autorización.
+  regional y recurso web. La promoción a requisitos/E-14 quedó completada en
+  STORE-02E-01; la implementación funcional continúa bloqueada hasta recibir
+  las aprobaciones aplicables y autorización acotada por subtarea.
 
 ### Iniciativa web futura sin FL asignada
 
@@ -293,6 +294,40 @@ implementación.**
 - No autoriza pantallas, endpoints, infraestructura ni modifica los
   identificadores actuales. Debe recibir alcance y trazas canónicas antes de
   entrar al roadmap implementable.
+
+### STORE-02E — Preparación técnica de Account Deletion
+
+**Estado:** **STORE-02E-01 COMPLETADA DOCUMENTALMENTE y revisión
+arquitectura/seguridad de STORE-02E-02 COMPLETADA el 2026-10-20; STORE-02E sin
+implementación ni autorización funcional.**
+
+- Arquitectura, flujo Mermaid, barrera de nuevo registro por 30 días, matriz de
+  datos, integración abstracta de suscripciones, UX, pruebas y plan incremental:
+  [`account-deletion-technical-design.md`](account-deletion-technical-design.md).
+- Borrador no funcional de contratos HTTP:
+  [`account-deletion-openapi.yaml`](account-deletion-openapi.yaml).
+- Requisitos canónicos `AUT-18`–`AUT-21`, `SYN-11`–`SYN-12`, `MON-13`,
+  `INF-15`–`INF-21`, `RNF-09`–`RNF-10`, `RC-06`–`RC-10`, escenario E-14,
+  criterios y matriz `DEC-AD`/pruebas/subtareas:
+  [`account-deletion-requirements-traceability.md`](account-deletion-requirements-traceability.md).
+- Seis decisiones de arquitectura permanecen como candidatas no aceptadas:
+  [`../decisions/ADR-AD-account-deletion-candidates.md`](../decisions/ADR-AD-account-deletion-candidates.md).
+- La revisión contra código/CDK real recomienda modificar AD-01/02/03/05 y
+  aceptar AD-04 solo con condiciones; separa blocker de email 30 días de
+  tombstone durable de subject, confirma el gap de ownership Cognito y que RDS
+  conserva actualmente solo un día de backup automático:
+  [`account-deletion-architecture-security-review.md`](account-deletion-architecture-security-review.md).
+- Reutiliza Cognito, ownership por `sub`, PostgreSQL, S3, Drift/outbox y las
+  fronteras de correo existentes, pero confirma que no existen todavía
+  endpoint, ledger, orquestador, revocación OAuth, finalizer Cognito ni purga
+  local integral.
+- D-13 y las validaciones Legal/Seguridad/Infra/Operación/Payments continúan
+  abiertas. No se crean DDL, Lambdas, pantallas, web ni recursos AWS.
+- `02E-02` queda revisada documentalmente pero bloqueada para código hasta
+  aprobar conjuntamente ledger, HMAC, prevención Cognito, guard anterior a
+  provisioning, restore y threat model. `02E-03` requiere además aprobar
+  reautenticación reciente. `02E-04`–
+  `02E-08` conservan los gates específicos del contrato y la matriz de trazas.
 
 ### STORE-03B — Android Release APK y distribución privada
 

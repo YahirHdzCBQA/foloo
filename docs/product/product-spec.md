@@ -1,7 +1,7 @@
 # Especificación de producto — Foloo V1
 
 - Estado: vigente
-- Corte funcional: 2026-10-16 (FL-020.6)
+- Corte funcional: 2026-10-20 (STORE-02E-01 documental)
 - Producto: una sola app móvil Flutter para iOS y Android
 - Autoridad: alcance validado 2026-09-07 con actualización explícita del tablero
   operativo 2026-09-08
@@ -46,6 +46,9 @@ edición, exportación o reintentos pendientes.
 - Exportación XLSX y CSV por evento, incluida operación sobre datos locales.
 - Tema claro/oscuro, ES/EN y navegación móvil.
 - Trial histórico de cinco leads, paywall informativo y base de suscripción.
+- Solicitud de eliminación integral desde Android/iOS y recurso web público,
+  sujeta a los gates Legal/Seguridad/Infra/Payments de `D-13` antes de
+  implementación.
 
 ### 2.2 Fuera de V1
 
@@ -289,6 +292,18 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `MON-10` | Dos creaciones concurrentes server-side serializan el entitlement de la cuenta: 4/5 puede llegar solo a 5/5, nunca 6/5. |
 | `MON-11` | Si varios dispositivos consumen offline el mismo saldo, cada uno preserva sus Leads locales; al reconectar el servidor acepta solo el saldo autoritativo y los excedentes quedan visibles con error recuperable, sin pérdida ni duplicación. |
 | `MON-12` | FL-020.5 permite suspender temporalmente solo el bloqueo de nuevas capturas en builds QA conectados a AWS DEV mediante opt-in explícito y coincidente en Flutter/backend. La excepción no concede `active`, no altera pagos ni incrementa/reinicia `trialLeadsUsed`; desactivada, `MON-01`–`MON-11` vuelven a regir. Leads creados durante QA permanecen visibles, editables, exportables y sincronizables. |
+| `MON-13` | Si una cuenta con suscripción PRO contratada mediante `foloo.io` solicita eliminación, Foloo informa el efecto comercial, solicita cancelar futuras renovaciones mediante el proveedor aprobado y verifica el resultado antes de comunicar éxito. Eliminación no implica reembolso ni fin inmediato del periodo pagado. Proveedor, estados, reembolsos, retención contable y canal transaccional siguen bloqueados por `D-01`–`D-04` y FL-021. |
+
+### 4.10 Eliminación integral de cuenta
+
+| ID | Requerimiento |
+|---|---|
+| `AUT-18` | Android, iOS y el recurso público web exigido por tienda ofrecen una entrada claramente identificada para solicitar la eliminación de la cuenta completa. Las tres superficies autentican mediante Cognito y usan el mismo backend y ciclo de vida; conocer un email o abrir una solicitud de soporte no autoriza el borrado. La ruta web definitiva y su operación permanecen sujetas a `DEC-AD-12`/TI. |
+| `AUT-19` | Antes de aceptar la eliminación irreversible, el backend verifica evidencia reciente emitida por Cognito; Flutter/web no envían contraseñas ni un booleano de “reauth”. Si la evidencia falta, caducó o no puede validarse, no se crea la barrera y se solicita reautenticación. La ventana de cinco minutos es la propuesta de `DEC-AD-09` y no se convierte en valor productivo hasta aprobación de Seguridad. |
+| `AUT-20` | La solicitud separa un preflight abandonable de una confirmación explícita, accesible e irreversible. Solo una aceptación backend que persista atómicamente solicitud y barrera cambia el estado a `requested`; desde ese instante no existe cancelación ni recuperación de la cuenta anterior. Repetir la confirmación devuelve la misma solicitud y no duplica trabajo. |
+| `AUT-21` | Después de una eliminación aceptada, Foloo bloquea durante 30 días el registro de una identidad equivalente sin revelar que existió una cuenta. Al vencer, el alta crea `sub`, cuenta y workspace nuevos, sin datos, perfil, conexión OAuth, entitlement ni beneficios previos. La canonicalización, HMAC, cobertura federada y elegibilidad del trial requieren las aprobaciones de Seguridad/Legal/Producto indicadas en `D-13`. |
+| `SYN-11` | Antes de confirmar, Foloo muestra si existen operaciones locales pendientes y ofrece sincronizarlas; la persona puede continuar únicamente tras aceptar que datos no sincronizados serán eliminados. La exportación previa es voluntaria, separada y nunca bloquea el derecho de eliminación. Una solicitud offline no se presenta como enviada o aceptada. |
+| `SYN-12` | Tras aceptar la eliminación, todos los dispositivos dejan de crear, enviar, sincronizar o reprovisionar datos para ese owner. Cada dispositivo que conoce la barrera detiene timers/colas y purga transaccionalmente filas y archivos owner-scoped, preservando otros owners y filas legacy sin owner; un fallo local queda reintentable mediante manifest y nunca borra fuera del storage gestionado. |
 
 ## 5. Infraestructura y no funcionales
 
@@ -308,6 +323,13 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `INF-12` | Credenciales de base se generan/guardan en Secrets Manager y se leen por endpoint VPC privado; no existen credenciales AWS, DB o JWT en Flutter/repositorio. |
 | `INF-13` | La Lambda reutiliza un pool PostgreSQL pequeño entre invocaciones; DEV usa la concurrencia no reservada de la cuenta y reevalúa RDS Proxy/capacidad con métricas. |
 | `INF-14` | Logs JSON incluyen requestId y omiten tokens, contraseñas, payloads y PII; ningún error interno de AWS/PostgreSQL se expone al cliente. |
+| `INF-15` | La eliminación usa un proceso durable, idempotente y observable con estados mínimos `requested`, `in_progress`, `blocked` y `completed`. Inicia cuanto antes y opera con un máximo interno de 15 días desde la aceptación hasta `completed|blocked`; excederlo escala un incidente y nunca se representa como éxito. Publicar ese plazo como SLA requiere la validación regional de Operación/Legal de `DEC-AD-04`. |
+| `INF-16` | El proceso congela primero el inventario owner/workspace, revoca credenciales externas, elimina y verifica objetos privados S3 y datos PostgreSQL conforme a la política aprobada, y finaliza sesiones/usuario Cognito al final. Una etapa parcial conserva únicamente referencias mínimas necesarias para retry; `completed` exige evidencia verificable de cada obligación o retención legal aprobada. |
+| `INF-17` | Revocar Google/Microsoft sender, inutilizar y eliminar ciphertext, state y PKCE es idempotente y reintentable por proveedor. Un fallo deja la conexión inutilizable y el caso `blocked`/escalado; no reactiva la cuenta ni produce confirmación falsa. |
+| `INF-18` | Una barrera durable y consultable antes de cualquier mutación, callback, replay, pull o `ensure_personal_workspace` impide operaciones y reprovisionamiento desde el instante de aceptación, incluso con tokens antiguos o tras restaurar PostgreSQL. La barrera no puede depender exclusivamente de filas que el propio proceso elimina. |
+| `INF-19` | El proceso emite notificaciones y un receipt opaco para consultar estado sin Cognito. El receipt se entrega una vez, se almacena solo como hash, expira, usa canal/body protegido y nunca aparece en URL o logs; `blocked` informa soporte sin exponer etapas, IDs, object keys o errores de proveedor. |
+| `INF-20` | El bloqueo de alta de 30 días y la prevención de resurrección usan un registro mínimo fuera del ciclo de restauración de PostgreSQL. Debe cubrir email/password y proveedores federados, tolerar rotación de clave, expirar de forma verificable y no usar email en claro como primary key o autorización. La tecnología exacta queda pendiente de ADR y de `DEC-AD-03`/`DEC-AD-05`. |
+| `INF-21` | Todo restore recupera primero la fuente vigente de barreras/eliminaciones, reconcilia solicitudes y valida ausencia de cuentas eliminadas antes de abrir tráfico. Los backups ordinarios deben expirar conforme a una política aprobada; 15 días es la propuesta de `DEC-AD-02`, no una política vigente ni una excepción a un legal hold documentado. |
 | `RNF-01` | Captura completa objetivo menor a 60 s; arranque utilizable objetivo menor a 3 s. |
 | `RNF-02` | Flutter, iOS 15+, Android 10+, orientación retrato y piso visual 390×844. |
 | `RNF-03` | Controles táctiles ≥44 dp, CTA 56 dp, WCAG 2.2 AA y estado no solo por color. |
@@ -316,6 +338,8 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `RNF-06` | Toda la app y correos operan ES/EN; tipografías/assets críticos son locales y todo texto de negocio conserva Unicode mediante UTF-8 en persistencia, sincronización y API. |
 | `RNF-07` | Guardados y sincronización no crean duplicados ni pierden cambios locales. |
 | `RNF-08` | La política comercial nunca reduce disponibilidad de datos ya capturados. |
+| `RNF-09` | Identificadores de eliminación, registros antifraude, receipts, logs y alertas minimizan PII; usan hash/HMAC con gestión y rotación de clave aprobadas, cifrado, least privilege y acceso auditado. Nunca registran email, `sub`, tokens, payloads, paths u object keys en claro. |
+| `RNF-10` | La eliminación es segura ante concurrencia, solicitudes repetidas, fallos parciales, dos dispositivos y restauraciones. Cada etapa tiene idempotencia, retry acotado, alarma y verificación; no existe transición automática de error a `completed`. |
 
 | ID | Cumplimiento |
 |---|---|
@@ -324,12 +348,17 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `RC-03` | Acceso a datos y medios se restringe a identidad/organización autorizada. |
 | `RC-04` | Eliminación lógica de evento no equivale a eliminación legal. |
 | `RC-05` | Publicar privacidad, términos y términos de suscripción antes de tienda. |
+| `RC-06` | La eliminación física es el default para datos personales y operativos bajo control de Foloo. Solo se retienen categorías administrativas, contables o legales con base, finalidad, región, acceso y plazo aprobados; no existe retención indefinida por defecto. |
+| `RC-07` | Política de backups, legal holds, logs e incidentes distingue copias ordinarias de conservación obligatoria y explica que una copia retenida no puede restaurar una cuenta eliminada. Los valores aún sujetos a Legal/Infra permanecen bloqueados por `D-13`. |
+| `RC-08` | La app y una página pública accesible fuera de la app permiten iniciar eliminación completa mediante el mismo proceso autenticado, con información ES/EN coherente sobre alcance, plazo, datos externos y canal de seguimiento. La URL candidata no se publica hasta validación de TI/Legal. |
+| `RC-09` | Foloo informa con precisión qué copias externas —como archivos exportados, correos entregados o datos legítimamente conservados— quedan fuera de su control, sin prometer un borrado técnicamente imposible. El rol de CBQA respecto a datos de terceros en Leads continúa abierto en `DEC-AD-13`. |
+| `RC-10` | La eliminación de una cuenta PRO coordina cancelación y avisos según el proveedor aprobado y conserva únicamente la evidencia contable/legal justificada. `D-01`–`D-04` y FL-021 bloquean la implementación y el copy final, no el derecho a solicitar eliminación. |
 
 ## 6. Criterios de salida V1
 
 | ID | Evidencia requerida |
 |---|---|
-| `REL-01` | Escenarios E-01–E-12 aprobados en iOS y Android. |
+| `REL-01` | Escenarios E-01–E-14 aplicables aprobados en iOS y Android; E-14 incluye además la ruta web pública. |
 | `REL-02` | Prueba real offline/reconexión sin duplicados ni pérdida. |
 | `REL-03` | OCR evaluado con tarjetas reales y casos difíciles. |
 | `REL-04` | Pago probado en sandbox y entorno aprobado, incluido vencimiento. |

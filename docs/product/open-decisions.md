@@ -75,6 +75,11 @@ contrato técnico, matriz y decisiones que necesitan aprobación están en
 [`../delivery/account-deletion-contract.md`](../delivery/account-deletion-contract.md).
 El registro posterior a revisión y la agenda de validaciones pendientes están en
 [`../delivery/account-deletion-cbqa-approval-agenda.md`](../delivery/account-deletion-cbqa-approval-agenda.md).
+STORE-02E-01 formaliza el comportamiento estable en `AUT-18`–`AUT-21`,
+`SYN-11`–`SYN-12`, `MON-13`, `INF-15`–`INF-21`, `RNF-09`–`RNF-10`,
+`RC-06`–`RC-10` y E-14; su matriz de criterios, decisiones y gates está en
+[`../delivery/account-deletion-requirements-traceability.md`](../delivery/account-deletion-requirements-traceability.md).
+Las alternativas `ADR-AD-01`–`ADR-AD-06` permanecen propuestas no aceptadas.
 STORE-02D registra acuerdos de Producto/CBQA comunicados el 2026-10-20: borrado
 de datos personales/operativos por defecto; irreversibilidad tras aceptación;
 posibilidad de alta nueva con el mismo correo después de 30 días; máximo

@@ -1,0 +1,460 @@
+openapi: 3.1.0
+info:
+  title: Foloo Account Deletion API (design draft)
+  version: 0.0.0-design
+  description: |
+    Non-functional STORE-02E contract draft. It does not describe deployed
+    endpoints and does not authorize implementation. It traces AUT-18 through
+    AUT-21, SYN-11, INF-15, INF-18, INF-19, RNF-09 and RNF-10 through E-14.
+    Parameters requiring ADR or specialist approval remain unresolved and D-13
+    remains open.
+servers:
+  - url: https://api.example.invalid
+    description: Placeholder only; no environment is authorized.
+tags:
+  - name: AccountDeletion
+paths:
+  /v1/account-deletion-reauthentication/verify:
+    post:
+      tags: [AccountDeletion]
+      operationId: verifyRecentAuthentication
+      summary: Verify that the Cognito authentication is recent enough
+      description: |
+        Reads only trusted Cognito/session evidence. Passwords, provider tokens,
+        authorization codes and email addresses are never accepted in the body.
+      security:
+        - cognitoAccessToken: []
+      responses:
+        "200":
+          description: Verification result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReauthenticationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/DeletionAlreadyPending"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /v1/account-deletion-requests:
+    post:
+      tags: [AccountDeletion]
+      operationId: createAccountDeletionPreflight
+      summary: Create a temporary deletion preflight
+      description: |
+        Returns a minimized summary for final confirmation. This operation does
+        not block the account and is not definitive acceptance of deletion.
+      security:
+        - cognitoAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDeletionRequest"
+      responses:
+        "201":
+          description: Temporary preflight created.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletionPreflightResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/DeletionAlreadyPending"
+        "428":
+          $ref: "#/components/responses/ReauthenticationRequired"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /v1/account-deletion-requests/{requestId}/confirm:
+    post:
+      tags: [AccountDeletion]
+      operationId: confirmAccountDeletion
+      summary: Irreversibly accept an account deletion request
+      description: |
+        Atomically verifies the preflight, creates the durable barrier and
+        accepts the request. After success it cannot be canceled.
+      security:
+        - cognitoAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmDeletionRequest"
+      responses:
+        "202":
+          description: Request and barrier accepted.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletionAcceptedResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/PreflightNotFound"
+        "409":
+          $ref: "#/components/responses/DeletionAlreadyPending"
+        "410":
+          $ref: "#/components/responses/PreflightExpired"
+        "428":
+          $ref: "#/components/responses/ReauthenticationRequired"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /v1/account-deletion-requests/current:
+    get:
+      tags: [AccountDeletion]
+      operationId: getCurrentAccountDeletion
+      summary: Read the authenticated owner's current deletion status
+      security:
+        - cognitoAccessToken: []
+      responses:
+        "200":
+          description: Current minimized status, or null if none exists.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentDeletionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /v1/account-deletion-status:
+    post:
+      tags: [AccountDeletion]
+      operationId: getAccountDeletionByReceipt
+      summary: Read minimized status after the Cognito identity is gone
+      description: |
+        This public route accepts the receipt only in the request body. It must
+        use strict rate limiting and never log or return the receipt.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [receipt]
+              properties:
+                receipt:
+                  type: string
+                  minLength: 32
+                  maxLength: 512
+                  writeOnly: true
+      responses:
+        "200":
+          description: Minimized status.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceiptStatusResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          description: Receipt is unknown or expired; response is intentionally indistinguishable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+components:
+  securitySchemes:
+    cognitoAccessToken:
+      type: http
+      scheme: bearer
+      bearerFormat: Cognito access JWT
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+      description: Opaque client-generated key; never reused for a different payload.
+    RequestId:
+      name: requestId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Opaque request identifier. It is not a status credential.
+
+  schemas:
+    ReauthenticationResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [recent, reauthenticationRequired]
+          properties:
+            recent:
+              type: boolean
+            reauthenticationRequired:
+              type: boolean
+            validUntil:
+              type: [string, "null"]
+              format: date-time
+
+    CreateDeletionRequest:
+      type: object
+      additionalProperties: false
+      required: [locale]
+      properties:
+        locale:
+          type: string
+          enum: [es, en]
+        requestedExport:
+          type: boolean
+          default: false
+
+    DeletionPreflightResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required:
+            - requestId
+            - status
+            - expiresAt
+            - pendingSyncCount
+            - exportAvailable
+            - subscription
+          properties:
+            requestId:
+              type: string
+              format: uuid
+            status:
+              const: awaiting_confirmation
+            expiresAt:
+              type: string
+              format: date-time
+            pendingSyncCount:
+              type: integer
+              minimum: 0
+              description: Client may additionally show its local count; backend never accepts that count as authority.
+            exportAvailable:
+              type: boolean
+            subscription:
+              $ref: "#/components/schemas/SubscriptionSummary"
+
+    ConfirmDeletionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - acknowledgementVersion
+        - irreversibleAccepted
+        - discardUnsyncedAccepted
+        - cancelRenewalAccepted
+      properties:
+        acknowledgementVersion:
+          type: string
+          minLength: 1
+          maxLength: 64
+        irreversibleAccepted:
+          const: true
+        discardUnsyncedAccepted:
+          type: boolean
+          description: Must be true only when the user chose to continue with local pending data.
+        cancelRenewalAccepted:
+          type: boolean
+          description: Required only when the authoritative subscription summary is active.
+
+    DeletionAcceptedResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [requestId, status, acceptedAt, receipt, receiptExpiresAt]
+          properties:
+            requestId:
+              type: string
+              format: uuid
+            status:
+              const: requested
+            acceptedAt:
+              type: string
+              format: date-time
+            operationalDeadline:
+              type: [string, "null"]
+              format: date-time
+              description: Present only after operational/legal validation of the 15-day promise.
+            receipt:
+              type: string
+              minLength: 32
+              maxLength: 512
+              description: Returned once; only its hash is persisted.
+            receiptExpiresAt:
+              type: string
+              format: date-time
+
+    CurrentDeletionResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          oneOf:
+            - type: "null"
+            - $ref: "#/components/schemas/DeletionStatus"
+
+    ReceiptStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/DeletionStatus"
+
+    DeletionStatus:
+      type: object
+      additionalProperties: false
+      required: [requestId, status, updatedAt]
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [requested, in_progress, blocked, completed]
+        updatedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
+        supportCode:
+          type: [string, "null"]
+          maxLength: 64
+          description: Sanitized code; never provider errors or internal stage data.
+
+    SubscriptionSummary:
+      type: object
+      additionalProperties: false
+      required: [status, cancellationRequired]
+      properties:
+        status:
+          type: string
+          enum: [none, trial, trial_exhausted, active, expired]
+        cancellationRequired:
+          type: boolean
+        planDisplayName:
+          type: [string, "null"]
+          maxLength: 120
+        currentPeriodEnd:
+          type: [string, "null"]
+          format: date-time
+
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
+  responses:
+    InvalidRequest:
+      description: Request validation failed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Unauthorized:
+      description: Cognito access token is absent, invalid or not an access token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    ReauthenticationRequired:
+      description: A recent authentication proof is required.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    DeletionAlreadyPending:
+      description: A definitive request already exists for this owner.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    PreflightNotFound:
+      description: The preflight does not exist for this authenticated owner.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    PreflightExpired:
+      description: The preflight expired before definitive confirmation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    RateLimited:
+      description: Too many attempts; no account existence information is disclosed.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"

@@ -5,9 +5,14 @@
 - Fecha: 2026-10-20
 - Alcance: Foloo V1, iOS/Android, recurso web y backend AWS
 - Decisión abierta: `D-13`
-- Trazas actuales: `AUT-10`, `AUT-11`, `SYN-01`–`SYN-10`, `INF-02`–`INF-14`,
-  `RC-02`–`RC-04`, `RNF-05`, `RNF-07`, E-09, E-12 y E-13
+- Trazas canónicas STORE-02E-01: `AUT-18`–`AUT-21`, `SYN-11`, `SYN-12`,
+  `MON-13`, `INF-15`–`INF-21`, `RNF-09`, `RNF-10`, `RC-06`–`RC-10` y E-14;
+  reutiliza `AUT-10`, `SYN-01`–`SYN-10`, `INF-02`–`INF-14` y ADR-001–007
 - Decisiones/arquitectura: ADR-001–ADR-007
+- Preparación técnica STORE-02E:
+  [`account-deletion-technical-design.md`](account-deletion-technical-design.md)
+- Requisitos y trazabilidad STORE-02E-01:
+  [`account-deletion-requirements-traceability.md`](account-deletion-requirements-traceability.md)
 
 Este documento convierte la propuesta preliminar de STORE-02C en un contrato
 técnico verificable para STORE-02E. No es asesoría legal, no autoriza una
@@ -491,8 +496,12 @@ stage y error class, nunca tokens, email, payload, paths u object keys.
 
 ## 11. Criterios de aceptación candidatos
 
-Estos IDs son candidatos de STORE-02D, no requisitos canónicos aprobados. Antes
-de implementar deben promoverse a `AUT-*`/`SYN-*`/`RC-*` y a un escenario E-*.
+Estos IDs fueron candidatos de STORE-02D y no forman un namespace canónico.
+STORE-02E-01 los promueve o descompone en `AUT-18`–`AUT-21`, `SYN-11`–`SYN-12`,
+`MON-13`, `INF-15`–`INF-21`, `RNF-09`–`RNF-10` y `RC-06`–`RC-10`, con criterios
+en E-14 y trazabilidad detallada en
+[`account-deletion-requirements-traceability.md`](account-deletion-requirements-traceability.md).
+Los parámetros sujetos a aprobación permanecen bloqueados.
 
 | ID | Criterio verificable |
 |---|---|
@@ -608,7 +617,7 @@ ni DDL puede continuar. La implementación funcional se desbloquea así:
 
 | Subtarea STORE-02E | Bloqueos mínimos antes de implementar | Puede comenzar después de |
 |---|---|---|
-| `02E-01` Aprobaciones/trazas | Cerrar validaciones y owners pendientes; promover IDs/escenario canónicos; autorización explícita | Puede trabajar ya en trazas y matriz; cierre requiere evidencia de áreas |
+| `02E-01` Aprobaciones/trazas | Requisitos/E-14/trazas formalizados; validaciones, owners y autorización explícita siguen pendientes | **Completada documentalmente**; no habilita código ni resuelve aprobaciones externas |
 | `02E-02` DDL/barrera | DEC-AD-01/02/03/05/09, enforcement de 30 días y restore | Solo diseño/spike ahora; implementación tras Legal + Seguridad + Infra |
 | `02E-03` API/request | DEC-AD-04/05/06/09/11; errores/receipt y reautenticación | Borrador OpenAPI/tests ahora; implementación tras Seguridad + Producto/Legal |
 | `02E-04` Orquestación/workers | DEC-AD-01/02/03/07/10/13/14; IAM, owner y runbooks | Diagramas/provider research ahora; implementación tras Legal + Seguridad + Infra/Operación; Payments para PRO |

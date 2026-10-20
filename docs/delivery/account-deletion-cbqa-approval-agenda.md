@@ -52,11 +52,13 @@ con el mismo correo, sin datos ni beneficios previos.
 | Payments/FL-021 | Proveedor, cancelación, pagos/reembolsos y políticas de tiendas | Pendiente | Pendiente | Pendiente |
 | Producto/Dirección | Países, idiomas, menores, copy final y autorización de implementación | Pendiente | Pendiente | Pendiente |
 
-## Cierre requerido antes de STORE-02E
+## Cierre requerido antes de implementar STORE-02E-02–08
 
 - [ ] Validaciones especializadas documentadas con responsable y fecha.
 - [ ] Owner operativo de incidentes y solicitudes de terceros designado.
-- [ ] Criterios promovidos a IDs y escenarios SDD canónicos.
+- [x] Criterios promovidos a IDs y escenario E-14 por STORE-02E-01; la matriz
+  verificable está en
+  [`account-deletion-requirements-traceability.md`](account-deletion-requirements-traceability.md).
 - [ ] Copy ES/EN y promesas públicas aprobados por región.
 - [ ] Autorización expresa, acotada por subtarea, para implementar STORE-02E.
 
@@ -70,5 +72,7 @@ con el mismo correo, sin datos ni beneficios previos.
   web.
 - Trabajo seguro sin autorización funcional: trazas, threat model, diagramas,
   casos de prueba, borradores OpenAPI/copy y evaluación técnica no desplegada.
+- STORE-02E-01: **completada documentalmente**; no constituye aprobación de las
+  decisiones especializadas ni autorización de implementación.
 - Autorización para implementar STORE-02E: **no registrada**.
 - `D-13`: **abierta**.
