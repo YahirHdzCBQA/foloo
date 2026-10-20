@@ -7,8 +7,10 @@ trabajo indicado.
 
 ### `D-01` · Estrategia de cobro frente a las tiendas
 
-**Pregunta:** compra in-app, pago externo en navegador o external purchase link
-permitido por región/tienda.
+Producto/CBQA comunicó la dirección de gestionar suscripciones y pagos desde
+`foloo.io`, no mediante compras integradas. Sigue abierta la validación de si y
+cómo esa comercialización, enlace o comunicación externa está permitida por
+región y tienda, además del proveedor definitivo.
 
 **Bloquea:** compra/checkout de FL-021, confirmación y revisión de tiendas. No
 bloquea el enforcement ni el paywall informativo sin precio de FL-020.
@@ -23,6 +25,11 @@ bloquea el enforcement ni el paywall informativo sin precio de FL-020.
 en FL-021. No bloquea representar ni aplicar un snapshot `expired`.
 
 ### `D-04` · Cancelación y reembolsos
+
+Account Deletion debe solicitar la cancelación de renovaciones de una
+suscripción PRO activa y comprobar el resultado antes de anunciar éxito. Siguen
+abiertos proveedor/API, pagos ya efectuados, periodos pagados, reembolsos y
+resolución de fallos en FL-021.
 
 **Bloquea:** términos, ficha de tienda y flujo de recuperación comercial.
 
@@ -62,8 +69,22 @@ eliminación integral de cuenta. Antes de implementar deben decidirse, por cada
 categoría de datos: base y plazo de retención, backups/logs, borrado físico S3,
 revocación OAuth, cifrado local adicional, tratamiento del outbox y barrera
 anti-resurrección, excepciones legales, SLA/confirmación y derechos del titular.
-La propuesta y alternativas están en
-[`../delivery/privacy-compliance.md`](../delivery/privacy-compliance.md).
+El inventario preliminar está en
+[`../delivery/privacy-compliance.md`](../delivery/privacy-compliance.md) y el
+contrato técnico, matriz y decisiones que necesitan aprobación están en
+[`../delivery/account-deletion-contract.md`](../delivery/account-deletion-contract.md).
+El registro posterior a revisión y la agenda de validaciones pendientes están en
+[`../delivery/account-deletion-cbqa-approval-agenda.md`](../delivery/account-deletion-cbqa-approval-agenda.md).
+STORE-02D registra acuerdos de Producto/CBQA comunicados el 2026-10-20: borrado
+de datos personales/operativos por defecto; irreversibilidad tras aceptación;
+posibilidad de alta nueva con el mismo correo después de 30 días; máximo
+operativo de eliminación de 15 días; `foloo.io` como punto previsto para
+eliminación y suscripciones; y alcance multirregión. No constituyen autorización
+integral para implementar. Continúan pendientes: categorías/base/plazos
+Legal/Contabilidad; propuesta de backups ordinarios de 15 días; registro mínimo
+y enforcement seudonimizado de 30 días; propuesta de reautenticación de cinco
+minutos; owner operativo; proveedor/políticas de pagos; rol sobre datos de
+terceros; países, idiomas y menores; y validación/publicación web.
 
 **Bloquea:** producción de `INF-02`, `RC-02`–`RC-04`, el flujo de eliminación
 in-app/web y las declaraciones finales App Privacy/Data Safety. No bloquea la

@@ -258,6 +258,42 @@ formularios enviados.**
 - Requiere aprobación Legal/Producto y evidencia del RC antes de llenar App
   Privacy/Data Safety. No cambia Flutter, backend, infraestructura ni cuentas.
 
+### STORE-02D — Account Deletion Contract y resolución de D-13
+
+**Estado:** **ACUERDOS DE PRODUCTO/CBQA COMUNICADOS el 2026-10-20; pendiente
+autorización formal y validaciones Legal/Seguridad/Infra/Payments; sin
+implementación.**
+
+- Matriz de datos, barrera anti-resurrección, solicitud autenticada, job durable,
+  PostgreSQL/S3/OAuth/Cognito, purga Drift owner-scoped, UX ES/EN y recurso web:
+  [`account-deletion-contract.md`](account-deletion-contract.md).
+- Define criterios candidatos y subtareas STORE-02E, pero no los convierte en
+  requisitos aprobados ni autoriza endpoints, migraciones, AWS, pantallas o
+  borrados reales.
+- El registro posterior a revisión, acciones pendientes y espacio de validación
+  están en
+  [`account-deletion-cbqa-approval-agenda.md`](account-deletion-cbqa-approval-agenda.md).
+  Producto definió un máximo operativo de eliminación de 15 días y una espera
+  de 30 días antes de permitir un alta nueva con el mismo correo; la cuenta
+  anterior nunca se recupera. Backups ordinarios de 15 días y reautenticación
+  de cinco minutos siguen como propuestas sujetas a validación.
+- `D-13` permanece abierta hasta cerrar categorías/base/plazos de retención,
+  backups/restore, registro mínimo y barrera de 30 días, reautenticación,
+  operación/escalamiento, suscripciones, rol legal sobre terceros, alcance
+  regional y recurso web. STORE-02E no inicia implementación funcional antes de
+  promover los criterios a requisitos/escenarios y recibir autorización.
+
+### Iniciativa web futura sin FL asignada
+
+**Estado:** idea de Producto; fuera de Foloo V1, STORE-02D y STORE-02E.
+
+- Dashboard desde `foloo.io` con captura manual de Leads en navegador.
+- Experiencia limitada frente a la app móvil: sin OCR, notas de voz ni captura
+  de imágenes de referencia, con orientación a descargar la app.
+- No autoriza pantallas, endpoints, infraestructura ni modifica los
+  identificadores actuales. Debe recibir alcance y trazas canónicas antes de
+  entrar al roadmap implementable.
+
 ### STORE-03B — Android Release APK y distribución privada
 
 **Estado:** **CLOSED TÉCNICAMENTE; QA privado consolidado en Build 6.**
