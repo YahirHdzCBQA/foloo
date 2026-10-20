@@ -317,6 +317,10 @@ implementación ni autorización funcional.**
   tombstone durable de subject, confirma el gap de ownership Cognito y que RDS
   conserva actualmente solo un día de backup automático:
   [`account-deletion-architecture-security-review.md`](account-deletion-architecture-security-review.md).
+- STORE-02E-02A añade solo primitivas aisladas de canonicalización y HMAC con
+  fixtures sintéticos; no están conectadas a Cognito, rutas, ledger ni AWS y no
+  aceptan ninguna ADR:
+  [`account-deletion-pseudonymous-identity.md`](account-deletion-pseudonymous-identity.md).
 - Reutiliza Cognito, ownership por `sub`, PostgreSQL, S3, Drift/outbox y las
   fronteras de correo existentes, pero confirma que no existen todavía
   endpoint, ledger, orquestador, revocación OAuth, finalizer Cognito ni purga
