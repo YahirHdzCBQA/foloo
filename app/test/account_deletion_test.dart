@@ -66,6 +66,8 @@ Widget harness(
       service: service,
       onExport: () async {},
       onSynchronize: () async {},
+      pendingSyncCount: () async => 0,
+      onReauthenticate: () async {},
       onAccepted: (_) => accepted?.call() ?? Future.value(),
     ),
   );

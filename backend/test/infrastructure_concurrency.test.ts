@@ -74,7 +74,7 @@ test("public callback/status routes remain explicit and Account Deletion stays d
     env: { account: "111111111111", region: "us-east-1" },
   });
   const template = Template.fromStack(stack);
-  template.resourceCountIs("AWS::KMS::Key", 1);
+  template.resourceCountIs("AWS::KMS::Key", 3);
   const functions = template.findResources("AWS::Lambda::Function");
   const provider = Object.entries(functions).find(([id]) =>
     id.includes("EmailProviderFunction"),

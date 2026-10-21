@@ -55,18 +55,30 @@ export class StagedAccountDeletionExecutor implements AccountDeletionExecutor {
       throw new Error("Subscription renewal cancellation is not confirmed.");
     }
     const completed = await this.checkpoints.completed(input.requestId);
-    await this.run(input.requestId, "oauth_revoked", completed, () =>
-      this.oauth.revokeAndDestroy(input.ownerSubject),
-    );
-    await this.run(input.requestId, "objects_deleted", completed, () =>
-      this.objects.deleteOwnerObjects(input.ownerSubject),
-    );
-    await this.run(input.requestId, "postgres_deleted", completed, () =>
-      this.postgres.deleteOwnerData(input.ownerSubject),
-    );
-    await this.run(input.requestId, "identity_deleted", completed, () =>
-      this.cognito.globallySignOutAndDelete(input.ownerSubject),
-    );
+    await this.run(input.requestId, "oauth_revoked", completed, async () => {
+      await this.oauth.revokeAndDestroy(input.ownerSubject);
+      if (!(await this.oauth.isDestroyed(input.ownerSubject))) {
+        throw new Error("OAuth erasure could not be verified.");
+      }
+    });
+    await this.run(input.requestId, "objects_deleted", completed, async () => {
+      await this.objects.deleteOwnerObjects(input.ownerSubject);
+      if (await this.objects.hasOwnerObjects(input.ownerSubject)) {
+        throw new Error("Object erasure could not be verified.");
+      }
+    });
+    await this.run(input.requestId, "postgres_deleted", completed, async () => {
+      await this.postgres.deleteOwnerData(input.ownerSubject);
+      if (await this.postgres.hasOwnerData(input.ownerSubject)) {
+        throw new Error("PostgreSQL erasure could not be verified.");
+      }
+    });
+    await this.run(input.requestId, "identity_deleted", completed, async () => {
+      await this.cognito.globallySignOutAndDelete(input.ownerSubject);
+      if (await this.cognito.identityExists(input.ownerSubject)) {
+        throw new Error("Cognito erasure could not be verified.");
+      }
+    });
   }
 
   async verify(input: {

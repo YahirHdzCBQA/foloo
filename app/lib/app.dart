@@ -39,6 +39,7 @@ import 'screens/profile_setup_screen.dart';
 import 'screens/records_screen.dart';
 import 'services/connectivity_service.dart';
 import 'services/account_deletion_service.dart';
+import 'services/account_deletion_receipt_store.dart';
 import 'services/local_account_deletion_purger.dart';
 import 'services/camera_access_service.dart';
 import 'services/contact_image_picker_service.dart';
@@ -112,6 +113,8 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   // Session orchestration and local fixtures.
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   final _navigatorKey = GlobalKey<NavigatorState>();
+  final AccountDeletionReceiptStore _accountDeletionReceipts =
+      AccountDeletionReceiptStore();
   _AuthenticatedStage _stage = _AuthenticatedStage.profile;
   _AccessStage _accessStage = _AccessStage.login;
   String? _pendingConfirmationEmail;
@@ -743,8 +746,17 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
             setState(() => _destination = AppDestination.records);
           },
           onSynchronize: () => _synchronize(trigger: SyncTrigger.manual),
-          onAccepted: (_) async {
+          pendingSyncCount: () async =>
+              (await _persistence.database.syncDao.allForOwner(_userId))
+                  .where((operation) => operation.status != 'synced')
+                  .length,
+          onReauthenticate: () async {
             _navigatorKey.currentState?.pop();
+            await _logout();
+          },
+          onAccepted: (accepted) async {
+            _navigatorKey.currentState?.pop();
+            await _accountDeletionReceipts.save(accepted);
             await LocalAccountDeletionPurger(
               _persistence.database,
               _persistence.mediaStorage,

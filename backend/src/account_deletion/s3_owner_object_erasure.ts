@@ -29,26 +29,36 @@ export class S3OwnerObjectErasure implements ObjectErasurePort {
       if ((result.Errors?.length ?? 0) > 0) {
         throw new Error("Owner object deletion was incomplete.");
       }
+      for (const key of chunk) {
+        if (await this.objectExists(key)) {
+          throw new Error("Owner object deletion could not be verified.");
+        }
+      }
     }
   }
 
   async hasOwnerObjects(ownerSubject: string): Promise<boolean> {
     const keys = await this.inventory.objectKeys(ownerSubject);
     for (const key of keys) {
-      try {
-        await this.client.send(
-          new HeadObjectCommand({ Bucket: this.bucketName, Key: key }),
-        );
-        return true;
-      } catch (error) {
-        const status = (error as { $metadata?: { httpStatusCode?: number } })
-          .$metadata?.httpStatusCode;
-        const name = (error as { name?: string }).name;
-        if (status !== 404 && name !== "NotFound" && name !== "NoSuchKey") {
-          throw error;
-        }
-      }
+      if (await this.objectExists(key)) return true;
     }
     return false;
+  }
+
+  private async objectExists(key: string): Promise<boolean> {
+    try {
+      await this.client.send(
+        new HeadObjectCommand({ Bucket: this.bucketName, Key: key }),
+      );
+      return true;
+    } catch (error) {
+      const status = (error as { $metadata?: { httpStatusCode?: number } })
+        .$metadata?.httpStatusCode;
+      const name = (error as { name?: string }).name;
+      if (status === 404 || name === "NotFound" || name === "NoSuchKey") {
+        return false;
+      }
+      throw error;
+    }
   }
 }

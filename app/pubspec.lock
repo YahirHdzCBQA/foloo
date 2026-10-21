@@ -74,7 +74,7 @@ packages:
     source: hosted
     version: "2.15.0"
   amplify_secure_storage:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: amplify_secure_storage
       sha256: "2e6211b49434bae779a27f77fff0ae31e514dc3557ae77d33dc18fc0e21c9329"

@@ -42,6 +42,12 @@ export type ProviderCommand =
       plainBody: string;
       htmlBody: string;
       attachments: ProviderAttachment[];
+    }
+  | {
+      action: "revoke";
+      provider: EmailProviderName;
+      encryptedCredentials: string;
+      workspaceId: string;
     };
 
 export type ProviderResult =
@@ -56,4 +62,5 @@ export type ProviderResult =
       providerMessageId?: string;
       encryptedCredentials?: string;
       errorCode?: string;
-    };
+    }
+  | { revoked: true };

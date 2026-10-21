@@ -64,30 +64,32 @@ escribe solo con la versión activa, preparando rotación sin reinterpretar
 digests existentes. También crea la barrera de 30 días y marca el tombstone
 como eliminado, siempre a través del contrato de ledger.
 
-El router reconoce ahora el namespace STORE-02 mediante un controller
-fail-closed, pero no construye este guard, el ledger DynamoDB ni HMAC/KMS. No
-hay wiring activo con Cognito, OAuth, `PrincipalResolver`, sincronización,
-trial, PRO o Unlimited QA.
+El router reconoce el namespace STORE-02 mediante un controller fail-closed.
+El stack prepara variables e IAM para ledger/HMAC/queue, pero la composición
+activa no se construye mientras el flag siga en `false`. No hay guard activo
+en `PrincipalResolver`, Cognito ni sincronización, y trial/PRO/Unlimited QA no
+cambian.
 
 ## Infraestructura preparada pero inactiva
 
-`account_deletion_ledger_infrastructure.ts` es un construct CDK no instanciado
-por `FolooBackendStack`. Define, solo para synth/pruebas:
+`account_deletion_ledger_infrastructure.ts` se instancia ahora en el template
+DEV, pero no ha sido desplegado. Define:
 
 - tabla on-demand con PK seudonimizada;
 - cifrado administrado por AWS, PITR, TTL auxiliar, deletion protection y
   `RETAIN`;
-- alarmas de system errors y throttling para las tres operaciones usadas;
-- grant mínimo `GetItem`, `BatchGetItem` y `TransactWriteItems`, sin `Scan` ni
-  borrado.
+- llave KMS HMAC-256 dedicada y permisos `GenerateMac`/`VerifyMac`;
+- cola FIFO, DLQ cifrada, cinco reintentos y alarma de mensajes fallidos;
+- alarmas de system errors y throttling;
+- grants item-scoped sin `Scan` ni borrado de ledger.
 
-La prueba de infraestructura confirma que el stack desplegable conserva cero
-tablas DynamoDB y no recibe variables del ledger. Antes de instanciarlo hacen
-falta aprobar ADR, naming/ambiente, periodo PITR, destinos de alarma, tags,
-budgets y el gateway endpoint DynamoDB de la VPC. Tampoco existe todavía Lambda
-guard ni adaptador KMS HMAC.
+El stack incorpora endpoints privados DynamoDB, KMS y SQS, worker en VPC y un
+finalizador Cognito fuera de VPC con IAM limitado al User Pool. Todos conservan
+`FOLOO_ACCOUNT_DELETION_ENABLED=false`; el worker devuelve fallos parciales y
+el finalizador rechaza llamadas si una entrega accidental ocurre. Falta aprobar
+destinos de alarma, tags, budgets y la composición destructiva final.
 
-La dependencia `@aws-sdk/client-dynamodb` está justificada por `INF-18`,
+Las dependencias AWS DynamoDB/KMS/SQS/Lambda/SES están justificadas por `INF-18`,
 `INF-20` e `INF-21`: ningún cliente existente implementa transacciones y
 lecturas consistentes DynamoDB. Agregarla no incorpora el adaptador al bundle
 de ninguna Lambda mientras no exista un import desde un entry point.
@@ -102,7 +104,9 @@ de ninguna Lambda mientras no exista un import desde un entry point.
 - lectura multiversión durante rotación HMAC;
 - escritura/lectura/transición DynamoDB e idempotencia tras carrera;
 - cifrado/PITR/TTL/deletion protection/alarmas/IAM mínimo en synth;
-- ausencia del construct en el stack actual e independencia de trial/Unlimited.
+- composición inactiva en el stack e independencia de trial/Unlimited;
+- cifrado KMS del destinatario SES y purga tras confirmación final;
+- migración 009 con barrera anterior a provisioning y restore sintético.
 
 Todas las identidades y llaves de prueba son sintéticas.
 
@@ -116,8 +120,9 @@ Todas las identidades y llaves de prueba son sintéticas.
 - Legal: retención final del tombstone y del ledger; D-13 continúa abierta.
 - Arquitectura: decidir si el guard vive en Lambda separada o en una frontera
   compartida y aprobar AD-01–AD-05 modificadas.
-- Runtime: falta ejecutar el guard antes de provisioning, mutaciones,
-  callbacks/workers y triggers Cognito. Este incremento no autoriza ese wiring.
+- Runtime: el wiring API/OAuth/sync/worker está preparado detrás de flag; el
+  trigger PreSignUp no está adjunto porque email/password no aporta evidencia
+  verificada en ese punto. Falta aprobación para activarlo.
 
 ## Próximo incremento recomendado
 
@@ -166,12 +171,10 @@ como mínimo:
    custodia/rotación KMS HMAC y política de recibos;
 2. aprobación e instanciación CDK del ledger DynamoDB, endpoint VPC, alarmas e
    IAM mínimo;
-3. stores durables de workflow/checkpoints y un worker con DLQ/reintentos;
-4. adaptador KMS HMAC, revocadores OAuth, permisos Cognito administrativos y
-   revisión de las consultas owner-scoped de PostgreSQL/S3;
-5. proveedor transaccional de correo y dirección oficial de soporte;
-6. almacenamiento seguro del recibo en móvil, rate limiting de la consulta
-   pública y protección antiabuso;
+3. desplegar los stores durables, worker/DLQ y migración 009 todavía inactivos;
+4. aprobar KMS/canonicalización y revisar consultas owner-scoped PostgreSQL/S3;
+5. verificar `foloo.io` en SES, salida de sandbox y `hello@foloo.io`;
+6. aprobar attachment Cognito PreSignUp y el tratamiento de email/password;
 7. adaptador Stripe real para cuentas PRO, o una política aprobada que bloquee
    explícitamente esas solicitudes;
 8. revisión de `cdk synth`/`cdk diff`, despliegue inicial con ambos flags

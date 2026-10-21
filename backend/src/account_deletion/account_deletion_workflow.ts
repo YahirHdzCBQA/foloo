@@ -75,6 +75,30 @@ export interface AccountDeletionNotifier {
   }): Promise<void>;
 }
 
+/** Stores only the encrypted notification address needed while deletion runs. */
+export interface AccountDeletionRecipientVault {
+  capture(input: {
+    requestId: string;
+    verifiedEmail: string;
+    receipt: string;
+    expiresAt: Date;
+  }): Promise<void>;
+  recoverReceipt(requestId: string): Promise<string>;
+}
+
+/** Mirrors the durable barrier into PostgreSQL before destructive work starts. */
+export interface AccountDeletionOperationalBarrier {
+  markPending(input: {
+    requestId: string;
+    ownerSubject: string;
+    acceptedAt: Date;
+  }): Promise<void>;
+}
+
+export interface AccountDeletionDispatcher {
+  dispatch(input: { requestId: string; ownerSubject: string }): Promise<void>;
+}
+
 export interface AccountDeletionExecutor {
   execute(input: {
     requestId: string;
@@ -152,6 +176,9 @@ export class AccountDeletionWorkflow<KeyHandle> {
     private readonly executor: AccountDeletionExecutor,
     private readonly notifier: AccountDeletionNotifier,
     private readonly clock: WorkflowClock = { now: () => new Date() },
+    private readonly dispatcher?: AccountDeletionDispatcher,
+    private readonly recipientVault?: AccountDeletionRecipientVault,
+    private readonly operationalBarrier?: AccountDeletionOperationalBarrier,
   ) {}
 
   async preflight(input: {
@@ -244,6 +271,12 @@ export class AccountDeletionWorkflow<KeyHandle> {
       );
     }
     if (record.status !== "awaiting_confirmation") {
+      if (record.barrier && this.recipientVault) {
+        return {
+          record,
+          receipt: await this.recipientVault.recoverReceipt(record.requestId),
+        };
+      }
       throw new ApplicationError(
         "deletion_already_pending",
         409,
@@ -277,12 +310,25 @@ export class AccountDeletionWorkflow<KeyHandle> {
       );
     }
     await this.subscriptions.cancelRenewal(input.ownerSubject);
+    // The encrypted address is captured before the irreversible barrier. A
+    // failed attempt can safely be retried and the orphan expires by TTL.
+    const receipt = randomBytes(32).toString("base64url");
+    await this.recipientVault?.capture({
+      requestId: record.requestId,
+      verifiedEmail: input.verifiedEmail,
+      receipt,
+      expiresAt: new Date(now.getTime() + 16 * 24 * 60 * 60 * 1000),
+    });
     const barrier = await this.guard.acceptDeletionBarrier({
       deletionId: record.requestId,
       canonicalSubject: input.ownerSubject,
       verifiedEmail: input.verifiedEmail,
     });
-    const receipt = randomBytes(32).toString("base64url");
+    await this.operationalBarrier?.markPending({
+      requestId: record.requestId,
+      ownerSubject: input.ownerSubject,
+      acceptedAt: now,
+    });
     const accepted = await this.store.update({
       ...record,
       status: "requested",
@@ -297,6 +343,10 @@ export class AccountDeletionWorkflow<KeyHandle> {
     await this.notifier.requestAccepted({
       requestId: accepted.requestId,
       locale: accepted.locale,
+    });
+    await this.dispatcher?.dispatch({
+      requestId: accepted.requestId,
+      ownerSubject: input.ownerSubject,
     });
     return { record: accepted, receipt };
   }

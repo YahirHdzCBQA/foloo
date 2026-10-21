@@ -20,6 +20,21 @@ const environmentSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  ACCOUNT_DELETION_TABLE_NAME: z.string().min(1).optional(),
+  ACCOUNT_DELETION_HMAC_KEY_ARN: z.string().min(1).optional(),
+  ACCOUNT_DELETION_HMAC_KEY_VERSION: z.string().min(1).optional(),
+  ACCOUNT_DELETION_QUEUE_URL: z.string().url().optional(),
+  ACCOUNT_DELETION_RECIPIENT_KEY_ARN: z.string().min(1).optional(),
+  ACCOUNT_DELETION_NOTIFICATION_FUNCTION_NAME: z.string().min(1).optional(),
+  ACCOUNT_DELETION_COGNITO_FINALIZER_FUNCTION_NAME: z
+    .string()
+    .min(1)
+    .optional(),
+  ACCOUNT_DELETION_REAUTH_MAX_AGE_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(300),
 });
 
 export type BackendEnvironment = z.infer<typeof environmentSchema>;

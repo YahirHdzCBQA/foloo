@@ -29,6 +29,9 @@ export class EmailApplication {
     private readonly providers: EmailProviderBoundary,
     private readonly media: MediaStorage,
     private readonly publicBaseUrl: string,
+    private readonly accountDeletionAccessGuard?: {
+      assertActive(subject: string): Promise<void>;
+    },
   ) {}
 
   private principal(subject: string) {
@@ -70,6 +73,9 @@ export class EmailApplication {
 
   async callback(provider: EmailProviderName, code: string, state: string) {
     const stored = await this.repository.consumeOAuthState(tokenHash(state));
+    await this.accountDeletionAccessGuard?.assertActive(
+      stored.principal.subject,
+    );
     if (stored.provider !== provider)
       throw new ApplicationError(
         "invalid_oauth_state",

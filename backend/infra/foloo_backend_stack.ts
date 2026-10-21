@@ -9,15 +9,20 @@ import * as integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaNode from "aws-cdk-lib/aws-lambda-nodejs";
+import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as rds from "aws-cdk-lib/aws-rds";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as kms from "aws-cdk-lib/aws-kms";
+import * as sqs from "aws-cdk-lib/aws-sqs";
+import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
+import * as ses from "aws-cdk-lib/aws-ses";
 import type { Construct } from "constructs";
 
 import type { EnvironmentConfig } from "./config.js";
+import { AccountDeletionLedgerInfrastructure } from "./account_deletion_ledger_infrastructure.js";
 
 type FolooBackendStackProps = cdk.StackProps & {
   config: EnvironmentConfig;
@@ -78,8 +83,24 @@ export class FolooBackendStack extends cdk.Stack {
       privateDnsEnabled: true,
       open: false,
     });
+    for (const [id, service] of [
+      ["KmsEndpoint", ec2.InterfaceVpcEndpointAwsService.KMS],
+      ["SqsEndpoint", ec2.InterfaceVpcEndpointAwsService.SQS],
+    ] as const) {
+      vpc.addInterfaceEndpoint(id, {
+        service,
+        subnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+        securityGroups: [endpointSg],
+        privateDnsEnabled: true,
+        open: false,
+      });
+    }
     vpc.addGatewayEndpoint("S3Endpoint", {
       service: ec2.GatewayVpcEndpointAwsService.S3,
+      subnets: [{ subnetType: ec2.SubnetType.PRIVATE_ISOLATED }],
+    });
+    vpc.addGatewayEndpoint("DynamoDbEndpoint", {
+      service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
       subnets: [{ subnetType: ec2.SubnetType.PRIVATE_ISOLATED }],
     });
     lambdaSg.addEgressRule(
@@ -206,6 +227,249 @@ export class FolooBackendStack extends cdk.Stack {
       },
       bundling: { minify: true, sourceMap: true },
     });
+
+    // STORE-02 resources are provisionable but every executable boundary is
+    // forced off. Enabling requires the outstanding Security/Legal ADR gates.
+    const accountDeletion = new AccountDeletionLedgerInfrastructure(
+      this,
+      "AccountDeletion",
+    );
+    const accountDeletionEmailDlq = new sqs.Queue(
+      this,
+      "AccountDeletionEmailDeadLetterQueue",
+      {
+        encryption: sqs.QueueEncryption.KMS_MANAGED,
+        retentionPeriod: cdk.Duration.days(14),
+        enforceSSL: true,
+      },
+    );
+    const accountDeletionEmailIdentity = new ses.EmailIdentity(
+      this,
+      "AccountDeletionEmailIdentity",
+      { identity: ses.Identity.domain("foloo.io") },
+    );
+    new cloudwatch.Alarm(this, "AccountDeletionEmailDlqAlarm", {
+      metric:
+        accountDeletionEmailDlq.metricApproximateNumberOfMessagesVisible(),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    const cognitoFinalizer = new lambdaNode.NodejsFunction(
+      this,
+      "AccountDeletionCognitoFinalizerFunction",
+      {
+        entry: join(
+          import.meta.dirname,
+          "../src/account_deletion/cognito_finalizer_lambda.ts",
+        ),
+        handler: "handler",
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        timeout: cdk.Duration.seconds(30),
+        environment: {
+          COGNITO_USER_POOL_ID: config.userPoolId,
+          FOLOO_ACCOUNT_DELETION_ENABLED: "false",
+        },
+        bundling: { minify: true, sourceMap: true },
+      },
+    );
+    const accountDeletionEmail = new lambdaNode.NodejsFunction(
+      this,
+      "AccountDeletionEmailFunction",
+      {
+        entry: join(
+          import.meta.dirname,
+          "../src/account_deletion/account_deletion_email_lambda.ts",
+        ),
+        handler: "handler",
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        timeout: cdk.Duration.seconds(30),
+        retryAttempts: 2,
+        deadLetterQueue: accountDeletionEmailDlq,
+        environment: {
+          ACCOUNT_DELETION_TABLE_NAME: accountDeletion.table.tableName,
+          ACCOUNT_DELETION_RECIPIENT_KEY_ARN:
+            accountDeletion.recipientKey.keyArn,
+          ACCOUNT_DELETION_FROM_ADDRESS: "hello@foloo.io",
+          ACCOUNT_DELETION_SUPPORT_ADDRESS: "hello@foloo.io",
+          ACCOUNT_DELETION_SES_IDENTITY_VERIFIED: "false",
+          FOLOO_ACCOUNT_DELETION_ENABLED: "false",
+        },
+        bundling: { minify: true, sourceMap: true },
+      },
+    );
+    const accountDeletionPreSignUp = new lambdaNode.NodejsFunction(
+      this,
+      "AccountDeletionPreSignUpFunction",
+      {
+        entry: join(
+          import.meta.dirname,
+          "../src/account_deletion/cognito_pre_signup_lambda.ts",
+        ),
+        handler: "handler",
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        timeout: cdk.Duration.seconds(10),
+        environment: {
+          ACCOUNT_DELETION_TABLE_NAME: accountDeletion.table.tableName,
+          ACCOUNT_DELETION_HMAC_KEY_ARN: accountDeletion.hmacKey.keyArn,
+          ACCOUNT_DELETION_HMAC_KEY_VERSION: "v1",
+          FOLOO_ACCOUNT_DELETION_REGISTRATION_GUARD_ENABLED: "false",
+        },
+        bundling: { minify: true, sourceMap: true },
+      },
+    );
+    accountDeletion.grantAdapterAccess(accountDeletionPreSignUp);
+    accountDeletion.grantHmac(accountDeletionPreSignUp);
+    // Deliberately no User Pool trigger attachment until Security approves
+    // canonicalization and native email/password verification semantics.
+    accountDeletion.grantAdapterAccess(accountDeletionEmail);
+    accountDeletion.grantRecipientEncryption(accountDeletionEmail);
+    accountDeletionEmail.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["ses:SendEmail"],
+        resources: [accountDeletionEmailIdentity.emailIdentityArn],
+      }),
+    );
+    cognitoFinalizer.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "cognito-idp:ListUsers",
+          "cognito-idp:AdminUserGlobalSignOut",
+          "cognito-idp:AdminDeleteUser",
+        ],
+        resources: [
+          this.formatArn({
+            service: "cognito-idp",
+            resource: "userpool",
+            resourceName: config.userPoolId,
+          }),
+        ],
+      }),
+    );
+    const deletionWorker = new lambdaNode.NodejsFunction(
+      this,
+      "AccountDeletionWorkerFunction",
+      {
+        entry: join(
+          import.meta.dirname,
+          "../src/account_deletion/account_deletion_worker_lambda.ts",
+        ),
+        handler: "handler",
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        memorySize: 512,
+        timeout: cdk.Duration.minutes(10),
+        vpc,
+        vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+        securityGroups: [lambdaSg],
+        environment: {
+          ...commonEnvironment,
+          MEDIA_BUCKET_NAME: mediaBucket.bucketName,
+          EMAIL_PROVIDER_FUNCTION_NAME: providerFunction.functionName,
+          PUBLIC_API_BASE_URL: "https://placeholder.invalid",
+          COGNITO_FINALIZER_FUNCTION_NAME: cognitoFinalizer.functionName,
+          ACCOUNT_DELETION_TABLE_NAME: accountDeletion.table.tableName,
+          ACCOUNT_DELETION_HMAC_KEY_ARN: accountDeletion.hmacKey.keyArn,
+          ACCOUNT_DELETION_HMAC_KEY_VERSION: "v1",
+          ACCOUNT_DELETION_RECIPIENT_KEY_ARN:
+            accountDeletion.recipientKey.keyArn,
+          ACCOUNT_DELETION_QUEUE_URL: accountDeletion.queue.queueUrl,
+          ACCOUNT_DELETION_NOTIFICATION_FUNCTION_NAME:
+            accountDeletionEmail.functionName,
+          FOLOO_ACCOUNT_DELETION_ENABLED: "false",
+        },
+        bundling: { minify: true, sourceMap: true },
+      },
+    );
+    const restoreReconciler = new lambdaNode.NodejsFunction(
+      this,
+      "AccountDeletionRestoreReconcilerFunction",
+      {
+        entry: join(
+          import.meta.dirname,
+          "../src/account_deletion/account_deletion_restore_reconciler_lambda.ts",
+        ),
+        handler: "handler",
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        memorySize: 512,
+        timeout: cdk.Duration.minutes(5),
+        vpc,
+        vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+        securityGroups: [lambdaSg],
+        environment: {
+          ...commonEnvironment,
+          MEDIA_BUCKET_NAME: mediaBucket.bucketName,
+          EMAIL_PROVIDER_FUNCTION_NAME: providerFunction.functionName,
+          PUBLIC_API_BASE_URL: "https://placeholder.invalid",
+          ACCOUNT_DELETION_TABLE_NAME: accountDeletion.table.tableName,
+          ACCOUNT_DELETION_HMAC_KEY_ARN: accountDeletion.hmacKey.keyArn,
+          ACCOUNT_DELETION_HMAC_KEY_VERSION: "v1",
+          FOLOO_ACCOUNT_DELETION_RECONCILER_ENABLED: "false",
+        },
+        bundling: { minify: true, sourceMap: true },
+      },
+    );
+    accountDeletion.grantAdapterAccess(restoreReconciler);
+    accountDeletion.grantHmac(restoreReconciler);
+    appSecret.grantRead(restoreReconciler);
+    deletionWorker.addEventSource(
+      new lambdaEventSources.SqsEventSource(accountDeletion.queue, {
+        batchSize: 1,
+        reportBatchItemFailures: true,
+      }),
+    );
+    accountDeletion.grantAdapterAccess(apiFunction);
+    accountDeletion.grantAdapterAccess(deletionWorker);
+    accountDeletion.grantHmac(apiFunction);
+    accountDeletion.grantHmac(deletionWorker);
+    accountDeletion.grantRecipientEncryption(apiFunction);
+    accountDeletion.grantRecipientEncryption(deletionWorker);
+    accountDeletion.queue.grantSendMessages(apiFunction);
+    accountDeletion.queue.grantConsumeMessages(deletionWorker);
+    appSecret.grantRead(deletionWorker);
+    deletionWorker.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:GetObject", "s3:DeleteObject"],
+        resources: [`${mediaBucket.bucketArn}/*`],
+      }),
+    );
+    providerFunction.grantInvoke(deletionWorker);
+    cognitoFinalizer.grantInvoke(deletionWorker);
+    accountDeletionEmail.grantInvoke(apiFunction);
+    accountDeletionEmail.grantInvoke(deletionWorker);
+    apiFunction.addEnvironment(
+      "ACCOUNT_DELETION_TABLE_NAME",
+      accountDeletion.table.tableName,
+    );
+    apiFunction.addEnvironment(
+      "ACCOUNT_DELETION_HMAC_KEY_ARN",
+      accountDeletion.hmacKey.keyArn,
+    );
+    apiFunction.addEnvironment("ACCOUNT_DELETION_HMAC_KEY_VERSION", "v1");
+    apiFunction.addEnvironment(
+      "ACCOUNT_DELETION_RECIPIENT_KEY_ARN",
+      accountDeletion.recipientKey.keyArn,
+    );
+    apiFunction.addEnvironment(
+      "ACCOUNT_DELETION_NOTIFICATION_FUNCTION_NAME",
+      accountDeletionEmail.functionName,
+    );
+    apiFunction.addEnvironment(
+      "ACCOUNT_DELETION_COGNITO_FINALIZER_FUNCTION_NAME",
+      cognitoFinalizer.functionName,
+    );
+    apiFunction.addEnvironment(
+      "ACCOUNT_DELETION_REAUTH_MAX_AGE_SECONDS",
+      "300",
+    );
+    apiFunction.addEnvironment(
+      "ACCOUNT_DELETION_QUEUE_URL",
+      accountDeletion.queue.queueUrl,
+    );
     providerFunction.grantInvoke(apiFunction);
     const lambdaEndpointSg = new ec2.SecurityGroup(
       this,
@@ -299,6 +563,20 @@ export class FolooBackendStack extends cdk.Stack {
         authorizer,
       });
     }
+    for (const [path, method] of [
+      ["/v1/account-deletion-requests/current", apigateway.HttpMethod.GET],
+      [
+        "/v1/account-deletion-reauthentication/verify",
+        apigateway.HttpMethod.POST,
+      ],
+      ["/v1/account-deletion-requests", apigateway.HttpMethod.POST],
+      [
+        "/v1/account-deletion-requests/{requestId}/confirm",
+        apigateway.HttpMethod.POST,
+      ],
+    ] as const) {
+      api.addRoutes({ path, methods: [method], integration, authorizer });
+    }
     // Receipt-only status route is public by contract but remains fail-closed
     // while Account Deletion is disabled. Rate limiting is an activation gate.
     api.addRoutes({
@@ -306,6 +584,30 @@ export class FolooBackendStack extends cdk.Stack {
       methods: [apigateway.HttpMethod.POST],
       integration,
     });
+    const defaultStage = api.defaultStage?.node
+      .defaultChild as apigateway.CfnStage;
+    defaultStage.routeSettings = {
+      "POST /v1/account-deletion-status": {
+        throttlingBurstLimit: 5,
+        throttlingRateLimit: 1,
+      },
+      "GET /v1/account-deletion-requests/current": {
+        throttlingBurstLimit: 5,
+        throttlingRateLimit: 2,
+      },
+      "POST /v1/account-deletion-reauthentication/verify": {
+        throttlingBurstLimit: 3,
+        throttlingRateLimit: 1,
+      },
+      "POST /v1/account-deletion-requests": {
+        throttlingBurstLimit: 2,
+        throttlingRateLimit: 0.2,
+      },
+      "POST /v1/account-deletion-requests/{requestId}/confirm": {
+        throttlingBurstLimit: 2,
+        throttlingRateLimit: 0.2,
+      },
+    };
     for (const path of ["/v1/email/oauth/callback/{provider}"]) {
       api.addRoutes({
         path,

@@ -15,6 +15,7 @@ import { PostgresEmailRepository } from "../email/postgres_email_repository.js";
 import { LambdaEmailProviderBoundary } from "../email/provider_invoker.js";
 import { loadEnvironment } from "../config/environment.js";
 import { DisabledAccountDeletionHttpController } from "../account_deletion/account_deletion_http.js";
+import { composeAccountDeletionRuntime } from "../account_deletion/account_deletion_composition.js";
 
 let routerPromise: ReturnType<typeof initialize> | undefined;
 
@@ -23,26 +24,66 @@ async function initialize() {
   const bucketName = process.env.MEDIA_BUCKET_NAME;
   if (!bucketName) throw new Error("MEDIA_BUCKET_NAME is required");
   const environment = loadEnvironment();
-  if (environment.FOLOO_ACCOUNT_DELETION_ENABLED) {
-    throw new Error(
-      "Account deletion cannot be enabled until KMS, ledger and worker dependencies are configured.",
-    );
-  }
   const repository = new PostgresFolooRepository(pool, {
     unlimitedQaMode: environment.FOLOO_UNLIMITED_QA_MODE,
   });
   const media = new S3MediaStorage(bucketName);
+  const deletion = environment.FOLOO_ACCOUNT_DELETION_ENABLED
+    ? composeAccountDeletionRuntime(pool, {
+        tableName: required(
+          environment.ACCOUNT_DELETION_TABLE_NAME,
+          "ACCOUNT_DELETION_TABLE_NAME",
+        ),
+        hmacKeyArn: required(
+          environment.ACCOUNT_DELETION_HMAC_KEY_ARN,
+          "ACCOUNT_DELETION_HMAC_KEY_ARN",
+        ),
+        hmacKeyVersion: required(
+          environment.ACCOUNT_DELETION_HMAC_KEY_VERSION,
+          "ACCOUNT_DELETION_HMAC_KEY_VERSION",
+        ),
+        recipientKeyArn: required(
+          environment.ACCOUNT_DELETION_RECIPIENT_KEY_ARN,
+          "ACCOUNT_DELETION_RECIPIENT_KEY_ARN",
+        ),
+        queueUrl: required(
+          environment.ACCOUNT_DELETION_QUEUE_URL,
+          "ACCOUNT_DELETION_QUEUE_URL",
+        ),
+        notificationFunctionName: required(
+          environment.ACCOUNT_DELETION_NOTIFICATION_FUNCTION_NAME,
+          "ACCOUNT_DELETION_NOTIFICATION_FUNCTION_NAME",
+        ),
+        emailProviderFunctionName: environment.EMAIL_PROVIDER_FUNCTION_NAME,
+        cognitoFinalizerFunctionName: required(
+          environment.ACCOUNT_DELETION_COGNITO_FINALIZER_FUNCTION_NAME,
+          "ACCOUNT_DELETION_COGNITO_FINALIZER_FUNCTION_NAME",
+        ),
+        mediaBucketName: environment.MEDIA_BUCKET_NAME,
+        maximumAuthenticationAgeMs:
+          environment.ACCOUNT_DELETION_REAUTH_MAX_AGE_SECONDS * 1000,
+      })
+    : null;
+  const accessGuard = deletion?.accessGuard;
+  const email = new EmailApplication(
+    repository,
+    new PostgresEmailRepository(pool),
+    new LambdaEmailProviderBoundary(environment.EMAIL_PROVIDER_FUNCTION_NAME),
+    media,
+    environment.PUBLIC_API_BASE_URL,
+    accessGuard,
+  );
   return createRouter(
     new FolooApplication(repository, media),
-    new EmailApplication(
-      repository,
-      new PostgresEmailRepository(pool),
-      new LambdaEmailProviderBoundary(environment.EMAIL_PROVIDER_FUNCTION_NAME),
-      media,
-      environment.PUBLIC_API_BASE_URL,
-    ),
-    new DisabledAccountDeletionHttpController(),
+    email,
+    deletion?.controller ?? new DisabledAccountDeletionHttpController(),
+    accessGuard,
   );
+}
+
+function required(value: string | undefined, name: string): string {
+  if (!value) throw new Error(`${name} is required.`);
+  return value;
 }
 
 export const handler: APIGatewayProxyHandlerV2WithJWTAuthorizer = async (

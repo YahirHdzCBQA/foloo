@@ -385,6 +385,32 @@ async function send(
   }
 }
 
+async function revoke(
+  command: Extract<ProviderCommand, { action: "revoke" }>,
+): Promise<ProviderResult> {
+  const credentials = await decryptValue<Credentials>(
+    command.encryptedCredentials,
+    command.workspaceId,
+  );
+  if (command.provider === "google") {
+    const response = await fetch("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token: credentials.refreshToken }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    // Google returns 400 when the token is already invalid; local destruction
+    // remains idempotent, but transient/provider failures must be retried.
+    if (!response.ok && response.status !== 400) {
+      throw new Error(`oauth_revoke_${response.status}`);
+    }
+  }
+  // Microsoft Graph exposes no equivalent per-refresh-token revocation for
+  // this delegated sender flow. Destroying Foloo's encrypted refresh token is
+  // the supported boundary; tenant-wide sign-out is intentionally not used.
+  return { revoked: true };
+}
+
 /** Graph sendMail succeeds with HTTP 202 and intentionally has no body. */
 export async function acceptedProviderPayload(
   response: Pick<Response, "status" | "text">,
@@ -426,7 +452,8 @@ export async function handler(command: ProviderCommand) {
       };
     } else if (command.action === "exchange_code")
       result = await exchange(command);
-    else result = await send(command);
+    else if (command.action === "send") result = await send(command);
+    else result = await revoke(command);
     console.info(
       JSON.stringify({
         scope: "email_provider",

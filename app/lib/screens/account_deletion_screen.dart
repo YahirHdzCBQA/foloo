@@ -17,6 +17,8 @@ class AccountDeletionScreen extends StatefulWidget {
     required this.service,
     required this.onExport,
     required this.onSynchronize,
+    required this.pendingSyncCount,
+    required this.onReauthenticate,
     required this.onAccepted,
     super.key,
   });
@@ -25,6 +27,8 @@ class AccountDeletionScreen extends StatefulWidget {
   final AccountDeletionService service;
   final Future<void> Function() onExport;
   final Future<void> Function() onSynchronize;
+  final Future<int> Function() pendingSyncCount;
+  final Future<void> Function() onReauthenticate;
   final Future<void> Function(AccountDeletionAccepted accepted) onAccepted;
 
   @override
@@ -59,7 +63,20 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
         requestedExport: false,
         idempotencyKey: const Uuid().v4(),
       );
-      if (mounted) setState(() => _preflight = result);
+      final localPending = await widget.pendingSyncCount();
+      if (mounted) {
+        setState(
+          () => _preflight = AccountDeletionPreflight(
+            requestId: result.requestId,
+            pendingSyncCount: localPending > result.pendingSyncCount
+                ? localPending
+                : result.pendingSyncCount,
+            exportAvailable: result.exportAvailable,
+            subscriptionCancellationRequired:
+                result.subscriptionCancellationRequired,
+          ),
+        );
+      }
     } on AccountDeletionServiceException catch (error) {
       if (mounted) setState(() => _error = error.code);
     } catch (_) {
@@ -203,6 +220,12 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
                   key: const Key('accountDeletionError'),
                   style: TextStyle(color: FolooPalette.of(context).error),
                 ),
+              ),
+            if (_error == 'reauthentication_required')
+              TextButton(
+                key: const Key('accountDeletionReauthenticate'),
+                onPressed: _busy ? null : widget.onReauthenticate,
+                child: Text(l10n.drawerLogout),
               ),
           ],
         ),

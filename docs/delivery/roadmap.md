@@ -320,20 +320,25 @@ AWS y borrado real desactivados hasta aprobar los gates de D-13/ADR.**
   fixtures sintéticos; no están conectadas a Cognito, rutas ni AWS y no aceptan
   ninguna ADR:
   [`account-deletion-pseudonymous-identity.md`](account-deletion-pseudonymous-identity.md).
-- STORE-02E-02B añade contrato de ledger, guard fail-closed, adaptador DynamoDB
-  y construct CDK bajo pruebas sintéticas. Todos permanecen inactivos: el
-  construct no se instancia, ninguna Lambda los importa y no existe wiring con
-  Cognito, router, OAuth, provisioning, trial o Unlimited QA:
+- STORE-02E-02B añade contrato de ledger, guard fail-closed y adaptador
+  DynamoDB. STORE-02 prepara además la infraestructura CDK, KMS HMAC, workflow
+  durable, cola/DLQ, checkpoints, OAuth, SES transaccional independiente y
+  finalizador Cognito. La migración 009 prepara la barrera PostgreSQL antes de
+  `ensure_personal_workspace`; API, callbacks OAuth, sync y worker tienen una
+  composición real detrás de flags. PreSignUp y el reconciliador de restores se
+  sintetizan sin attachment/ejecución. Todo permanece en `false`:
   [`account-deletion-ledger-guard.md`](account-deletion-ledger-guard.md).
 - El incremento funcional añade contrato HTTP, verificación de `auth_time`,
   preflight/confirmación idempotentes, receipt hasheado, workflow reanudable,
   executor ordenado, puertos PostgreSQL/S3/OAuth/Cognito/Stripe, correos ES/EN,
-  pantalla Flutter y purga Drift/archivos owner-scoped. Sus pruebas usan solo
-  datos sintéticos. No existe wiring destructivo productivo ni recursos AWS.
+  pantalla Flutter y purga Drift/archivos owner-scoped. El destinatario de los
+  avisos se cifra con KMS, expira por TTL y SES usa `hello@foloo.io` como From y
+  Reply-To sin tocar follow-ups. Sus pruebas usan solo datos sintéticos.
 - `FOLOO_ACCOUNT_DELETION_ENABLED` permanece `false` en CDK y Flutter. El API
-  usa un controller deshabilitado; el construct DynamoDB no se instancia y los
-  adaptadores destructivos no se componen en Lambda. No se creó migración: el
-  workflow durable propuesto vive fuera del ciclo de restore PostgreSQL.
+  usa el controller deshabilitado; worker, finalizador, SES, PreSignUp y
+  reconciliador rechazan ejecución. El synth contiene recursos
+  retenidos/cifrados, pero no se desplegaron. La migración 009 está preparada y
+  no ejecutada; el workflow/tombstone durable sigue fuera de PostgreSQL.
 - La ruta `foloo.io/delete-account` queda definida por el mismo contrato, pero
   no se creó otra web porque el repositorio de la landing no está presente y
   TI aún no autoriza modificar/desplegar CloudFront/S3.

@@ -131,6 +131,7 @@ export function createRouter(
   application: FolooApplication,
   emailApplication?: EmailApplication,
   accountDeletion?: AccountDeletionHttpController,
+  accountDeletionAccessGuard?: { assertActive(subject: string): Promise<void> },
 ) {
   return async (
     event: APIGatewayProxyEventV2WithJWTAuthorizer,
@@ -166,6 +167,7 @@ export function createRouter(
       };
     }
     const subject = authenticatedSubject(event);
+    await accountDeletionAccessGuard?.assertActive(subject);
 
     if (method === "GET" && path === "/v1/workspace")
       return json(200, { data: await application.workspace(subject) });

@@ -74,6 +74,8 @@ dependencies:
   # storage. Flutter's platform SDK does not implement Cognito SRP/confirmation.
   amplify_flutter: ^2.15.0
   amplify_auth_cognito: ^2.15.0
+  # AUT-21/RNF-09: receipt survives logout in platform-protected storage.
+  amplify_secure_storage: 0.5.21
 
 dev_dependencies:
   flutter_test:

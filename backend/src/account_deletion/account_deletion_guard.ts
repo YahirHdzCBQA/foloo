@@ -19,8 +19,8 @@ import type {
 
 export type AccountDeletionGuardDecision =
   | Readonly<{ state: "active" }>
-  | Readonly<{ state: "deletion_pending" }>
-  | Readonly<{ state: "deleted" }>
+  | Readonly<{ state: "deletion_pending"; deletionId: string }>
+  | Readonly<{ state: "deleted"; deletionId: string }>
   | Readonly<{ state: "registration_blocked"; blockedUntil: Date }>;
 
 export interface AccountDeletionClock {
@@ -76,10 +76,18 @@ export class AccountDeletionGuard<KeyHandle> {
       );
       const tombstones = await this.ledger.findSubjectTombstones(keys);
       if (tombstones.some((item) => item.state === "deleted")) {
-        return { state: "deleted" };
+        return {
+          state: "deleted",
+          deletionId: tombstones.find((item) => item.state === "deleted")!
+            .deletionId,
+        };
       }
       if (tombstones.some((item) => item.state === "pending")) {
-        return { state: "deletion_pending" };
+        return {
+          state: "deletion_pending",
+          deletionId: tombstones.find((item) => item.state === "pending")!
+            .deletionId,
+        };
       }
       return { state: "active" };
     } catch {
