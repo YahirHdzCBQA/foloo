@@ -1,16 +1,26 @@
 BEGIN;
 
 ALTER TABLE app_users
-  ADD COLUMN deletion_request_id uuid,
-  ADD COLUMN deletion_pending_at timestamptz;
+  ADD COLUMN IF NOT EXISTS deletion_request_id uuid,
+  ADD COLUMN IF NOT EXISTS deletion_pending_at timestamptz;
 
-ALTER TABLE app_users
-  ADD CONSTRAINT app_users_deletion_barrier_consistent CHECK (
-    (deletion_request_id IS NULL AND deletion_pending_at IS NULL) OR
-    (deletion_request_id IS NOT NULL AND deletion_pending_at IS NOT NULL)
-  );
+DO $migration$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'app_users_deletion_barrier_consistent'
+      AND conrelid = 'app_users'::regclass
+  ) THEN
+    ALTER TABLE app_users
+      ADD CONSTRAINT app_users_deletion_barrier_consistent CHECK (
+        (deletion_request_id IS NULL AND deletion_pending_at IS NULL) OR
+        (deletion_request_id IS NOT NULL AND deletion_pending_at IS NOT NULL)
+      );
+  END IF;
+END;
+$migration$;
 
-CREATE UNIQUE INDEX app_users_deletion_request_unique
+CREATE UNIQUE INDEX IF NOT EXISTS app_users_deletion_request_unique
   ON app_users(deletion_request_id) WHERE deletion_request_id IS NOT NULL;
 
 CREATE OR REPLACE FUNCTION assert_account_active(p_subject text)
@@ -24,6 +34,37 @@ BEGIN
   END IF;
 END;
 $$ LANGUAGE plpgsql STABLE;
+
+CREATE OR REPLACE FUNCTION mark_account_deletion_pending(
+  p_subject text,
+  p_request_id uuid,
+  p_accepted_at timestamptz
+)
+RETURNS void AS $$
+DECLARE
+  v_updated integer;
+BEGIN
+  IF p_subject IS NULL OR length(trim(p_subject)) = 0 THEN
+    RAISE EXCEPTION 'subject is required';
+  END IF;
+  IF p_request_id IS NULL OR p_accepted_at IS NULL THEN
+    RAISE EXCEPTION 'deletion barrier fields are required';
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtext(p_subject));
+  UPDATE app_users
+  SET deletion_request_id = p_request_id,
+      deletion_pending_at = p_accepted_at,
+      updated_at = now()
+  WHERE cognito_sub = p_subject
+    AND (deletion_request_id IS NULL OR deletion_request_id = p_request_id);
+  GET DIAGNOSTICS v_updated = ROW_COUNT;
+  IF v_updated <> 1 THEN
+    RAISE EXCEPTION 'account_deletion_barrier_not_established'
+      USING ERRCODE = 'P0001';
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION ensure_personal_workspace(p_subject text)
 RETURNS TABLE(user_id uuid, account_id uuid, workspace_id uuid) AS $$
@@ -66,6 +107,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION assert_account_active(text) TO foloo_app;
+GRANT EXECUTE ON FUNCTION mark_account_deletion_pending(text, uuid, timestamptz)
+  TO foloo_app;
 GRANT EXECUTE ON FUNCTION ensure_personal_workspace(text) TO foloo_app;
 
 COMMIT;

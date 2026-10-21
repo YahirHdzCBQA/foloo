@@ -325,8 +325,9 @@ AWS y borrado real desactivados hasta aprobar los gates de D-13/ADR.**
   durable, cola/DLQ, checkpoints, OAuth, SES transaccional independiente y
   finalizador Cognito. La migración 009 prepara la barrera PostgreSQL antes de
   `ensure_personal_workspace`; API, callbacks OAuth, sync y worker tienen una
-  composición real detrás de flags. PreSignUp y el reconciliador de restores se
-  sintetizan sin attachment/ejecución. Todo permanece en `false`:
+  composición real detrás de flags. PreSignUp federado y PostAuthentication
+  común a email/Google se sintetizan con permisos, sin attachment; el
+  reconciliador de restores tampoco se ejecuta. Todo permanece en `false`:
   [`account-deletion-ledger-guard.md`](account-deletion-ledger-guard.md).
 - El incremento funcional añade contrato HTTP, verificación de `auth_time`,
   preflight/confirmación idempotentes, receipt hasheado, workflow reanudable,
@@ -335,7 +336,7 @@ AWS y borrado real desactivados hasta aprobar los gates de D-13/ADR.**
   avisos se cifra con KMS, expira por TTL y SES usa `hello@foloo.io` como From y
   Reply-To sin tocar follow-ups. Sus pruebas usan solo datos sintéticos.
 - `FOLOO_ACCOUNT_DELETION_ENABLED` permanece `false` en CDK y Flutter. El API
-  usa el controller deshabilitado; worker, finalizador, SES, PreSignUp y
+  usa el controller deshabilitado; worker, finalizador, SES, guards Cognito y
   reconciliador rechazan ejecución. El synth contiene recursos
   retenidos/cifrados, pero no se desplegaron. La migración 009 está preparada y
   no ejecutada; el workflow/tombstone durable sigue fuera de PostgreSQL.

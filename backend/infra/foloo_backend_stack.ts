@@ -27,6 +27,10 @@ import { AccountDeletionLedgerInfrastructure } from "./account_deletion_ledger_i
 type FolooBackendStackProps = cdk.StackProps & {
   config: EnvironmentConfig;
   unlimitedQaMode?: boolean;
+  accountDeletionKeyArns: {
+    identityHmacKeyArn: string;
+    notificationRecipientKeyArn: string;
+  };
 };
 
 export class FolooBackendStack extends cdk.Stack {
@@ -233,6 +237,12 @@ export class FolooBackendStack extends cdk.Stack {
     const accountDeletion = new AccountDeletionLedgerInfrastructure(
       this,
       "AccountDeletion",
+      {
+        existingIdentityHmacKeyArn:
+          props.accountDeletionKeyArns.identityHmacKeyArn,
+        existingNotificationRecipientKeyArn:
+          props.accountDeletionKeyArns.notificationRecipientKeyArn,
+      },
     );
     const accountDeletionEmailDlq = new sqs.Queue(
       this,
@@ -300,6 +310,12 @@ export class FolooBackendStack extends cdk.Stack {
         bundling: { minify: true, sourceMap: true },
       },
     );
+    new cloudwatch.Alarm(this, "AccountDeletionEmailErrorsAlarm", {
+      metric: accountDeletionEmail.metricErrors(),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
     const accountDeletionPreSignUp = new lambdaNode.NodejsFunction(
       this,
       "AccountDeletionPreSignUpFunction",
@@ -316,6 +332,7 @@ export class FolooBackendStack extends cdk.Stack {
           ACCOUNT_DELETION_TABLE_NAME: accountDeletion.table.tableName,
           ACCOUNT_DELETION_HMAC_KEY_ARN: accountDeletion.hmacKey.keyArn,
           ACCOUNT_DELETION_HMAC_KEY_VERSION: "v1",
+          ACCOUNT_DELETION_HMAC_READ_VERSIONS: "v1",
           FOLOO_ACCOUNT_DELETION_REGISTRATION_GUARD_ENABLED: "false",
         },
         bundling: { minify: true, sourceMap: true },
@@ -323,8 +340,48 @@ export class FolooBackendStack extends cdk.Stack {
     );
     accountDeletion.grantAdapterAccess(accountDeletionPreSignUp);
     accountDeletion.grantHmac(accountDeletionPreSignUp);
-    // Deliberately no User Pool trigger attachment until Security approves
-    // canonicalization and native email/password verification semantics.
+    const accountDeletionPostAuthentication = new lambdaNode.NodejsFunction(
+      this,
+      "AccountDeletionPostAuthenticationFunction",
+      {
+        entry: join(
+          import.meta.dirname,
+          "../src/account_deletion/cognito_post_authentication_lambda.ts",
+        ),
+        handler: "handler",
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        timeout: cdk.Duration.seconds(10),
+        environment: {
+          ACCOUNT_DELETION_TABLE_NAME: accountDeletion.table.tableName,
+          ACCOUNT_DELETION_HMAC_KEY_ARN: accountDeletion.hmacKey.keyArn,
+          ACCOUNT_DELETION_HMAC_KEY_VERSION: "v1",
+          ACCOUNT_DELETION_HMAC_READ_VERSIONS: "v1",
+          FOLOO_ACCOUNT_DELETION_REGISTRATION_GUARD_ENABLED: "false",
+        },
+        bundling: { minify: true, sourceMap: true },
+      },
+    );
+    accountDeletion.grantAdapterAccess(accountDeletionPostAuthentication);
+    accountDeletion.grantHmac(accountDeletionPostAuthentication);
+    // The User Pool predates and is not owned by this stack. CDK therefore
+    // prepares scoped invoke permissions and outputs, but deliberately does
+    // not mutate its LambdaConfig. Trigger attachment remains an activation
+    // operation after the pass-through deployment has been verified.
+    const userPoolArn = this.formatArn({
+      service: "cognito-idp",
+      resource: "userpool",
+      resourceName: config.userPoolId,
+    });
+    for (const [id, handler] of [
+      ["CognitoInvokePreSignUp", accountDeletionPreSignUp],
+      ["CognitoInvokePostAuthentication", accountDeletionPostAuthentication],
+    ] as const) {
+      handler.addPermission(id, {
+        principal: new iam.ServicePrincipal("cognito-idp.amazonaws.com"),
+        sourceArn: userPoolArn,
+      });
+    }
     accountDeletion.grantAdapterAccess(accountDeletionEmail);
     accountDeletion.grantRecipientEncryption(accountDeletionEmail);
     accountDeletionEmail.addToRolePolicy(
@@ -384,6 +441,18 @@ export class FolooBackendStack extends cdk.Stack {
         bundling: { minify: true, sourceMap: true },
       },
     );
+    new cloudwatch.Alarm(this, "AccountDeletionWorkerErrorsAlarm", {
+      metric: deletionWorker.metricErrors(),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    new cloudwatch.Alarm(this, "AccountDeletionQueueAgeAlarm", {
+      metric: accountDeletion.queue.metricApproximateAgeOfOldestMessage(),
+      threshold: cdk.Duration.minutes(20).toSeconds(),
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
     const restoreReconciler = new lambdaNode.NodejsFunction(
       this,
       "AccountDeletionRestoreReconcilerFunction",
@@ -413,6 +482,12 @@ export class FolooBackendStack extends cdk.Stack {
         bundling: { minify: true, sourceMap: true },
       },
     );
+    new cloudwatch.Alarm(this, "AccountDeletionReconcilerErrorsAlarm", {
+      metric: restoreReconciler.metricErrors(),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
     accountDeletion.grantAdapterAccess(restoreReconciler);
     accountDeletion.grantHmac(restoreReconciler);
     appSecret.grantRead(restoreReconciler);
@@ -563,6 +638,7 @@ export class FolooBackendStack extends cdk.Stack {
         authorizer,
       });
     }
+    const accountDeletionRoutes: apigateway.HttpRoute[] = [];
     for (const [path, method] of [
       ["/v1/account-deletion-requests/current", apigateway.HttpMethod.GET],
       [
@@ -575,39 +651,50 @@ export class FolooBackendStack extends cdk.Stack {
         apigateway.HttpMethod.POST,
       ],
     ] as const) {
-      api.addRoutes({ path, methods: [method], integration, authorizer });
+      accountDeletionRoutes.push(
+        ...api.addRoutes({ path, methods: [method], integration, authorizer }),
+      );
     }
     // Receipt-only status route is public by contract but remains fail-closed
     // while Account Deletion is disabled. Rate limiting is an activation gate.
-    api.addRoutes({
-      path: "/v1/account-deletion-status",
-      methods: [apigateway.HttpMethod.POST],
-      integration,
-    });
+    accountDeletionRoutes.push(
+      ...api.addRoutes({
+        path: "/v1/account-deletion-status",
+        methods: [apigateway.HttpMethod.POST],
+        integration,
+      }),
+    );
     const defaultStage = api.defaultStage?.node
       .defaultChild as apigateway.CfnStage;
-    defaultStage.routeSettings = {
+    for (const route of accountDeletionRoutes) {
+      defaultStage.addResourceDependency(
+        route.node.defaultChild as apigateway.CfnRoute,
+      );
+    }
+    // This is a raw L1 override: RouteSettings values must use the exact
+    // CloudFormation property names rather than the camelCase CDK interface.
+    defaultStage.addPropertyOverride("RouteSettings", {
       "POST /v1/account-deletion-status": {
-        throttlingBurstLimit: 5,
-        throttlingRateLimit: 1,
+        ThrottlingBurstLimit: 5,
+        ThrottlingRateLimit: 1,
       },
       "GET /v1/account-deletion-requests/current": {
-        throttlingBurstLimit: 5,
-        throttlingRateLimit: 2,
+        ThrottlingBurstLimit: 5,
+        ThrottlingRateLimit: 2,
       },
       "POST /v1/account-deletion-reauthentication/verify": {
-        throttlingBurstLimit: 3,
-        throttlingRateLimit: 1,
+        ThrottlingBurstLimit: 3,
+        ThrottlingRateLimit: 1,
       },
       "POST /v1/account-deletion-requests": {
-        throttlingBurstLimit: 2,
-        throttlingRateLimit: 0.2,
+        ThrottlingBurstLimit: 2,
+        ThrottlingRateLimit: 0.2,
       },
       "POST /v1/account-deletion-requests/{requestId}/confirm": {
-        throttlingBurstLimit: 2,
-        throttlingRateLimit: 0.2,
+        ThrottlingBurstLimit: 2,
+        ThrottlingRateLimit: 0.2,
       },
-    };
+    });
     for (const path of ["/v1/email/oauth/callback/{provider}"]) {
       api.addRoutes({
         path,
@@ -618,6 +705,60 @@ export class FolooBackendStack extends cdk.Stack {
     new cdk.CfnOutput(this, "ApiUrl", { value: api.apiEndpoint });
     new cdk.CfnOutput(this, "MigrationFunctionName", {
       value: migrationFunction.functionName,
+    });
+    new cdk.CfnOutput(this, "AccountDeletionLedgerTableName", {
+      value: accountDeletion.table.tableName,
+    });
+    new cdk.CfnOutput(this, "AccountDeletionQueueUrl", {
+      value: accountDeletion.queue.queueUrl,
+    });
+    new cdk.CfnOutput(this, "AccountDeletionDeadLetterQueueUrl", {
+      value: accountDeletion.deadLetterQueue.queueUrl,
+    });
+    new cdk.CfnOutput(this, "AccountDeletionWorkerFunctionName", {
+      value: deletionWorker.functionName,
+    });
+    new cdk.CfnOutput(this, "AccountDeletionEmailFunctionName", {
+      value: accountDeletionEmail.functionName,
+    });
+    for (const [index, name, value] of [
+      [
+        1,
+        accountDeletionEmailIdentity.dkimDnsTokenName1,
+        accountDeletionEmailIdentity.dkimDnsTokenValue1,
+      ],
+      [
+        2,
+        accountDeletionEmailIdentity.dkimDnsTokenName2,
+        accountDeletionEmailIdentity.dkimDnsTokenValue2,
+      ],
+      [
+        3,
+        accountDeletionEmailIdentity.dkimDnsTokenName3,
+        accountDeletionEmailIdentity.dkimDnsTokenValue3,
+      ],
+    ] as const) {
+      new cdk.CfnOutput(this, `AccountDeletionSesDkimName${index}`, {
+        value: name,
+      });
+      new cdk.CfnOutput(this, `AccountDeletionSesDkimValue${index}`, {
+        value,
+      });
+    }
+    new cdk.CfnOutput(this, "AccountDeletionRestoreReconcilerFunctionName", {
+      value: restoreReconciler.functionName,
+    });
+    new cdk.CfnOutput(this, "AccountDeletionPreSignUpFunctionName", {
+      value: accountDeletionPreSignUp.functionName,
+    });
+    new cdk.CfnOutput(this, "AccountDeletionPreSignUpFunctionArn", {
+      value: accountDeletionPreSignUp.functionArn,
+    });
+    new cdk.CfnOutput(this, "AccountDeletionPostAuthenticationFunctionName", {
+      value: accountDeletionPostAuthentication.functionName,
+    });
+    new cdk.CfnOutput(this, "AccountDeletionPostAuthenticationFunctionArn", {
+      value: accountDeletionPostAuthentication.functionArn,
     });
     new cdk.CfnOutput(this, "MediaBucketName", {
       value: mediaBucket.bucketName,

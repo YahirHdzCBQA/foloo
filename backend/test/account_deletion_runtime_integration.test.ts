@@ -12,12 +12,29 @@ test("INF-18 migration fences provisioning before ensure_personal_workspace", as
     new URL("../migrations/009_account_deletion_barrier.sql", import.meta.url),
     "utf8",
   );
-  assert.match(sql, /ADD COLUMN deletion_request_id uuid/u);
-  assert.match(sql, /ADD COLUMN deletion_pending_at timestamptz/u);
+  assert.match(sql, /ADD COLUMN IF NOT EXISTS deletion_request_id uuid/u);
+  assert.match(
+    sql,
+    /ADD COLUMN IF NOT EXISTS deletion_pending_at timestamptz/u,
+  );
+  assert.match(sql, /CREATE UNIQUE INDEX IF NOT EXISTS/u);
+  assert.match(sql, /mark_account_deletion_pending/u);
   const lock = sql.indexOf("pg_advisory_xact_lock");
   const guard = sql.indexOf("assert_account_active(p_subject)", lock);
   const insert = sql.indexOf("INSERT INTO app_users", guard);
   assert.ok(lock >= 0 && guard > lock && insert > guard);
+});
+
+test("INF-18 pending barriers share the provisioning advisory lock", async () => {
+  const sql = await readFile(
+    new URL("../migrations/009_account_deletion_barrier.sql", import.meta.url),
+    "utf8",
+  );
+  const functionStart = sql.indexOf("FUNCTION mark_account_deletion_pending");
+  const functionEnd = sql.indexOf("$$ LANGUAGE plpgsql;", functionStart);
+  const body = sql.slice(functionStart, functionEnd);
+  assert.match(body, /pg_advisory_xact_lock\(hashtext\(p_subject\)\)/u);
+  assert.match(body, /deletion_request_id = p_request_id/u);
 });
 
 test("INF-18 runtime guard denies pending and deleted identities", async () => {

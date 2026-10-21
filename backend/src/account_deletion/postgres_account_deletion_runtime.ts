@@ -62,17 +62,11 @@ export class PostgresAccountDeletionRuntime
     ownerSubject: string;
     acceptedAt: Date;
   }): Promise<void> {
-    const result = await this.pool.query(
-      `UPDATE app_users SET deletion_request_id=$2,deletion_pending_at=$3
-       WHERE cognito_sub=$1
-         AND (deletion_request_id IS NULL OR deletion_request_id=$2)`,
-      [input.ownerSubject, input.requestId, input.acceptedAt],
-    );
-    if (result.rowCount !== 1) {
-      throw new Error(
-        "PostgreSQL account deletion barrier was not established.",
-      );
-    }
+    await this.pool.query("SELECT mark_account_deletion_pending($1,$2,$3)", [
+      input.ownerSubject,
+      input.requestId,
+      input.acceptedAt,
+    ]);
   }
 
   async assertActive(ownerSubject: string): Promise<void> {
@@ -95,10 +89,6 @@ export class PostgresAccountDeletionRuntime
     requestId: string;
     acceptedAt: Date;
   }): Promise<void> {
-    await this.pool.query(
-      `UPDATE app_users SET deletion_request_id=$2,deletion_pending_at=$3
-       WHERE cognito_sub=$1`,
-      [input.ownerSubject, input.requestId, input.acceptedAt],
-    );
+    await this.markPending(input);
   }
 }

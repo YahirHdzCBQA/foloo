@@ -9,11 +9,19 @@ import { Template } from "aws-cdk-lib/assertions";
 import { environmentConfig } from "../infra/config.js";
 import { FolooBackendStack } from "../infra/foloo_backend_stack.js";
 
+const importedKeyArns = {
+  identityHmacKeyArn:
+    "arn:aws:kms:us-east-1:111111111111:key/11111111-1111-4111-8111-111111111111",
+  notificationRecipientKeyArn:
+    "arn:aws:kms:us-east-1:111111111111:key/22222222-2222-4222-8222-222222222222",
+};
+
 test("all FL-014 Lambdas use account unreserved concurrency", () => {
   const app = new cdk.App();
   const stack = new FolooBackendStack(app, "ConcurrencyTest", {
     config: environmentConfig("dev"),
     env: { account: "111111111111", region: "us-east-1" },
+    accountDeletionKeyArns: importedKeyArns,
   });
   const template = JSON.stringify(Template.fromStack(stack).toJSON());
   assert.doesNotMatch(template, /ReservedConcurrentExecutions/);
@@ -24,6 +32,7 @@ test("FL-016 provisions private encrypted S3 without NAT or broad IAM", () => {
   const stack = new FolooBackendStack(app, "MediaInfrastructureTest", {
     config: environmentConfig("dev"),
     env: { account: "111111111111", region: "us-east-1" },
+    accountDeletionKeyArns: importedKeyArns,
   });
   const template = Template.fromStack(stack);
   template.resourceCountIs("AWS::S3::Bucket", 1);
@@ -72,9 +81,10 @@ test("public callback/status routes remain explicit and Account Deletion stays d
   const stack = new FolooBackendStack(app, "EmailInfrastructureTest", {
     config: environmentConfig("dev"),
     env: { account: "111111111111", region: "us-east-1" },
+    accountDeletionKeyArns: importedKeyArns,
   });
   const template = Template.fromStack(stack);
-  template.resourceCountIs("AWS::KMS::Key", 3);
+  template.resourceCountIs("AWS::KMS::Key", 1);
   const functions = template.findResources("AWS::Lambda::Function");
   const provider = Object.entries(functions).find(([id]) =>
     id.includes("EmailProviderFunction"),

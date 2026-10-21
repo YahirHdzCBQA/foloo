@@ -120,9 +120,12 @@ Todas las identidades y llaves de prueba son sintéticas.
 - Legal: retención final del tombstone y del ledger; D-13 continúa abierta.
 - Arquitectura: decidir si el guard vive en Lambda separada o en una frontera
   compartida y aprobar AD-01–AD-05 modificadas.
-- Runtime: el wiring API/OAuth/sync/worker está preparado detrás de flag; el
-  trigger PreSignUp no está adjunto porque email/password no aporta evidencia
-  verificada en ese punto. Falta aprobación para activarlo.
+- Runtime: el wiring API/OAuth/sync/worker está preparado detrás de flag.
+  PreSignUp protege únicamente `PreSignUp_ExternalProvider`, donde existe
+  evidencia verificada; email/password conserva alta y confirmación Cognito y
+  se evalúa junto con Google en PostAuthentication. El User Pool preexistente
+  no pertenece al stack: CDK crea handlers, permisos y outputs, pero no modifica
+  su `LambdaConfig`. Ambos handlers continúan en pass-through hasta activación.
 
 ## Próximo incremento recomendado
 
@@ -150,12 +153,13 @@ con datos sintéticos, todavía **inactiva**:
 - interfaz de suscripción que bloquea una cuenta PRO cuando Stripe no está
   disponible, en vez de simular una cancelación exitosa.
 
-No se creó migración PostgreSQL: la persistencia durable del proceso pertenece
-al ledger externo propuesto y el adaptador PostgreSQL usa el esquema vigente.
-El store del workflow es únicamente in-memory para pruebas y no es apto para
-Lambda. La ruta pública `foloo.io/delete-account` conserva el contrato del mismo
-backend, pero no se implementó una segunda web ni se modificó la landing porque
-su repositorio/operación no forma parte de este checkout.
+El workflow usa DynamoDB durable, receipt indexes y checkpoints reanudables.
+La migración 009 agrega la barrera operativa PostgreSQL, funciones de guard y
+locking compartido con provisioning. Es transaccional, repetible ante una
+ejecución cuyo registro de migración haya fallado y tiene pre/postchecks de solo
+lectura. No se ha ejecutado. La ruta pública `foloo.io/delete-account` conserva
+el contrato del mismo backend, pero no se implementó una segunda web ni se
+modificó la landing.
 
 ### Barreras de activación en AWS DEV
 
@@ -174,7 +178,8 @@ como mínimo:
 3. desplegar los stores durables, worker/DLQ y migración 009 todavía inactivos;
 4. aprobar KMS/canonicalización y revisar consultas owner-scoped PostgreSQL/S3;
 5. verificar `foloo.io` en SES, salida de sandbox y `hello@foloo.io`;
-6. aprobar attachment Cognito PreSignUp y el tratamiento de email/password;
+6. adjuntar PreSignUp y PostAuthentication al User Pool después de desplegar
+   ambos en pass-through; habilitarlos requiere autorización separada;
 7. adaptador Stripe real para cuentas PRO, o una política aprobada que bloquee
    explícitamente esas solicitudes;
 8. revisión de `cdk synth`/`cdk diff`, despliegue inicial con ambos flags
@@ -183,3 +188,34 @@ como mínimo:
 
 D-13 y ADR-AD-01–ADR-AD-05 permanecen abiertas. Ningún componente nuevo está
 autorizado para datos reales ni modifica Trial, PRO o Unlimited QA.
+
+## Operación AWS DEV preparada
+
+El owner operativo inicial es el desarrollador. Los outputs CDK exponen tabla,
+queue/DLQ y nombres de Lambda sin revelar secretos. Antes de habilitar:
+
+1. confirmar `UPDATE_COMPLETE` y que todos los flags Account Deletion/SES/
+   registro/reconciliador sean `false`;
+2. invocar MigrationFunction con `{"action":"status"}` para obtener evidencia
+   read-only; los SQL de `migrations/checks/009...pre.sql`/`post.sql` quedan como
+   equivalente auditable. Aplicar 009 solo con autorización y repetir status;
+3. consultar SES sin envío con `npm run status:account-deletion-ses` usando
+   perfil DEV; `VerifiedForSendingStatus`, DKIM y sending deben ser válidos;
+4. revisar alarmas de errores Dynamo, throttling, antigüedad de queue, worker,
+   reconciliador, email DLQ y deletion DLQ;
+5. identificar requests por items `workflow_request`/estado en la tabla y
+   contrastar sus checkpoints, mensaje SQS y logs estructurados por requestId;
+6. una cuenta solo está completada cuando workflow/tombstone dicen `deleted`,
+   S3/PostgreSQL/Cognito verifican ausencia, no quedan mensajes ni DLQ y el
+   correo final fue procesado;
+7. el reconciliador se invoca manualmente solo después de un restore autorizado
+   y con su flag temporal; nunca tiene schedule;
+8. ante incidente se vuelve a desplegar la configuración canónica con todos los
+   flags `false`; no se borra queue/ledger ni se revierte 009. Los mensajes se
+   conservan para diagnóstico y reanudación.
+
+La asociación de triggers se realiza en Cognito → User Pool → Lambda triggers:
+Pre sign-up usa el ARN `AccountDeletionPreSignUpFunctionArn` y Post
+authentication usa `AccountDeletionPostAuthenticationFunctionArn`. Primero se
+adjuntan con `FOLOO_ACCOUNT_DELETION_REGISTRATION_GUARD_ENABLED=false`; no se
+habilitan hasta aprobar canonicalización/KMS y completar las pruebas sintéticas.
