@@ -168,6 +168,62 @@ class AppLocalizationsEn extends AppLocalizations {
   String get drawerLogout => 'Sign out';
 
   @override
+  String get accountDeletionMenu => 'Delete account';
+
+  @override
+  String get accountDeletionTitle => 'Delete account';
+
+  @override
+  String get accountDeletionWarning =>
+      'Your Foloo account and data will be permanently deleted.';
+
+  @override
+  String get accountDeletionConsequences =>
+      'Your leads, events, files, photos, voice notes, templates, and email connection will no longer be available. This cannot be undone.';
+
+  @override
+  String get accountDeletionNewAccountNotice =>
+      'You may register again after 30 days as a completely new account. Previous data will not be restored.';
+
+  @override
+  String get accountDeletionExport => 'Export information first';
+
+  @override
+  String accountDeletionPendingSync(int count) {
+    return '$count local changes are still waiting to sync.';
+  }
+
+  @override
+  String get accountDeletionSyncFirst => 'Sync now';
+
+  @override
+  String get accountDeletionDiscardUnsynced =>
+      'Continue and permanently lose pending local changes';
+
+  @override
+  String get accountDeletionCancelRenewal =>
+      'I understand that renewal cancellation must be confirmed before deletion';
+
+  @override
+  String get accountDeletionIrreversible =>
+      'I understand that this action is irreversible';
+
+  @override
+  String get accountDeletionConfirm => 'Permanently delete account';
+
+  @override
+  String get accountDeletionReauthenticate =>
+      'For your security, sign in again and return here before deleting your account.';
+
+  @override
+  String get accountDeletionError =>
+      'The deletion request could not be processed. Your account remains active; try again later.';
+
+  @override
+  String get accountDeletionAccepted =>
+      'Your deletion request was accepted. Foloo will now sign out on this device.';
+
+  @override
   String get drawerSales => 'SALES';
 
   @override

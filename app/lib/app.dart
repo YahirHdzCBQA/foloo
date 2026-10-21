@@ -16,6 +16,7 @@ import 'auth/drift_development_auth_store.dart';
 import 'l10n/app_localizations.dart';
 import 'l10n/l10n.dart';
 import 'data/repositories/local_repositories.dart';
+import 'config/qa_runtime_flags.dart';
 
 import 'models/app_destination.dart';
 import 'models/app_event.dart';
@@ -26,6 +27,7 @@ import 'models/entitlement.dart';
 import 'models/session_lead.dart';
 import 'screens/event_screen.dart';
 import 'screens/account_access_screen.dart';
+import 'screens/account_deletion_screen.dart';
 import 'screens/content_screen.dart';
 import 'screens/email_screen.dart';
 import 'screens/email_onboarding_screen.dart';
@@ -36,6 +38,8 @@ import 'screens/paywall_screen.dart';
 import 'screens/profile_setup_screen.dart';
 import 'screens/records_screen.dart';
 import 'services/connectivity_service.dart';
+import 'services/account_deletion_service.dart';
+import 'services/local_account_deletion_purger.dart';
 import 'services/camera_access_service.dart';
 import 'services/contact_image_picker_service.dart';
 import 'services/microphone_access_service.dart';
@@ -47,6 +51,7 @@ import 'sync/media_binary_transfer.dart';
 import 'sync/sync_models.dart';
 import 'theme/foloo_theme.dart';
 import 'widgets/auth_account_scope.dart';
+import 'widgets/account_deletion_scope.dart';
 import 'widgets/entitlement_scope.dart';
 
 enum _AuthenticatedStage { profile, email, origin, shell }
@@ -72,6 +77,8 @@ class FolooApp extends StatefulWidget {
     this.syncApi,
     this.syncSessionProvider,
     this.mediaBinaryTransfer,
+    this.accountDeletionService,
+    this.accountDeletionEnabled = folooAccountDeletionEnabled,
     this.userStateLoadGate,
     super.key,
   });
@@ -90,6 +97,8 @@ class FolooApp extends StatefulWidget {
   final SyncApi? syncApi;
   final SyncSessionProvider? syncSessionProvider;
   final MediaBinaryTransfer? mediaBinaryTransfer;
+  final AccountDeletionService? accountDeletionService;
+  final bool accountDeletionEnabled;
 
   /// Optional async boundary used to exercise slow owner hydration in tests.
   final Future<void> Function(String userId)? userStateLoadGate;
@@ -102,6 +111,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   static const _emailOnboardingPreference = 'emailOnboardingStatus';
   // Session orchestration and local fixtures.
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
+  final _navigatorKey = GlobalKey<NavigatorState>();
   _AuthenticatedStage _stage = _AuthenticatedStage.profile;
   _AccessStage _accessStage = _AccessStage.login;
   String? _pendingConfirmationEmail;
@@ -719,6 +729,37 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     });
   }
 
+  void _openAccountDeletion() {
+    final service = widget.accountDeletionService;
+    if (!widget.accountDeletionEnabled || service == null) return;
+    _navigatorKey.currentState?.push(
+      MaterialPageRoute<void>(
+        builder: (_) => AccountDeletionScreen(
+          ownerSub: _userId,
+          service: service,
+          onExport: () async {
+            if (!mounted) return;
+            _navigatorKey.currentState?.pop();
+            setState(() => _destination = AppDestination.records);
+          },
+          onSynchronize: () => _synchronize(trigger: SyncTrigger.manual),
+          onAccepted: (_) async {
+            _navigatorKey.currentState?.pop();
+            await LocalAccountDeletionPurger(
+              _persistence.database,
+              _persistence.mediaStorage,
+            ).purge(_userId);
+            if (!mounted) return;
+            _messengerKey.currentState?.showSnackBar(
+              SnackBar(content: Text(context.l10n.accountDeletionAccepted)),
+            );
+            await _logout();
+          },
+        ),
+      ),
+    );
+  }
+
   void _setAppearance(bool darkMode) {
     unawaited(
       _persistence.preferences.write(
@@ -1041,6 +1082,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
         authenticatedUser != null &&
         _resolvedOwnerSub != authenticatedUser.id;
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       scaffoldMessengerKey: _messengerKey,
       onGenerateTitle: (_) => 'Foloo · ${_profile.name}',
       debugShowCheckedModeBanner: false,
@@ -1055,27 +1097,34 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       theme: FolooTheme.light,
       darkTheme: FolooTheme.dark,
       themeMode: _themeMode,
-      builder: (context, child) => AuthAccountScope(
-        email: authenticatedUser?.email ?? '',
-        provider: authenticatedUser?.provider,
-        child: EntitlementScope(
-          entitlement: _entitlement,
-          child: AppLanguageScope(
-            locale: _locale,
-            onLocaleChanged: (locale) {
-              final user = _authRepository.state.user;
-              if (user != null) {
-                unawaited(
-                  _persistence.preferences.write(
-                    user.id,
-                    'locale',
-                    locale.languageCode,
-                  ),
-                );
-              }
-              setState(() => _locale = locale);
-            },
-            child: child ?? const SizedBox.shrink(),
+      builder: (context, child) => AccountDeletionScope(
+        enabled:
+            widget.accountDeletionEnabled &&
+            widget.accountDeletionService != null &&
+            authenticatedUser != null,
+        onOpen: _openAccountDeletion,
+        child: AuthAccountScope(
+          email: authenticatedUser?.email ?? '',
+          provider: authenticatedUser?.provider,
+          child: EntitlementScope(
+            entitlement: _entitlement,
+            child: AppLanguageScope(
+              locale: _locale,
+              onLocaleChanged: (locale) {
+                final user = _authRepository.state.user;
+                if (user != null) {
+                  unawaited(
+                    _persistence.preferences.write(
+                      user.id,
+                      'locale',
+                      locale.languageCode,
+                    ),
+                  );
+                }
+                setState(() => _locale = locale);
+              },
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         ),
       ),

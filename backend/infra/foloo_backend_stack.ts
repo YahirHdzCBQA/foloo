@@ -201,6 +201,8 @@ export class FolooBackendStack extends cdk.Stack {
         PUBLIC_API_BASE_URL: "https://placeholder.invalid",
         FOLOO_UNLIMITED_QA_MODE:
           props.unlimitedQaMode === true ? "true" : "false",
+        // STORE-02 remains fail-closed until Security/KMS/ledger approval.
+        FOLOO_ACCOUNT_DELETION_ENABLED: "false",
       },
       bundling: { minify: true, sourceMap: true },
     });
@@ -297,6 +299,13 @@ export class FolooBackendStack extends cdk.Stack {
         authorizer,
       });
     }
+    // Receipt-only status route is public by contract but remains fail-closed
+    // while Account Deletion is disabled. Rate limiting is an activation gate.
+    api.addRoutes({
+      path: "/v1/account-deletion-status",
+      methods: [apigateway.HttpMethod.POST],
+      integration,
+    });
     for (const path of ["/v1/email/oauth/callback/{provider}"]) {
       api.addRoutes({
         path,

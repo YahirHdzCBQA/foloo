@@ -6,9 +6,10 @@
   `AD-T-30`
 - Decisiones: `ADR-AD-01`–`ADR-AD-03` permanecen candidatas; D-13 abierta
 
-Este incremento implementa únicamente primitivas puras y pruebas. No crea
-ledger, recursos AWS, secretos, persistencia, triggers Cognito, endpoints,
-guards ni comportamiento de Account Deletion.
+Este incremento implementó únicamente primitivas puras y pruebas. El incremento
+posterior STORE-02E-02B reutiliza estos puertos para un ledger/guard aislados;
+ninguno está conectado al runtime ni crea recursos AWS, secretos, triggers
+Cognito, endpoints o comportamiento de Account Deletion.
 
 ## Archivos
 
@@ -63,8 +64,8 @@ clave; eso requiere aprobación de Seguridad y no se implementa aquí.
    email claro; TTL sería limpieza auxiliar.
 3. Cognito: obtener/verificar el atributo en la frontera server-side y usar el
    servicio desde el guard/Pre Sign-up aprobados.
-4. Subject tombstone: usar otro namespace/domain tag y política de retención;
-   no reutilizar el identificador de correo ni su expiración de 30 días.
+4. Subject tombstone: 02B ya prepara otro namespace/domain tag y un tombstone
+   sin TTL; su retención final y uso en runtime continúan sin aprobación.
 
 ## Riesgos y decisiones pendientes
 

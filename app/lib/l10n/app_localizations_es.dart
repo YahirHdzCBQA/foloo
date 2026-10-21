@@ -171,6 +171,62 @@ class AppLocalizationsEs extends AppLocalizations {
   String get drawerLogout => 'Cerrar sesión';
 
   @override
+  String get accountDeletionMenu => 'Eliminar cuenta';
+
+  @override
+  String get accountDeletionTitle => 'Eliminar cuenta';
+
+  @override
+  String get accountDeletionWarning =>
+      'Tu cuenta y tus datos de Foloo se eliminarán permanentemente.';
+
+  @override
+  String get accountDeletionConsequences =>
+      'Tus leads, eventos, archivos, fotos, notas de voz, plantillas y conexión de correo dejarán de estar disponibles. Esta acción no se puede deshacer.';
+
+  @override
+  String get accountDeletionNewAccountNotice =>
+      'Podrás registrarte de nuevo después de 30 días como una cuenta completamente nueva. Los datos anteriores no se recuperarán.';
+
+  @override
+  String get accountDeletionExport => 'Exportar información primero';
+
+  @override
+  String accountDeletionPendingSync(int count) {
+    return 'Hay $count cambios locales pendientes de sincronizar.';
+  }
+
+  @override
+  String get accountDeletionSyncFirst => 'Sincronizar ahora';
+
+  @override
+  String get accountDeletionDiscardUnsynced =>
+      'Continuar y perder permanentemente los cambios locales pendientes';
+
+  @override
+  String get accountDeletionCancelRenewal =>
+      'Entiendo que la cancelación de la renovación debe confirmarse antes de eliminar';
+
+  @override
+  String get accountDeletionIrreversible =>
+      'Entiendo que esta acción es irreversible';
+
+  @override
+  String get accountDeletionConfirm => 'Eliminar cuenta permanentemente';
+
+  @override
+  String get accountDeletionReauthenticate =>
+      'Por tu seguridad, vuelve a iniciar sesión y regresa aquí antes de eliminar tu cuenta.';
+
+  @override
+  String get accountDeletionError =>
+      'No se pudo procesar la solicitud. Tu cuenta sigue activa; inténtalo más tarde.';
+
+  @override
+  String get accountDeletionAccepted =>
+      'Tu solicitud de eliminación fue aceptada. Foloo cerrará la sesión en este dispositivo.';
+
+  @override
   String get drawerSales => 'VENTAS';
 
   @override

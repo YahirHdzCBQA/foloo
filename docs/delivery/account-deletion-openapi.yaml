@@ -1,13 +1,12 @@
 openapi: 3.1.0
 info:
   title: Foloo Account Deletion API (design draft)
-  version: 0.0.0-design
+  version: 0.1.0-disabled
   description: |
-    Non-functional STORE-02E contract draft. It does not describe deployed
-    endpoints and does not authorize implementation. It traces AUT-18 through
-    AUT-21, SYN-11, INF-15, INF-18, INF-19, RNF-09 and RNF-10 through E-14.
-    Parameters requiring ADR or specialist approval remain unresolved and D-13
-    remains open.
+    STORE-02 local implementation contract. The routes, workflow and clients
+    exist behind disabled flags, are not deployed, and cannot perform real
+    deletion until the Security/KMS/ledger/reauthentication gates are approved.
+    D-13 and the candidate ADRs remain open.
 servers:
   - url: https://api.example.invalid
     description: Placeholder only; no environment is authorized.

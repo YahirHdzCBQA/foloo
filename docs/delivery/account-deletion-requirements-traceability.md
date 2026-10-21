@@ -23,7 +23,7 @@ no como un segundo namespace de producto.
 | Formalizado | Requisito incorporado al SDD; todavía puede tener parámetros bloqueados explícitos |
 | Aprobación externa | Legal, Seguridad, Infra, Operación, TI o Payments debe validar antes de implementar la rama indicada |
 | Candidato | Alternativa técnica o valor propuesto; no es decisión aceptada |
-| Implementado | No aplica a STORE-02E-01; no existe funcionalidad de Account Deletion en HEAD |
+| Implementado local/inactivo | Contrato, workflow, UI, purga local y adaptadores parciales existen con pruebas sintéticas; ningún flujo destructivo está activo o desplegado |
 
 Los acuerdos de Producto/CBQA comunicados el 2026-10-20 permiten formalizar el
 comportamiento base. No convierten automáticamente backups de 15 días,
@@ -99,13 +99,13 @@ formalización no afirma que exista ninguna de ellas en código.
 
 ## 5. Subtareas, requisitos y estado
 
-| Subtarea | Requisitos principales | Entrada mínima | Estado después de STORE-02E-01 |
+| Subtarea | Requisitos principales | Entrada mínima | Estado actual |
 |---|---|---|---|
 | `02E-01` Requisitos/trazas | Todos los de este documento | Acuerdos documentados y namespaces canónicos | **Completada documentalmente**; no implementada |
-| `02E-02` DDL/barrera | `AUT-21`, `INF-18`, `INF-20`, `INF-21`, `RNF-09/10` | Aprobar `ADR-AD-01`–`05`, Legal/Seguridad/Infra y threat model | Revisión final documentada en `account-deletion-architecture-security-review.md`; **bloqueada para código** hasta incorporar/aprobar cambios |
-| `02E-03` API/request | `AUT-18`–`20`, `SYN-11`, `INF-15`, `INF-19` | Aprobar `ADR-AD-06`, copy, receipt y semántica idempotente | Contrato/tests pueden revisarse; código bloqueado |
-| `02E-04` Workers | `MON-13`, `INF-15`–`17`, `RC-06/07/09/10` | Retención, IAM, owner operativo, runbooks; Payments para rama PRO | Bloqueada para recursos/código destructivo |
-| `02E-05` Flutter | `AUT-18`–`20`, `SYN-11/12`, `RC-08/09` | API/reauth/copy aprobados y barrier real | Prototipo documental permitido; código bloqueado |
+| `02E-02` DDL/barrera | `AUT-21`, `INF-18`, `INF-20`, `INF-21`, `RNF-09/10` | Aprobar `ADR-AD-01`–`05`, Legal/Seguridad/Infra y threat model | Revisión final documentada; 02A/02B implementan primitivas, ledger, guard y CDK **aislados**. Conexión, recursos y comportamiento siguen bloqueados hasta aprobación; evidencia en `account-deletion-pseudonymous-identity.md` y `account-deletion-ledger-guard.md` |
+| `02E-03` API/request | `AUT-18`–`20`, `SYN-11`, `INF-15`, `INF-19` | Aprobar `ADR-AD-06`, receipt/ventana y store durable | Implementado y probado localmente; controller de runtime deshabilitado |
+| `02E-04` Workers | `MON-13`, `INF-15`–`17`, `RC-06/07/09/10` | Retención, IAM, owner operativo, runbooks; Payments para rama PRO | Executor/puertos/adapters PostgreSQL-S3 locales; OAuth/Cognito/Stripe productivos y despliegue bloqueados |
+| `02E-05` Flutter | `AUT-18`–`20`, `SYN-11/12`, `RC-08/09` | API/reauth/copy aprobados y barrier real | Pantalla ES/EN, export/sync, consentimientos y purga owner-scoped implementados; entrada oculta por flag |
 | `02E-06` Web | `AUT-18/19`, `RC-08` | TI/Legal, dominio, App Client web PKCE y API aprobada | Arquitectura solamente; publicación bloqueada |
 | `02E-07` QA/security | `RNF-09/10`, E-14 completo | Componentes 02–06 y autorización destructiva por ejecución | Diseño/no destructivas permitido; E2E bloqueado |
 | `02E-08` Compliance | `RC-06`–`RC-10`, `REL-01`, `REL-06/07` | Evidencia técnica + Legal y stores | Bloqueada; es la única fase que puede cerrar `D-13` |

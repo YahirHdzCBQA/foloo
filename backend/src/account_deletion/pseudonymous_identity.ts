@@ -15,6 +15,7 @@ export type CanonicalEmail = string & {
 };
 
 export const EMAIL_CANONICALIZATION_POLICY = "foloo-email-v1-provisional";
+export const SUBJECT_IDENTITY_POLICY = "foloo-cognito-sub-v1";
 export const PSEUDONYMOUS_IDENTIFIER_ALGORITHM = "HMAC-SHA-256";
 
 const localPartPattern = /^[\p{L}\p{M}\p{N}.!#$%&'*+/=?^_`{|}~-]+$/u;
@@ -123,6 +124,13 @@ export type PseudonymousEmailIdentifier = Readonly<{
   digest: string;
 }>;
 
+export type PseudonymousSubjectIdentifier = Readonly<{
+  algorithm: typeof PSEUDONYMOUS_IDENTIFIER_ALGORITHM;
+  identityPolicy: typeof SUBJECT_IDENTITY_POLICY;
+  keyVersion: string;
+  digest: string;
+}>;
+
 /**
  * Produces a domain-separated, versioned registration identifier.
  *
@@ -163,5 +171,62 @@ export class PseudonymousEmailIdentifierService<KeyHandle> {
       keyVersion,
       digest: Buffer.from(mac).toString("base64url"),
     });
+  }
+}
+
+/**
+ * Produces a durable, domain-separated identifier for Cognito's canonical sub.
+ *
+ * The subject is intentionally not case-folded or otherwise canonicalized:
+ * callers must supply the exact verified claim used for owner isolation.
+ */
+export class PseudonymousSubjectIdentifierService<KeyHandle> {
+  constructor(
+    private readonly keys: HmacSha256KeyProvider<KeyHandle>,
+    private readonly hmac: HmacSha256Generator<KeyHandle>,
+  ) {}
+
+  async identify(
+    canonicalSubject: string,
+    keyVersion: string,
+  ): Promise<PseudonymousSubjectIdentifier> {
+    if (!keyVersionPattern.test(keyVersion)) {
+      throw new InvalidHmacKeyVersionError();
+    }
+    if (
+      canonicalSubject.length === 0 ||
+      canonicalSubject !== canonicalSubject.trim() ||
+      Buffer.byteLength(canonicalSubject, "utf8") > 2048 ||
+      /[\p{Cc}\p{Cf}\p{Z}]/u.test(canonicalSubject)
+    ) {
+      throw new InvalidCanonicalSubjectError();
+    }
+    const message = new TextEncoder().encode(
+      [
+        "foloo",
+        "account-deletion",
+        "cognito-subject",
+        SUBJECT_IDENTITY_POLICY,
+        keyVersion,
+        canonicalSubject,
+      ].join("\u0000"),
+    );
+    const key = await this.keys.getKey(keyVersion);
+    const mac = await this.hmac.generate(key, message);
+    if (mac.byteLength !== 32) throw new InvalidHmacOutputError();
+
+    return Object.freeze({
+      algorithm: PSEUDONYMOUS_IDENTIFIER_ALGORITHM,
+      identityPolicy: SUBJECT_IDENTITY_POLICY,
+      keyVersion,
+      digest: Buffer.from(mac).toString("base64url"),
+    });
+  }
+}
+
+export class InvalidCanonicalSubjectError extends Error {
+  constructor() {
+    super("Canonical subject is invalid.");
+    this.name = "InvalidCanonicalSubjectError";
   }
 }

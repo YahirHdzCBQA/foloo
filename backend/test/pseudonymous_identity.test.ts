@@ -7,10 +7,13 @@ import {
   canonicalizeVerifiedEmail,
   EMAIL_CANONICALIZATION_POLICY,
   InvalidCanonicalEmailError,
+  InvalidCanonicalSubjectError,
   InvalidHmacKeyVersionError,
   InvalidHmacOutputError,
   NodeHmacSha256Generator,
   PseudonymousEmailIdentifierService,
+  PseudonymousSubjectIdentifierService,
+  SUBJECT_IDENTITY_POLICY,
   type HmacSha256KeyProvider,
 } from "../src/account_deletion/pseudonymous_identity.js";
 
@@ -150,5 +153,39 @@ test("RNF-09 rejects a generator that is not a SHA-256-length MAC", async () => 
   await assert.rejects(
     service.identify("fixture@example.test", "v1"),
     InvalidHmacOutputError,
+  );
+});
+
+test("INF-21 pseudonymizes canonical subjects without email-domain overlap", async () => {
+  const keys = new FixtureKeyProvider(fixtureKeys);
+  const hmac = new NodeHmacSha256Generator();
+  const subjects = new PseudonymousSubjectIdentifierService(keys, hmac);
+  const emails = new PseudonymousEmailIdentifierService(keys, hmac);
+  const syntheticSubject = "00000000-0000-4000-8000-000000000001";
+
+  const subject = await subjects.identify(syntheticSubject, "v1");
+  const email = await emails.identify("subject@example.test", "v1");
+
+  assert.equal(subject.identityPolicy, SUBJECT_IDENTITY_POLICY);
+  assert.notEqual(subject.digest, email.digest);
+  assert.equal(subject.keyVersion, "v1");
+});
+
+test("INF-21 preserves exact subject identity and rejects ambiguous input", async () => {
+  const subjects = new PseudonymousSubjectIdentifierService(
+    new FixtureKeyProvider(fixtureKeys),
+    new NodeHmacSha256Generator(),
+  );
+  const lower = await subjects.identify("synthetic-subject", "v1");
+  const upper = await subjects.identify("Synthetic-Subject", "v1");
+
+  assert.notEqual(lower.digest, upper.digest);
+  await assert.rejects(
+    subjects.identify(" synthetic-subject ", "v1"),
+    InvalidCanonicalSubjectError,
+  );
+  await assert.rejects(
+    subjects.identify("", "v1"),
+    InvalidCanonicalSubjectError,
   );
 });

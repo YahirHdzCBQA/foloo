@@ -297,14 +297,13 @@ implementación.**
 
 ### STORE-02E — Preparación técnica de Account Deletion
 
-**Estado:** **STORE-02E-01 COMPLETADA DOCUMENTALMENTE y revisión
-arquitectura/seguridad de STORE-02E-02 COMPLETADA el 2026-10-20; STORE-02E sin
-implementación ni autorización funcional.**
+**Estado:** **IMPLEMENTACIÓN FUNCIONAL LOCAL PREPARADA el 2026-10-20; runtime,
+AWS y borrado real desactivados hasta aprobar los gates de D-13/ADR.**
 
 - Arquitectura, flujo Mermaid, barrera de nuevo registro por 30 días, matriz de
   datos, integración abstracta de suscripciones, UX, pruebas y plan incremental:
   [`account-deletion-technical-design.md`](account-deletion-technical-design.md).
-- Borrador no funcional de contratos HTTP:
+- Contrato HTTP implementado localmente detrás de controller fail-closed:
   [`account-deletion-openapi.yaml`](account-deletion-openapi.yaml).
 - Requisitos canónicos `AUT-18`–`AUT-21`, `SYN-11`–`SYN-12`, `MON-13`,
   `INF-15`–`INF-21`, `RNF-09`–`RNF-10`, `RC-06`–`RC-10`, escenario E-14,
@@ -318,18 +317,32 @@ implementación ni autorización funcional.**
   conserva actualmente solo un día de backup automático:
   [`account-deletion-architecture-security-review.md`](account-deletion-architecture-security-review.md).
 - STORE-02E-02A añade solo primitivas aisladas de canonicalización y HMAC con
-  fixtures sintéticos; no están conectadas a Cognito, rutas, ledger ni AWS y no
-  aceptan ninguna ADR:
+  fixtures sintéticos; no están conectadas a Cognito, rutas ni AWS y no aceptan
+  ninguna ADR:
   [`account-deletion-pseudonymous-identity.md`](account-deletion-pseudonymous-identity.md).
-- Reutiliza Cognito, ownership por `sub`, PostgreSQL, S3, Drift/outbox y las
-  fronteras de correo existentes, pero confirma que no existen todavía
-  endpoint, ledger, orquestador, revocación OAuth, finalizer Cognito ni purga
-  local integral.
+- STORE-02E-02B añade contrato de ledger, guard fail-closed, adaptador DynamoDB
+  y construct CDK bajo pruebas sintéticas. Todos permanecen inactivos: el
+  construct no se instancia, ninguna Lambda los importa y no existe wiring con
+  Cognito, router, OAuth, provisioning, trial o Unlimited QA:
+  [`account-deletion-ledger-guard.md`](account-deletion-ledger-guard.md).
+- El incremento funcional añade contrato HTTP, verificación de `auth_time`,
+  preflight/confirmación idempotentes, receipt hasheado, workflow reanudable,
+  executor ordenado, puertos PostgreSQL/S3/OAuth/Cognito/Stripe, correos ES/EN,
+  pantalla Flutter y purga Drift/archivos owner-scoped. Sus pruebas usan solo
+  datos sintéticos. No existe wiring destructivo productivo ni recursos AWS.
+- `FOLOO_ACCOUNT_DELETION_ENABLED` permanece `false` en CDK y Flutter. El API
+  usa un controller deshabilitado; el construct DynamoDB no se instancia y los
+  adaptadores destructivos no se componen en Lambda. No se creó migración: el
+  workflow durable propuesto vive fuera del ciclo de restore PostgreSQL.
+- La ruta `foloo.io/delete-account` queda definida por el mismo contrato, pero
+  no se creó otra web porque el repositorio de la landing no está presente y
+  TI aún no autoriza modificar/desplegar CloudFront/S3.
 - D-13 y las validaciones Legal/Seguridad/Infra/Operación/Payments continúan
-  abiertas. No se crean DDL, Lambdas, pantallas, web ni recursos AWS.
-- `02E-02` queda revisada documentalmente pero bloqueada para código hasta
-  aprobar conjuntamente ledger, HMAC, prevención Cognito, guard anterior a
-  provisioning, restore y threat model. `02E-03` requiere además aprobar
+  abiertas. No se desplegaron recursos, migraciones ni builds.
+- `02E-02` dispone de primitivas aisladas 02A/02B, pero su conexión y despliegue
+  siguen bloqueados hasta aprobar conjuntamente ledger, HMAC, prevención
+  Cognito, guard anterior a provisioning, restore y threat model. `02E-03`
+  requiere además aprobar
   reautenticación reciente. `02E-04`–
   `02E-08` conservan los gates específicos del contrato y la matriz de trazas.
 

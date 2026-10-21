@@ -67,7 +67,7 @@ test("FL-016 provisions private encrypted S3 without NAT or broad IAM", () => {
   assert.doesNotMatch(JSON.stringify(mediaPolicy), /s3:\*/);
 });
 
-test("FL-019.5 isolates provider egress and exposes only OAuth callback publicly", () => {
+test("public callback/status routes remain explicit and Account Deletion stays disabled", () => {
   const app = new cdk.App();
   const stack = new FolooBackendStack(app, "EmailInfrastructureTest", {
     config: environmentConfig("dev"),
@@ -97,6 +97,15 @@ test("FL-019.5 isolates provider egress and exposes only OAuth callback publicly
   );
   assert.ok(callback);
   assert.equal(callback.Properties.AuthorizationType, "NONE");
+  const deletionStatus = routes.find((item) =>
+    String(item.Properties.RouteKey).endsWith("/v1/account-deletion-status"),
+  );
+  assert.ok(deletionStatus);
+  assert.equal(deletionStatus.Properties.AuthorizationType, "NONE");
+  assert.match(
+    JSON.stringify(api.Properties?.Environment),
+    /FOLOO_ACCOUNT_DELETION_ENABLED[^}]*false/u,
+  );
   assert.equal(
     routes.some((item) =>
       String(item.Properties.RouteKey).includes("/v1/email/unsubscribe"),

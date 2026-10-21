@@ -9,3 +9,10 @@ const bool folooUnlimitedQaMode = bool.fromEnvironment(
   'FOLOO_UNLIMITED_QA_MODE',
   defaultValue: false,
 );
+
+/// STORE-02 UI is hidden until the destructive backend dependencies are
+/// approved and enabled in the target environment.
+const bool folooAccountDeletionEnabled = bool.fromEnvironment(
+  'FOLOO_ACCOUNT_DELETION_ENABLED',
+  defaultValue: false,
+);

@@ -16,6 +16,7 @@ import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 import 'auth_account_scope.dart';
+import 'account_deletion_scope.dart';
 import 'language_selector.dart';
 import 'entitlement_scope.dart';
 
@@ -71,6 +72,7 @@ class AppDrawer extends StatelessWidget {
     final accountEmail = AuthAccountScope.maybeOf(context)?.email ?? '';
     final profileImage = drawerProfileImageFor(profile);
     final entitlement = EntitlementScope.maybeOf(context);
+    final deletion = AccountDeletionScope.maybeOf(context);
     return Drawer(
       key: const Key('appDrawer'),
       width: MediaQuery.sizeOf(context).width.clamp(300, 360).toDouble(),
@@ -326,6 +328,26 @@ class AppDrawer extends StatelessWidget {
                         ],
                       ),
                     ),
+                    if (deletion?.enabled == true)
+                      ListTile(
+                        key: const Key('accountDeletionMenu'),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                        ),
+                        leading: Icon(
+                          Icons.delete_forever_outlined,
+                          color: FolooPalette.of(context).error,
+                        ),
+                        title: Text(
+                          context.l10n.accountDeletionMenu,
+                          style: TextStyle(
+                            color: FolooPalette.of(context).error,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        onTap: () => _afterClose(context, deletion!.onOpen),
+                      ),
                   ],
                 ),
               ),

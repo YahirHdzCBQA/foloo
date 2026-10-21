@@ -6,9 +6,12 @@
 - Alcance: `ADR-AD-01`–`ADR-AD-05`, `AUT-19`, `AUT-21`, `INF-18`–`INF-21`,
   `RNF-09`, `RNF-10`, `RC-06`–`RC-09`, E-14 y D-13
 
-Esta revisión contrasta las candidatas con HEAD y con la infraestructura CDK
-actual. No autoriza DDL, recursos AWS, triggers Cognito, endpoints, borrados ni
-un cierre de D-13.
+Esta revisión contrasta las candidatas con el HEAD disponible al corte y con la
+infraestructura CDK de ese momento. STORE-02E-02A/02B implementaron después
+primitivas, ledger, guard, adaptador y un construct CDK aislados; la evidencia
+posterior vive en `account-deletion-pseudonymous-identity.md` y
+`account-deletion-ledger-guard.md`. No autoriza DDL, recursos AWS, triggers
+Cognito, endpoints, wiring, borrados ni un cierre de D-13.
 
 ## 1. Evidencia comprobada en HEAD
 

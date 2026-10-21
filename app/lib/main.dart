@@ -13,6 +13,7 @@ import 'auth/cognito_configuration.dart';
 import 'auth/cognito_runtime.dart';
 import 'auth/cognito_sync_session_provider.dart';
 import 'data/repositories/local_repositories.dart';
+import 'services/account_deletion_service.dart';
 import 'sync/foloo_api_client.dart';
 import 'sync/media_binary_transfer.dart';
 
@@ -22,6 +23,8 @@ Future<void> main() async {
     CognitoConfigurations.forEnvironment(FolooEnvironment.dev),
   );
   final persistence = await LocalPersistence.production();
+  final syncApi = FolooApiClient(configuration: FolooApiConfiguration.dev);
+  const syncSessions = CognitoSyncSessionProvider();
   runApp(
     FolooApp(
       useSystemLocale: true,
@@ -30,8 +33,9 @@ Future<void> main() async {
       authRepository: AuthRepository(
         const CognitoAuthService(AmplifyCognitoAuthClient()),
       ),
-      syncApi: FolooApiClient(configuration: FolooApiConfiguration.dev),
-      syncSessionProvider: const CognitoSyncSessionProvider(),
+      syncApi: syncApi,
+      syncSessionProvider: syncSessions,
+      accountDeletionService: ApiAccountDeletionService(syncApi, syncSessions),
       mediaBinaryTransfer: IoMediaBinaryTransfer(),
     ),
   );

@@ -16,6 +16,7 @@ import type {
   LeadDeleteInput,
 } from "../domain/models.js";
 import { authenticatedSubject } from "../auth/authenticated_identity.js";
+import type { AccountDeletionHttpController } from "../account_deletion/account_deletion_http.js";
 import { requestHash } from "../persistence/postgres_repository.js";
 import {
   eventSchema,
@@ -129,12 +130,16 @@ const confirmFollowUpSchema = z.object({
 export function createRouter(
   application: FolooApplication,
   emailApplication?: EmailApplication,
+  accountDeletion?: AccountDeletionHttpController,
 ) {
   return async (
     event: APIGatewayProxyEventV2WithJWTAuthorizer,
   ): Promise<APIGatewayProxyStructuredResultV2> => {
     const method = event.requestContext.http.method.toUpperCase();
     const path = event.rawPath.replace(/\/$/, "");
+
+    const accountDeletionResponse = await accountDeletion?.handle(event);
+    if (accountDeletionResponse) return accountDeletionResponse;
 
     const callbackMatch = /^\/v1\/email\/oauth\/callback\/([^/]+)$/.exec(path);
     if (method === "GET" && callbackMatch?.[1] && emailApplication) {
@@ -451,26 +456,28 @@ export function createRouter(
     const leadMatch = /^\/v1\/leads\/([^/]+)$/.exec(path);
     if (leadMatch?.[1] && (method === "PUT" || method === "DELETE")) {
       const leadId = uuidSchema.parse(leadMatch[1]);
-      const payload = method === "PUT"
-        ? leadUpdateSchema.parse(body(event))
-        : leadDeleteSchema.parse(body(event));
+      const payload =
+        method === "PUT"
+          ? leadUpdateSchema.parse(body(event))
+          : leadDeleteSchema.parse(body(event));
       const key = idempotencyKey(event);
       const hash = requestHash({ leadId, ...payload });
-      const result = method === "PUT"
-        ? await application.updateLead(
-            subject,
-            leadId,
-            payload as LeadUpdateInput,
-            key,
-            hash,
-          )
-        : await application.deleteLead(
-            subject,
-            leadId,
-            payload as LeadDeleteInput,
-            key,
-            hash,
-          );
+      const result =
+        method === "PUT"
+          ? await application.updateLead(
+              subject,
+              leadId,
+              payload as LeadUpdateInput,
+              key,
+              hash,
+            )
+          : await application.deleteLead(
+              subject,
+              leadId,
+              payload as LeadDeleteInput,
+              key,
+              hash,
+            );
       return json(
         200,
         { data: result.value },

@@ -19,10 +19,9 @@ const requiredEnvironment = {
 };
 
 test("Unlimited QA defaults to disabled", () => {
-  assert.equal(
-    loadEnvironment(requiredEnvironment).FOLOO_UNLIMITED_QA_MODE,
-    false,
-  );
+  const environment = loadEnvironment(requiredEnvironment);
+  assert.equal(environment.FOLOO_UNLIMITED_QA_MODE, false);
+  assert.equal(environment.FOLOO_ACCOUNT_DELETION_ENABLED, false);
 });
 
 test("Unlimited QA accepts only an explicit true value", () => {

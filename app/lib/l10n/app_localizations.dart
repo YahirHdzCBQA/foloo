@@ -398,6 +398,96 @@ abstract class AppLocalizations {
   /// **'Cerrar sesión'**
   String get drawerLogout;
 
+  /// No description provided for @accountDeletionMenu.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar cuenta'**
+  String get accountDeletionMenu;
+
+  /// No description provided for @accountDeletionTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar cuenta'**
+  String get accountDeletionTitle;
+
+  /// No description provided for @accountDeletionWarning.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu cuenta y tus datos de Foloo se eliminarán permanentemente.'**
+  String get accountDeletionWarning;
+
+  /// No description provided for @accountDeletionConsequences.
+  ///
+  /// In es, this message translates to:
+  /// **'Tus leads, eventos, archivos, fotos, notas de voz, plantillas y conexión de correo dejarán de estar disponibles. Esta acción no se puede deshacer.'**
+  String get accountDeletionConsequences;
+
+  /// No description provided for @accountDeletionNewAccountNotice.
+  ///
+  /// In es, this message translates to:
+  /// **'Podrás registrarte de nuevo después de 30 días como una cuenta completamente nueva. Los datos anteriores no se recuperarán.'**
+  String get accountDeletionNewAccountNotice;
+
+  /// No description provided for @accountDeletionExport.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar información primero'**
+  String get accountDeletionExport;
+
+  /// No description provided for @accountDeletionPendingSync.
+  ///
+  /// In es, this message translates to:
+  /// **'Hay {count} cambios locales pendientes de sincronizar.'**
+  String accountDeletionPendingSync(int count);
+
+  /// No description provided for @accountDeletionSyncFirst.
+  ///
+  /// In es, this message translates to:
+  /// **'Sincronizar ahora'**
+  String get accountDeletionSyncFirst;
+
+  /// No description provided for @accountDeletionDiscardUnsynced.
+  ///
+  /// In es, this message translates to:
+  /// **'Continuar y perder permanentemente los cambios locales pendientes'**
+  String get accountDeletionDiscardUnsynced;
+
+  /// No description provided for @accountDeletionCancelRenewal.
+  ///
+  /// In es, this message translates to:
+  /// **'Entiendo que la cancelación de la renovación debe confirmarse antes de eliminar'**
+  String get accountDeletionCancelRenewal;
+
+  /// No description provided for @accountDeletionIrreversible.
+  ///
+  /// In es, this message translates to:
+  /// **'Entiendo que esta acción es irreversible'**
+  String get accountDeletionIrreversible;
+
+  /// No description provided for @accountDeletionConfirm.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar cuenta permanentemente'**
+  String get accountDeletionConfirm;
+
+  /// No description provided for @accountDeletionReauthenticate.
+  ///
+  /// In es, this message translates to:
+  /// **'Por tu seguridad, vuelve a iniciar sesión y regresa aquí antes de eliminar tu cuenta.'**
+  String get accountDeletionReauthenticate;
+
+  /// No description provided for @accountDeletionError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo procesar la solicitud. Tu cuenta sigue activa; inténtalo más tarde.'**
+  String get accountDeletionError;
+
+  /// No description provided for @accountDeletionAccepted.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu solicitud de eliminación fue aceptada. Foloo cerrará la sesión en este dispositivo.'**
+  String get accountDeletionAccepted;
+
   /// No description provided for @drawerSales.
   ///
   /// In es, this message translates to:
