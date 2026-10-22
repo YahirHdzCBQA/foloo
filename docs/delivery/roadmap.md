@@ -376,6 +376,34 @@ AWS y borrado real desactivados hasta aprobar los gates de D-13/ADR.**
   pública `/delete-account` no cambia. La auditoría read-only confirma stack
   DEV `UPDATE_COMPLETE`/`IN_SYNC`, solo cliente móvil desplegado y el diff
   acumulado pendiente, sin deploy ni migración 010.
+- FOL-AUTH-02 implementa localmente un BFF de sesión web, aún sin desplegar:
+  sesión opaca hasheada, tokens Cognito cifrados con una clave KMS exclusiva,
+  TTL lógico/DynamoDB, cookies `Secure`/`HttpOnly`/`SameSite=Lax`, CSRF,
+  refresh condicional, revocación y OAuth Google con PKCE. El App Client web
+  declara `ALLOW_USER_SRP_AUTH` y refresh; el proxy BFF solo permite las cuatro
+  operaciones de Account Deletion. Duración absoluta de 12 horas e inactividad
+  de 30 minutos son parámetros DEV provisionales pendientes de Seguridad.
+  `FOLOO_WEB_SESSION_ENABLED=false`; no se modifican cliente móvil, landing,
+  migración 010 ni flags STORE-02.
+- FOL-AUTH-05 cierra localmente los contratos que bloqueaban el login nativo:
+  `GET /api/auth/session` y el refresh restauran `sub`, correo solo cuando
+  Cognito lo marca verificado, estado de verificación y nombre nullable del
+  perfil Foloo owner-scoped, sin exponer tokens. Google conserva el callback
+  publicado `https://foloo.io/auth/callback` y añade para el BFF
+  `https://foloo.io/api/auth/google/callback`; el flujo usa code grant, PKCE
+  S256, `state` consumible una sola vez y selección explícita de cuenta. Los
+  cambios siguen sin desplegar y `FOLOO_WEB_SESSION_ENABLED=false`.
+- FOL-AUTH-08 cambia localmente el retorno BFF a la ruta privada neutral
+  `/dashboard` y prepara una activación QA fail-closed: solo DEV, flag falso por
+  defecto y allowlist de hashes seudonimizados del `sub` aplicada a SRP, Google
+  y restauración de sesiones. La matriz E2E y rollback están documentados; no
+  hubo deploy, activación, cambio de landing, Flutter ni migración 010.
+- FOL-AUTH-09A cierra localmente el bypass del Web App Client sobre `/v1/*`:
+  `ApiFunction` distingue `client_id` móvil/web después del JWT authorizer y
+  exige para web flag activo más la misma allowlist QA de `sub` seudonimizado.
+  El móvil permanece independiente y el BFF puede consultar perfil solo para
+  sujetos QA permitidos. El Change Set previo no se ejecutó; se requiere una
+  auditoría nueva antes de cualquier despliegue.
 - D-13 y las validaciones Legal/Seguridad/Infra/Operación/Payments continúan
   abiertas. No se desplegaron recursos, migraciones ni builds.
 - `02E-02` dispone de primitivas aisladas 02A/02B, pero su conexión y despliegue

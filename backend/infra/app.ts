@@ -2,7 +2,11 @@
 
 import * as cdk from "aws-cdk-lib";
 
-import { environmentConfig, unlimitedQaModeForEnvironment } from "./config.js";
+import {
+  environmentConfig,
+  unlimitedQaModeForEnvironment,
+  webSessionQaConfigForEnvironment,
+} from "./config.js";
 import { FolooBackendStack } from "./foloo_backend_stack.js";
 
 const app = new cdk.App();
@@ -13,6 +17,11 @@ const config = environmentConfig(
 const unlimitedQaMode = unlimitedQaModeForEnvironment(
   config.name,
   app.node.tryGetContext("unlimitedQaMode"),
+);
+const webSessionQa = webSessionQaConfigForEnvironment(
+  config.name,
+  app.node.tryGetContext("webSessionQaEnabled"),
+  app.node.tryGetContext("webSessionQaSubjectHashes"),
 );
 const requiredKeyArn = (contextName: string): string => {
   const value = app.node.tryGetContext(contextName);
@@ -27,6 +36,7 @@ const requiredKeyArn = (contextName: string): string => {
 new FolooBackendStack(app, `FolooBackend-${config.name}`, {
   config,
   unlimitedQaMode,
+  webSessionQa,
   accountDeletionKeyArns: {
     identityHmacKeyArn: requiredKeyArn("accountDeletionIdentityHmacKeyArn"),
     notificationRecipientKeyArn: requiredKeyArn(

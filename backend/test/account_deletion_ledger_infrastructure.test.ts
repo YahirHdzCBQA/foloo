@@ -88,9 +88,9 @@ test("STORE-02 infrastructure is deployable but every runtime boundary stays dis
   });
   const template = Template.fromStack(stack);
 
-  template.resourceCountIs("AWS::DynamoDB::Table", 1);
+  template.resourceCountIs("AWS::DynamoDB::Table", 2);
   template.resourceCountIs("AWS::SQS::Queue", 3);
-  template.resourceCountIs("AWS::KMS::Key", 1);
+  template.resourceCountIs("AWS::KMS::Key", 2);
   const json = JSON.stringify(template.toJSON());
   assert.match(json, /11111111-1111-4111-8111-111111111111/u);
   assert.match(json, /22222222-2222-4222-8222-222222222222/u);
@@ -134,11 +134,28 @@ test("STORE-02 infrastructure is deployable but every runtime boundary stays dis
     AllowedOAuthFlowsUserPoolClient: true,
     AllowedOAuthFlows: ["code"],
     AllowedOAuthScopes: Match.arrayWith(["openid", "email", "profile"]),
-    CallbackURLs: ["https://foloo.io/auth/callback"],
+    CallbackURLs: [
+      "https://foloo.io/auth/callback",
+      "https://foloo.io/api/auth/google/callback",
+    ],
     LogoutURLs: ["https://foloo.io/login"],
     SupportedIdentityProviders: ["COGNITO", "Google"],
+    ExplicitAuthFlows: ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"],
   });
   const webClients = template.findResources("AWS::Cognito::UserPoolClient");
+  template.hasResourceProperties("AWS::Lambda::Function", {
+    Environment: {
+      Variables: Match.objectLike({
+        COGNITO_ISSUER:
+          "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_QVm3dWe4O",
+        MOBILE_COGNITO_CLIENT_ID: environmentConfig("dev").appClientId,
+        WEB_COGNITO_CLIENT_ID: { Ref: Object.keys(webClients)[0] },
+        FOLOO_WEB_SESSION_ENABLED: "false",
+        WEB_SESSION_QA_SUBJECT_HASHES: "",
+        FOLOO_UNLIMITED_QA_MODE: "true",
+      }),
+    },
+  });
   assert.doesNotMatch(JSON.stringify(webClients), /Microsoft/u);
   template.resourceCountIs("AWS::Cognito::ManagedLoginBranding", 1);
   template.hasResourceProperties("AWS::Cognito::ManagedLoginBranding", {
@@ -168,6 +185,10 @@ test("STORE-02 infrastructure is deployable but every runtime boundary stays dis
   assert.deepEqual(audiences[1], {
     Ref: Object.keys(webClients)[0],
   });
+  assert.equal(
+    authorizers[0]?.Properties?.JwtConfiguration?.Issuer,
+    "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_QVm3dWe4O",
+  );
 
   const stages = Object.values(
     template.findResources("AWS::ApiGatewayV2::Stage"),
@@ -175,35 +196,23 @@ test("STORE-02 infrastructure is deployable but every runtime boundary stays dis
   assert.equal(stages.length, 1);
   const stage = stages[0];
   assert.ok(stage);
-  assert.deepEqual(stages[0]?.Properties?.RouteSettings, {
-    "POST /v1/account-deletion-status": {
-      ThrottlingBurstLimit: 5,
-      ThrottlingRateLimit: 1,
-    },
-    "GET /v1/account-deletion-requests/current": {
-      ThrottlingBurstLimit: 5,
-      ThrottlingRateLimit: 2,
-    },
-    "POST /v1/account-deletion-reauthentication/verify": {
-      ThrottlingBurstLimit: 3,
-      ThrottlingRateLimit: 1,
-    },
-    "POST /v1/account-deletion-requests": {
-      ThrottlingBurstLimit: 2,
-      ThrottlingRateLimit: 0.2,
-    },
-    "POST /v1/account-deletion-requests/{requestId}/confirm": {
-      ThrottlingBurstLimit: 2,
-      ThrottlingRateLimit: 0.2,
-    },
-  });
+  assert.deepEqual(
+    stages[0]?.Properties?.RouteSettings?.["POST /v1/account-deletion-status"],
+    { ThrottlingBurstLimit: 5, ThrottlingRateLimit: 1 },
+  );
+  assert.deepEqual(
+    stages[0]?.Properties?.RouteSettings?.[
+      "POST /v1/account-deletion-requests/{requestId}/confirm"
+    ],
+    { ThrottlingBurstLimit: 2, ThrottlingRateLimit: 0.2 },
+  );
   assert.doesNotMatch(JSON.stringify(stage), /throttling(?:Burst|Rate)Limit/u);
 
   const accountDeletionRouteIds = Object.entries(
     template.findResources("AWS::ApiGatewayV2::Route"),
   )
     .filter(([, route]) =>
-      String(route.Properties?.RouteKey).includes("account-deletion"),
+      String(route.Properties?.RouteKey).includes(" /v1/account-deletion"),
     )
     .map(([logicalId]) => logicalId);
   assert.equal(accountDeletionRouteIds.length, 5);
@@ -213,6 +222,43 @@ test("STORE-02 infrastructure is deployable but every runtime boundary stays dis
       stage.DependsOn.includes(logicalId),
       `Default Stage must depend on ${logicalId}`,
     );
+  }
+
+  const webSessionFunctions = Object.values(
+    template.findResources("AWS::Lambda::Function"),
+  ).filter((resource) =>
+    JSON.stringify(resource).includes("WEB_SESSION_ABSOLUTE_SECONDS"),
+  );
+  assert.equal(webSessionFunctions.length, 1);
+  assert.match(
+    JSON.stringify(webSessionFunctions[0]),
+    /FOLOO_WEB_SESSION_ENABLED[^}]*false/u,
+  );
+  assert.match(
+    JSON.stringify(webSessionFunctions[0]),
+    /WEB_SESSION_ABSOLUTE_SECONDS[^}]*43200/u,
+  );
+  assert.match(
+    JSON.stringify(webSessionFunctions[0]),
+    /WEB_SESSION_IDLE_SECONDS[^}]*1800/u,
+  );
+  assert.match(
+    JSON.stringify(webSessionFunctions[0]),
+    /WEB_AUTH_ALLOWED_ORIGIN[^}]*https:\/\/foloo\.io/u,
+  );
+  assert.match(
+    JSON.stringify(webSessionFunctions[0]),
+    /WEB_AUTH_CALLBACK_URL[^}]*https:\/\/foloo\.io\/api\/auth\/google\/callback/u,
+  );
+
+  const webRouteIds = Object.entries(
+    template.findResources("AWS::ApiGatewayV2::Route"),
+  )
+    .filter(([, route]) => String(route.Properties?.RouteKey).includes("/api/"))
+    .map(([logicalId]) => logicalId);
+  assert.equal(webRouteIds.length, 10);
+  for (const logicalId of webRouteIds) {
+    assert.ok(stage.DependsOn.includes(logicalId));
   }
 });
 

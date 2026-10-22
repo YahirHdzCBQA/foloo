@@ -16,6 +16,7 @@ import { LambdaEmailProviderBoundary } from "../email/provider_invoker.js";
 import { loadEnvironment } from "../config/environment.js";
 import { DisabledAccountDeletionHttpController } from "../account_deletion/account_deletion_http.js";
 import { composeAccountDeletionRuntime } from "../account_deletion/account_deletion_composition.js";
+import { createApiClientAccessGuard } from "../auth/api_client_access_guard.js";
 
 let routerPromise: ReturnType<typeof initialize> | undefined;
 
@@ -24,6 +25,24 @@ async function initialize() {
   const bucketName = process.env.MEDIA_BUCKET_NAME;
   if (!bucketName) throw new Error("MEDIA_BUCKET_NAME is required");
   const environment = loadEnvironment();
+  const allowedWebSubjectHashes = new Set(
+    (process.env.WEB_SESSION_QA_SUBJECT_HASHES ?? "").length === 0
+      ? []
+      : process.env.WEB_SESSION_QA_SUBJECT_HASHES!.split(","),
+  );
+  const apiClientAccessGuard = createApiClientAccessGuard({
+    issuer: required(process.env.COGNITO_ISSUER, "COGNITO_ISSUER"),
+    mobileClientId: required(
+      process.env.MOBILE_COGNITO_CLIENT_ID,
+      "MOBILE_COGNITO_CLIENT_ID",
+    ),
+    webClientId: required(
+      process.env.WEB_COGNITO_CLIENT_ID,
+      "WEB_COGNITO_CLIENT_ID",
+    ),
+    webSessionsEnabled: process.env.FOLOO_WEB_SESSION_ENABLED === "true",
+    allowedWebSubjectHashes,
+  });
   const repository = new PostgresFolooRepository(pool, {
     unlimitedQaMode: environment.FOLOO_UNLIMITED_QA_MODE,
   });
@@ -79,6 +98,7 @@ async function initialize() {
     email,
     deletion?.controller ?? new DisabledAccountDeletionHttpController(),
     accessGuard,
+    apiClientAccessGuard,
   );
 }
 

@@ -541,3 +541,187 @@ autorización destructiva. Usar una cuenta DEV nueva sin datos reales.
    únicamente durante una ventana E2E autorizada.
 8. Ejecutar la matriz con una cuenta Free sintética, revisar evidencia y volver
    a flags apagados. No declarar STORE-02 listo para producción con solo DEV.
+
+## 11. FOL-AUTH-02 — servicio local de sesiones web
+
+El backend prepara, sin desplegar ni activar, una Lambda BFF con estos contratos:
+
+- `POST /api/auth/session/srp`: recibe transitoriamente el refresh token que
+  resulta del SRP Cognito y crea una sesión opaca; nunca lo devuelve.
+- `GET /api/auth/google/start` y `GET /api/auth/google/callback`: code grant
+  Google mediante Cognito, `state` de un solo uso y PKCE S256.
+- `GET /api/auth/session`, `POST /api/auth/session/refresh` y
+  `POST /api/auth/logout`: restauración, renovación condicional y revocación.
+- `/api/foloo/v1/account-deletion-*`: proxy de allowlist cerrado; no existe un
+  proxy genérico para el API.
+
+La cookie de sesión es `__Host-foloo_session`, `Secure`, `HttpOnly`,
+`SameSite=Lax` y `Path=/`. DynamoDB guarda únicamente su SHA-256 y secretos
+cifrados individualmente con contexto KMS; aplica TTL y expiración lógica.
+Mutaciones requieren `Origin: https://foloo.io` y token CSRF. Las respuestas
+usan `Cache-Control: no-store` y los logs omiten cuerpos, cookies, códigos,
+tokens y PII.
+
+Los valores DEV de 12 horas absolutas y 30 minutos de inactividad son
+configurables y provisionales. `FOLOO_WEB_SESSION_ENABLED=false` fuerza 503
+antes de leer credenciales. La ruta pública Cognito continúa siendo
+`https://foloo.io/auth/callback`; `foloo-landing`/CloudFront deberá encaminarla
+al callback interno del BFF sin cambiar la URI registrada. Esa integración,
+la UX SRP, la reautenticación interactiva y la revisión de Seguridad son
+dependencias de activación. El cliente móvil, STORE-02 y migración 010 no se
+modifican.
+
+## 12. FOL-AUTH-05 — identidad restaurada y callback Google nativo
+
+`GET /api/auth/session` y `POST /api/auth/session/refresh` devuelven el mismo
+contrato seguro de restauración:
+
+```json
+{
+  "authenticated": true,
+  "identity": {
+    "sub": "identificador-cognito",
+    "email": "verified@example.test",
+    "emailVerified": true,
+    "displayName": "Nombre Foloo"
+  },
+  "csrfToken": "token-opaco",
+  "expiresAt": "fecha-ISO-8601",
+  "idleExpiresAt": "fecha-ISO-8601",
+  "authenticationTime": "fecha-ISO-8601"
+}
+```
+
+`sub` proviene del access token validado y debe coincidir con la identidad
+hasheada de la sesión. Para SRP, los atributos se leen con `GetUser`; para
+OAuth, se usa `userInfo` con los scopes `openid email profile`, evitando pedir
+el scope administrativo de Cognito solo para restaurar el perfil. La respuesta
+autoritaria también debe coincidir en `sub`. `email` solo se devuelve cuando
+Cognito presenta `email_verified=true`; de otro modo vale `null` y
+`emailVerified` conserva `false` o `null`. `displayName` se obtiene de
+`GET /v1/profile`, que ya está aislado por owner; si no existe perfil o nombre
+vale `null`. Un fallo del proveedor o un contrato inválido no se disfraza como
+atributo ausente. Nunca se devuelve el access token, refresh token ni username
+técnico de Cognito.
+
+La URI publicada `https://foloo.io/auth/callback` se conserva para el flujo
+actual. El App Client web declara adicionalmente
+`https://foloo.io/api/auth/google/callback`, utilizada exclusivamente por el
+BFF. Así CloudFront puede aplicar su behavior `/api/*` existente sin crear un
+dispatcher en la ruta legacy. El inicio Google fuerza `prompt=select_account`,
+mantiene Authorization Code Grant y PKCE S256, y la transacción guarda un
+`state` de un solo uso. El BFF no consume un ID token: la defensa aplicable es
+`state` + PKCE y la identidad final se lee mediante access token validado;
+`nonce` será obligatorio si una revisión futura empieza a consumir ID tokens.
+
+Dependencias de `foloo-landing` antes de habilitar:
+
+1. Consumir `identity` en restauración y refresh, aceptando valores nullable.
+2. Iniciar Google en `/api/auth/google/start` con cookies incluidas y permitir
+   las redirecciones del navegador.
+3. Mantener `/api/*` sin caché, reenviando query string y cookies, y preservando
+   `Set-Cookie`; no enrutar el callback nativo por `/auth/callback`.
+4. Conservar `nativeAuthEnabled:false` hasta desplegar el backend pasivo y
+   completar QA SRP/Google con cuentas sintéticas.
+
+El despliegue posterior requiere únicamente añadir el segundo callback al App
+Client web y actualizar código/configuración de `WebSessionFunction`. No cambia
+el cliente móvil ni CloudFront si el behavior `/api/*` verificado se conserva.
+STORE-02, SES y Web Sessions permanecen deshabilitados; migración 010 continúa
+pendiente.
+
+## 13. FOL-AUTH-08 — activación QA restringida
+
+El callback BFF termina en `/dashboard`, no en `/delete-account`. El dashboard
+es una ruta privada existente: restaura la cookie opaca HttpOnly y, sin sesión,
+regresa a `/login`. El cambio no altera las URI registradas en Cognito, el
+callback legacy ni transporta tokens en la URL.
+
+La activación real queda protegida por dos contextos CDK DEV:
+
+- `webSessionQaEnabled`, falso por defecto.
+- `webSessionQaSubjectHashes`, lista separada por comas de SHA-256 base64url
+  calculados como `SHA-256("foloo-web-session\0" + sub)`.
+
+Nunca se despliega el `sub` ni el correo en texto claro. Habilitar sin al menos
+un hash válido, usar un hash mal formado o intentar habilitar fuera de DEV
+falla antes de sintetizar. La misma allowlist se aplica después de Cognito a
+SRP y Google, antes de persistir una sesión, y en cada restauración; retirar un
+hash revoca el acceso efectivo de sesiones existentes. Una identidad excluida
+recibe el mismo `401 web_session_unauthorized`, y sus credenciales de refresh se
+revocan sin revelar si pertenece a la lista.
+
+### Secuencia controlada
+
+1. Crear exclusivamente cuentas Cognito QA sintéticas y verificar su `sub` sin
+   registrar correo, contraseña ni token en archivos o comandos compartidos.
+2. Calcular localmente los hashes anteriores y preparar un primer Change Set
+   pasivo con allowlist, destino `/dashboard` y
+   `webSessionQaEnabled=false`. Auditar que Unlimited siga `true`, STORE-02 y
+   todos sus guards/reconcilers/SES sigan `false`, y que no existan reemplazos.
+3. Desplegar pasivamente backend y frontend con `nativeAuthEnabled:false`.
+   Confirmar 503 en las seis rutas de sesión y regresión del login legacy.
+4. Preparar un segundo Change Set que cambie únicamente código/configuración de
+   WebSessionFunction y `FOLOO_WEB_SESSION_ENABLED=true`, conservando la misma
+   allowlist. Ejecutarlo solo durante una ventana QA con monitoreo.
+5. Habilitar el frontend únicamente para testers autorizados. No usar el flag
+   público como control de seguridad: el backend es la barrera obligatoria.
+
+### Matriz E2E y evidencia
+
+| Caso                      | Resultado aprobatorio                                                     | Evidencia no sensible                         |
+| ------------------------- | ------------------------------------------------------------------------- | --------------------------------------------- |
+| SRP permitido/denegado    | QA entra; identidad fuera de lista recibe 401 y no crea sesión            | status, request ID y conteo agregado DynamoDB |
+| Google y cambio de cuenta | selector visible; QA permitido llega a dashboard; excluido no entra       | secuencia de rutas sin query/código y status  |
+| Restauración/perfil       | recarga conserva `sub`, correo verificado y nombre nullable correctos     | captura sin tokens/cookies                    |
+| Cookies/CSRF              | cookie Secure+HttpOnly+SameSite=Lax; mutación sin Origin/CSRF falla       | headers redactados y códigos 403/2xx          |
+| Refresh/logout            | rotación concurrente converge; logout revoca y siguiente restore da 401   | códigos, versiones/estado agregado            |
+| Expiraciones              | 30 min inactiva y 12 h absoluta rechazan; renovar no extiende la absoluta | timestamps redondeados y códigos              |
+| Aislamiento               | dos QA no comparten perfil, sesión ni CSRF                                | IDs sintéticos y assertions de owner          |
+| Sesiones simultáneas      | cada navegador conserva sesión independiente; logout no cruza usuarios    | estados agregados por sesión                  |
+| Regresión                 | login legacy web y móvil siguen operativos; STORE-02 continúa oculto      | checklist manual separado                     |
+
+No se inspecciona el valor de cookies HttpOnly desde JavaScript: se verifica en
+DevTools/Playwright por atributos y comportamiento. CloudWatch debe permanecer
+sin cuerpos, cookies, credenciales, códigos, tokens ni PII. Revisar errores,
+throttles y errores DynamoDB durante toda la ventana; las alarmas no garantizan
+notificación si no existe un destino operativo configurado.
+
+### Rollback
+
+Primero volver `nativeAuthEnabled:false`; después ejecutar un Change Set que
+restaure `FOLOO_WEB_SESSION_ENABLED=false`. Verificar 503 y login legacy. Para
+invalidación inmediata adicional, vaciar la allowlist en el mismo cambio; no
+borrar la tabla ni la clave KMS. Las sesiones persistidas quedan inutilizables
+por el flag/allowlist y expiran por política/TTL. No se modifica STORE-02 ni se
+aplica migración 010.
+
+## 14. FOL-AUTH-09A — barrera del Web App Client en `/v1/*`
+
+El JWT authorizer continúa validando firma, issuer, expiración y audiencia para
+los clientes móvil y web. La audiencia web por sí sola no autoriza acceso
+directo: antes de ejecutar cualquier ruta protegida, `ApiFunction` valida los
+claims verificados `token_use=access`, `iss`, `exp`, `sub` y `client_id`.
+
+- El Mobile App Client conserva acceso sin depender del flag web.
+- El Web App Client requiere simultáneamente
+  `FOLOO_WEB_SESSION_ENABLED=true` y que
+  `SHA-256("foloo-web-session\0" + sub)` en base64url pertenezca a
+  `WEB_SESSION_QA_SUBJECT_HASHES`.
+- Con flag falso o allowlist vacía, todo token web queda cerrado. No se acepta
+  `aud`, headers ni parámetros como sustituto del `client_id` verificado del
+  access token.
+- El BFF usa el mismo access token web para `/v1/profile`; por tanto funciona
+  para SRP y Google únicamente cuando el sujeto QA está autorizado. Los únicos
+  bypass son los contratos públicos ya existentes: receipt-status y callback
+  OAuth de correo.
+
+La comparación de los templates desplegado y del Change Set
+`fol-auth-09-passive-qa-guard` demostró propiedades idénticas en diez
+`AWS::Lambda::Permission` y en la integración SRP. CloudFormation propagó la
+evaluación dinámica de `Fn::GetAtt(WebSessionsFunction, Arn)`; el nombre físico
+de la Lambda no cambia. Los diez permisos tienen recreación condicional porque
+`FunctionName` es immutable, pero no existe diferencia efectiva en sus
+propiedades; la integración declara `Replacement: False`. El Change Set viejo
+no debe ejecutarse: un Change Set nuevo debe incluir además código y variables
+de `ApiFunction` para esta barrera y volver a auditar las dependencias.

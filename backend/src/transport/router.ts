@@ -16,6 +16,7 @@ import type {
   LeadDeleteInput,
 } from "../domain/models.js";
 import { authenticatedSubject } from "../auth/authenticated_identity.js";
+import type { ApiClientAccessGuard } from "../auth/api_client_access_guard.js";
 import type { AccountDeletionHttpController } from "../account_deletion/account_deletion_http.js";
 import { requestHash } from "../persistence/postgres_repository.js";
 import {
@@ -132,12 +133,15 @@ export function createRouter(
   emailApplication?: EmailApplication,
   accountDeletion?: AccountDeletionHttpController,
   accountDeletionAccessGuard?: { assertActive(subject: string): Promise<void> },
+  apiClientAccessGuard?: ApiClientAccessGuard,
 ) {
   return async (
     event: APIGatewayProxyEventV2WithJWTAuthorizer,
   ): Promise<APIGatewayProxyStructuredResultV2> => {
     const method = event.requestContext.http.method.toUpperCase();
     const path = event.rawPath.replace(/\/$/, "");
+
+    apiClientAccessGuard?.assertAllowed(event);
 
     const accountDeletionResponse = await accountDeletion?.handle(event);
     if (accountDeletionResponse) return accountDeletionResponse;

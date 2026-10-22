@@ -4,7 +4,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { loadEnvironment } from "../src/config/environment.js";
-import { unlimitedQaModeForEnvironment } from "../infra/config.js";
+import {
+  unlimitedQaModeForEnvironment,
+  webSessionQaConfigForEnvironment,
+} from "../infra/config.js";
 
 const requiredEnvironment = {
   AWS_REGION: "us-east-1",
@@ -63,5 +66,32 @@ test("Infrastructure refuses Unlimited QA outside DEV", () => {
   assert.throws(
     () => unlimitedQaModeForEnvironment("prod", "true"),
     /restricted to DEV/,
+  );
+});
+
+test("AUT-18 web-session QA is DEV-only and fail-closed without subjects", () => {
+  const hash = "A".repeat(43);
+  assert.deepEqual(
+    webSessionQaConfigForEnvironment("dev", undefined, undefined),
+    {
+      enabled: false,
+      subjectHashes: [],
+    },
+  );
+  assert.deepEqual(webSessionQaConfigForEnvironment("dev", "true", hash), {
+    enabled: true,
+    subjectHashes: [hash],
+  });
+  assert.throws(
+    () => webSessionQaConfigForEnvironment("dev", "true", undefined),
+    /requires at least one/u,
+  );
+  assert.throws(
+    () => webSessionQaConfigForEnvironment("prod", "true", hash),
+    /restricted to DEV/u,
+  );
+  assert.throws(
+    () => webSessionQaConfigForEnvironment("dev", false, "raw-subject"),
+    /invalid/u,
   );
 });

@@ -5,9 +5,59 @@ import test from "node:test";
 
 import { ApplicationError, unauthorized } from "../src/application/errors.js";
 import { FolooApplication } from "../src/application/foloo_application.js";
+import { createApiClientAccessGuard } from "../src/auth/api_client_access_guard.js";
 import { authenticatedSubject } from "../src/auth/authenticated_identity.js";
+import { webQaSubjectHash } from "../src/auth/web_qa_identity.js";
 import { createRouter } from "../src/transport/router.js";
 import { apiEvent, MemoryRepository } from "./helpers.js";
+
+const issuer =
+  "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_synthetic";
+const fixedNow = new Date("2026-10-22T12:00:00Z");
+
+function guardedEvent(input: {
+  subject?: string;
+  clientId?: string;
+  tokenUse?: string;
+  tokenIssuer?: string;
+  expiresAt?: number;
+  path?: string;
+  method?: string;
+}) {
+  const event = apiEvent({
+    subject: input.subject ?? "synthetic-subject-a",
+    path: input.path,
+    method: input.method,
+  });
+  event.requestContext.authorizer.jwt.claims = {
+    sub: input.subject ?? "synthetic-subject-a",
+    token_use: input.tokenUse ?? "access",
+    client_id: input.clientId ?? "mobile-client",
+    iss: input.tokenIssuer ?? issuer,
+    exp: input.expiresAt ?? Math.floor(fixedNow.getTime() / 1000) + 60,
+  };
+  return event;
+}
+
+function clientGuard(
+  options: {
+    enabled?: boolean;
+    allowedSubjects?: readonly string[];
+  } = {},
+) {
+  return createApiClientAccessGuard(
+    {
+      issuer,
+      mobileClientId: "mobile-client",
+      webClientId: "web-client",
+      webSessionsEnabled: options.enabled ?? false,
+      allowedWebSubjectHashes: new Set(
+        (options.allowedSubjects ?? []).map(webQaSubjectHash),
+      ),
+    },
+    () => fixedNow,
+  );
+}
 
 test("rejects an event without verified JWT sub", () => {
   assert.throws(
@@ -21,6 +71,83 @@ test("rejects an ID token even when it contains a subject", () => {
   const event = apiEvent({ subject: "subject-a" });
   event.requestContext.authorizer.jwt.claims.token_use = "id";
   assert.throws(() => authenticatedSubject(event));
+});
+
+test("AUT-18 mobile access tokens keep access while Web Sessions are disabled", () => {
+  assert.doesNotThrow(() =>
+    clientGuard().assertAllowed(guardedEvent({ clientId: "mobile-client" })),
+  );
+});
+
+test("AUT-18 web access requires enabled sessions and the QA subject allowlist", () => {
+  const event = guardedEvent({
+    clientId: "web-client",
+    path: "/v1/profile",
+  });
+  assert.throws(() => clientGuard().assertAllowed(event));
+  assert.throws(() =>
+    clientGuard({
+      enabled: true,
+      allowedSubjects: ["other-subject"],
+    }).assertAllowed(event),
+  );
+  assert.doesNotThrow(() =>
+    clientGuard({
+      enabled: true,
+      allowedSubjects: ["synthetic-subject-a"],
+    }).assertAllowed(event),
+  );
+});
+
+test("AUT-18 API client guard rejects untrusted JWT claim combinations", () => {
+  const guard = clientGuard({
+    enabled: true,
+    allowedSubjects: ["synthetic-subject-a"],
+  });
+  const expired = Math.floor(fixedNow.getTime() / 1000);
+  for (const event of [
+    guardedEvent({ tokenUse: "id" }),
+    guardedEvent({ tokenIssuer: "https://issuer.invalid" }),
+    guardedEvent({ expiresAt: expired }),
+    guardedEvent({ subject: "" }),
+    guardedEvent({ clientId: "unknown-client" }),
+  ]) {
+    assert.throws(() => guard.assertAllowed(event));
+  }
+
+  const missingClientId = guardedEvent({});
+  delete missingClientId.requestContext.authorizer.jwt.claims.client_id;
+  missingClientId.requestContext.authorizer.jwt.claims.aud = "mobile-client";
+  assert.throws(() => guard.assertAllowed(missingClientId));
+});
+
+test("AUT-18 headers cannot spoof client identity or QA authorization", () => {
+  const event = guardedEvent({ clientId: "web-client" });
+  event.headers = {
+    "x-cognito-client-id": "mobile-client",
+    "x-foloo-subject": "allowed-subject",
+  };
+  assert.throws(() =>
+    clientGuard({
+      enabled: true,
+      allowedSubjects: ["allowed-subject"],
+    }).assertAllowed(event),
+  );
+});
+
+test("AUT-18 only explicit unauthenticated API contracts bypass the client guard", () => {
+  const guard = clientGuard();
+  const receipt = apiEvent({
+    method: "POST",
+    path: "/v1/account-deletion-status",
+  });
+  const callback = apiEvent({
+    method: "GET",
+    path: "/v1/email/oauth/callback/google",
+  });
+  assert.doesNotThrow(() => guard.assertAllowed(receipt));
+  assert.doesNotThrow(() => guard.assertAllowed(callback));
+  assert.throws(() => guard.assertAllowed(apiEvent({ path: "/v1/events" })));
 });
 
 test("ignores spoofed owner fields and derives ownership from JWT sub", async () => {

@@ -26,10 +26,15 @@ import type { Construct } from "constructs";
 
 import type { EnvironmentConfig } from "./config.js";
 import { AccountDeletionLedgerInfrastructure } from "./account_deletion_ledger_infrastructure.js";
+import { WebSessionInfrastructure } from "./web_session_infrastructure.js";
 
 type FolooBackendStackProps = cdk.StackProps & {
   config: EnvironmentConfig;
   unlimitedQaMode?: boolean;
+  webSessionQa?: {
+    enabled: boolean;
+    subjectHashes: readonly string[];
+  };
   accountDeletionKeyArns: {
     identityHmacKeyArn: string;
     notificationRecipientKeyArn: string;
@@ -55,6 +60,9 @@ export class FolooBackendStack extends cdk.Stack {
         generateSecret: false,
         enableTokenRevocation: true,
         preventUserExistenceErrors: true,
+        authFlows: {
+          userSrp: true,
+        },
         supportedIdentityProviders: [
           cognito.UserPoolClientIdentityProvider.COGNITO,
           cognito.UserPoolClientIdentityProvider.GOOGLE,
@@ -266,6 +274,14 @@ export class FolooBackendStack extends cdk.Stack {
         MEDIA_BUCKET_NAME: mediaBucket.bucketName,
         EMAIL_PROVIDER_FUNCTION_NAME: providerFunction.functionName,
         PUBLIC_API_BASE_URL: "https://placeholder.invalid",
+        COGNITO_ISSUER: `https://cognito-idp.${config.region}.amazonaws.com/${config.userPoolId}`,
+        MOBILE_COGNITO_CLIENT_ID: config.appClientId,
+        WEB_COGNITO_CLIENT_ID: webUserPoolClient.userPoolClientId,
+        FOLOO_WEB_SESSION_ENABLED:
+          props.webSessionQa?.enabled === true ? "true" : "false",
+        WEB_SESSION_QA_SUBJECT_HASHES: (
+          props.webSessionQa?.subjectHashes ?? []
+        ).join(","),
         FOLOO_UNLIMITED_QA_MODE:
           props.unlimitedQaMode === true ? "true" : "false",
         // STORE-02 remains fail-closed until Security/KMS/ledger approval.
@@ -735,6 +751,21 @@ export class FolooBackendStack extends cdk.Stack {
         maxAge: cdk.Duration.hours(1),
       },
     });
+    const webSessions = new WebSessionInfrastructure(this, "WebSessions", {
+      environmentName: config.name,
+      userPoolId: config.userPoolId,
+      webClientId: webUserPoolClient.userPoolClientId,
+      cognitoDomain: config.webAuth.cognitoDomain,
+      callbackUrl: config.webAuth.bffCallbackUrl,
+      allowedOrigin: config.webAuth.allowedOrigins[0]!,
+      publicApiBaseUrl: api.apiEndpoint,
+      successRedirectPath: config.webAuth.successRedirectPath,
+      absoluteDurationSeconds:
+        config.webAuth.sessionPolicy.absoluteDurationSeconds,
+      idleDurationSeconds: config.webAuth.sessionPolicy.idleDurationSeconds,
+      enabled: props.webSessionQa?.enabled ?? false,
+      qaSubjectHashes: props.webSessionQa?.subjectHashes ?? [],
+    });
     apiFunction.addEnvironment("PUBLIC_API_BASE_URL", api.apiEndpoint);
     const integration = new integrations.HttpLambdaIntegration(
       "ApiIntegration",
@@ -774,9 +805,43 @@ export class FolooBackendStack extends cdk.Stack {
         integration,
       }),
     );
+    const webSessionIntegration = new integrations.HttpLambdaIntegration(
+      "WebSessionIntegration",
+      webSessions.function,
+    );
+    const webSessionRoutes: apigateway.HttpRoute[] = [];
+    for (const [path, method] of [
+      ["/api/auth/session/srp", apigateway.HttpMethod.POST],
+      ["/api/auth/google/start", apigateway.HttpMethod.GET],
+      ["/api/auth/google/callback", apigateway.HttpMethod.GET],
+      ["/api/auth/session", apigateway.HttpMethod.GET],
+      ["/api/auth/session/refresh", apigateway.HttpMethod.POST],
+      ["/api/auth/logout", apigateway.HttpMethod.POST],
+      [
+        "/api/foloo/v1/account-deletion-requests/current",
+        apigateway.HttpMethod.GET,
+      ],
+      [
+        "/api/foloo/v1/account-deletion-reauthentication/verify",
+        apigateway.HttpMethod.POST,
+      ],
+      ["/api/foloo/v1/account-deletion-requests", apigateway.HttpMethod.POST],
+      [
+        "/api/foloo/v1/account-deletion-requests/{requestId}/confirm",
+        apigateway.HttpMethod.POST,
+      ],
+    ] as const) {
+      webSessionRoutes.push(
+        ...api.addRoutes({
+          path,
+          methods: [method],
+          integration: webSessionIntegration,
+        }),
+      );
+    }
     const defaultStage = api.defaultStage?.node
       .defaultChild as apigateway.CfnStage;
-    for (const route of accountDeletionRoutes) {
+    for (const route of [...accountDeletionRoutes, ...webSessionRoutes]) {
       defaultStage.addResourceDependency(
         route.node.defaultChild as apigateway.CfnRoute,
       );
@@ -804,6 +869,46 @@ export class FolooBackendStack extends cdk.Stack {
         ThrottlingBurstLimit: 2,
         ThrottlingRateLimit: 0.2,
       },
+      "POST /api/auth/session/srp": {
+        ThrottlingBurstLimit: 5,
+        ThrottlingRateLimit: 1,
+      },
+      "GET /api/auth/google/start": {
+        ThrottlingBurstLimit: 5,
+        ThrottlingRateLimit: 1,
+      },
+      "GET /api/auth/google/callback": {
+        ThrottlingBurstLimit: 5,
+        ThrottlingRateLimit: 1,
+      },
+      "GET /api/auth/session": {
+        ThrottlingBurstLimit: 10,
+        ThrottlingRateLimit: 5,
+      },
+      "POST /api/auth/session/refresh": {
+        ThrottlingBurstLimit: 5,
+        ThrottlingRateLimit: 2,
+      },
+      "POST /api/auth/logout": {
+        ThrottlingBurstLimit: 5,
+        ThrottlingRateLimit: 1,
+      },
+      "GET /api/foloo/v1/account-deletion-requests/current": {
+        ThrottlingBurstLimit: 5,
+        ThrottlingRateLimit: 2,
+      },
+      "POST /api/foloo/v1/account-deletion-reauthentication/verify": {
+        ThrottlingBurstLimit: 3,
+        ThrottlingRateLimit: 1,
+      },
+      "POST /api/foloo/v1/account-deletion-requests": {
+        ThrottlingBurstLimit: 2,
+        ThrottlingRateLimit: 0.2,
+      },
+      "POST /api/foloo/v1/account-deletion-requests/{requestId}/confirm": {
+        ThrottlingBurstLimit: 2,
+        ThrottlingRateLimit: 0.2,
+      },
     });
     for (const path of ["/v1/email/oauth/callback/{provider}"]) {
       api.addRoutes({
@@ -815,6 +920,12 @@ export class FolooBackendStack extends cdk.Stack {
     new cdk.CfnOutput(this, "ApiUrl", { value: api.apiEndpoint });
     new cdk.CfnOutput(this, "WebUserPoolClientId", {
       value: webUserPoolClient.userPoolClientId,
+    });
+    new cdk.CfnOutput(this, "WebSessionFunctionName", {
+      value: webSessions.function.functionName,
+    });
+    new cdk.CfnOutput(this, "WebSessionTableName", {
+      value: webSessions.table.tableName,
     });
     new cdk.CfnOutput(this, "MigrationFunctionName", {
       value: migrationFunction.functionName,
