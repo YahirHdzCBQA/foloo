@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { ApplicationError } from "../application/errors.js";
 
-type PgLikeError = { code?: unknown };
+type PgLikeError = { code?: unknown; message?: unknown };
 
 export function errorResponse(
   error: unknown,
@@ -26,7 +26,15 @@ export function errorResponse(
     message = error.message;
   } else {
     const databaseCode = (error as PgLikeError | null)?.code;
-    if (databaseCode === "23505") {
+    const databaseMessage = (error as PgLikeError | null)?.message;
+    if (
+      databaseCode === "P0001" &&
+      databaseMessage === "account_deletion_pending"
+    ) {
+      statusCode = 423;
+      code = "account_deletion_pending";
+      message = "Account deletion is pending.";
+    } else if (databaseCode === "23505") {
       statusCode = 409;
       code = "resource_conflict";
       message = "The resource already exists.";

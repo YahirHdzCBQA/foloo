@@ -20,7 +20,7 @@ import type {
   Principal,
 } from "../domain/models.js";
 
-const uploadLifetimeSeconds = 600;
+export const uploadLifetimeSeconds = 600;
 const downloadLifetimeSeconds = 300;
 const mediaIdHeader = "x-amz-meta-foloo-media-id";
 

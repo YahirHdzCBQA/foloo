@@ -32,6 +32,7 @@ test("INF-18 migration status reports only aggregate schema evidence", async () 
           rows: [
             { name: "008_email_sender_identity.sql" },
             { name: "009_account_deletion_barrier.sql" },
+            { name: "010_account_deletion_write_fence.sql" },
           ],
         };
       if (sql.includes("information_schema.columns"))
@@ -57,9 +58,11 @@ test("INF-18 migration status reports only aggregate schema evidence", async () 
   const status = await inspectAccountDeletionBarrier(pool as never);
   assert.deepEqual(status, {
     migrationApplied: true,
+    writeFenceMigrationApplied: true,
     appliedMigrations: [
       "008_email_sender_identity.sql",
       "009_account_deletion_barrier.sql",
+      "010_account_deletion_write_fence.sql",
     ],
     columns: ["deletion_pending_at", "deletion_request_id"],
     constraintPresent: true,
@@ -70,8 +73,9 @@ test("INF-18 migration status reports only aggregate schema evidence", async () 
       "mark_account_deletion_pending",
     ],
     inconsistentBarriers: 0,
+    writeFenceTriggerCount: 0,
   });
-  assert.equal(calls.length, 6);
+  assert.equal(calls.length, 7);
   assert.doesNotMatch(JSON.stringify(status), /@|fixture|synthetic-subject/iu);
 });
 
@@ -104,6 +108,7 @@ test("MigrationFunction closes the pool only after status inspection completes",
         return { rows: [{ present: false }] };
       }
       if (sql.includes("pg_proc")) return { rows: [] };
+      if (sql.includes("pg_trigger")) return { rows: [{ count: "0" }] };
       throw new Error("Unexpected status query");
     }
 

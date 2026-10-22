@@ -186,6 +186,29 @@ El runbook de restore debe restaurar RDS, obtener el ledger actual, reconciliar
 requests/barreras y solo entonces abrir tráfico. Un snapshot RDS nunca es la
 autoridad para revivir cuentas.
 
+La tercera corrección crítica local de STORE-02 prepara esa garantía en tres
+capas, todavía inactivas. La migración `010_account_deletion_write_fence.sql`
+hace que cada `INSERT`/`UPDATE` owner-scoped tome el mismo advisory lock por
+`sub` que `mark_account_deletion_pending`; una escritura ya iniciada termina
+antes de establecer la barrera, o espera y falla con
+`account_deletion_pending`. Esto cubre sync de un segundo dispositivo y evita
+que el inventario observe una frontera PostgreSQL inconsistente. Los callbacks
+OAuth ahora consultan el owner antes de consumir state, vuelven a validar antes
+y después del intercambio, y la escritura final también queda bajo el trigger.
+
+Los PUT S3 ya firmados no pueden revocarse. Por ello la cola y el workflow
+esperan 11 minutos (vigencia actual de presign: 10 minutos + margen de un
+minuto) antes de congelar el inventario. El reconciliador manual vuelve a
+aplicar la barrera desde DynamoDB y encola una ejecución de recuperación con
+ID determinista por corrida; el worker reutiliza inventario, checkpoints,
+reintentos y DLQ bajo un nuevo `requestId`, de modo que datos restaurados se
+purgan otra vez sin abrir acceso ni tocar a otro owner.
+
+Riesgos pendientes: la migración 010 requiere revisión y ejecución autorizada;
+el runbook debe aportar un `recoveryRunId` UUID estable para cada restore; no
+existe prueba E2E destructiva en RDS/S3 DEV; y ninguna defensa se activa hasta
+aprobar canonicalización/HMAC, ADR candidatas, D-13 y los flags operativos.
+
 ## 4. Matriz técnica de datos y verificación
 
 | Dato | Ubicación / owner actual | Acción candidata | Dependencias/excepción | Verificación |
@@ -210,9 +233,16 @@ autoridad para revivir cuentas.
 | Compras/facturas/pagos | Futuro sistema `foloo.io`/provider | Retener solo categorías/plazos exigidos | Legal/Contabilidad/Payments | Evidencia aislada y expiración verificable |
 | Receipt/barrier | Nuevo ledger minimizado | Conservar lo mínimo para idempotencia, 30 días y soporte aprobado | HMAC/key version/retención sujetos a Seguridad/Legal | Sin PII cruda; expiry y auditoría comprobables |
 
-Las claves S3 se obtienen antes de borrar metadata. `DeleteObjects` debe revisar
-cada elemento de `Deleted` y `Errors`; ausencia previa es éxito idempotente solo
-si la key pertenecía al inventario congelado.
+Las claves S3 se obtienen antes de borrar metadata. La implementación local
+congela en el ledger DynamoDB existente un manifest shardeado e íntegro con las
+referencias PostgreSQL y el listado paginado de los prefijos canónicos del
+workspace. `DeleteObjects` revisa `Errors`, reintenta por lotes de hasta 1,000 y
+la verificación final consulta cada key del manifest original mediante
+`HeadObject`, sin reconstruirlo desde PostgreSQL. El alcance mínimo
+`user/account/workspace` también se congela antes del borrado relacional y la
+verificación posterior recorre explícitamente todas las tablas owner-scoped
+vigentes. Ausencia previa es éxito idempotente solo para una key de ese
+inventario congelado.
 
 ## 5. Suscripción PRO futura en `foloo.io`
 
@@ -255,7 +285,7 @@ El borrador completo está en `account-deletion-openapi.yaml`.
 |---|---|---|
 | `POST /v1/account-deletion-reauthentication/verify` | Cognito access JWT | Comprueba frescura server-side; no recibe credenciales |
 | `POST /v1/account-deletion-requests` | JWT reciente + idempotency key | Crea preflight temporal, inventario resumido y `awaiting_confirmation`; no bloquea |
-| `POST /v1/account-deletion-requests/{requestId}/confirm` | JWT reciente + idempotency key | Transacción definitiva request+barrier; irreversible |
+| `POST /v1/account-deletion-requests/{requestId}/confirm` | JWT reciente + idempotency key estable | Transición condicional `awaiting_confirmation -> requested`, receipt único y outbox DynamoDB en una transacción; el despacho SQS se recupera sin crear otra solicitud |
 | `GET /v1/account-deletion-requests/current` | JWT mientras exista Cognito | Consulta estado mínimo de la solicitud del owner |
 | `POST /v1/account-deletion-status` | Receipt opaco en body; rate limit | Consulta después de eliminar Cognito; nunca incluye receipt/PII en URL |
 

@@ -1,15 +1,40 @@
 /**
  * Owner-scoped PostgreSQL erasure adapter for the future deletion worker.
  * It derives the personal workspace from Cognito `sub`, locks it, and deletes
- * only that ownership graph. This module is not wired into runtime.
+ * only that ownership graph. Runtime composition remains behind disabled flags.
  */
 
 import type { Pool } from "pg";
 
+import type {
+  DurableErasureInventoryStore,
+  PostgresOwnerScope,
+} from "./dynamodb_erasure_inventory_store.js";
 import type { PostgresErasurePort } from "./staged_account_deletion_executor.js";
 
 export class PostgresOwnerErasure implements PostgresErasurePort {
-  constructor(private readonly pool: Pool) {}
+  constructor(
+    private readonly pool: Pool,
+    private readonly inventory: DurableErasureInventoryStore,
+  ) {}
+
+  async ownerScope(ownerSubject: string): Promise<PostgresOwnerScope | null> {
+    const result = await this.pool.query<PostgresOwnerScope>(
+      `SELECT u.id AS "userId",a.id AS "accountId",w.id AS "workspaceId"
+       FROM app_users u
+       JOIN accounts a ON a.owner_user_id=u.id AND a.kind='personal'
+         AND a.deleted_at IS NULL
+       JOIN workspaces w ON w.account_id=a.id AND w.deleted_at IS NULL
+       JOIN workspace_members wm ON wm.workspace_id=w.id AND wm.user_id=u.id
+         AND wm.role='owner'
+       WHERE u.cognito_sub=$1`,
+      [ownerSubject],
+    );
+    if (result.rowCount !== null && result.rowCount > 1) {
+      throw new Error("Account deletion ownership graph is ambiguous.");
+    }
+    return result.rows[0] ?? null;
+  }
 
   async objectKeys(ownerSubject: string): Promise<readonly string[]> {
     const result = await this.pool.query<{ storage_object_key: string }>(
@@ -37,7 +62,21 @@ export class PostgresOwnerErasure implements PostgresErasurePort {
     return result.rows.map((row) => row.storage_object_key);
   }
 
-  async deleteOwnerData(ownerSubject: string): Promise<void> {
+  async freezeScope(requestId: string, ownerSubject: string): Promise<void> {
+    if (await this.inventory.postgresScope(requestId)) return;
+    const scope = await this.ownerScope(ownerSubject);
+    if (!scope) throw new Error("Account deletion owner scope was not found.");
+    await this.inventory.capturePostgresScope(requestId, scope);
+  }
+
+  async deleteOwnerData(
+    requestId: string,
+    ownerSubject: string,
+  ): Promise<void> {
+    const durableScope = await this.inventory.postgresScope(requestId);
+    if (!durableScope) {
+      throw new Error("Account deletion PostgreSQL scope was not frozen.");
+    }
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
@@ -53,9 +92,14 @@ export class PostgresOwnerErasure implements PostgresErasurePort {
          JOIN workspaces w ON w.account_id=a.id AND w.deleted_at IS NULL
          JOIN workspace_members wm ON wm.workspace_id=w.id AND wm.user_id=u.id
            AND wm.role='owner'
-         WHERE u.cognito_sub=$1
+         WHERE u.cognito_sub=$1 AND u.id=$2 AND a.id=$3 AND w.id=$4
          FOR UPDATE OF u,a,w`,
-        [ownerSubject],
+        [
+          ownerSubject,
+          durableScope.userId,
+          durableScope.accountId,
+          durableScope.workspaceId,
+        ],
       );
       if (scope.rowCount === 0) {
         await client.query("COMMIT");
@@ -81,13 +125,15 @@ export class PostgresOwnerErasure implements PostgresErasurePort {
         "content_files",
         "events",
         "seller_profiles",
-        "workspace_members",
       ] as const;
       for (const table of workspaceTables) {
         await client.query(`DELETE FROM ${table} WHERE workspace_id=$1`, [
           owner.workspace_id,
         ]);
       }
+      await client.query("DELETE FROM workspace_members WHERE user_id=$1", [
+        owner.user_id,
+      ]);
       await client.query("DELETE FROM workspaces WHERE id=$1", [
         owner.workspace_id,
       ]);
@@ -108,10 +154,40 @@ export class PostgresOwnerErasure implements PostgresErasurePort {
     }
   }
 
-  async hasOwnerData(ownerSubject: string): Promise<boolean> {
+  async hasOwnerData(
+    requestId: string,
+    ownerSubject: string,
+  ): Promise<boolean> {
+    const scope = await this.inventory.postgresScope(requestId);
+    if (!scope) {
+      throw new Error("Account deletion PostgreSQL scope was not frozen.");
+    }
     const result = await this.pool.query<{ exists: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM app_users WHERE cognito_sub=$1) AS exists",
-      [ownerSubject],
+      `SELECT EXISTS(
+         SELECT 1 FROM app_users WHERE id=$1 OR cognito_sub=$4
+         UNION ALL SELECT 1 FROM accounts WHERE id=$2 OR owner_user_id=$1
+         UNION ALL SELECT 1 FROM workspaces WHERE id=$3 OR account_id=$2
+         UNION ALL SELECT 1 FROM workspace_members
+           WHERE workspace_id=$3 OR user_id=$1
+         UNION ALL SELECT 1 FROM seller_profiles
+           WHERE workspace_id=$3 OR user_id=$1
+         UNION ALL SELECT 1 FROM events WHERE workspace_id=$3
+         UNION ALL SELECT 1 FROM leads
+           WHERE workspace_id=$3 OR captured_by_user_id=$1
+         UNION ALL SELECT 1 FROM lead_media WHERE workspace_id=$3
+         UNION ALL SELECT 1 FROM content_files WHERE workspace_id=$3
+         UNION ALL SELECT 1 FROM idempotency_records WHERE workspace_id=$3
+         UNION ALL SELECT 1 FROM email_templates WHERE workspace_id=$3
+         UNION ALL SELECT 1 FROM event_email_templates WHERE workspace_id=$3
+         UNION ALL SELECT 1 FROM email_connections WHERE workspace_id=$3
+         UNION ALL SELECT 1 FROM email_oauth_states WHERE workspace_id=$3
+         UNION ALL SELECT 1 FROM email_opt_outs WHERE workspace_id=$3
+         UNION ALL SELECT 1 FROM email_owner_opt_outs WHERE workspace_id=$3
+         UNION ALL SELECT 1 FROM email_unsubscribe_tokens WHERE workspace_id=$3
+         UNION ALL SELECT 1 FROM email_follow_ups WHERE workspace_id=$3
+         UNION ALL SELECT 1 FROM email_send_intents WHERE workspace_id=$3
+       ) AS exists`,
+      [scope.userId, scope.accountId, scope.workspaceId, ownerSubject],
     );
     return result.rows[0]?.exists ?? false;
   }

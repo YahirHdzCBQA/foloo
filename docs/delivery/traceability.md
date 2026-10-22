@@ -2,25 +2,25 @@
 
 ## Requisito → escenario → decisión/ADR → evidencia
 
-| IDs | Escenario | Decisión/ADR | Evidencia / pendientes |
-|---|---|---|---|
-| `AUT-01`–`AUT-17` | E-01 | ADR-002/006; D-21 | FL-019.5: login/alta email + federación Cognito Google; Microsoft Sign-In/OIDC queda temporalmente fuera de esta versión por conflicto de issuer y se oculta en Login/Crear cuenta sin retirar código reutilizable. Microsoft sender permanece independiente bajo SAL-*. STORE-02C documenta el riesgo Apple 4.8 y deja pendiente Sign in with Apple o retiro de Google en iOS; f1-01/02, f4-02 |
-| `AUT-18`–`AUT-21` | E-14 | ADR-002; `ADR-AD-02/03/06` candidatas; D-13; DEC-AD-05/09/12 | STORE-02 implementa controller/API, `auth_time`, confirmación irreversible, receipt seguro, correo SES ES/EN independiente de OAuth y pantalla Flutter. SES/flujo/registro permanecen en flags apagados hasta Seguridad/Legal/TI y verificación del dominio `foloo.io` |
-| `EVT-*` | E-02 | ADR-001/004 | FL-017 estabiliza CRUD/tombstones; feedback Post-TestFlight homologa swipe Editar/Eliminar con alternativa accesible sin cambiar persistencia; tests event sync/UI/backend; f1-03–05 |
-| `CAP-*`, `OCR-*` | E-03–E-05 | ADR-001; D-11 | captura/ML Kit/Drift; STORE-03D–03F estabilizan OCR Release con R8. FL-020.6-B añade `OCR-10`: servicio testeable de permisos, Settings/revalidación, errores tipados y recuperación Android —nunca inicialización iOS— para tarjeta/referencias/perfil. QA físico iOS y Android Build 8 confirmó entrada silenciosa, captura y fotografías de referencia; f1-06–09, 11–14, 24 |
-| `VOZ-*` | E-04/E-06 | ADR-001; D-05/D-06/D-11 | Voice Note local sin transcripción; evidencia en voice service/media/tests y f1-10, 21–23. FL-020.6-B amplía `VOZ-06` con solicitud contextual, recuperación mediante Ajustes y revalidación sin autograbación; validado físicamente en iOS y Android Build 8. D-05/D-06 continúan abiertas |
-| `SYN-01`–`SYN-10` | E-05/E-09/E-13 | ADR-001/003/004/005; D-13 | Drift, outbox owner-scoped, retry/reconciliación FL-015 y transferencia media FL-016 |
-| `SYN-11`, `SYN-12` | E-14 | ADR-001/004; D-13; DEC-AD-06/08/11 | Pantalla ofrece export/sync o aceptación explícita de pérdida; `LocalAccountDeletionPurger` borra filas/archivos administrados solo del owner después de aceptación. Entrada permanece oculta por flag |
-| `REG-*` | E-06/E-10 | ADR-001/004; D-06/D-13 | FL-017 filtro/detalle/export; feedback Post-TestFlight agrega header/Drawer, filtros, swipe/tombstone y extiende el mismo exportador XLSX/CSV al alcance Leads directos owner-scoped; STORE-03C conserva Compartir y agrega Guardar en dispositivo mediante selector nativo Android; f1-16–19, f2-05–07, f5-12 |
-| `CON-*` | E-07 | D-11/D-13 | FL-018 durable; feedback Post-TestFlight añade Content directo, swipe accesible y edición conjunta de nombre visible/asignaciones sobre Drift/outbox, preservando binario y snapshots; D-13 retención física; f2-01–03 |
-| `PLT-*`, `SAL-*` | E-01/E-08 | ADR-006/007; D-09/D-14–D-20; D-16 superseded | FL-019/019.5 conservan renderer, intención/outbox y Gmail/Graph. FL-020.6-A agrega `SAL-11`: snapshot nullable de identidad visible desde `seller_profiles`, MIME RFC 2047 y Graph best effort sin alterar dirección OAuth; migración 008 aplicada en AWS DEV y nombre visible validado físicamente con Gmail/Outlook. FL-020.6 CLOSED el 2026-10-16; f2-04/05, f4-04/12 |
-| `NAV-*` | E-12 | ADR-001 | Drawer global desde origen y módulos; header compartido; navegación IndexedStack sin acumulación; theme/l10n; f1-15/25/26 |
-| `MON-01`–`MON-11` | E-11 | ADR-004; D-01–D-04/D-11 | FL-020: cache/reservas Drift, workspace entitlement, contador PostgreSQL transaccional, bloqueo central y paywall informativo; compra real pendiente FL-021; f3-01–03/07 |
-| `MON-12` | E-11 | ADR-004 | FL-020.5 CLOSED 2026-10-14: doble opt-in QA Flutter/Lambda restringido a DEV, sin conceder suscripción ni mutar contador. `FolooBackend-dev` desplegado con Unlimited activo y APK Android Release `1.0.0+7` validado físicamente 8/8 contra AWS DEV; analyze + 284 tests, firma/R8/resource shrinking verificados. Rollback coordinado conserva Leads y exige vaciar outbox; evidencia en `android-private-distribution.md` |
-| `MON-13` | E-14 | D-01–D-04/D-13; DEC-AD-10 | Cancelación/verificación PRO condicionada a FL-021; no existe proveedor ni implementación y eliminación no se presenta como reembolso |
-| `INF-01`–`INF-14`, `RC-01`–`RC-05` | E-09/E-12/E-13 | ADR-001/002/003/005/006/007; D-10/D-13/D-16 superseded | backend AWS/S3/egreso seguro; FL-019.5 retira rutas/footer de unsubscribe sin borrar tablas. STORE-02D conserva el contrato histórico sin crear implementación |
-| `INF-15`–`INF-21`, `RNF-09`, `RNF-10`, `RC-06`–`RC-10` | E-14 | ADR-001–007; `ADR-AD-01`–`ADR-AD-06` candidatas; D-13; DEC-AD-01–14 | STORE-02 compone workflow Dynamo/KMS/SQS, worker con checkpoints/DLQ, borrado verificable OAuth→S3→PostgreSQL→Cognito, barrera PostgreSQL 009, guard API/OAuth/sync, PreSignUp federado y PostAuthentication email/Google sin adjuntar, reconciliador de restore, SES cifrado y smoke no destructivo. CDK/Flutter y cada boundary sensible mantienen flags `false`; sin deploy, migración, trigger o borrado real |
-| `REL-*`, `RNF-01`–`RNF-08` | E-12/E-14 | D-13/D-21 y decisiones aplicables | suite local parcial y round-trip UTF-8; STORE-01/02 readiness y privacidad; STORE-03B–03F producen y validan físicamente el APK Android Release `1.0.0+6` firmado para DEV. FL-020.6 valida en tablet el Build 8 `1.0.0+8`, sin convertir esa evidencia puntual en cierre global de `REL-*`. STORE-03G prepara distribución privada sin publicar ni crear enlaces públicos; evidencia en `android-private-distribution.md`; f5-01–12 |
+| IDs                                                    | Escenario      | Decisión/ADR                                                        | Evidencia / pendientes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------ | -------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AUT-01`–`AUT-17`                                      | E-01           | ADR-002/006; D-21                                                   | FL-019.5: login/alta email + federación Cognito Google; Microsoft Sign-In/OIDC queda temporalmente fuera de esta versión por conflicto de issuer y se oculta en Login/Crear cuenta sin retirar código reutilizable. Microsoft sender permanece independiente bajo SAL-*. STORE-02C documenta el riesgo Apple 4.8 y deja pendiente Sign in with Apple o retiro de Google en iOS; f1-01/02, f4-02                                                                                                                                                                                                                                                                                                                                                                                         |
+| `AUT-18`–`AUT-21`                                      | E-14           | ADR-002; `ADR-AD-02/03/06` candidatas; D-13; DEC-AD-05/09/12        | STORE-02 implementa controller/API, `auth_time`, confirmación irreversible, receipt seguro, notificación SES ES/EN independiente de OAuth y pantalla Flutter. STORE-02.4 prepara App Client web público Cognito+Google (code grant, sin secret) y conserva la audiencia móvil; STORE-02.5 lo alinea con FOL-WEB-02 mediante `/auth/callback` y `/login`, manteniendo `/delete-account` público. PKCE S256/reauth interactiva corresponden a `foloo-landing`. Flujo/registro/SES permanecen apagados hasta Seguridad/Legal/TI                                                                                                                                                                                                                                                            |
+| `EVT-*`                                                | E-02           | ADR-001/004                                                         | FL-017 estabiliza CRUD/tombstones; feedback Post-TestFlight homologa swipe Editar/Eliminar con alternativa accesible sin cambiar persistencia; tests event sync/UI/backend; f1-03–05                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `CAP-*`, `OCR-*`                                       | E-03–E-05      | ADR-001; D-11                                                       | captura/ML Kit/Drift; STORE-03D–03F estabilizan OCR Release con R8. FL-020.6-B añade `OCR-10`: servicio testeable de permisos, Settings/revalidación, errores tipados y recuperación Android —nunca inicialización iOS— para tarjeta/referencias/perfil. QA físico iOS y Android Build 8 confirmó entrada silenciosa, captura y fotografías de referencia; f1-06–09, 11–14, 24                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `VOZ-*`                                                | E-04/E-06      | ADR-001; D-05/D-06/D-11                                             | Voice Note local sin transcripción; evidencia en voice service/media/tests y f1-10, 21–23. FL-020.6-B amplía `VOZ-06` con solicitud contextual, recuperación mediante Ajustes y revalidación sin autograbación; validado físicamente en iOS y Android Build 8. D-05/D-06 continúan abiertas                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `SYN-01`–`SYN-10`                                      | E-05/E-09/E-13 | ADR-001/003/004/005; D-13                                           | Drift, outbox owner-scoped, retry/reconciliación FL-015 y transferencia media FL-016                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `SYN-11`, `SYN-12`                                     | E-14           | ADR-001/004; D-13; DEC-AD-06/08/11                                  | Pantalla ofrece export/sync o aceptación explícita de pérdida; `LocalAccountDeletionPurger` borra filas/archivos administrados solo del owner después de aceptación. Entrada permanece oculta por flag                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `REG-*`                                                | E-06/E-10      | ADR-001/004; D-06/D-13                                              | FL-017 filtro/detalle/export; feedback Post-TestFlight agrega header/Drawer, filtros, swipe/tombstone y extiende el mismo exportador XLSX/CSV al alcance Leads directos owner-scoped; STORE-03C conserva Compartir y agrega Guardar en dispositivo mediante selector nativo Android; f1-16–19, f2-05–07, f5-12                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `CON-*`                                                | E-07           | D-11/D-13                                                           | FL-018 durable; feedback Post-TestFlight añade Content directo, swipe accesible y edición conjunta de nombre visible/asignaciones sobre Drift/outbox, preservando binario y snapshots; D-13 retención física; f2-01–03                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `PLT-*`, `SAL-*`                                       | E-01/E-08      | ADR-006/007; D-09/D-14–D-20; D-16 superseded                        | FL-019/019.5 conservan renderer, intención/outbox y Gmail/Graph. FL-020.6-A agrega `SAL-11`: snapshot nullable de identidad visible desde `seller_profiles`, MIME RFC 2047 y Graph best effort sin alterar dirección OAuth; migración 008 aplicada en AWS DEV y nombre visible validado físicamente con Gmail/Outlook. FL-020.6 CLOSED el 2026-10-16; f2-04/05, f4-04/12                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `NAV-*`                                                | E-12           | ADR-001                                                             | Drawer global desde origen y módulos; header compartido; navegación IndexedStack sin acumulación; theme/l10n; f1-15/25/26                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `MON-01`–`MON-11`                                      | E-11           | ADR-004; D-01–D-04/D-11                                             | FL-020: cache/reservas Drift, workspace entitlement, contador PostgreSQL transaccional, bloqueo central y paywall informativo; compra real pendiente FL-021; f3-01–03/07                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `MON-12`                                               | E-11           | ADR-004                                                             | FL-020.5 CLOSED 2026-10-14: doble opt-in QA Flutter/Lambda restringido a DEV, sin conceder suscripción ni mutar contador. `FolooBackend-dev` desplegado con Unlimited activo y APK Android Release `1.0.0+7` validado físicamente 8/8 contra AWS DEV; analyze + 284 tests, firma/R8/resource shrinking verificados. Rollback coordinado conserva Leads y exige vaciar outbox; evidencia en `android-private-distribution.md`                                                                                                                                                                                                                                                                                                                                                            |
+| `MON-13`                                               | E-14           | D-01–D-04/D-13; DEC-AD-10                                           | Cancelación/verificación PRO condicionada a FL-021; no existe proveedor ni implementación y eliminación no se presenta como reembolso                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `INF-01`–`INF-14`, `RC-01`–`RC-05`                     | E-09/E-12/E-13 | ADR-001/002/003/005/006/007; D-10/D-13/D-16 superseded              | backend AWS/S3/egreso seguro; FL-019.5 retira rutas/footer de unsubscribe sin borrar tablas. STORE-02D conserva el contrato histórico sin crear implementación                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `INF-15`–`INF-21`, `RNF-09`, `RNF-10`, `RC-06`–`RC-10` | E-14           | ADR-001–007; `ADR-AD-01`–`ADR-AD-06` candidatas; D-13; DEC-AD-01–14 | STORE-02 compone workflow Dynamo/KMS/SQS, worker con checkpoints/DLQ, borrado verificable OAuth→S3→PostgreSQL→Cognito, barrera PostgreSQL 009, guard API/OAuth/sync, PreSignUp federado y PostAuthentication email/Google sin adjuntar, reconciliador de restore, SES cifrado y smoke no destructivo. Fases críticas 2026-10-21: confirmación condicional con `Idempotency-Key`, receipt único, outbox transaccional/recovery por GSI; manifest S3 durable previo al borrado (paginación, lotes/reintentos y verificación original) y alcance PostgreSQL congelado; migración 010 preparada con write fences por owner, quietud de 11 minutos para presigned PUT, callback OAuth cercado y reconciliación que reencola purga owner-scoped tras restore. STORE-02.4 añade modo `disabled | ses`sin retries de correo apagado, mantiene receipt/status, prepara cliente web/segunda audiencia/CORS exacto y conserva compatibilidad móvil. Pruebas sintéticas cubren carreras, JWT antiguo/segundo dispositivo, fallo SQS, restore/retry, dos owners, fallo parcial, 1,005 objetos, SES deshabilitado y assertions CDK web. El handoff web/deploy contiene configuración, migración, despliegue pasivo y E2E en`store-02-web-handoff-deploy-readiness.md`. CDK/Flutter y cada boundary sensible mantienen flags `false`; cambios locales sin deploy, migración 010, trigger o borrado real; 009 fue confirmada como aplicada previamente en DEV |
+| `REL-*`, `RNF-01`–`RNF-08`                             | E-12/E-14      | D-13/D-21 y decisiones aplicables                                   | suite local parcial y round-trip UTF-8; STORE-01/02 readiness y privacidad; STORE-03B–03F producen y validan físicamente el APK Android Release `1.0.0+6` firmado para DEV. FL-020.6 valida en tablet el Build 8 `1.0.0+8`, sin convertir esa evidencia puntual en cierre global de `REL-*`. STORE-03G prepara distribución privada sin publicar ni crear enlaces públicos; evidencia en `android-private-distribution.md`; f5-01–12                                                                                                                                                                                                                                                                                                                                                    |
 
 Los IDs antiguos aún presentes en código/tests describen el origen histórico de
 una implementación. El texto actual de `docs/product/product-spec.md` gobierna;
@@ -28,18 +28,18 @@ no existe compatibilidad funcional Basic/Pro.
 
 ### Compatibilidad de trazas existentes en código/tests
 
-| Traza histórica aún visible | Traza V1 actual |
-|---|---|
-| `AUT-08` logout | `AUT-11` |
-| `AUT-10` alta | `AUT-04` |
-| `AUT-11` confirmación/reenvío | `AUT-05`, `AUT-06` |
-| `AUT-12` Cognito `sub` | `AUT-10` |
-| `EVT-12` selección automática | `EVT-06` |
-| `EVT-13` agrupación por fecha | `EVT-07`, `EVT-08` |
-| `CAP-22`, `CAP-23`, `REG-13` imágenes | `CAP-08`, `REG-06` |
-| `CON-08` contenido al crear evento | `CON-06`, `EVT-11` |
-| `SYN-05` indicador de conexión | `SYN-03` |
-| `REG-07` detalle solo lectura | `REG-05`; edición vigente en `REG-07` |
+| Traza histórica aún visible           | Traza V1 actual                       |
+| ------------------------------------- | ------------------------------------- |
+| `AUT-08` logout                       | `AUT-11`                              |
+| `AUT-10` alta                         | `AUT-04`                              |
+| `AUT-11` confirmación/reenvío         | `AUT-05`, `AUT-06`                    |
+| `AUT-12` Cognito `sub`                | `AUT-10`                              |
+| `EVT-12` selección automática         | `EVT-06`                              |
+| `EVT-13` agrupación por fecha         | `EVT-07`, `EVT-08`                    |
+| `CAP-22`, `CAP-23`, `REG-13` imágenes | `CAP-08`, `REG-06`                    |
+| `CON-08` contenido al crear evento    | `CON-06`, `EVT-11`                    |
+| `SYN-05` indicador de conexión        | `SYN-03`                              |
+| `REG-07` detalle solo lectura         | `REG-05`; edición vigente en `REG-07` |
 
 ## Auditoría de los 65 pendientes contra el repositorio
 
@@ -55,93 +55,93 @@ interna sea reutilizable.
 
 ## F1 · Producto, núcleo de captura (26)
 
-| ID | Estado | Evidencia actual | Cobertura / siguiente FL |
-|---|:---:|---|---|
-| f1-01 | I | `auth/`, Login/SignUp/Confirm, Cognito runtime y auth tests | FL-013A/B; validación manual pendiente |
-| f1-02 | P | `ProfileSetupScreen`, ProfileRepository | FL-013A; faltan puesto/teléfono y edición completa |
-| f1-03 | I | origin screen, `LeadOriginKind`, lugar y persistence | FL-013 + tests de navegación |
-| f1-04 | I | EventScreen, confirmación, EventRepository, outbox y POST/PUT/DELETE remoto con tombstone | FL-017 CLOSED; tests Drift/sync/backend/UI y QA física |
-| f1-05 | I | `EventSelectionPolicy`, preferencia manual y refresh diario | FL-013A refinement |
-| f1-06 | I | LeadCaptureScreen: scroll, progreso y dock | FL-002/008/010 |
-| f1-07 | P | ML Kit, parser/preprocessor, reprocesar y tests | FL-005/011; falta campaña de precisión real |
-| f1-08 | I | `LeadType` y tres choices | FL-008/010 |
-| f1-09 | I | `InterestLevel`, selector y riel Records | FL-004/010 |
-| f1-10 | I | VoiceNoteService/state/widget y reproducción | FL-006/010/012 |
-| f1-11 | I | nota escrita en LeadDraft/Drift/UI | FL-002/012 |
-| f1-12 | I | `_revealFirstInvalidField` y tests de captura | FL-013 |
-| f1-13 | I | Drift, ConnectivityService y outbox/API sync local-first | FL-012/012.1/015; correo sigue posterior |
-| f1-14 | P | LeadConfirmationScreen y retorno | FL-004/009; estados siguen demo |
-| f1-15 | P | AppDrawer expone todos los destinos V1 sin selector/gating | FL-003/009/013D; falta saldo real |
-| f1-16 | I | RecordsScreen con evento/búsqueda/tipo/estado y orden estable | FL-017; `records_voice_note_test.dart` |
-| f1-17 | I | orden local y `_EmptyRecords` | FL-004/012 |
-| f1-18 | I | detalle edita solo campos REG-07, Drift-first + PUT optimista | FL-017; tests de repositorio/sync/backend |
-| f1-19 | I | visor modal de tarjeta desde detalle | FL-010/013 |
-| f1-20 | P | varios estados usan icono/palabra | FL-010; falta auditoría global |
-| f1-21 | I | PrivateMediaStorage persiste tarjeta/voz y FL-016 añade subida S3 validada | FL-016 CLOSED; retención legal/física sigue en D-13 |
-| f1-22 | I | reproducción, pausa, borrado y regrabación antes/después cubiertos por widget tests | FL-006/010/013; política remota futura sigue en D-06 |
-| f1-23 | F | no existe tope productivo | bloqueado D-05 |
-| f1-24 | I | multi-photo, Drift media y visor disponibles para toda cuenta | FL-013A refinement/013D |
-| f1-25 | I | themes, toggle y preferencia por usuario | FL-009/011/012 |
-| f1-26 | P | ARB ES/EN, selector y localization tests | FL-011; quedan demos/cadenas por auditar |
+| ID    | Estado | Evidencia actual                                                                          | Cobertura / siguiente FL                               |
+| ----- | :----: | ----------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| f1-01 |   I    | `auth/`, Login/SignUp/Confirm, Cognito runtime y auth tests                               | FL-013A/B; validación manual pendiente                 |
+| f1-02 |   P    | `ProfileSetupScreen`, ProfileRepository                                                   | FL-013A; faltan puesto/teléfono y edición completa     |
+| f1-03 |   I    | origin screen, `LeadOriginKind`, lugar y persistence                                      | FL-013 + tests de navegación                           |
+| f1-04 |   I    | EventScreen, confirmación, EventRepository, outbox y POST/PUT/DELETE remoto con tombstone | FL-017 CLOSED; tests Drift/sync/backend/UI y QA física |
+| f1-05 |   I    | `EventSelectionPolicy`, preferencia manual y refresh diario                               | FL-013A refinement                                     |
+| f1-06 |   I    | LeadCaptureScreen: scroll, progreso y dock                                                | FL-002/008/010                                         |
+| f1-07 |   P    | ML Kit, parser/preprocessor, reprocesar y tests                                           | FL-005/011; falta campaña de precisión real            |
+| f1-08 |   I    | `LeadType` y tres choices                                                                 | FL-008/010                                             |
+| f1-09 |   I    | `InterestLevel`, selector y riel Records                                                  | FL-004/010                                             |
+| f1-10 |   I    | VoiceNoteService/state/widget y reproducción                                              | FL-006/010/012                                         |
+| f1-11 |   I    | nota escrita en LeadDraft/Drift/UI                                                        | FL-002/012                                             |
+| f1-12 |   I    | `_revealFirstInvalidField` y tests de captura                                             | FL-013                                                 |
+| f1-13 |   I    | Drift, ConnectivityService y outbox/API sync local-first                                  | FL-012/012.1/015; correo sigue posterior               |
+| f1-14 |   P    | LeadConfirmationScreen y retorno                                                          | FL-004/009; estados siguen demo                        |
+| f1-15 |   P    | AppDrawer expone todos los destinos V1 sin selector/gating                                | FL-003/009/013D; falta saldo real                      |
+| f1-16 |   I    | RecordsScreen con evento/búsqueda/tipo/estado y orden estable                             | FL-017; `records_voice_note_test.dart`                 |
+| f1-17 |   I    | orden local y `_EmptyRecords`                                                             | FL-004/012                                             |
+| f1-18 |   I    | detalle edita solo campos REG-07, Drift-first + PUT optimista                             | FL-017; tests de repositorio/sync/backend              |
+| f1-19 |   I    | visor modal de tarjeta desde detalle                                                      | FL-010/013                                             |
+| f1-20 |   P    | varios estados usan icono/palabra                                                         | FL-010; falta auditoría global                         |
+| f1-21 |   I    | PrivateMediaStorage persiste tarjeta/voz y FL-016 añade subida S3 validada                | FL-016 CLOSED; retención legal/física sigue en D-13    |
+| f1-22 |   I    | reproducción, pausa, borrado y regrabación antes/después cubiertos por widget tests       | FL-006/010/013; política remota futura sigue en D-06   |
+| f1-23 |   F    | no existe tope productivo                                                                 | bloqueado D-05                                         |
+| f1-24 |   I    | multi-photo, Drift media y visor disponibles para toda cuenta                             | FL-013A refinement/013D                                |
+| f1-25 |   I    | themes, toggle y preferencia por usuario                                                  | FL-009/011/012                                         |
+| f1-26 |   P    | ARB ES/EN, selector y localization tests                                                  | FL-011; quedan demos/cadenas por auditar               |
 
 ## F2 · Seguimiento y salida de datos (7)
 
-| ID | Estado | Evidencia actual | Cobertura / siguiente FL |
-|---|:---:|---|---|
-| f2-01 | I | ContentScreen y repositorio durable owner-scoped con biblioteca/filtro | FL-018 CLOSED; QA física |
-| f2-02 | I | PdfPickerService, copia privada, visor offline, outbox y S3 | FL-018 CLOSED; límite 25 MB validado |
-| f2-03 | I | asignación Event↔Content y tombstone sin resurrección ni cascada destructiva | FL-018 CLOSED; D-13 conserva cleanup físico abierto |
-| f2-04 | I | EmailScreen Event/Direct ES/EN persiste en Drift v10; preview usa Lead real, chips humanos y el snapshot revisado queda congelado en outbox; renderer conserva whitelist sin footer unsubscribe | FL-019 CLOSED + FL-019.5; QA física de 019.5 pendiente |
-| f2-05 | I | Follow-up e intención owner-scoped, confirmación explícita, Gmail/Graph, D-19, reintento seguro, estado ambiguo y reenvío manual; opt-out superseded | FL-019 CLOSED + FL-019.5; ADR-006/007 |
-| f2-06 | I | XLSX real por evento, columnas/filename ES/EN y share sheet | FL-017; `records_export_service_test.dart` |
-| f2-07 | I | CSV BOM UTF-8, RFC 4180, Unicode y share sheet | FL-017; `records_export_service_test.dart` |
+| ID    | Estado | Evidencia actual                                                                                                                                                                                | Cobertura / siguiente FL                               |
+| ----- | :----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| f2-01 |   I    | ContentScreen y repositorio durable owner-scoped con biblioteca/filtro                                                                                                                          | FL-018 CLOSED; QA física                               |
+| f2-02 |   I    | PdfPickerService, copia privada, visor offline, outbox y S3                                                                                                                                     | FL-018 CLOSED; límite 25 MB validado                   |
+| f2-03 |   I    | asignación Event↔Content y tombstone sin resurrección ni cascada destructiva                                                                                                                    | FL-018 CLOSED; D-13 conserva cleanup físico abierto    |
+| f2-04 |   I    | EmailScreen Event/Direct ES/EN persiste en Drift v10; preview usa Lead real, chips humanos y el snapshot revisado queda congelado en outbox; renderer conserva whitelist sin footer unsubscribe | FL-019 CLOSED + FL-019.5; QA física de 019.5 pendiente |
+| f2-05 |   I    | Follow-up e intención owner-scoped, confirmación explícita, Gmail/Graph, D-19, reintento seguro, estado ambiguo y reenvío manual; opt-out superseded                                            | FL-019 CLOSED + FL-019.5; ADR-006/007                  |
+| f2-06 |   I    | XLSX real por evento, columnas/filename ES/EN y share sheet                                                                                                                                     | FL-017; `records_export_service_test.dart`             |
+| f2-07 |   I    | CSV BOM UTF-8, RFC 4180, Unicode y share sheet                                                                                                                                                  | FL-017; `records_export_service_test.dart`             |
 
 ## F3 · Monetización (8)
 
-| ID | Estado | Evidencia actual | Cobertura / siguiente FL |
-|---|:---:|---|---|
-| f3-01 | I | `accounts.trial_leads_used` con constraint y lock transaccional | FL-020; migration 007 + backend tests |
-| f3-02 | I | saldo efectivo snapshot remoto + reservas locales owner-scoped | FL-020; entitlement tests/UI |
-| f3-03 | I | paywall informativo ES/EN; solo bloquea nueva captura | FL-020; fidelidad final D-11 |
-| f3-04 | F | no hay precio/productos | bloqueado D-02 |
-| f3-05 | F | no hay compra | bloqueado D-01 |
-| f3-06 | F | no hay webhooks | FL-021 tras D-01 |
-| f3-07 | I | snapshot y reservas Drift schema v12 | FL-020 |
-| f3-08 | P | estado `expired` se aplica; lifecycle/gracia no implementados | FL-021; D-03/D-04 |
+| ID    | Estado | Evidencia actual                                                | Cobertura / siguiente FL              |
+| ----- | :----: | --------------------------------------------------------------- | ------------------------------------- |
+| f3-01 |   I    | `accounts.trial_leads_used` con constraint y lock transaccional | FL-020; migration 007 + backend tests |
+| f3-02 |   I    | saldo efectivo snapshot remoto + reservas locales owner-scoped  | FL-020; entitlement tests/UI          |
+| f3-03 |   I    | paywall informativo ES/EN; solo bloquea nueva captura           | FL-020; fidelidad final D-11          |
+| f3-04 |   F    | no hay precio/productos                                         | bloqueado D-02                        |
+| f3-05 |   F    | no hay compra                                                   | bloqueado D-01                        |
+| f3-06 |   F    | no hay webhooks                                                 | FL-021 tras D-01                      |
+| f3-07 |   I    | snapshot y reservas Drift schema v12                            | FL-020                                |
+| f3-08 |   P    | estado `expired` se aplica; lifecycle/gracia no implementados   | FL-021; D-03/D-04                     |
 
 ## F4 · Infraestructura (12)
 
-| ID | Estado | Evidencia actual | Cobertura / siguiente FL |
-|---|:---:|---|---|
-| f4-01 | P | modelo/repositorios locales Drift | FL-012/013A; faltan API/cloud |
-| f4-02 | P | Cognito real y `sub` ownership | FL-013B; workspace remoto no existe |
-| f4-03 | I | storage privado local + S3 directo/seguro desplegado y validado | FL-016/018 CLOSED; retención D-13 abierta |
-| f4-04 | I | frontera de proveedor Google/Microsoft, OAuth, Gmail/Graph y estados remotos; opt-out superseded | FL-019 CLOSED + FL-019.5; ADR-006/007 |
-| f4-05 | I | confirmación distingue guardado local, pendiente offline, aceptación remota y estado ambiguo | FL-019 CLOSED; Google Sheets sigue fuera de V1 |
-| f4-06 | F | no hay modelo org/teams aprobado | bloqueado D-10 |
-| f4-07 | P | config Cognito DEV/PROD centralizada | FL-013B; sin staging/secret ops |
-| f4-08 | F | sin CI/CD/distribución documentada | FL plataforma |
-| f4-09 | F | sin observabilidad/alerta sync | FL plataforma |
-| f4-10 | F | sin backup/retención/borrado | bloqueado D-13 |
-| f4-11 | F | sin modelo de costo por vendedor | FL infraestructura |
-| f4-12 | P | identidad OAuth efectiva y aislamiento implementados; footer/opt-out retirados por FL-019.5 | Compliance legal continúa pendiente antes de Store Release |
+| ID    | Estado | Evidencia actual                                                                                 | Cobertura / siguiente FL                                   |
+| ----- | :----: | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| f4-01 |   P    | modelo/repositorios locales Drift                                                                | FL-012/013A; faltan API/cloud                              |
+| f4-02 |   P    | Cognito real y `sub` ownership                                                                   | FL-013B; workspace remoto no existe                        |
+| f4-03 |   I    | storage privado local + S3 directo/seguro desplegado y validado                                  | FL-016/018 CLOSED; retención D-13 abierta                  |
+| f4-04 |   I    | frontera de proveedor Google/Microsoft, OAuth, Gmail/Graph y estados remotos; opt-out superseded | FL-019 CLOSED + FL-019.5; ADR-006/007                      |
+| f4-05 |   I    | confirmación distingue guardado local, pendiente offline, aceptación remota y estado ambiguo     | FL-019 CLOSED; Google Sheets sigue fuera de V1             |
+| f4-06 |   F    | no hay modelo org/teams aprobado                                                                 | bloqueado D-10                                             |
+| f4-07 |   P    | config Cognito DEV/PROD centralizada                                                             | FL-013B; sin staging/secret ops                            |
+| f4-08 |   F    | sin CI/CD/distribución documentada                                                               | FL plataforma                                              |
+| f4-09 |   F    | sin observabilidad/alerta sync                                                                   | FL plataforma                                              |
+| f4-10 |   F    | sin backup/retención/borrado                                                                     | bloqueado D-13                                             |
+| f4-11 |   F    | sin modelo de costo por vendedor                                                                 | FL infraestructura                                         |
+| f4-12 |   P    | identidad OAuth efectiva y aislamiento implementados; footer/opt-out retirados por FL-019.5      | Compliance legal continúa pendiente antes de Store Release |
 
 ## F5 · Salida a producción (12)
 
-| ID | Estado | Evidencia actual | Cobertura / siguiente FL |
-|---|:---:|---|---|
-| f5-01 | P | suite Flutter amplia por flujos locales | falta E2E iOS/Android/backend |
-| f5-02 | P | `layout_test.dart` y reglas de tema | falta matriz real de dispositivos |
-| f5-03 | P | motor/reconexión cubiertos localmente; falta E2E en dispositivo contra AWS | validación manual FL-015 |
-| f5-04 | P | unit tests parser/preprocessor/ML Kit boundary | falta evento/tarjetas reales |
-| f5-05 | F | no hay pagos | después de monetización |
-| f5-06 | F | sin beta de campo documentada | salida a producción |
-| f5-07 | P | STORE-01 confirma publisher/Apple; Producto confirma Play Console Organization CBQA e invitación enviada | Apple requiere validar seller/membership/roles; Play requiere resolver acceso corporativo y verificaciones de identidad/sitio/teléfono |
-| f5-08 | P | STORE-02B deja fichas ES/EN, matriz visual y plan de screenshots; confirma iconos Flutter y launch base como placeholders | faltan aprobación CBQA, assets finales, capturas RC y carga STORE-03/04 |
-| f5-09 | P | STORE-02C inventaría datos/SDKs/permisos y matrices Apple/Google; STORE-02D fija el contrato; STORE-02E prepara arquitectura/OpenAPI y STORE-02E-01 formaliza requisitos, E-14, pruebas y gates sin implementación. Producto/CBQA comunica máximo operativo de 15 días, irreversibilidad y alta nueva después de 30 días | D-13/D-21 siguen abiertas; faltan validaciones Legal/Seguridad/Infra/Payments, owner operativo, política regional, backups de 15 días y reautenticación de cinco minutos, autorización e implementación funcional, Privacy Report y formularios finales |
-| f5-10 | F | sin envío/revisión de tiendas | salida a producción |
-| f5-11 | F | sin tag/release notes/soporte V1 | salida a producción |
-| f5-12 | I | exportador XLSX/CSV real, Unicode y share sheet | FL-017 CLOSED; f2-06/f2-07 |
+| ID    | Estado | Evidencia actual                                                                                                                                                                                                                                                                                                         | Cobertura / siguiente FL                                                                                                                                                                                                                                |
+| ----- | :----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| f5-01 |   P    | suite Flutter amplia por flujos locales                                                                                                                                                                                                                                                                                  | falta E2E iOS/Android/backend                                                                                                                                                                                                                           |
+| f5-02 |   P    | `layout_test.dart` y reglas de tema                                                                                                                                                                                                                                                                                      | falta matriz real de dispositivos                                                                                                                                                                                                                       |
+| f5-03 |   P    | motor/reconexión cubiertos localmente; falta E2E en dispositivo contra AWS                                                                                                                                                                                                                                               | validación manual FL-015                                                                                                                                                                                                                                |
+| f5-04 |   P    | unit tests parser/preprocessor/ML Kit boundary                                                                                                                                                                                                                                                                           | falta evento/tarjetas reales                                                                                                                                                                                                                            |
+| f5-05 |   F    | no hay pagos                                                                                                                                                                                                                                                                                                             | después de monetización                                                                                                                                                                                                                                 |
+| f5-06 |   F    | sin beta de campo documentada                                                                                                                                                                                                                                                                                            | salida a producción                                                                                                                                                                                                                                     |
+| f5-07 |   P    | STORE-01 confirma publisher/Apple; Producto confirma Play Console Organization CBQA e invitación enviada                                                                                                                                                                                                                 | Apple requiere validar seller/membership/roles; Play requiere resolver acceso corporativo y verificaciones de identidad/sitio/teléfono                                                                                                                  |
+| f5-08 |   P    | STORE-02B deja fichas ES/EN, matriz visual y plan de screenshots; confirma iconos Flutter y launch base como placeholders                                                                                                                                                                                                | faltan aprobación CBQA, assets finales, capturas RC y carga STORE-03/04                                                                                                                                                                                 |
+| f5-09 |   P    | STORE-02C inventaría datos/SDKs/permisos y matrices Apple/Google; STORE-02D fija el contrato; STORE-02E prepara arquitectura/OpenAPI y STORE-02E-01 formaliza requisitos, E-14, pruebas y gates sin implementación. Producto/CBQA comunica máximo operativo de 15 días, irreversibilidad y alta nueva después de 30 días | D-13/D-21 siguen abiertas; faltan validaciones Legal/Seguridad/Infra/Payments, owner operativo, política regional, backups de 15 días y reautenticación de cinco minutos, autorización e implementación funcional, Privacy Report y formularios finales |
+| f5-10 |   F    | sin envío/revisión de tiendas                                                                                                                                                                                                                                                                                            | salida a producción                                                                                                                                                                                                                                     |
+| f5-11 |   F    | sin tag/release notes/soporte V1                                                                                                                                                                                                                                                                                         | salida a producción                                                                                                                                                                                                                                     |
+| f5-12 |   I    | exportador XLSX/CSV real, Unicode y share sheet                                                                                                                                                                                                                                                                          | FL-017 CLOSED; f2-06/f2-07                                                                                                                                                                                                                              |
 
 ## Convergencia de runtime completada en FL-013D
 
@@ -168,17 +168,17 @@ interna sea reutilizable.
 
 ## FL históricas con evidencia reutilizable
 
-| FL | Evidencia |
-|---|---|
-| FL-001/007 | SDD previo; ahora histórico |
-| FL-002–004 | captura, login/drawer, records/event |
-| FL-005/011 OCR | ML Kit, parser y preprocesamiento |
-| FL-006 | Voice Note |
-| FL-008–010 | fidelidad visual, módulos antes llamados Basic/Pro |
-| FL-011 | ES/EN |
-| FL-012/012.1 | Drift, medios, connectivity, filtro evento, PDF local |
-| FL-013/013A | perfil/eventos/origen, imágenes, fecha/agrupación, ownership |
-| FL-013B | Cognito real |
+| FL             | Evidencia                                                    |
+| -------------- | ------------------------------------------------------------ |
+| FL-001/007     | SDD previo; ahora histórico                                  |
+| FL-002–004     | captura, login/drawer, records/event                         |
+| FL-005/011 OCR | ML Kit, parser y preprocesamiento                            |
+| FL-006         | Voice Note                                                   |
+| FL-008–010     | fidelidad visual, módulos antes llamados Basic/Pro           |
+| FL-011         | ES/EN                                                        |
+| FL-012/012.1   | Drift, medios, connectivity, filtro evento, PDF local        |
+| FL-013/013A    | perfil/eventos/origen, imágenes, fecha/agrupación, ownership |
+| FL-013B        | Cognito real                                                 |
 
 ## Conclusión
 

@@ -16,7 +16,7 @@ async function initialize() {
     return value;
   };
   const pool = await databasePool();
-  const workflow = composeAccountDeletionWorker(pool, {
+  const runtime = composeAccountDeletionWorker(pool, {
     tableName: required("ACCOUNT_DELETION_TABLE_NAME"),
     hmacKeyArn: required("ACCOUNT_DELETION_HMAC_KEY_ARN"),
     hmacKeyVersion: required("ACCOUNT_DELETION_HMAC_KEY_VERSION"),
@@ -25,12 +25,13 @@ async function initialize() {
     notificationFunctionName: required(
       "ACCOUNT_DELETION_NOTIFICATION_FUNCTION_NAME",
     ),
+    notificationMode: notificationMode(),
     emailProviderFunctionName: required("EMAIL_PROVIDER_FUNCTION_NAME"),
     cognitoFinalizerFunctionName: required("COGNITO_FINALIZER_FUNCTION_NAME"),
     mediaBucketName: required("MEDIA_BUCKET_NAME"),
     maximumAuthenticationAgeMs: 300_000,
   });
-  return createAccountDeletionWorker(workflow);
+  return createAccountDeletionWorker(runtime.workflow, runtime.restoreRecovery);
 }
 
 export const handler: SQSHandler = async (event) => {
@@ -46,3 +47,11 @@ export const handler: SQSHandler = async (event) => {
   workerPromise ??= initialize();
   return (await workerPromise)(event);
 };
+
+function notificationMode(): "disabled" | "ses" {
+  const value = process.env.ACCOUNT_DELETION_NOTIFICATION_MODE ?? "disabled";
+  if (value !== "disabled" && value !== "ses") {
+    throw new Error("ACCOUNT_DELETION_NOTIFICATION_MODE is invalid.");
+  }
+  return value;
+}

@@ -415,3 +415,75 @@ test("historical raw subjects are rendered before returning email history", asyn
 
   assert.equal(history[0]?.subject, "Un gusto conocerte, Mariana");
 });
+
+test("INF-18 OAuth callback checks deletion before consuming state and before connect", async () => {
+  const calls: string[] = [];
+  const oauthPrincipal = {
+    subject: "synthetic-oauth-subject",
+    userId: "seller-a",
+    accountId: "account-a",
+    workspaceId: "workspace-a",
+  };
+  const oauthState = {
+    principal: oauthPrincipal,
+    provider: "google" as const,
+    encryptedFlow: "synthetic-ciphertext",
+    redirectUri: "https://api.invalid/v1/email/oauth/callback/google",
+  };
+  let guardChecks = 0;
+  const application = new EmailApplication(
+    {} as FolooRepository,
+    {
+      async oauthState() {
+        calls.push("peek");
+        return oauthState;
+      },
+      async consumeOAuthState() {
+        calls.push("consume");
+        return oauthState;
+      },
+      async connect() {
+        calls.push("connect");
+        throw new Error("connect must remain fenced");
+      },
+    } as unknown as EmailRepository,
+    {
+      async invoke() {
+        calls.push("exchange");
+        return {
+          providerSubject: "provider-subject",
+          senderAddress: "synthetic@example.test",
+          encryptedCredentials: "ciphertext",
+        };
+      },
+    } as EmailProviderBoundary,
+    {} as MediaStorage,
+    "https://api.invalid",
+    {
+      async assertActive() {
+        guardChecks += 1;
+        calls.push(`guard-${guardChecks}`);
+        if (guardChecks === 3) {
+          throw new ApplicationError(
+            "account_deletion_pending",
+            423,
+            "Account deletion is pending.",
+          );
+        }
+      },
+    },
+  );
+
+  await assert.rejects(
+    application.callback("google", "synthetic-code", "synthetic-state"),
+    (error) => (error as { code?: string }).code === "account_deletion_pending",
+  );
+  assert.deepEqual(calls, [
+    "peek",
+    "guard-1",
+    "consume",
+    "guard-2",
+    "exchange",
+    "guard-3",
+  ]);
+});

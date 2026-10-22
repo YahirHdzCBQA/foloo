@@ -72,16 +72,21 @@ export class EmailApplication {
   }
 
   async callback(provider: EmailProviderName, code: string, state: string) {
-    const stored = await this.repository.consumeOAuthState(tokenHash(state));
+    const stateHash = tokenHash(state);
+    const candidate = await this.repository.oauthState(stateHash);
     await this.accountDeletionAccessGuard?.assertActive(
-      stored.principal.subject,
+      candidate.principal.subject,
     );
-    if (stored.provider !== provider)
+    if (candidate.provider !== provider)
       throw new ApplicationError(
         "invalid_oauth_state",
         400,
         "Authorization provider does not match.",
       );
+    const stored = await this.repository.consumeOAuthState(stateHash);
+    await this.accountDeletionAccessGuard?.assertActive(
+      stored.principal.subject,
+    );
     const result = await this.providers.invoke({
       action: "exchange_code",
       provider,
@@ -92,6 +97,9 @@ export class EmailApplication {
     });
     if (!("providerSubject" in result))
       throw new Error("Invalid provider response");
+    await this.accountDeletionAccessGuard?.assertActive(
+      stored.principal.subject,
+    );
     return this.repository.connect(stored, result);
   }
 

@@ -111,6 +111,46 @@ export class PostgresEmailRepository implements EmailRepository {
     }
   }
 
+  async oauthState(stateHash: string): Promise<OAuthState> {
+    const result = await this.pool.query<{
+      workspace_id: string;
+      owner_user_id: string;
+      provider: EmailProviderName;
+      code_verifier_ciphertext: Buffer;
+      redirect_uri: string;
+      subject: string;
+      account_id: string;
+    }>(
+      `SELECT s.workspace_id,s.owner_user_id,s.provider,
+              s.code_verifier_ciphertext,s.redirect_uri,
+              u.cognito_sub AS subject,w.account_id
+       FROM email_oauth_states s
+       JOIN app_users u ON u.id=s.owner_user_id
+       JOIN workspaces w ON w.id=s.workspace_id
+       WHERE s.state_hash=$1 AND s.consumed_at IS NULL AND s.expires_at>now()`,
+      [stateHash],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw new ApplicationError(
+        "invalid_oauth_state",
+        400,
+        "Authorization link is invalid or expired.",
+      );
+    }
+    return {
+      principal: {
+        subject: row.subject,
+        userId: row.owner_user_id,
+        accountId: row.account_id,
+        workspaceId: row.workspace_id,
+      },
+      provider: row.provider,
+      encryptedFlow: row.code_verifier_ciphertext.toString("base64"),
+      redirectUri: row.redirect_uri,
+    };
+  }
+
   async connect(
     state: OAuthState,
     input: {

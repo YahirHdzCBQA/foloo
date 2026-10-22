@@ -16,15 +16,44 @@ import {
   EncryptCommand,
   type KMSClient,
 } from "@aws-sdk/client-kms";
+import type { LambdaClient } from "@aws-sdk/client-lambda";
 
 import { createAccountDeletionWorker } from "../src/account_deletion/account_deletion_worker.js";
+import { RestoredOwnerErasureRecovery } from "../src/account_deletion/restored_owner_erasure_recovery.js";
 import { parseAccountDeletionQueueMessage } from "../src/account_deletion/aws_account_deletion_adapters.js";
 import { DynamoAccountDeletionWorkflowStore } from "../src/account_deletion/dynamodb_account_deletion_workflow_store.js";
 import { PostgresOAuthErasure } from "../src/account_deletion/postgres_oauth_erasure.js";
-import { DynamoKmsDeletionRecipientVault } from "../src/account_deletion/account_deletion_transactional_email.js";
+import {
+  accountDeletionNotifier,
+  DynamoKmsDeletionRecipientVault,
+} from "../src/account_deletion/account_deletion_transactional_email.js";
 import type { AccountDeletionRecord } from "../src/account_deletion/account_deletion_workflow.js";
 
 type Item = Record<string, AttributeValue>;
+
+test("INF-19 disabled notification mode never invokes SES Lambda", async () => {
+  let invocations = 0;
+  const lambda = {
+    async send() {
+      invocations += 1;
+      throw new Error("notification Lambda must not be invoked");
+    },
+  } as unknown as LambdaClient;
+  const notifier = accountDeletionNotifier(
+    "disabled",
+    lambda,
+    "synthetic-email-function",
+  );
+  await notifier.requestAccepted({
+    requestId: "33333333-3333-4333-8333-333333333333",
+    locale: "es",
+  });
+  await notifier.deletionCompleted({
+    requestId: "33333333-3333-4333-8333-333333333333",
+    locale: "en",
+  });
+  assert.equal(invocations, 0);
+});
 
 test("durable workflow store recovers current request and receipt after restart", async () => {
   const items = new Map<string, Item>();
@@ -68,6 +97,8 @@ test("durable workflow store recovers current request and receipt after restart"
       subjectKey: "SUB#policy#v1#digest" as never,
       registrationKey: "REG#policy#v1#digest" as never,
     },
+    confirmationIdempotencyKey: "confirmation-key-1",
+    dispatchStatus: "pending",
     subscription: {
       status: "trial",
       cancellationRequired: false,
@@ -81,6 +112,8 @@ test("durable workflow store recovers current request and receipt after restart"
     receiptHash: null,
     receiptExpiresAt: null,
     barrier: null,
+    confirmationIdempotencyKey: null,
+    dispatchStatus: "not_required",
   });
   await first.update(record);
 
@@ -93,6 +126,83 @@ test("durable workflow store recovers current request and receipt after restart"
     await afterColdStart.findByReceiptHash("a".repeat(64)),
     record,
   );
+});
+
+test("RNF-10 acceptance conditionally creates one receipt index and durable outbox", async () => {
+  const items = new Map<string, Item>();
+  const transactions: TransactWriteItemsCommand[] = [];
+  const client = {
+    async send(command: unknown) {
+      if (command instanceof GetItemCommand) {
+        return { Item: items.get(command.input.Key?.pk?.S ?? "") };
+      }
+      if (command instanceof TransactWriteItemsCommand) {
+        transactions.push(command);
+        for (const operation of command.input.TransactItems ?? []) {
+          const put = operation.Put;
+          if (put?.Item?.pk?.S) items.set(put.Item.pk.S, put.Item as Item);
+        }
+        return {};
+      }
+      throw new Error("Unexpected DynamoDB command.");
+    },
+  } as unknown as DynamoDBClient;
+  const store = new DynamoAccountDeletionWorkflowStore(client, "synthetic");
+  const acceptedAt = new Date("2032-04-01T12:00:00Z");
+  const requestId = "99999999-9999-4999-8999-999999999999";
+  const preflight: AccountDeletionRecord = {
+    requestId,
+    ownerKey: "owner-conditional",
+    idempotencyKey: "preflight-conditional",
+    locale: "en",
+    requestedExport: false,
+    status: "awaiting_confirmation",
+    createdAt: acceptedAt,
+    expiresAt: new Date(acceptedAt.getTime() + 60_000),
+    acceptedAt: null,
+    updatedAt: acceptedAt,
+    completedAt: null,
+    receiptHash: null,
+    receiptExpiresAt: null,
+    supportCode: null,
+    barrier: null,
+    confirmationIdempotencyKey: null,
+    dispatchStatus: "not_required",
+    subscription: {
+      status: "none",
+      cancellationRequired: false,
+      planDisplayName: null,
+      currentPeriodEnd: null,
+    },
+  };
+  await store.createPreflight(preflight);
+  const accepted: AccountDeletionRecord = {
+    ...preflight,
+    status: "requested",
+    acceptedAt,
+    receiptHash: "b".repeat(64),
+    receiptExpiresAt: new Date(acceptedAt.getTime() + 120_000),
+    barrier: {
+      deletionId: requestId,
+      subjectKey: "SUB#policy#v1#digest" as never,
+      registrationKey: "REG#policy#v1#digest" as never,
+    },
+    confirmationIdempotencyKey: "confirmation-conditional",
+    dispatchStatus: "pending",
+  };
+  const result = await store.acceptConfirmation(accepted);
+  assert.equal(result.replayed, false);
+  const command = transactions.at(-1);
+  assert.ok(command);
+  const operations = command.input.TransactItems ?? [];
+  assert.equal(operations.length, 3);
+  assert.equal(
+    operations[0]?.Put?.ConditionExpression,
+    "#status = :awaiting AND #owner_key = :owner_key",
+  );
+  assert.equal(operations[1]?.Put?.Item?.pk?.S, `RECEIPT#${"b".repeat(64)}`);
+  assert.equal(operations[2]?.Put?.Item?.pk?.S, `OUTBOX#${requestId}`);
+  assert.equal(operations[2]?.Put?.Item?.entity_type?.S, "dispatch_outbox");
 });
 
 test("SQS worker retries only failed synthetic records", async () => {
@@ -135,6 +245,52 @@ test("queue parser rejects malformed or control-character identity data", () => 
       }),
     ),
   );
+});
+
+test("INF-21 restored owner messages retry independently and never enter normal workflow", async () => {
+  const normal: string[] = [];
+  let attempts = 0;
+  const recovery = new RestoredOwnerErasureRecovery({
+    async execute(input) {
+      attempts += 1;
+      assert.equal(input.ownerSubject, "restored-owner-a");
+      if (attempts === 1) throw new Error("synthetic partial restore purge");
+    },
+    async verify() {
+      return true;
+    },
+  });
+  const worker = createAccountDeletionWorker(
+    {
+      async process(message) {
+        normal.push(message.ownerSubject);
+        return {} as never;
+      },
+    },
+    recovery,
+  );
+  const record = {
+    messageId: "restore-message",
+    receiptHandle: "receipt",
+    body: JSON.stringify({
+      mode: "restore_recovery",
+      requestId: "33333333-3333-4333-8333-333333333333",
+      deletionId: "22222222-2222-4222-8222-222222222222",
+      ownerSubject: "restored-owner-a",
+    }),
+    attributes: {} as never,
+    messageAttributes: {},
+    md5OfBody: "synthetic",
+    eventSource: "aws:sqs",
+    eventSourceARN: "arn:aws:sqs:us-east-1:111111111111:synthetic",
+    awsRegion: "us-east-1",
+  };
+  assert.deepEqual((await worker({ Records: [record] })).batchItemFailures, [
+    { itemIdentifier: "restore-message" },
+  ]);
+  assert.deepEqual((await worker({ Records: [record] })).batchItemFailures, []);
+  assert.equal(attempts, 2);
+  assert.deepEqual(normal, []);
 });
 
 test("OAuth erasure revokes encrypted credentials before owner-scoped SQL deletion", async () => {
@@ -200,6 +356,7 @@ test("RNF-09 stores only KMS ciphertext for the short-lived SES recipient", asyn
           {
             email: "synthetic@example.test",
             receipt: "r".repeat(43),
+            ownerSubject: "subject-synthetic",
           },
         );
         return { CiphertextBlob: Buffer.from("opaque-ciphertext") };
@@ -214,6 +371,7 @@ test("RNF-09 stores only KMS ciphertext for the short-lived SES recipient", asyn
             JSON.stringify({
               email: "synthetic@example.test",
               receipt: "r".repeat(43),
+              ownerSubject: "subject-synthetic",
             }),
           ),
         };
@@ -229,6 +387,7 @@ test("RNF-09 stores only KMS ciphertext for the short-lived SES recipient", asyn
   );
   await vault.capture({
     requestId: "33333333-3333-4333-8333-333333333333",
+    ownerSubject: "subject-synthetic",
     verifiedEmail: "synthetic@example.test",
     receipt: "r".repeat(43),
     expiresAt: new Date(Date.now() + 60_000),
@@ -241,6 +400,10 @@ test("RNF-09 stores only KMS ciphertext for the short-lived SES recipient", asyn
   assert.equal(
     await vault.recoverReceipt("33333333-3333-4333-8333-333333333333"),
     "r".repeat(43),
+  );
+  assert.equal(
+    await vault.recoverOwnerSubject("33333333-3333-4333-8333-333333333333"),
+    "subject-synthetic",
   );
   await vault.purge("33333333-3333-4333-8333-333333333333");
   assert.equal(item, undefined);

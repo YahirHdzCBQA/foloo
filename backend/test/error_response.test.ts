@@ -45,6 +45,21 @@ test("preserves safe application status codes", () => {
   assert.equal(response.statusCode, 409);
 });
 
+test("INF-18 maps a transactional deletion fence to the stable locked response", () => {
+  const response = errorResponse(
+    { code: "P0001", message: "account_deletion_pending" },
+    "request-fence",
+  );
+  assert.equal(response.statusCode, 423);
+  assert.deepEqual(JSON.parse(response.body ?? "{}"), {
+    error: {
+      code: "account_deletion_pending",
+      message: "Account deletion is pending.",
+      requestId: "request-fence",
+    },
+  });
+});
+
 test("classifies media validation fields without exposing values", () => {
   let failure: unknown;
   try {

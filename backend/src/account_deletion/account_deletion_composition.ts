@@ -17,10 +17,12 @@ import {
   SqsAccountDeletionDispatcher,
 } from "./aws_account_deletion_adapters.js";
 import { DynamoAccountDeletionLedger } from "./dynamodb_account_deletion_ledger.js";
+import { DynamoErasureInventoryStore } from "./dynamodb_erasure_inventory_store.js";
 import { DynamoAccountDeletionWorkflowStore } from "./dynamodb_account_deletion_workflow_store.js";
 import {
+  accountDeletionNotifier,
   DynamoKmsDeletionRecipientVault,
-  LambdaAccountDeletionNotifier,
+  type AccountDeletionNotificationMode,
 } from "./account_deletion_transactional_email.js";
 import { AccountDeletionWorkflow } from "./account_deletion_workflow.js";
 import { LambdaCognitoErasure } from "./lambda_cognito_erasure.js";
@@ -33,6 +35,7 @@ import {
 } from "./pseudonymous_identity.js";
 import { S3OwnerObjectErasure } from "./s3_owner_object_erasure.js";
 import { StagedAccountDeletionExecutor } from "./staged_account_deletion_executor.js";
+import { RestoredOwnerErasureRecovery } from "./restored_owner_erasure_recovery.js";
 
 export type AccountDeletionAwsConfiguration = Readonly<{
   tableName: string;
@@ -41,6 +44,7 @@ export type AccountDeletionAwsConfiguration = Readonly<{
   recipientKeyArn: string;
   queueUrl: string;
   notificationFunctionName: string;
+  notificationMode: AccountDeletionNotificationMode;
   emailProviderFunctionName: string;
   cognitoFinalizerFunctionName: string;
   mediaBucketName: string;
@@ -69,14 +73,22 @@ export function composeAccountDeletionRuntime(
     },
   );
   const postgresRuntime = new PostgresAccountDeletionRuntime(pool);
-  const postgres = new PostgresOwnerErasure(pool);
+  const erasureInventory = new DynamoErasureInventoryStore(
+    dynamo,
+    config.tableName,
+  );
+  const postgres = new PostgresOwnerErasure(pool, erasureInventory);
   const executor = new StagedAccountDeletionExecutor(
     new DynamoErasureCheckpointStore(dynamo, config.tableName),
     new PostgresOAuthErasure(
       pool,
       new LambdaEmailProviderBoundary(config.emailProviderFunctionName),
     ),
-    new S3OwnerObjectErasure(config.mediaBucketName, postgres),
+    new S3OwnerObjectErasure(
+      config.mediaBucketName,
+      postgres,
+      erasureInventory,
+    ),
     postgres,
     new LambdaCognitoErasure(lambda, config.cognitoFinalizerFunctionName),
   );
@@ -92,7 +104,11 @@ export function composeAccountDeletionRuntime(
     postgresRuntime,
     postgresRuntime,
     executor,
-    new LambdaAccountDeletionNotifier(lambda, config.notificationFunctionName),
+    accountDeletionNotifier(
+      config.notificationMode,
+      lambda,
+      config.notificationFunctionName,
+    ),
     undefined,
     new SqsAccountDeletionDispatcher(new SQSClient({}), config.queueUrl),
     recipientVault,
@@ -107,6 +123,7 @@ export function composeAccountDeletionRuntime(
       config.maximumAuthenticationAgeMs,
     ),
     accessGuard: new AccountDeletionRuntimeGuard(guard),
+    executor,
   };
 }
 
@@ -114,5 +131,9 @@ export function composeAccountDeletionWorker(
   pool: Pool,
   config: AccountDeletionAwsConfiguration,
 ) {
-  return composeAccountDeletionRuntime(pool, config).workflow;
+  const runtime = composeAccountDeletionRuntime(pool, config);
+  return {
+    workflow: runtime.workflow,
+    restoreRecovery: new RestoredOwnerErasureRecovery(runtime.executor),
+  };
 }

@@ -51,6 +51,15 @@ export class AccountDeletionLedgerInfrastructure extends Construct {
       deletionProtection: true,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
+    this.table.addGlobalSecondaryIndex({
+      indexName: "entity_type-created_at-index",
+      partitionKey: {
+        name: "entity_type",
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: { name: "created_at", type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
     this.hmacKey = importsIdentityKey
       ? kms.Key.fromKeyArn(
           this,
@@ -88,6 +97,9 @@ export class AccountDeletionLedgerInfrastructure extends Construct {
       contentBasedDeduplication: false,
       encryption: sqs.QueueEncryption.KMS_MANAGED,
       visibilityTimeout: cdk.Duration.minutes(15),
+      // Direct upload URLs issued before the PostgreSQL barrier remain valid
+      // for ten minutes. Delay inventory until those capabilities expire.
+      deliveryDelay: cdk.Duration.minutes(11),
       retentionPeriod: cdk.Duration.days(14),
       deadLetterQueue: { queue: this.deadLetterQueue, maxReceiveCount: 5 },
       enforceSSL: true,
@@ -125,17 +137,63 @@ export class AccountDeletionLedgerInfrastructure extends Construct {
     });
   }
 
-  /** Grants only the three DynamoDB operations used by the isolated adapter. */
-  grantAdapterAccess(grantee: iam.IGrantable): iam.Grant {
-    return this.table.grant(
+  /** Grants the API's workflow, guard and encrypted-recipient operations. */
+  grantApiAccess(grantee: iam.IGrantable): void {
+    this.grantTableActions(
       grantee,
       "dynamodb:GetItem",
       "dynamodb:BatchGetItem",
       "dynamodb:TransactWriteItems",
       "dynamodb:PutItem",
-      "dynamodb:UpdateItem",
-      "dynamodb:DeleteItem",
     );
+  }
+
+  /** Grants the deletion worker's workflow, checkpoint and inventory writes. */
+  grantWorkerAccess(grantee: iam.IGrantable): void {
+    this.grantTableActions(
+      grantee,
+      "dynamodb:GetItem",
+      "dynamodb:TransactWriteItems",
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem",
+    );
+  }
+
+  /** Grants the scheduled dispatcher table reads/transaction and its one GSI. */
+  grantOutboxRecoveryAccess(grantee: iam.IGrantable): void {
+    this.grantTableActions(
+      grantee,
+      "dynamodb:GetItem",
+      "dynamodb:TransactWriteItems",
+    );
+    iam.Grant.addToPrincipal({
+      grantee,
+      actions: ["dynamodb:Query"],
+      resourceArns: [
+        `${this.table.tableArn}/index/entity_type-created_at-index`,
+      ],
+    });
+  }
+
+  /** Grants verified-identity guards their only DynamoDB read operation. */
+  grantGuardReadAccess(grantee: iam.IGrantable): void {
+    this.grantTableActions(grantee, "dynamodb:BatchGetItem");
+  }
+
+  /** Grants the SES notification boundary recipient lookup and final purge. */
+  grantEmailAccess(grantee: iam.IGrantable): void {
+    this.grantTableActions(grantee, "dynamodb:GetItem", "dynamodb:DeleteItem");
+  }
+
+  private grantTableActions(
+    grantee: iam.IGrantable,
+    ...actions: string[]
+  ): void {
+    iam.Grant.addToPrincipal({
+      grantee,
+      actions,
+      resourceArns: [this.table.tableArn],
+    });
   }
 
   grantHmac(grantee: iam.IGrantable): iam.Grant {

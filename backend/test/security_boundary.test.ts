@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { unauthorized } from "../src/application/errors.js";
+import { ApplicationError, unauthorized } from "../src/application/errors.js";
 import { FolooApplication } from "../src/application/foloo_application.js";
 import { authenticatedSubject } from "../src/auth/authenticated_identity.js";
 import { createRouter } from "../src/transport/router.js";
@@ -155,4 +155,46 @@ test("REG-18 delete is authenticated, revisioned and owner scoped", async () => 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(repository.seenSubjects, ["subject-a"]);
   assert.match(response.body ?? "", /deletedAt/);
+});
+
+test("INF-18 an old JWT from a second device cannot sync leads, media or content", async () => {
+  const repository = new MemoryRepository();
+  const guarded: string[] = [];
+  const router = createRouter(
+    new FolooApplication(repository),
+    undefined,
+    undefined,
+    {
+      async assertActive(subject: string) {
+        guarded.push(subject);
+        throw new ApplicationError(
+          "account_deletion_pending",
+          423,
+          "Account deletion is pending.",
+        );
+      },
+    },
+  );
+  for (const path of [
+    "/v1/leads",
+    "/v1/leads/57d8ce9a-dcc4-4b78-8fd9-552c216a62a1/media",
+    "/v1/content",
+    "/v1/sync/pull",
+  ]) {
+    await assert.rejects(
+      router(
+        apiEvent({
+          method: "POST",
+          path,
+          subject: "deleted-owner-device-two",
+          idempotencyKey: "second-device-key",
+          body: {},
+        }),
+      ),
+      (error) =>
+        (error as { code?: string }).code === "account_deletion_pending",
+    );
+  }
+  assert.equal(guarded.length, 4);
+  assert.deepEqual(repository.seenSubjects, []);
 });

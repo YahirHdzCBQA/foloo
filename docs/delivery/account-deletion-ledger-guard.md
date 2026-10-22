@@ -157,9 +157,91 @@ El workflow usa DynamoDB durable, receipt indexes y checkpoints reanudables.
 La migración 009 agrega la barrera operativa PostgreSQL, funciones de guard y
 locking compartido con provisioning. Es transaccional, repetible ante una
 ejecución cuyo registro de migración haya fallado y tiene pre/postchecks de solo
-lectura. No se ha ejecutado. La ruta pública `foloo.io/delete-account` conserva
+lectura. Para este incremento, el responsable confirma que 009 ya está aplicada
+en AWS DEV; no se ejecutó ni modificó ninguna migración. La ruta pública
+`foloo.io/delete-account` conserva
 el contrato del mismo backend, pero no se implementó una segunda web ni se
 modificó la landing.
+
+## STORE-02 — Fase crítica de idempotencia y despacho durable (2026-10-21)
+
+La confirmación quedó preparada localmente con estas garantías (`AUT-19`,
+`INF-17`, `RNF-09`, `RNF-10`):
+
+- el header `Idempotency-Key` de confirmación se valida y queda asociado al
+  request; Flutter conserva la misma clave durante los reintentos;
+- la transición `awaiting_confirmation -> requested`, el índice del único
+  receipt y el item `OUTBOX#<requestId>` se escriben en una sola transacción
+  condicional DynamoDB;
+- el vault KMS reclama el receipt mediante `attribute_not_exists(pk)`: una
+  carrera recupera el receipt ya cifrado en lugar de sustituirlo;
+- una caída de SQS no revierte la solicitud aceptada ni pierde el trabajo: el
+  outbox permanece `pending`; el envío exitoso marca `dispatched` y elimina el
+  item de outbox en otra transacción idempotente;
+- un recuperador consulta `dispatch_outbox` mediante el GSI
+  `entity_type-created_at-index`, recupera el `sub` cifrado y vuelve a enviar.
+  SQS FIFO usa el `requestId` como deduplication ID y el worker conserva sus
+  checkpoints, cubriendo la ventana envío-exitoso/marcado-fallido.
+
+La Lambda recuperadora y su regla EventBridge se sintetizan, pero ambas quedan
+inactivas: `FOLOO_ACCOUNT_DELETION_OUTBOX_ENABLED=false` y regla `DISABLED`.
+Todos los demás flags Account Deletion/registration guard/reconciler/SES siguen
+en `false`; `FOLOO_UNLIMITED_QA_MODE=true` se conserva para DEV.
+
+### Despliegue futuro de esta fase (no ejecutado)
+
+1. ejecutar typecheck, pruebas backend/Flutter y `cdk synth` con
+   `environment=dev`, `unlimitedQaMode=true` y los dos ARN KMS **existentes**;
+2. ejecutar `cdk diff` con el perfil `foloo-dev` y comprobar únicamente: nueva
+   Lambda/alarma/regla deshabilitada, GSI de outbox, IAM mínimo y nuevos assets;
+3. confirmar expresamente que no existe migration nueva y que 009 continúa
+   aplicada; no invocar `MigrationFunction.apply`;
+4. desplegar `FolooBackend-dev` con los mismos contextos, manteniendo todos los
+   flags destructivos apagados;
+5. esperar a que el GSI esté `ACTIVE` y verificar: Unlimited `true`, Lambda de
+   recovery `false`, regla EventBridge `DISABLED`, worker/API Account Deletion
+   `false` y cero mensajes inesperados/DLQ;
+6. no habilitar el schedule ni Account Deletion hasta aprobar Seguridad y
+   completar pruebas E2E con una identidad QA ficticia.
+
+Riesgos restantes: la barrera HMAC/PostgreSQL y la aceptación DynamoDB no pueden
+formar una transacción distribuida; una caída entre ambas exige reconciliación
+operativa. El aviso SES de recepción conserva su mecanismo asíncrono separado y
+no forma parte de este outbox SQS. D-13 y ADR-AD continúan abiertas, por lo que
+esta fase no autoriza activación.
+
+## STORE-02 — Fase crítica de eliminación verificable (2026-10-21)
+
+El worker queda preparado localmente para conservar evidencia independiente de
+los datos que destruye (`INF-17`, `INF-19`, `RNF-09`, `RNF-10`):
+
+- antes del borrado se listan con paginación los dos prefijos canónicos del
+  workspace en S3 y se unen con las referencias PostgreSQL; el resultado se
+  congela en el ledger DynamoDB existente como manifest inmutable, ordenado,
+  deduplicado y dividido en shards de 100 keys con conteo y SHA-256;
+- `DeleteObjects` procesa lotes máximos de 1,000, trata ausencia como éxito
+  idempotente, falla ante cualquier error parcial y reintenta el manifest
+  original. La verificación usa `HeadObject` sobre ese manifest durable y nunca
+  vuelve a consultar tablas ya borradas;
+- antes de borrar PostgreSQL se congela el trío `user/account/workspace`. El
+  borrado transaccional y la comprobación posterior usan esos IDs exactos y
+  revisan todas las tablas owner-scoped vigentes, no solo `app_users`;
+- las pruebas sintéticas cubren dos propietarios, rollback/reintento SQL,
+  errores parciales S3 y un inventario de 1,005 objetos paginado y shardeado.
+
+No se agrega tabla ni migración. Se reutiliza el ledger Account Deletion; el
+único cambio CDK es `s3:ListBucket` restringido a
+`media/workspaces/*` y `content/workspaces/*`. El bucket actual declara
+`versioned: false`. Los manifests expiran a los 31 días como medida operativa
+provisional, no como aprobación de retención. Account Deletion, guards,
+reconciler, SES y outbox recovery permanecen desactivados; Unlimited QA se
+mantiene activo en DEV.
+
+Riesgos pendientes antes de activar: aprobar la retención/cifrado y exposición
+operativa de keys S3 en el ledger; asegurar que la barrera impida nuevas
+escrituras después de congelar el inventario; decidir el tratamiento futuro si
+se habilita versionado S3; y resolver en D-13 cualquier modelo multipropietario
+o membresía organizacional fuera del workspace personal V1.
 
 ### Barreras de activación en AWS DEV
 
@@ -175,7 +257,8 @@ como mínimo:
    custodia/rotación KMS HMAC y política de recibos;
 2. aprobación e instanciación CDK del ledger DynamoDB, endpoint VPC, alarmas e
    IAM mínimo;
-3. desplegar los stores durables, worker/DLQ y migración 009 todavía inactivos;
+3. desplegar stores durables y worker/DLQ aún inactivos; confirmar con evidencia
+   de solo lectura que la migración 009 aplicada conserva sus pre/postchecks;
 4. aprobar KMS/canonicalización y revisar consultas owner-scoped PostgreSQL/S3;
 5. verificar `foloo.io` en SES, salida de sandbox y `hello@foloo.io`;
 6. adjuntar PreSignUp y PostAuthentication al User Pool después de desplegar

@@ -18,7 +18,10 @@ import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as kms from "aws-cdk-lib/aws-kms";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as ses from "aws-cdk-lib/aws-ses";
+import * as events from "aws-cdk-lib/aws-events";
+import * as eventTargets from "aws-cdk-lib/aws-events-targets";
 import type { Construct } from "constructs";
 
 import type { EnvironmentConfig } from "./config.js";
@@ -37,6 +40,45 @@ export class FolooBackendStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: FolooBackendStackProps) {
     super(scope, id, props);
     const { config } = props;
+
+    const userPool = cognito.UserPool.fromUserPoolId(
+      this,
+      "ExistingUserPool",
+      config.userPoolId,
+    );
+    const webUserPoolClient = new cognito.UserPoolClient(
+      this,
+      "WebUserPoolClient",
+      {
+        userPool,
+        userPoolClientName: `foloo-web-${config.name}`,
+        generateSecret: false,
+        enableTokenRevocation: true,
+        preventUserExistenceErrors: true,
+        supportedIdentityProviders: [
+          cognito.UserPoolClientIdentityProvider.COGNITO,
+          cognito.UserPoolClientIdentityProvider.GOOGLE,
+        ],
+        oAuth: {
+          flows: {
+            authorizationCodeGrant: true,
+            implicitCodeGrant: false,
+          },
+          scopes: [
+            cognito.OAuthScope.OPENID,
+            cognito.OAuthScope.EMAIL,
+            cognito.OAuthScope.PROFILE,
+          ],
+          callbackUrls: [...config.webAuth.callbackUrls],
+          logoutUrls: [...config.webAuth.logoutUrls],
+        },
+      },
+    );
+    new cognito.CfnManagedLoginBranding(this, "WebManagedLoginBranding", {
+      userPoolId: config.userPoolId,
+      clientId: webUserPoolClient.userPoolClientId,
+      useCognitoProvidedValues: true,
+    });
 
     const vpc = new ec2.Vpc(this, "Vpc", {
       ipAddresses: ec2.IpAddresses.cidr("10.42.0.0/16"),
@@ -228,6 +270,7 @@ export class FolooBackendStack extends cdk.Stack {
           props.unlimitedQaMode === true ? "true" : "false",
         // STORE-02 remains fail-closed until Security/KMS/ledger approval.
         FOLOO_ACCOUNT_DELETION_ENABLED: "false",
+        ACCOUNT_DELETION_NOTIFICATION_MODE: "disabled",
       },
       bundling: { minify: true, sourceMap: true },
     });
@@ -338,7 +381,7 @@ export class FolooBackendStack extends cdk.Stack {
         bundling: { minify: true, sourceMap: true },
       },
     );
-    accountDeletion.grantAdapterAccess(accountDeletionPreSignUp);
+    accountDeletion.grantGuardReadAccess(accountDeletionPreSignUp);
     accountDeletion.grantHmac(accountDeletionPreSignUp);
     const accountDeletionPostAuthentication = new lambdaNode.NodejsFunction(
       this,
@@ -362,7 +405,7 @@ export class FolooBackendStack extends cdk.Stack {
         bundling: { minify: true, sourceMap: true },
       },
     );
-    accountDeletion.grantAdapterAccess(accountDeletionPostAuthentication);
+    accountDeletion.grantGuardReadAccess(accountDeletionPostAuthentication);
     accountDeletion.grantHmac(accountDeletionPostAuthentication);
     // The User Pool predates and is not owned by this stack. CDK therefore
     // prepares scoped invoke permissions and outputs, but deliberately does
@@ -382,7 +425,7 @@ export class FolooBackendStack extends cdk.Stack {
         sourceArn: userPoolArn,
       });
     }
-    accountDeletion.grantAdapterAccess(accountDeletionEmail);
+    accountDeletion.grantEmailAccess(accountDeletionEmail);
     accountDeletion.grantRecipientEncryption(accountDeletionEmail);
     accountDeletionEmail.addToRolePolicy(
       new iam.PolicyStatement({
@@ -436,6 +479,7 @@ export class FolooBackendStack extends cdk.Stack {
           ACCOUNT_DELETION_QUEUE_URL: accountDeletion.queue.queueUrl,
           ACCOUNT_DELETION_NOTIFICATION_FUNCTION_NAME:
             accountDeletionEmail.functionName,
+          ACCOUNT_DELETION_NOTIFICATION_MODE: "disabled",
           FOLOO_ACCOUNT_DELETION_ENABLED: "false",
         },
         bundling: { minify: true, sourceMap: true },
@@ -453,6 +497,48 @@ export class FolooBackendStack extends cdk.Stack {
       evaluationPeriods: 1,
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
+    const deletionOutboxRecovery = new lambdaNode.NodejsFunction(
+      this,
+      "AccountDeletionOutboxRecoveryFunction",
+      {
+        entry: join(
+          import.meta.dirname,
+          "../src/account_deletion/account_deletion_outbox_recovery_lambda.ts",
+        ),
+        handler: "handler",
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        timeout: cdk.Duration.minutes(1),
+        environment: {
+          ACCOUNT_DELETION_TABLE_NAME: accountDeletion.table.tableName,
+          ACCOUNT_DELETION_RECIPIENT_KEY_ARN:
+            accountDeletion.recipientKey.keyArn,
+          ACCOUNT_DELETION_QUEUE_URL: accountDeletion.queue.queueUrl,
+          FOLOO_ACCOUNT_DELETION_OUTBOX_ENABLED: "false",
+        },
+        bundling: { minify: true, sourceMap: true },
+      },
+    );
+    const deletionOutboxSchedule = new events.Rule(
+      this,
+      "AccountDeletionOutboxRecoverySchedule",
+      {
+        schedule: events.Schedule.rate(cdk.Duration.minutes(1)),
+        enabled: false,
+      },
+    );
+    deletionOutboxSchedule.addTarget(
+      new eventTargets.LambdaFunction(deletionOutboxRecovery),
+    );
+    new cloudwatch.Alarm(this, "AccountDeletionOutboxRecoveryErrorsAlarm", {
+      metric: deletionOutboxRecovery.metricErrors(),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    accountDeletion.grantOutboxRecoveryAccess(deletionOutboxRecovery);
+    accountDeletion.grantRecipientEncryption(deletionOutboxRecovery);
+    accountDeletion.queue.grantSendMessages(deletionOutboxRecovery);
     const restoreReconciler = new lambdaNode.NodejsFunction(
       this,
       "AccountDeletionRestoreReconcilerFunction",
@@ -477,6 +563,7 @@ export class FolooBackendStack extends cdk.Stack {
           ACCOUNT_DELETION_TABLE_NAME: accountDeletion.table.tableName,
           ACCOUNT_DELETION_HMAC_KEY_ARN: accountDeletion.hmacKey.keyArn,
           ACCOUNT_DELETION_HMAC_KEY_VERSION: "v1",
+          ACCOUNT_DELETION_QUEUE_URL: accountDeletion.queue.queueUrl,
           FOLOO_ACCOUNT_DELETION_RECONCILER_ENABLED: "false",
         },
         bundling: { minify: true, sourceMap: true },
@@ -488,8 +575,9 @@ export class FolooBackendStack extends cdk.Stack {
       evaluationPeriods: 1,
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
-    accountDeletion.grantAdapterAccess(restoreReconciler);
+    accountDeletion.grantGuardReadAccess(restoreReconciler);
     accountDeletion.grantHmac(restoreReconciler);
+    accountDeletion.queue.grantSendMessages(restoreReconciler);
     appSecret.grantRead(restoreReconciler);
     deletionWorker.addEventSource(
       new lambdaEventSources.SqsEventSource(accountDeletion.queue, {
@@ -497,8 +585,8 @@ export class FolooBackendStack extends cdk.Stack {
         reportBatchItemFailures: true,
       }),
     );
-    accountDeletion.grantAdapterAccess(apiFunction);
-    accountDeletion.grantAdapterAccess(deletionWorker);
+    accountDeletion.grantApiAccess(apiFunction);
+    accountDeletion.grantWorkerAccess(deletionWorker);
     accountDeletion.grantHmac(apiFunction);
     accountDeletion.grantHmac(deletionWorker);
     accountDeletion.grantRecipientEncryption(apiFunction);
@@ -510,6 +598,17 @@ export class FolooBackendStack extends cdk.Stack {
       new iam.PolicyStatement({
         actions: ["s3:GetObject", "s3:DeleteObject"],
         resources: [`${mediaBucket.bucketArn}/*`],
+      }),
+    );
+    deletionWorker.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:ListBucket"],
+        resources: [mediaBucket.bucketArn],
+        conditions: {
+          StringLike: {
+            "s3:prefix": ["media/workspaces/*", "content/workspaces/*"],
+          },
+        },
       }),
     );
     providerFunction.grantInvoke(deletionWorker);
@@ -619,11 +718,22 @@ export class FolooBackendStack extends cdk.Stack {
     const authorizer = new authorizers.HttpJwtAuthorizer(
       "CognitoJwt",
       `https://cognito-idp.${config.region}.amazonaws.com/${config.userPoolId}`,
-      { jwtAudience: [config.appClientId] },
+      { jwtAudience: [config.appClientId, webUserPoolClient.userPoolClientId] },
     );
     const api = new apigateway.HttpApi(this, "HttpApi", {
       apiName: `foloo-${config.name}`,
       createDefaultStage: true,
+      corsPreflight: {
+        allowOrigins: [...config.webAuth.allowedOrigins],
+        allowMethods: [
+          apigateway.CorsHttpMethod.GET,
+          apigateway.CorsHttpMethod.POST,
+          apigateway.CorsHttpMethod.OPTIONS,
+        ],
+        allowHeaders: ["authorization", "content-type", "idempotency-key"],
+        exposeHeaders: ["retry-after", "idempotency-replayed"],
+        maxAge: cdk.Duration.hours(1),
+      },
     });
     apiFunction.addEnvironment("PUBLIC_API_BASE_URL", api.apiEndpoint);
     const integration = new integrations.HttpLambdaIntegration(
@@ -703,6 +813,9 @@ export class FolooBackendStack extends cdk.Stack {
       });
     }
     new cdk.CfnOutput(this, "ApiUrl", { value: api.apiEndpoint });
+    new cdk.CfnOutput(this, "WebUserPoolClientId", {
+      value: webUserPoolClient.userPoolClientId,
+    });
     new cdk.CfnOutput(this, "MigrationFunctionName", {
       value: migrationFunction.functionName,
     });

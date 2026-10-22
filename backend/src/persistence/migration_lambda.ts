@@ -13,12 +13,14 @@ type MigrationEvent = { action?: "apply" | "status" };
 
 export type AccountDeletionMigrationStatus = Readonly<{
   migrationApplied: boolean;
+  writeFenceMigrationApplied: boolean;
   appliedMigrations: readonly string[];
   columns: readonly string[];
   constraintPresent: boolean;
   indexPresent: boolean;
   functions: readonly string[];
   inconsistentBarriers: number;
+  writeFenceTriggerCount: number;
 }>;
 
 async function readSecret(
@@ -87,8 +89,8 @@ export async function handler(
 export async function inspectAccountDeletionBarrier(
   pool: Pick<pg.Pool, "query">,
 ): Promise<AccountDeletionMigrationStatus> {
-  const [migrations, columns, constraint, index, functions] = await Promise.all(
-    [
+  const [migrations, columns, constraint, index, functions, writeFences] =
+    await Promise.all([
       pool.query<{ name: string }>(
         "SELECT name FROM schema_migrations ORDER BY name",
       ),
@@ -120,8 +122,12 @@ export async function inspectAccountDeletionBarrier(
            'ensure_personal_workspace'
          ) ORDER BY proname`,
       ),
-    ],
-  );
+      pool.query<{ count: string }>(
+        `SELECT count(*)::text AS count
+         FROM pg_trigger
+         WHERE tgname='account_deletion_write_fence' AND NOT tgisinternal`,
+      ),
+    ]);
   const inconsistent =
     columns.rows.length === 2
       ? await pool.query<{ count: string }>(
@@ -134,11 +140,15 @@ export async function inspectAccountDeletionBarrier(
     migrationApplied: migrations.rows.some(
       (row) => row.name === "009_account_deletion_barrier.sql",
     ),
+    writeFenceMigrationApplied: migrations.rows.some(
+      (row) => row.name === "010_account_deletion_write_fence.sql",
+    ),
     appliedMigrations: migrations.rows.map((row) => row.name),
     columns: columns.rows.map((row) => row.column_name),
     constraintPresent: constraint.rows[0]?.present === true,
     indexPresent: index.rows[0]?.present === true,
     functions: functions.rows.map((row) => row.proname),
     inconsistentBarriers: Number(inconsistent.rows[0]?.count ?? "0"),
+    writeFenceTriggerCount: Number(writeFences.rows[0]?.count ?? "0"),
   };
 }

@@ -42,6 +42,7 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
   bool _discardUnsynced = false;
   bool _cancelRenewal = false;
   String? _error;
+  String? _confirmationIdempotencyKey;
 
   Future<void> _prepare() async {
     final locale = Localizations.localeOf(context).languageCode == 'en'
@@ -65,6 +66,7 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
       );
       final localPending = await widget.pendingSyncCount();
       if (mounted) {
+        _confirmationIdempotencyKey ??= const Uuid().v4();
         setState(
           () => _preflight = AccountDeletionPreflight(
             requestId: result.requestId,
@@ -88,7 +90,8 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
 
   Future<void> _confirm() async {
     final preflight = _preflight;
-    if (preflight == null || !_irreversible) return;
+    final idempotencyKey = _confirmationIdempotencyKey;
+    if (preflight == null || idempotencyKey == null || !_irreversible) return;
     if (preflight.pendingSyncCount > 0 && !_discardUnsynced) return;
     if (preflight.subscriptionCancellationRequired && !_cancelRenewal) return;
     setState(() {
@@ -101,7 +104,7 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
         requestId: preflight.requestId,
         discardUnsyncedAccepted: _discardUnsynced,
         cancelRenewalAccepted: _cancelRenewal,
-        idempotencyKey: const Uuid().v4(),
+        idempotencyKey: idempotencyKey,
       );
       await widget.onAccepted(accepted);
     } on AccountDeletionServiceException catch (error) {

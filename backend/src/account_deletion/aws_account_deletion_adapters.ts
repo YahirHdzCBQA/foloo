@@ -86,10 +86,21 @@ export class DynamoErasureCheckpointStore implements ErasureCheckpointStore {
   }
 }
 
-export type AccountDeletionQueueMessage = Readonly<{
+export type WorkflowDeletionQueueMessage = Readonly<{
+  mode?: "workflow";
   requestId: string;
   ownerSubject: string;
 }>;
+
+export type RestoreRecoveryQueueMessage = Readonly<{
+  mode: "restore_recovery";
+  requestId: string;
+  deletionId: string;
+  ownerSubject: string;
+}>;
+
+export type AccountDeletionQueueMessage =
+  WorkflowDeletionQueueMessage | RestoreRecoveryQueueMessage;
 
 export class SqsAccountDeletionDispatcher {
   constructor(
@@ -104,6 +115,25 @@ export class SqsAccountDeletionDispatcher {
         QueueUrl: this.queueUrl,
         MessageBody: JSON.stringify(message),
         MessageGroupId: message.requestId,
+        MessageDeduplicationId: message.requestId,
+      }),
+    );
+  }
+}
+
+export class SqsRestoreErasureDispatcher {
+  constructor(
+    private readonly client: SQSClient,
+    private readonly queueUrl: string,
+  ) {}
+
+  async dispatch(message: RestoreRecoveryQueueMessage): Promise<void> {
+    validateQueueMessage(message);
+    await this.client.send(
+      new SendMessageCommand({
+        QueueUrl: this.queueUrl,
+        MessageBody: JSON.stringify(message),
+        MessageGroupId: message.deletionId,
         MessageDeduplicationId: message.requestId,
       }),
     );
@@ -178,7 +208,13 @@ function validateQueueMessage(
     typeof value.ownerSubject !== "string" ||
     value.ownerSubject.length === 0 ||
     value.ownerSubject.length > 2048 ||
-    /[\p{Cc}\p{Cf}\p{Z}]/u.test(value.ownerSubject)
+    /[\p{Cc}\p{Cf}\p{Z}]/u.test(value.ownerSubject) ||
+    (value.mode !== undefined &&
+      value.mode !== "workflow" &&
+      value.mode !== "restore_recovery") ||
+    (value.mode === "restore_recovery" &&
+      (typeof value.deletionId !== "string" ||
+        !/^[0-9a-f-]{36}$/iu.test(value.deletionId)))
   ) {
     throw new Error("Invalid Account Deletion queue message.");
   }

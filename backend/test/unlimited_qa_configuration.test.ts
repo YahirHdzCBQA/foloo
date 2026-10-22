@@ -22,6 +22,23 @@ test("Unlimited QA defaults to disabled", () => {
   const environment = loadEnvironment(requiredEnvironment);
   assert.equal(environment.FOLOO_UNLIMITED_QA_MODE, false);
   assert.equal(environment.FOLOO_ACCOUNT_DELETION_ENABLED, false);
+  assert.equal(environment.ACCOUNT_DELETION_NOTIFICATION_MODE, "disabled");
+});
+
+test("Account Deletion notification mode is explicit and closed to unknown values", () => {
+  assert.equal(
+    loadEnvironment({
+      ...requiredEnvironment,
+      ACCOUNT_DELETION_NOTIFICATION_MODE: "ses",
+    }).ACCOUNT_DELETION_NOTIFICATION_MODE,
+    "ses",
+  );
+  assert.throws(() =>
+    loadEnvironment({
+      ...requiredEnvironment,
+      ACCOUNT_DELETION_NOTIFICATION_MODE: "smtp",
+    }),
+  );
 });
 
 test("Unlimited QA accepts only an explicit true value", () => {

@@ -1,12 +1,18 @@
 /** In-memory workflow persistence used only by synthetic local tests. */
 
 import type {
+  AccountDeletionDispatchOutboxItem,
   AccountDeletionRecord,
   AccountDeletionWorkflowStore,
 } from "./account_deletion_workflow.js";
+import { AccountDeletionConfirmationConflictError } from "./account_deletion_workflow.js";
 
 export class InMemoryAccountDeletionWorkflowStore implements AccountDeletionWorkflowStore {
   private readonly records = new Map<string, AccountDeletionRecord>();
+  private readonly outbox = new Map<
+    string,
+    AccountDeletionDispatchOutboxItem
+  >();
 
   async findCurrent(ownerKey: string): Promise<AccountDeletionRecord | null> {
     return (
@@ -48,5 +54,46 @@ export class InMemoryAccountDeletionWorkflowStore implements AccountDeletionWork
     }
     this.records.set(record.requestId, record);
     return record;
+  }
+
+  async acceptConfirmation(
+    record: AccountDeletionRecord,
+  ): Promise<{ record: AccountDeletionRecord; replayed: boolean }> {
+    const current = this.records.get(record.requestId);
+    if (!current) throw new Error("Synthetic workflow record does not exist.");
+    if (current.status !== "awaiting_confirmation") {
+      if (
+        current.confirmationIdempotencyKey === record.confirmationIdempotencyKey
+      ) {
+        return { record: current, replayed: true };
+      }
+      throw new AccountDeletionConfirmationConflictError();
+    }
+    this.records.set(record.requestId, record);
+    this.outbox.set(record.requestId, {
+      requestId: record.requestId,
+      createdAt: record.acceptedAt ?? record.updatedAt,
+    });
+    return { record, replayed: false };
+  }
+
+  async pendingDispatches(
+    limit: number,
+  ): Promise<AccountDeletionDispatchOutboxItem[]> {
+    return [...this.outbox.values()]
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .slice(0, limit);
+  }
+
+  async markDispatchCompleted(
+    requestId: string,
+  ): Promise<AccountDeletionRecord> {
+    const current = this.records.get(requestId);
+    if (!current) throw new Error("Synthetic workflow record does not exist.");
+    if (current.dispatchStatus === "dispatched") return current;
+    const updated = { ...current, dispatchStatus: "dispatched" as const };
+    this.records.set(requestId, updated);
+    this.outbox.delete(requestId);
+    return updated;
   }
 }

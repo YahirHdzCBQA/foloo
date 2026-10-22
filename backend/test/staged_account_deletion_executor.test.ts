@@ -33,6 +33,9 @@ test("INF-17 deletes OAuth, S3, PostgreSQL and Cognito in safe order", async () 
       },
     },
     {
+      async freezeInventory() {
+        order.push("s3_inventory");
+      },
       async deleteOwnerObjects() {
         order.push("s3");
       },
@@ -41,6 +44,9 @@ test("INF-17 deletes OAuth, S3, PostgreSQL and Cognito in safe order", async () 
       },
     },
     {
+      async freezeScope() {
+        order.push("postgres_scope");
+      },
       async deleteOwnerData() {
         order.push("postgres");
       },
@@ -68,11 +74,25 @@ test("INF-17 deletes OAuth, S3, PostgreSQL and Cognito in safe order", async () 
     },
   };
   await executor.execute(input);
-  assert.deepEqual(order, ["oauth", "s3", "postgres", "cognito"]);
+  assert.deepEqual(order, [
+    "oauth",
+    "s3_inventory",
+    "s3",
+    "postgres_scope",
+    "postgres",
+    "cognito",
+  ]);
   assert.equal(await executor.verify(input), true);
 
   await executor.execute(input);
-  assert.deepEqual(order, ["oauth", "s3", "postgres", "cognito"]);
+  assert.deepEqual(order, [
+    "oauth",
+    "s3_inventory",
+    "s3",
+    "postgres_scope",
+    "postgres",
+    "cognito",
+  ]);
 });
 
 test("RNF-09 resumes after a partial S3 failure without repeating OAuth", async () => {
@@ -90,6 +110,9 @@ test("RNF-09 resumes after a partial S3 failure without repeating OAuth", async 
       },
     },
     {
+      async freezeInventory() {
+        order.push("s3_inventory");
+      },
       async deleteOwnerObjects() {
         order.push("s3");
         if (failS3) throw new Error("synthetic S3 failure");
@@ -99,6 +122,9 @@ test("RNF-09 resumes after a partial S3 failure without repeating OAuth", async 
       },
     },
     {
+      async freezeScope() {
+        order.push("postgres_scope");
+      },
       async deleteOwnerData() {
         order.push("postgres");
       },
@@ -128,5 +154,13 @@ test("RNF-09 resumes after a partial S3 failure without repeating OAuth", async 
   await assert.rejects(executor.execute(input), /synthetic S3 failure/);
   failS3 = false;
   await executor.execute(input);
-  assert.deepEqual(order, ["oauth", "s3", "s3", "postgres", "cognito"]);
+  assert.deepEqual(order, [
+    "oauth",
+    "s3_inventory",
+    "s3",
+    "s3",
+    "postgres_scope",
+    "postgres",
+    "cognito",
+  ]);
 });

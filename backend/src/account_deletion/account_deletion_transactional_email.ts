@@ -23,6 +23,8 @@ import type {
   DeletionLocale,
 } from "./account_deletion_workflow.js";
 
+export type AccountDeletionNotificationMode = "disabled" | "ses";
+
 const contextKey = "foloo-account-deletion-request";
 
 export class DynamoKmsDeletionRecipientVault implements AccountDeletionRecipientVault {
@@ -35,20 +37,28 @@ export class DynamoKmsDeletionRecipientVault implements AccountDeletionRecipient
 
   async capture(input: {
     requestId: string;
+    ownerSubject: string;
     verifiedEmail: string;
     receipt: string;
     expiresAt: Date;
-  }): Promise<void> {
+  }): Promise<string> {
     assertRequestId(input.requestId);
     const email = input.verifiedEmail.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(email)) {
       throw new Error("Verified notification address is invalid.");
     }
+    if (!input.ownerSubject.trim()) {
+      throw new Error("Account deletion owner subject is required.");
+    }
     const encrypted = await this.kms.send(
       new EncryptCommand({
         KeyId: this.encryptionKeyId,
         Plaintext: Buffer.from(
-          JSON.stringify({ email, receipt: input.receipt }),
+          JSON.stringify({
+            email,
+            receipt: input.receipt,
+            ownerSubject: input.ownerSubject,
+          }),
           "utf8",
         ),
         EncryptionContext: { [contextKey]: input.requestId },
@@ -56,21 +66,30 @@ export class DynamoKmsDeletionRecipientVault implements AccountDeletionRecipient
     );
     if (!encrypted.CiphertextBlob)
       throw new Error("KMS returned no ciphertext.");
-    await this.dynamo.send(
-      new PutItemCommand({
-        TableName: this.tableName,
-        Item: {
-          pk: { S: recipientKey(input.requestId) },
-          entity_type: { S: "notification_recipient" },
-          ciphertext: {
-            B: new Uint8Array(encrypted.CiphertextBlob),
+    try {
+      await this.dynamo.send(
+        new PutItemCommand({
+          TableName: this.tableName,
+          Item: {
+            pk: { S: recipientKey(input.requestId) },
+            entity_type: { S: "notification_recipient" },
+            ciphertext: {
+              B: new Uint8Array(encrypted.CiphertextBlob),
+            },
+            expires_at: {
+              N: String(Math.ceil(input.expiresAt.getTime() / 1000)),
+            },
           },
-          expires_at: {
-            N: String(Math.ceil(input.expiresAt.getTime() / 1000)),
-          },
-        },
-      }),
-    );
+          ConditionExpression: "attribute_not_exists(pk)",
+        }),
+      );
+      return input.receipt;
+    } catch (error) {
+      if (isConditionalWriteFailure(error)) {
+        return this.recoverReceipt(input.requestId);
+      }
+      throw error;
+    }
   }
 
   async reveal(requestId: string): Promise<string> {
@@ -81,9 +100,13 @@ export class DynamoKmsDeletionRecipientVault implements AccountDeletionRecipient
     return (await this.revealSecrets(requestId)).receipt;
   }
 
+  async recoverOwnerSubject(requestId: string): Promise<string> {
+    return (await this.revealSecrets(requestId)).ownerSubject;
+  }
+
   private async revealSecrets(
     requestId: string,
-  ): Promise<{ email: string; receipt: string }> {
+  ): Promise<{ email: string; receipt: string; ownerSubject: string }> {
     const result = await this.dynamo.send(
       new GetItemCommand({
         TableName: this.tableName,
@@ -108,15 +131,21 @@ export class DynamoKmsDeletionRecipientVault implements AccountDeletionRecipient
     if (!decrypted.Plaintext) throw new Error("KMS returned no plaintext.");
     const value = JSON.parse(
       Buffer.from(decrypted.Plaintext).toString("utf8"),
-    ) as Partial<{ email: string; receipt: string }>;
+    ) as Partial<{ email: string; receipt: string; ownerSubject: string }>;
     if (
       typeof value.email !== "string" ||
       typeof value.receipt !== "string" ||
+      typeof value.ownerSubject !== "string" ||
+      !value.ownerSubject ||
       value.receipt.length < 32
     ) {
       throw new Error("Decrypted notification secrets are invalid.");
     }
-    return { email: value.email, receipt: value.receipt };
+    return {
+      email: value.email,
+      receipt: value.receipt,
+      ownerSubject: value.ownerSubject,
+    };
   }
 
   async purge(requestId: string): Promise<void> {
@@ -161,6 +190,23 @@ export class LambdaAccountDeletionNotifier implements AccountDeletionNotifier {
   }
 }
 
+/** Explicit no-send policy used when receipt/status is the approved channel. */
+export class DisabledAccountDeletionNotifier implements AccountDeletionNotifier {
+  async requestAccepted(): Promise<void> {}
+
+  async deletionCompleted(): Promise<void> {}
+}
+
+export function accountDeletionNotifier(
+  mode: AccountDeletionNotificationMode,
+  lambda: LambdaClient,
+  functionName: string,
+): AccountDeletionNotifier {
+  return mode === "ses"
+    ? new LambdaAccountDeletionNotifier(lambda, functionName)
+    : new DisabledAccountDeletionNotifier();
+}
+
 function recipientKey(requestId: string): string {
   assertRequestId(requestId);
   return `RECIPIENT#${requestId}`;
@@ -169,4 +215,10 @@ function recipientKey(requestId: string): string {
 function assertRequestId(requestId: string): void {
   if (!/^[0-9a-f-]{36}$/iu.test(requestId))
     throw new Error("Invalid request id.");
+}
+
+function isConditionalWriteFailure(error: unknown): boolean {
+  return (
+    error instanceof Error && error.name === "ConditionalCheckFailedException"
+  );
 }

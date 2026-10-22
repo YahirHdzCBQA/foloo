@@ -6,6 +6,11 @@ export type EnvironmentConfig = {
   userPoolId: string;
   appClientId: string;
   databaseName: string;
+  webAuth: {
+    callbackUrls: readonly string[];
+    logoutUrls: readonly string[];
+    allowedOrigins: readonly string[];
+  };
 };
 
 const dev: EnvironmentConfig = {
@@ -14,6 +19,11 @@ const dev: EnvironmentConfig = {
   userPoolId: "us-east-1_QVm3dWe4O",
   appClientId: "6jong3atp2crqcsde6g215ant8",
   databaseName: "foloo",
+  webAuth: {
+    callbackUrls: ["https://foloo.io/auth/callback"],
+    logoutUrls: ["https://foloo.io/login"],
+    allowedOrigins: ["https://foloo.io"],
+  },
 };
 
 export function environmentConfig(name: string): EnvironmentConfig {

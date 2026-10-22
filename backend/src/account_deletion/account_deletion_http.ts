@@ -152,6 +152,7 @@ export class WorkflowAccountDeletionHttpController<
         irreversibleAccepted: payload.irreversibleAccepted,
         discardUnsyncedAccepted: payload.discardUnsyncedAccepted,
         cancelRenewalAccepted: payload.cancelRenewalAccepted,
+        confirmationIdempotencyKey: requiredHeader(event, "idempotency-key"),
       });
       return response(202, {
         data: {

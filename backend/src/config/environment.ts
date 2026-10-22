@@ -26,6 +26,9 @@ const environmentSchema = z.object({
   ACCOUNT_DELETION_QUEUE_URL: z.string().url().optional(),
   ACCOUNT_DELETION_RECIPIENT_KEY_ARN: z.string().min(1).optional(),
   ACCOUNT_DELETION_NOTIFICATION_FUNCTION_NAME: z.string().min(1).optional(),
+  ACCOUNT_DELETION_NOTIFICATION_MODE: z
+    .enum(["disabled", "ses"])
+    .default("disabled"),
   ACCOUNT_DELETION_COGNITO_FINALIZER_FUNCTION_NAME: z
     .string()
     .min(1)

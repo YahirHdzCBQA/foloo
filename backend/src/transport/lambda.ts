@@ -54,6 +54,7 @@ async function initialize() {
           environment.ACCOUNT_DELETION_NOTIFICATION_FUNCTION_NAME,
           "ACCOUNT_DELETION_NOTIFICATION_FUNCTION_NAME",
         ),
+        notificationMode: environment.ACCOUNT_DELETION_NOTIFICATION_MODE,
         emailProviderFunctionName: environment.EMAIL_PROVIDER_FUNCTION_NAME,
         cognitoFinalizerFunctionName: required(
           environment.ACCOUNT_DELETION_COGNITO_FINALIZER_FUNCTION_NAME,

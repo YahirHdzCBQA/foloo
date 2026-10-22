@@ -13,11 +13,17 @@ import 'package:foloo/services/local_account_deletion_purger.dart';
 import 'package:foloo/theme/foloo_theme.dart';
 
 class FakeDeletionService implements AccountDeletionService {
-  FakeDeletionService({this.recent = true, this.pending = 0});
+  FakeDeletionService({
+    this.recent = true,
+    this.pending = 0,
+    this.failFirstConfirmation = false,
+  });
 
   bool recent;
   int pending;
   int confirmations = 0;
+  bool failFirstConfirmation;
+  final confirmationIdempotencyKeys = <String>[];
 
   @override
   Future<bool> hasRecentAuthentication(String ownerSub) async => recent;
@@ -44,6 +50,10 @@ class FakeDeletionService implements AccountDeletionService {
     required String idempotencyKey,
   }) async {
     confirmations += 1;
+    confirmationIdempotencyKeys.add(idempotencyKey);
+    if (failFirstConfirmation && confirmations == 1) {
+      throw const AccountDeletionServiceException('network');
+    }
     return const AccountDeletionAccepted(
       requestId: '00000000-0000-4000-8000-000000000222',
       receipt: 'synthetic-receipt-not-a-real-credential',
@@ -108,6 +118,26 @@ void main() {
       expect(accepted, true);
     },
   );
+
+  testWidgets('RNF-10 confirmation retries reuse the same idempotency key', (
+    tester,
+  ) async {
+    final service = FakeDeletionService(failFirstConfirmation: true);
+    await tester.pumpWidget(harness(service));
+    await tester.tap(find.byKey(const Key('accountDeletionPrepare')));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('accountDeletionIrreversible')));
+    await tester.pump();
+    final confirm = find.byKey(const Key('accountDeletionConfirm'));
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+    expect(service.confirmations, 2);
+    expect(service.confirmationIdempotencyKeys.toSet(), hasLength(1));
+  });
 
   test(
     'SYN-12 local purge removes only the accepted owner and managed files',

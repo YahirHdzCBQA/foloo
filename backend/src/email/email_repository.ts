@@ -64,6 +64,7 @@ export interface EmailRepository {
     encryptedFlow: string,
     redirectUri: string,
   ): Promise<void>;
+  oauthState(stateHash: string): Promise<OAuthState>;
   consumeOAuthState(stateHash: string): Promise<OAuthState>;
   connect(
     state: OAuthState,

@@ -10,7 +10,12 @@ import type {
 } from "./account_deletion_workflow.js";
 
 export type ErasureStage =
-  "oauth_revoked" | "objects_deleted" | "postgres_deleted" | "identity_deleted";
+  | "oauth_revoked"
+  | "objects_inventoried"
+  | "objects_deleted"
+  | "postgres_scope_inventoried"
+  | "postgres_deleted"
+  | "identity_deleted";
 
 export interface ErasureCheckpointStore {
   completed(requestId: string): Promise<ReadonlySet<ErasureStage>>;
@@ -23,13 +28,15 @@ export interface OAuthErasurePort {
 }
 
 export interface ObjectErasurePort {
-  deleteOwnerObjects(ownerSubject: string): Promise<void>;
-  hasOwnerObjects(ownerSubject: string): Promise<boolean>;
+  freezeInventory(requestId: string, ownerSubject: string): Promise<void>;
+  deleteOwnerObjects(requestId: string): Promise<void>;
+  hasOwnerObjects(requestId: string): Promise<boolean>;
 }
 
 export interface PostgresErasurePort {
-  deleteOwnerData(ownerSubject: string): Promise<void>;
-  hasOwnerData(ownerSubject: string): Promise<boolean>;
+  freezeScope(requestId: string, ownerSubject: string): Promise<void>;
+  deleteOwnerData(requestId: string, ownerSubject: string): Promise<void>;
+  hasOwnerData(requestId: string, ownerSubject: string): Promise<boolean>;
 }
 
 export interface CognitoErasurePort {
@@ -61,15 +68,33 @@ export class StagedAccountDeletionExecutor implements AccountDeletionExecutor {
         throw new Error("OAuth erasure could not be verified.");
       }
     });
+    await this.run(
+      input.requestId,
+      "objects_inventoried",
+      completed,
+      async () => {
+        await this.objects.freezeInventory(input.requestId, input.ownerSubject);
+      },
+    );
     await this.run(input.requestId, "objects_deleted", completed, async () => {
-      await this.objects.deleteOwnerObjects(input.ownerSubject);
-      if (await this.objects.hasOwnerObjects(input.ownerSubject)) {
+      await this.objects.deleteOwnerObjects(input.requestId);
+      if (await this.objects.hasOwnerObjects(input.requestId)) {
         throw new Error("Object erasure could not be verified.");
       }
     });
+    await this.run(
+      input.requestId,
+      "postgres_scope_inventoried",
+      completed,
+      async () => {
+        await this.postgres.freezeScope(input.requestId, input.ownerSubject);
+      },
+    );
     await this.run(input.requestId, "postgres_deleted", completed, async () => {
-      await this.postgres.deleteOwnerData(input.ownerSubject);
-      if (await this.postgres.hasOwnerData(input.ownerSubject)) {
+      await this.postgres.deleteOwnerData(input.requestId, input.ownerSubject);
+      if (
+        await this.postgres.hasOwnerData(input.requestId, input.ownerSubject)
+      ) {
         throw new Error("PostgreSQL erasure could not be verified.");
       }
     });
@@ -89,7 +114,9 @@ export class StagedAccountDeletionExecutor implements AccountDeletionExecutor {
     if (
       ![
         "oauth_revoked",
+        "objects_inventoried",
         "objects_deleted",
+        "postgres_scope_inventoried",
         "postgres_deleted",
         "identity_deleted",
       ].every((stage) => completed.has(stage as ErasureStage))
@@ -99,8 +126,8 @@ export class StagedAccountDeletionExecutor implements AccountDeletionExecutor {
     const [oauthExists, objectExists, postgresExists, identityExists] =
       await Promise.all([
         this.oauth.isDestroyed(input.ownerSubject).then((value) => !value),
-        this.objects.hasOwnerObjects(input.ownerSubject),
-        this.postgres.hasOwnerData(input.ownerSubject),
+        this.objects.hasOwnerObjects(input.requestId),
+        this.postgres.hasOwnerData(input.requestId, input.ownerSubject),
         this.cognito.identityExists(input.ownerSubject),
       ]);
     return !oauthExists && !objectExists && !postgresExists && !identityExists;

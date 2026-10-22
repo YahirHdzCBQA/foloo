@@ -182,9 +182,9 @@ físicamente en iOS y Android el 2026-10-16.**
 - Trazas: `OCR-10`, `VOZ-06`, `SAL-11`, E-03/E-04/E-08; ADR-001/006/007.
 
 **Evidencia asociada:** `email_sender_identity.test.ts`,
-  `email_application.test.ts`, `email_migration_contract.test.ts`,
-  `camera_access_service_test.dart`, `multi_photo_capture_test.dart` y
-  `unified_v1_frontend_test.dart`.
+`email_application.test.ts`, `email_migration_contract.test.ts`,
+`camera_access_service_test.dart`, `multi_photo_capture_test.dart` y
+`unified_v1_frontend_test.dart`.
 
 El cierre no resuelve el límite de Voice Note `D-05`, la edición postguardado
 de medios `D-06` ni los mockups finales `D-11`. Tampoco implementa FL-021,
@@ -335,14 +335,47 @@ AWS y borrado real desactivados hasta aprobar los gates de D-13/ADR.**
   pantalla Flutter y purga Drift/archivos owner-scoped. El destinatario de los
   avisos se cifra con KMS, expira por TTL y SES usa `hello@foloo.io` como From y
   Reply-To sin tocar follow-ups. Sus pruebas usan solo datos sintéticos.
+- La primera corrección crítica de STORE-02 (2026-10-21) hace atómica e
+  idempotente la aceptación DynamoDB con receipt único y outbox SQS durable;
+  añade recuperación programable, pero la Lambda y su schedule permanecen
+  desactivados. La migración 009 ya existente no cambia.
+- La segunda corrección crítica congela el inventario S3 y el alcance mínimo
+  PostgreSQL en el ledger durable antes de borrar. S3 lista los prefijos del
+  workspace con paginación, borra/reintenta en lotes y verifica el manifest
+  original; PostgreSQL verifica todas las tablas owner-scoped mediante IDs
+  congelados. Reutiliza recursos existentes y solo prepara permiso
+  `s3:ListBucket` acotado. Continúa local, sin deploy, migración ni activación.
+- La tercera corrección crítica prepara la migración 010 con write fences
+  transaccionales en todas las tablas owner-scoped, endurece callbacks OAuth,
+  retrasa 11 minutos el inventario para agotar presigned PUT anteriores y hace
+  que el reconciliador encole purgas verificables después de un restore. Las
+  pruebas sintéticas cubren JWT antiguo/segundo dispositivo, carrera de
+  inventario, retry parcial y aislamiento. Sigue local, con flags apagados y
+  sin ejecutar la migración, deploy ni borrado real.
 - `FOLOO_ACCOUNT_DELETION_ENABLED` permanece `false` en CDK y Flutter. El API
   usa el controller deshabilitado; worker, finalizador, SES, guards Cognito y
   reconciliador rechazan ejecución. El synth contiene recursos
-  retenidos/cifrados, pero no se desplegaron. La migración 009 está preparada y
-  no ejecutada; el workflow/tombstone durable sigue fuera de PostgreSQL.
-- La ruta `foloo.io/delete-account` queda definida por el mismo contrato, pero
-  no se creó otra web porque el repositorio de la landing no está presente y
-  TI aún no autoriza modificar/desplegar CloudFront/S3.
+  retenidos/cifrados. Los cambios de idempotencia/outbox de esta fase no se
+  desplegaron. El responsable confirma 009 aplicada en AWS DEV; este incremento
+  no ejecutó migraciones ni activó el workflow.
+- La ruta pública `foloo.io/delete-account` conserva el mismo contrato.
+  FOL-WEB-02 está implementado localmente en el repositorio independiente
+  `foloo-landing`; su autenticación permanece apagada hasta desplegar el App
+  Client CDK y proporcionar el output `WebUserPoolClientId`.
+- El handoff web y el runbook de despliegue pasivo/migración 010 quedan
+  consolidados en
+  [`store-02-web-handoff-deploy-readiness.md`](store-02-web-handoff-deploy-readiness.md).
+  STORE-02.4 prepara localmente un App Client web público Cognito+Google con
+  code grant, segunda audiencia JWT, CORS exacto para `foloo.io` y un modo
+  explícito `disabled|ses`. En modo deshabilitado receipt/status no invocan
+  SES ni generan retries/DLQ de notificación. PKCE S256 y reautenticación
+  interactiva corresponden a `foloo-landing`; el cambio no autoriza AWS,
+  migraciones, flags ni publicación web.
+- STORE-02.5 alinea el App Client con FOL-WEB-02: callback
+  `https://foloo.io/auth/callback` y logout `https://foloo.io/login`; la ruta
+  pública `/delete-account` no cambia. La auditoría read-only confirma stack
+  DEV `UPDATE_COMPLETE`/`IN_SYNC`, solo cliente móvil desplegado y el diff
+  acumulado pendiente, sin deploy ni migración 010.
 - D-13 y las validaciones Legal/Seguridad/Infra/Operación/Payments continúan
   abiertas. No se desplegaron recursos, migraciones ni builds.
 - `02E-02` dispone de primitivas aisladas 02A/02B, pero su conexión y despliegue

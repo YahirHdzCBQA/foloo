@@ -7,6 +7,7 @@
 import { randomBytes, randomUUID, createHash } from "node:crypto";
 
 import { ApplicationError } from "../application/errors.js";
+import { uploadLifetimeSeconds } from "../storage/media_storage.js";
 import type { AccountDeletionBarrierReference } from "./account_deletion_ledger.js";
 import type { AccountDeletionGuard } from "./account_deletion_guard.js";
 
@@ -17,6 +18,7 @@ export type DeletionStatus =
   | "in_progress"
   | "blocked"
   | "completed";
+export type DeletionDispatchStatus = "not_required" | "pending" | "dispatched";
 
 export type SubscriptionSummary = Readonly<{
   status: "none" | "trial" | "trial_exhausted" | "active" | "expired";
@@ -41,7 +43,14 @@ export type AccountDeletionRecord = Readonly<{
   receiptExpiresAt: Date | null;
   supportCode: string | null;
   barrier: AccountDeletionBarrierReference | null;
+  confirmationIdempotencyKey: string | null;
+  dispatchStatus: DeletionDispatchStatus;
   subscription: SubscriptionSummary;
+}>;
+
+export type AccountDeletionDispatchOutboxItem = Readonly<{
+  requestId: string;
+  createdAt: Date;
 }>;
 
 export interface AccountDeletionWorkflowStore {
@@ -51,6 +60,13 @@ export interface AccountDeletionWorkflowStore {
   createPreflight(
     record: AccountDeletionRecord,
   ): Promise<AccountDeletionRecord>;
+  acceptConfirmation(
+    record: AccountDeletionRecord,
+  ): Promise<{ record: AccountDeletionRecord; replayed: boolean }>;
+  pendingDispatches(
+    limit: number,
+  ): Promise<AccountDeletionDispatchOutboxItem[]>;
+  markDispatchCompleted(requestId: string): Promise<AccountDeletionRecord>;
   update(record: AccountDeletionRecord): Promise<AccountDeletionRecord>;
 }
 
@@ -79,11 +95,13 @@ export interface AccountDeletionNotifier {
 export interface AccountDeletionRecipientVault {
   capture(input: {
     requestId: string;
+    ownerSubject: string;
     verifiedEmail: string;
     receipt: string;
     expiresAt: Date;
-  }): Promise<void>;
+  }): Promise<string>;
   recoverReceipt(requestId: string): Promise<string>;
+  recoverOwnerSubject(requestId: string): Promise<string>;
 }
 
 /** Mirrors the durable barrier into PostgreSQL before destructive work starts. */
@@ -133,6 +151,28 @@ export class AccountDeletionDependencyUnavailableError extends Error {
   constructor(readonly dependency: "payments" | "deletion_executor") {
     super(`Account deletion dependency is unavailable: ${dependency}.`);
     this.name = "AccountDeletionDependencyUnavailableError";
+  }
+}
+
+/** Ensures every previously-issued direct S3 PUT has expired before inventory. */
+export const accountDeletionWriteQuiescenceMs =
+  (uploadLifetimeSeconds + 60) * 1000;
+
+export class AccountDeletionQuiescencePendingError extends Error {
+  constructor(readonly retryAfter: Date) {
+    super("Account deletion is waiting for outstanding uploads to expire.");
+    this.name = "AccountDeletionQuiescencePendingError";
+  }
+}
+
+export class AccountDeletionConfirmationConflictError extends ApplicationError {
+  constructor() {
+    super(
+      "deletion_confirmation_idempotency_conflict",
+      409,
+      "Account deletion confirmation uses a different idempotency key.",
+    );
+    this.name = "AccountDeletionConfirmationConflictError";
   }
 }
 
@@ -233,6 +273,8 @@ export class AccountDeletionWorkflow<KeyHandle> {
       receiptExpiresAt: null,
       supportCode: null,
       barrier: null,
+      confirmationIdempotencyKey: null,
+      dispatchStatus: "not_required",
       subscription,
     });
     return {
@@ -253,6 +295,7 @@ export class AccountDeletionWorkflow<KeyHandle> {
     irreversibleAccepted: boolean;
     discardUnsyncedAccepted: boolean;
     cancelRenewalAccepted: boolean;
+    confirmationIdempotencyKey: string;
   }): Promise<{ record: AccountDeletionRecord; receipt: string }> {
     this.requireRecentAuthentication(input.recentAuthentication);
     if (!input.irreversibleAccepted) {
@@ -271,11 +314,19 @@ export class AccountDeletionWorkflow<KeyHandle> {
       );
     }
     if (record.status !== "awaiting_confirmation") {
-      if (record.barrier && this.recipientVault) {
-        return {
-          record,
-          receipt: await this.recipientVault.recoverReceipt(record.requestId),
-        };
+      if (
+        record.barrier &&
+        this.recipientVault &&
+        record.confirmationIdempotencyKey === input.confirmationIdempotencyKey
+      ) {
+        const receipt = await this.recipientVault.recoverReceipt(
+          record.requestId,
+        );
+        await this.ensureDispatched(record, input.ownerSubject);
+        return { record, receipt };
+      }
+      if (record.confirmationIdempotencyKey) {
+        throw new AccountDeletionConfirmationConflictError();
       }
       throw new ApplicationError(
         "deletion_already_pending",
@@ -312,13 +363,16 @@ export class AccountDeletionWorkflow<KeyHandle> {
     await this.subscriptions.cancelRenewal(input.ownerSubject);
     // The encrypted address is captured before the irreversible barrier. A
     // failed attempt can safely be retried and the orphan expires by TTL.
-    const receipt = randomBytes(32).toString("base64url");
-    await this.recipientVault?.capture({
-      requestId: record.requestId,
-      verifiedEmail: input.verifiedEmail,
-      receipt,
-      expiresAt: new Date(now.getTime() + 16 * 24 * 60 * 60 * 1000),
-    });
+    const generatedReceipt = randomBytes(32).toString("base64url");
+    const receipt = this.recipientVault
+      ? await this.recipientVault.capture({
+          requestId: record.requestId,
+          ownerSubject: input.ownerSubject,
+          verifiedEmail: input.verifiedEmail,
+          receipt: generatedReceipt,
+          expiresAt: new Date(now.getTime() + 16 * 24 * 60 * 60 * 1000),
+        })
+      : generatedReceipt;
     const barrier = await this.guard.acceptDeletionBarrier({
       deletionId: record.requestId,
       canonicalSubject: input.ownerSubject,
@@ -329,7 +383,7 @@ export class AccountDeletionWorkflow<KeyHandle> {
       ownerSubject: input.ownerSubject,
       acceptedAt: now,
     });
-    const accepted = await this.store.update({
+    const acceptedResult = await this.store.acceptConfirmation({
       ...record,
       status: "requested",
       acceptedAt: now,
@@ -339,16 +393,17 @@ export class AccountDeletionWorkflow<KeyHandle> {
         now.getTime() + AccountDeletionWorkflow.receiptLifetimeMs,
       ),
       barrier,
+      confirmationIdempotencyKey: input.confirmationIdempotencyKey,
+      dispatchStatus: "pending",
     });
-    await this.notifier.requestAccepted({
-      requestId: accepted.requestId,
-      locale: accepted.locale,
-    });
-    await this.dispatcher?.dispatch({
-      requestId: accepted.requestId,
-      ownerSubject: input.ownerSubject,
-    });
-    return { record: accepted, receipt };
+    if (!acceptedResult.replayed) {
+      await this.notifyBestEffort("request_accepted", {
+        requestId: acceptedResult.record.requestId,
+        locale: acceptedResult.record.locale,
+      });
+    }
+    await this.ensureDispatched(acceptedResult.record, input.ownerSubject);
+    return { record: acceptedResult.record, receipt };
   }
 
   async process(input: {
@@ -365,6 +420,19 @@ export class AccountDeletionWorkflow<KeyHandle> {
     }
     const barrier = record.barrier;
     if (record.status === "completed") return record;
+    if (!record.acceptedAt) {
+      throw new ApplicationError(
+        "deletion_request_not_accepted",
+        409,
+        "Deletion request has not been accepted.",
+      );
+    }
+    const safeAfter = new Date(
+      record.acceptedAt.getTime() + accountDeletionWriteQuiescenceMs,
+    );
+    if (this.clock.now().getTime() < safeAfter.getTime()) {
+      throw new AccountDeletionQuiescencePendingError(safeAfter);
+    }
     const started = await this.store.update({
       ...record,
       status: "in_progress",
@@ -395,7 +463,7 @@ export class AccountDeletionWorkflow<KeyHandle> {
         updatedAt: completedAt,
         completedAt,
       });
-      await this.notifier.deletionCompleted({
+      await this.notifyBestEffort("deletion_completed", {
         requestId: completed.requestId,
         locale: completed.locale,
       });
@@ -433,6 +501,46 @@ export class AccountDeletionWorkflow<KeyHandle> {
         428,
         "Recent authentication is required.",
       );
+    }
+  }
+
+  private async ensureDispatched(
+    record: AccountDeletionRecord,
+    ownerSubject: string,
+  ): Promise<void> {
+    if (!this.dispatcher || record.dispatchStatus !== "pending") return;
+    try {
+      await this.dispatcher.dispatch({
+        requestId: record.requestId,
+        ownerSubject,
+      });
+      await this.store.markDispatchCompleted(record.requestId);
+    } catch (error) {
+      // The durable outbox remains pending. Never expose identity or payloads.
+      console.warn("Account deletion dispatch remains pending.", {
+        requestId: record.requestId,
+        errorType: error instanceof Error ? error.name : "UnknownError",
+      });
+    }
+  }
+
+  private async notifyBestEffort(
+    action: "request_accepted" | "deletion_completed",
+    input: { requestId: string; locale: DeletionLocale },
+  ): Promise<void> {
+    try {
+      if (action === "request_accepted") {
+        await this.notifier.requestAccepted(input);
+      } else {
+        await this.notifier.deletionCompleted(input);
+      }
+    } catch (error) {
+      // Notification is never the authority for irreversible deletion state.
+      console.warn("Account deletion notification was not dispatched.", {
+        requestId: input.requestId,
+        action,
+        errorType: error instanceof Error ? error.name : "UnknownError",
+      });
     }
   }
 }

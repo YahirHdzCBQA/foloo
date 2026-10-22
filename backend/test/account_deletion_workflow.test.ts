@@ -21,14 +21,20 @@ import {
   accountDeletionRequestEmail,
 } from "../src/account_deletion/account_deletion_email.js";
 import {
+  AccountDeletionConfirmationConflictError,
+  AccountDeletionQuiescencePendingError,
   AccountDeletionWorkflow,
+  accountDeletionWriteQuiescenceMs,
   UnavailableSubscriptionCancellation,
   verifyRecentAuthentication,
   type AccountDeletionExecutor,
+  type AccountDeletionDispatcher,
   type AccountDeletionNotifier,
+  type AccountDeletionRecipientVault,
   type AccountDeletionRecord,
   type AccountDeletionWorkflowStore,
 } from "../src/account_deletion/account_deletion_workflow.js";
+import { AccountDeletionOutboxRecovery } from "../src/account_deletion/account_deletion_outbox_recovery.js";
 import { InMemoryAccountDeletionWorkflowStore } from "../src/account_deletion/in_memory_account_deletion_workflow_store.js";
 import {
   NodeHmacSha256Generator,
@@ -108,11 +114,51 @@ class Executor implements AccountDeletionExecutor {
 class Notifier implements AccountDeletionNotifier {
   accepted = 0;
   completed = 0;
+  failAccepted = false;
+  failCompleted = false;
   async requestAccepted() {
     this.accepted += 1;
+    if (this.failAccepted) throw new Error("synthetic notification outage");
   }
   async deletionCompleted() {
     this.completed += 1;
+    if (this.failCompleted) throw new Error("synthetic notification outage");
+  }
+}
+
+class RecipientVault implements AccountDeletionRecipientVault {
+  private value:
+    { requestId: string; ownerSubject: string; receipt: string } | undefined;
+
+  async capture(input: {
+    requestId: string;
+    ownerSubject: string;
+    receipt: string;
+  }) {
+    this.value ??= input;
+    return this.value.receipt;
+  }
+
+  async recoverReceipt(requestId: string) {
+    if (this.value?.requestId !== requestId) throw new Error("missing receipt");
+    return this.value.receipt;
+  }
+
+  async recoverOwnerSubject(requestId: string) {
+    if (this.value?.requestId !== requestId) throw new Error("missing owner");
+    return this.value.ownerSubject;
+  }
+}
+
+class Dispatcher implements AccountDeletionDispatcher {
+  attempts = 0;
+  delivered = 0;
+  fail = false;
+
+  async dispatch() {
+    this.attempts += 1;
+    if (this.fail) throw new Error("synthetic SQS outage");
+    this.delivered += 1;
   }
 }
 
@@ -124,7 +170,11 @@ function fixture(input?: {
   pending?: number;
   store?: AccountDeletionWorkflowStore;
   subscription?: "none" | "active";
+  dispatcher?: AccountDeletionDispatcher;
+  recipientVault?: AccountDeletionRecipientVault;
+  notifier?: Notifier;
 }) {
+  let clockNow = new Date(now);
   const ledger = new MemoryLedger();
   const keys = new Keys();
   const hmac = new NodeHmacSha256Generator();
@@ -133,10 +183,10 @@ function fixture(input?: {
     new PseudonymousEmailIdentifierService(keys, hmac),
     new PseudonymousSubjectIdentifierService(keys, hmac),
     { writeVersion: "test-v1", readVersions: ["test-v1"] },
-    { now: () => new Date(now) },
+    { now: () => new Date(clockNow) },
   );
   const executor = new Executor();
-  const notifier = new Notifier();
+  const notifier = input?.notifier ?? new Notifier();
   const workflow = new AccountDeletionWorkflow(
     input?.store ?? new InMemoryAccountDeletionWorkflowStore(),
     guard,
@@ -151,9 +201,20 @@ function fixture(input?: {
     new UnavailableSubscriptionCancellation(input?.subscription ?? "none"),
     executor,
     notifier,
-    { now: () => new Date(now) },
+    { now: () => new Date(clockNow) },
+    input?.dispatcher,
+    input?.recipientVault,
   );
-  return { executor, guard, ledger, notifier, workflow };
+  return {
+    executor,
+    guard,
+    ledger,
+    notifier,
+    workflow,
+    advance(milliseconds: number) {
+      clockNow = new Date(clockNow.getTime() + milliseconds);
+    },
+  };
 }
 
 async function acceptedWorkflow(input?: { pending?: number }) {
@@ -175,7 +236,9 @@ async function acceptedWorkflow(input?: { pending?: number }) {
     irreversibleAccepted: true,
     discardUnsyncedAccepted: (input?.pending ?? 0) > 0,
     cancelRenewalAccepted: false,
+    confirmationIdempotencyKey: "confirmation-key-0001",
   });
+  harness.advance(accountDeletionWriteQuiescenceMs);
   return { ...harness, ...accepted };
 }
 
@@ -195,6 +258,133 @@ test("AUT-18 creates an idempotent preflight for Free users with any lead count"
     assert.equal(first.record.requestId, replay.record.requestId);
     assert.equal(first.pendingSyncCount, pending);
   }
+});
+
+test("RNF-10 concurrent confirmation keeps one receipt and one accepted transition", async () => {
+  const store = new InMemoryAccountDeletionWorkflowStore();
+  const vault = new RecipientVault();
+  const dispatcher = new Dispatcher();
+  const harness = fixture({ store, recipientVault: vault, dispatcher });
+  const preflight = await harness.workflow.preflight({
+    ownerSubject: subject,
+    ownerKey: "owner-concurrent",
+    idempotencyKey: "preflight-concurrent",
+    locale: "es",
+    requestedExport: false,
+    recentAuthentication: true,
+  });
+  const confirmation = {
+    requestId: preflight.record.requestId,
+    ownerSubject: subject,
+    verifiedEmail: email,
+    ownerKey: "owner-concurrent",
+    recentAuthentication: true,
+    irreversibleAccepted: true,
+    discardUnsyncedAccepted: false,
+    cancelRenewalAccepted: false,
+    confirmationIdempotencyKey: "confirmation-concurrent",
+  };
+  const [first, second] = await Promise.all([
+    harness.workflow.confirm(confirmation),
+    harness.workflow.confirm(confirmation),
+  ]);
+  assert.equal(first.receipt, second.receipt);
+  assert.equal(first.record.requestId, second.record.requestId);
+  assert.equal(harness.notifier.accepted, 1);
+  assert.equal(
+    (await store.findCurrent("owner-concurrent"))?.status,
+    "requested",
+  );
+  assert.equal(
+    (await store.findCurrent("owner-concurrent"))?.dispatchStatus,
+    "dispatched",
+  );
+});
+
+test("RNF-10 a different confirmation idempotency key cannot create a second receipt", async () => {
+  const store = new InMemoryAccountDeletionWorkflowStore();
+  const vault = new RecipientVault();
+  const harness = fixture({ store, recipientVault: vault });
+  const preflight = await harness.workflow.preflight({
+    ownerSubject: subject,
+    ownerKey: "owner-conflict",
+    idempotencyKey: "preflight-conflict",
+    locale: "es",
+    requestedExport: false,
+    recentAuthentication: true,
+  });
+  const base = {
+    requestId: preflight.record.requestId,
+    ownerSubject: subject,
+    verifiedEmail: email,
+    ownerKey: "owner-conflict",
+    recentAuthentication: true,
+    irreversibleAccepted: true,
+    discardUnsyncedAccepted: false,
+    cancelRenewalAccepted: false,
+  };
+  await harness.workflow.confirm({
+    ...base,
+    confirmationIdempotencyKey: "confirmation-original",
+  });
+  await assert.rejects(
+    harness.workflow.confirm({
+      ...base,
+      confirmationIdempotencyKey: "confirmation-different",
+    }),
+    AccountDeletionConfirmationConflictError,
+  );
+});
+
+test("INF-17 SQS outage leaves durable outbox recoverable without a new receipt", async () => {
+  const store = new InMemoryAccountDeletionWorkflowStore();
+  const vault = new RecipientVault();
+  const failing = new Dispatcher();
+  failing.fail = true;
+  const harness = fixture({
+    store,
+    recipientVault: vault,
+    dispatcher: failing,
+  });
+  const preflight = await harness.workflow.preflight({
+    ownerSubject: subject,
+    ownerKey: "owner-outbox",
+    idempotencyKey: "preflight-outbox",
+    locale: "en",
+    requestedExport: false,
+    recentAuthentication: true,
+  });
+  const accepted = await harness.workflow.confirm({
+    requestId: preflight.record.requestId,
+    ownerSubject: subject,
+    verifiedEmail: email,
+    ownerKey: "owner-outbox",
+    recentAuthentication: true,
+    irreversibleAccepted: true,
+    discardUnsyncedAccepted: false,
+    cancelRenewalAccepted: false,
+    confirmationIdempotencyKey: "confirmation-outbox",
+  });
+  assert.equal(accepted.record.status, "requested");
+  assert.equal((await store.pendingDispatches(10)).length, 1);
+
+  const recoveredDispatcher = new Dispatcher();
+  const result = await new AccountDeletionOutboxRecovery(
+    store,
+    recoveredDispatcher,
+    vault,
+  ).recover();
+  assert.deepEqual(result, { inspected: 1, dispatched: 1, failed: 0 });
+  assert.equal(recoveredDispatcher.delivered, 1);
+  assert.equal((await store.pendingDispatches(10)).length, 0);
+  assert.equal(
+    (await store.findByRequestId(preflight.record.requestId))?.dispatchStatus,
+    "dispatched",
+  );
+  assert.equal(
+    await vault.recoverReceipt(preflight.record.requestId),
+    accepted.receipt,
+  );
 });
 
 test("AUT-19 rejects expired authentication and missing offline-loss consent", async () => {
@@ -228,6 +418,7 @@ test("AUT-19 rejects expired authentication and missing offline-loss consent", a
       irreversibleAccepted: true,
       discardUnsyncedAccepted: false,
       cancelRenewalAccepted: false,
+      confirmationIdempotencyKey: "confirmation-key-0002",
     }),
     /Pending local changes/,
   );
@@ -250,6 +441,87 @@ test("INF-19 completes only after executor verification and exposes receipt stat
     (await harness.guard.evaluateIdentity(subject)).state,
     "deleted",
   );
+});
+
+test("INF-19 notification outages never block receipt/status or regress completion", async () => {
+  const notifier = new Notifier();
+  notifier.failAccepted = true;
+  notifier.failCompleted = true;
+  const harness = fixture({ notifier });
+  const preflight = await harness.workflow.preflight({
+    ownerSubject: subject,
+    ownerKey: "owner-without-email",
+    idempotencyKey: "request-without-email",
+    locale: "es",
+    requestedExport: false,
+    recentAuthentication: true,
+  });
+  const accepted = await harness.workflow.confirm({
+    requestId: preflight.record.requestId,
+    ownerSubject: subject,
+    verifiedEmail: email,
+    ownerKey: "owner-without-email",
+    recentAuthentication: true,
+    irreversibleAccepted: true,
+    discardUnsyncedAccepted: false,
+    cancelRenewalAccepted: false,
+    confirmationIdempotencyKey: "confirmation-without-email",
+  });
+  assert.equal(accepted.record.status, "requested");
+  assert.equal(
+    (await harness.workflow.byReceipt(accepted.receipt))?.status,
+    "requested",
+  );
+
+  harness.advance(accountDeletionWriteQuiescenceMs);
+  const completed = await harness.workflow.process({
+    requestId: accepted.record.requestId,
+    ownerSubject: subject,
+  });
+  assert.equal(completed.status, "completed");
+  assert.equal(
+    (await harness.workflow.byReceipt(accepted.receipt))?.status,
+    "completed",
+  );
+  assert.equal(notifier.accepted, 1);
+  assert.equal(notifier.completed, 1);
+});
+
+test("INF-17 inventory waits until every previously issued S3 upload URL expires", async () => {
+  const harness = fixture();
+  const preflight = await harness.workflow.preflight({
+    ownerSubject: subject,
+    ownerKey: "owner-quiescence",
+    idempotencyKey: "request-quiescence",
+    locale: "es",
+    requestedExport: false,
+    recentAuthentication: true,
+  });
+  const accepted = await harness.workflow.confirm({
+    requestId: preflight.record.requestId,
+    ownerSubject: subject,
+    verifiedEmail: email,
+    ownerKey: "owner-quiescence",
+    recentAuthentication: true,
+    irreversibleAccepted: true,
+    discardUnsyncedAccepted: false,
+    cancelRenewalAccepted: false,
+    confirmationIdempotencyKey: "confirmation-quiescence",
+  });
+  await assert.rejects(
+    harness.workflow.process({
+      requestId: accepted.record.requestId,
+      ownerSubject: subject,
+    }),
+    AccountDeletionQuiescencePendingError,
+  );
+  assert.equal(harness.executor.executions, 0);
+  harness.advance(accountDeletionWriteQuiescenceMs);
+  const completed = await harness.workflow.process({
+    requestId: accepted.record.requestId,
+    ownerSubject: subject,
+  });
+  assert.equal(completed.status, "completed");
 });
 
 test("INF-19 keeps a partial failure blocked and permits a later retry", async () => {
@@ -296,6 +568,7 @@ test("RNF-09 fails closed when DynamoDB barrier acceptance fails", async () => {
       irreversibleAccepted: true,
       discardUnsyncedAccepted: false,
       cancelRenewalAccepted: false,
+      confirmationIdempotencyKey: "confirmation-key-0003",
     }),
     AccountDeletionGuardUnavailableError,
   );
@@ -321,6 +594,7 @@ test("FL-021 dependency never reports an active Stripe subscription canceled", a
       irreversibleAccepted: true,
       discardUnsyncedAccepted: false,
       cancelRenewalAccepted: true,
+      confirmationIdempotencyKey: "confirmation-key-0004",
     }),
     /payments/,
   );
@@ -373,6 +647,8 @@ test("workflow store never exposes another owner's current request", async () =>
     receiptExpiresAt: null,
     supportCode: null,
     barrier: null,
+    confirmationIdempotencyKey: null,
+    dispatchStatus: "not_required",
     subscription: {
       status: "none",
       cancellationRequired: false,
