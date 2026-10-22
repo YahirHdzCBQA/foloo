@@ -11,6 +11,8 @@ Los ADR aceptados complementan, pero no sustituyen, el alcance V1.
   o Microsoft; `D-14`–`D-20` quedaron resueltas el 2026-09-18.
 - ADR-007: frontera OAuth, almacenamiento de credenciales, egreso y
   anti-duplicados para FL-019.
+- ADR-008: cobro en la web con Stripe Checkout; la app solo informa.
+- ADR-009: Sign in with Apple y retoma de Microsoft Sign-In vía Cognito.
 - Pendientes: retención/eliminación de medios, compliance postal y pagos.
 - Account Deletion tiene seis decisiones agrupadas todavía **no aceptadas** en
   [`ADR-AD-account-deletion-candidates.md`](ADR-AD-account-deletion-candidates.md):

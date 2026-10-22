@@ -94,13 +94,17 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 - Suscripción: estado server-side por cuenta, trial consumido, vigencia y caché
   local verificable. No se define aquí proveedor o política de tienda.
 
+> Nota de integración STORE-02 / ADR-008 / ADR-009: se conservan ambos
+> alcances. `AUT-22`–`AUT-24` y `MON-14` tienen asignaciones concurrentes;
+> identificar también la sección y el ADR al citarlos hasta reconciliar las trazas.
+
 ## 4. Requerimientos funcionales
 
 ### 4.1 Autenticación y perfil
 
 | ID | Requerimiento |
 |---|---|
-| `AUT-01` | Runtime normal autentica con AWS Cognito por email/contraseña o Google federado; la UI no llama Cognito ni reutiliza OAuth de correo directamente. Cognito continúa siendo el único issuer aceptado por Foloo y su backend. Microsoft Sign-In/OIDC queda temporalmente fuera de esta versión. |
+| `AUT-01` | Runtime normal autentica con AWS Cognito por email/contraseña o Google federado; la UI no llama Cognito ni reutiliza OAuth de correo directamente. Cognito continúa siendo el único issuer aceptado por Foloo y su backend. Apple (ADR-009, `AUT-22`) y Microsoft (`AUT-17`) se agregan como proveedores federados de Cognito. |
 | `AUT-02` | La sesión válida se restaura al abrir sin pedir login de nuevo; perder red no equivale a logout. |
 | `AUT-03` | La persona puede mostrar/ocultar la contraseña y recibe errores de dominio ES/EN, nunca mensajes AWS crudos; el error de contraseña débil describe la política Cognito vigente sin reemplazar su validación autoritativa. |
 | `AUT-04` | Login y Crear cuenta ofrecen email/contraseña y Google en la misma arquitectura Cognito. El alta local acepta cualquier correo válido admitido por Cognito —incluidos Gmail, Outlook, Hotmail y dominios empresariales— y solicita solo email y una contraseña propia de Foloo, independiente del proveedor del buzón. Cada acción Google explícita solicita elegir cuenta cuando el IdP lo admite. |
@@ -117,6 +121,9 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `AUT-15` | La identidad Google usada para entrar a Foloo y cualquier cuenta Google/Microsoft autorizada para enviar follow-ups son consentimientos y sesiones independientes; registrarse con Google nunca conecta automáticamente el sender. Microsoft puede seguir siendo proveedor de correo sin estar habilitado como método de autenticación Foloo. |
 | `AUT-16` | Tu perfil inicia vacío para una cuenta sin perfil y usa únicamente nombre/empresa/foto introducidos por la persona; no presenta identidades demo como defaults o fallbacks runtime. |
 | `AUT-17` | Microsoft Sign-In/OIDC queda temporalmente fuera del alcance de esta versión. La integración presentó conflictos de issuer durante la federación Cognito con Microsoft Entra y se retomará en una iteración posterior. La opción no se muestra en Login ni Crear cuenta; el código reutilizable puede conservarse sin convertirse en una ruta disponible. |
+| `AUT-22` | (ADR-009) Login y Crear cuenta ofrecen Sign in with Apple como proveedor federado de Cognito; es obligatorio en iOS mientras exista Google. El `sub` de Cognito sigue siendo owner; el email, que puede ser un relay de Apple, solo se muestra y nunca une cuentas. |
+| `AUT-23` | Microsoft Sign-In se retoma como OIDC de Cognito con issuer fijo de cuentas personales (**Proposed** hasta validarlo en DEV). Las cuentas de trabajo/escuela no están garantizadas. |
+| `AUT-24` | Si falta la configuración de un proveedor, su botón informa un error recuperable ES/EN y no rompe email/contraseña ni los otros proveedores. |
 
 ### 4.2 Eventos y origen
 
@@ -293,6 +300,14 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `MON-11` | Si varios dispositivos consumen offline el mismo saldo, cada uno preserva sus Leads locales; al reconectar el servidor acepta solo el saldo autoritativo y los excedentes quedan visibles con error recuperable, sin pérdida ni duplicación. |
 | `MON-12` | FL-020.5 permite suspender temporalmente solo el bloqueo de nuevas capturas en builds QA conectados a AWS DEV mediante opt-in explícito y coincidente en Flutter/backend. La excepción no concede `active`, no altera pagos ni incrementa/reinicia `trialLeadsUsed`; desactivada, `MON-01`–`MON-11` vuelven a regir. Leads creados durante QA permanecen visibles, editables, exportables y sincronizables. |
 | `MON-13` | Si una cuenta con suscripción PRO contratada mediante `foloo.io` solicita eliminación, Foloo informa el efecto comercial, solicita cancelar futuras renovaciones mediante el proveedor aprobado y verifica el resultado antes de comunicar éxito. Eliminación no implica reembolso ni fin inmediato del periodo pagado. Proveedor, estados, reembolsos, retención contable y canal transaccional siguen bloqueados por `D-01`–`D-04` y FL-021. |
+
+| `MON-14` | (ADR-008) La app es informativa en `trial_exhausted`/`expired`: explica que se alcanzó el límite y que la cuenta se administra en la web. No muestra precio, las palabras pagar/comprar/upgrade/suscribirse, ni botón o enlace al sitio. |
+| `MON-15` | El cobro se hace en la web con Stripe Checkout alojado. El backend crea la sesión para la cuenta derivada del `sub` del JWT; el cliente no envía cuenta, precio ni estado. |
+| `MON-16` | Solo el webhook de Stripe con firma válida puede pasar la cuenta a `active` o `expired`. Eventos repetidos se ignoran por `event.id`. Ningún dato capturado se borra por un cambio de estado (`MON-07`). |
+| `MON-17` | La cancelación y el cambio de tarjeta usan el Customer Portal de Stripe, abierto desde la web para la cuenta autenticada. |
+| `MON-18` | Precio y moneda (`D-02`) son un Price ID de configuración; sin él, el backend responde `billing_not_configured` y no crea cobros. Claves y secretos de Stripe solo en Secrets Manager. |
+| `MON-19` | Si la cuenta tiene cupo de trial, Checkout no es necesario; una cuenta ya `active` no puede crear otra sesión de Checkout y recibe el portal. |
+| `MON-20` | La variante con compra nativa (StoreKit/Play Billing) es **Proposed** y no forma parte de esta versión (ADR-008). |
 
 ### 4.10 Eliminación integral de cuenta
 

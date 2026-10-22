@@ -24,7 +24,7 @@ import * as events from "aws-cdk-lib/aws-events";
 import * as eventTargets from "aws-cdk-lib/aws-events-targets";
 import type { Construct } from "constructs";
 
-import type { EnvironmentConfig } from "./config.js";
+import { validateBillingConfig, type EnvironmentConfig } from "./config.js";
 import { AccountDeletionLedgerInfrastructure } from "./account_deletion_ledger_infrastructure.js";
 import { WebSessionInfrastructure } from "./web_session_infrastructure.js";
 
@@ -45,6 +45,7 @@ export class FolooBackendStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: FolooBackendStackProps) {
     super(scope, id, props);
     const { config } = props;
+    validateBillingConfig(config);
 
     const userPool = cognito.UserPool.fromUserPoolId(
       this,
@@ -661,6 +662,62 @@ export class FolooBackendStack extends cdk.Stack {
       accountDeletion.queue.queueUrl,
     );
     providerFunction.grantInvoke(apiFunction);
+    // MON-15–MON-18: Stripe has public egress; API retains its isolated VPC.
+    const stripeSecret = config.stripeSecretName
+      ? secretsmanager.Secret.fromSecretNameV2(
+          this,
+          "StripeSecret",
+          config.stripeSecretName,
+        )
+      : undefined;
+    const webhookSecret = config.stripeWebhookSecretName
+      ? secretsmanager.Secret.fromSecretNameV2(
+          this,
+          "StripeWebhookSecret",
+          config.stripeWebhookSecretName,
+        )
+      : undefined;
+    const billingLogGroup = new logs.LogGroup(this, "BillingProviderLogGroup", {
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+    const billingFunction = new lambdaNode.NodejsFunction(
+      this,
+      "BillingProviderFunction",
+      {
+        entry: join(
+          import.meta.dirname,
+          "../src/billing/billing_provider_lambda.ts",
+        ),
+        handler: "handler",
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        memorySize: 512,
+        timeout: cdk.Duration.seconds(12),
+        logGroup: billingLogGroup,
+        environment:
+          config.billingEnabled && stripeSecret
+            ? { STRIPE_SECRET_ARN: stripeSecret.secretName }
+            : {},
+        bundling: { minify: true, sourceMap: true },
+      },
+    );
+    stripeSecret?.grantRead(billingFunction);
+    webhookSecret?.grantRead(apiFunction);
+    billingFunction.grantInvoke(apiFunction);
+    const billingEnvironment = {
+      BILLING_PROVIDER_FUNCTION_NAME: billingFunction.functionName,
+      STRIPE_SECRET_ARN: stripeSecret?.secretName,
+      STRIPE_WEBHOOK_SECRET_ARN: webhookSecret?.secretName,
+      STRIPE_PRICE_ID: config.stripePriceId,
+      BILLING_SUCCESS_URL: config.billingSuccessUrl,
+      BILLING_CANCEL_URL: config.billingCancelUrl,
+      BILLING_PORTAL_RETURN_URL: config.billingPortalReturnUrl,
+    };
+    for (const [key, value] of Object.entries(billingEnvironment)) {
+      if (config.billingEnabled && value)
+        apiFunction.addEnvironment(key, value);
+    }
     const lambdaEndpointSg = new ec2.SecurityGroup(
       this,
       "LambdaEndpointSecurityGroup",
@@ -917,6 +974,33 @@ export class FolooBackendStack extends cdk.Stack {
         integration,
       });
     }
+    const [billingWebhookRoute] = api.addRoutes({
+      path: "/v1/billing/webhook",
+      methods: [apigateway.HttpMethod.POST],
+      integration,
+    });
+    for (const path of [
+      "/v1/billing/checkout-session",
+      "/v1/billing/portal-session",
+    ]) {
+      api.addRoutes({
+        path,
+        methods: [apigateway.HttpMethod.POST],
+        integration,
+        authorizer,
+      });
+    }
+    // The stage must wait for the route, or API Gateway rejects its settings.
+    defaultStage.addResourceDependency(
+      billingWebhookRoute!.node.defaultChild as apigateway.CfnRoute,
+    );
+    defaultStage.addPropertyOverride("RouteSettings.POST /v1/billing/webhook", {
+      ThrottlingBurstLimit: 20,
+      ThrottlingRateLimit: 10,
+    });
+    new cdk.CfnOutput(this, "BillingWebhookUrl", {
+      value: `${api.apiEndpoint}/v1/billing/webhook`,
+    });
     new cdk.CfnOutput(this, "ApiUrl", { value: api.apiEndpoint });
     new cdk.CfnOutput(this, "WebUserPoolClientId", {
       value: webUserPoolClient.userPoolClientId,

@@ -200,3 +200,40 @@ export const mediaSchema = mediaBaseSchema.superRefine((value, context) => {
     });
   }
 });
+
+/** MON-15: all client billing payload fields are deliberately discarded. */
+export const billingRequestSchema = z.unknown().transform(() => ({}));
+/** MON-16: validate signed snapshot fields before any SQL mutation. */
+export const billingEventSchema = z.object({
+  created: z.number().int().nonnegative(),
+  id: z.string().min(1),
+  type: z.string().min(1),
+  data: z.object({ object: z.record(z.string(), z.unknown()) }),
+});
+export const billingCheckoutSchema = z.object({
+  mode: z.literal("subscription"),
+  payment_status: z.string(),
+  metadata: z.object({ sub: z.string(), origin: z.string().optional() }),
+  line_items: z
+    .object({
+      data: z.array(z.object({ price: z.object({ id: z.string() }) })),
+    })
+    .optional(),
+  client_reference_id: z.uuid(),
+  customer: z.string().min(1),
+  subscription: z.string().min(1),
+});
+export const billingSubscriptionSchema = z.object({
+  metadata: z.object({ accountId: z.string().optional() }).optional(),
+  id: z.string().min(1),
+  customer: z.string().min(1),
+  status: z.string(),
+  current_period_end: z.number().int().nonnegative().optional(),
+  items: z
+    .object({
+      data: z.array(
+        z.object({ current_period_end: z.number().int().nonnegative() }),
+      ),
+    })
+    .optional(),
+});

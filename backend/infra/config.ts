@@ -2,6 +2,7 @@
 
 export type EnvironmentConfig = {
   name: "dev";
+  billingEnabled: boolean;
   region: "us-east-1";
   userPoolId: string;
   appClientId: string;
@@ -18,36 +19,77 @@ export type EnvironmentConfig = {
       idleDurationSeconds: number;
     };
   };
+  stripeSecretName?: string;
+  stripeWebhookSecretName?: string;
+  stripePriceId?: string;
+  billingSuccessUrl?: string;
+  billingCancelUrl?: string;
+  billingPortalReturnUrl?: string;
 };
 
-const dev: EnvironmentConfig = {
-  name: "dev",
-  region: "us-east-1",
-  userPoolId: "us-east-1_QVm3dWe4O",
-  appClientId: "6jong3atp2crqcsde6g215ant8",
-  databaseName: "foloo",
-  webAuth: {
-    callbackUrls: [
-      "https://foloo.io/auth/callback",
-      "https://foloo.io/api/auth/google/callback",
-    ],
-    bffCallbackUrl: "https://foloo.io/api/auth/google/callback",
-    logoutUrls: ["https://foloo.io/login"],
-    allowedOrigins: ["https://foloo.io"],
-    cognitoDomain: "us-east-1qvm3dwe4o.auth.us-east-1.amazoncognito.com",
-    successRedirectPath: "/dashboard",
-    // FOL-AUTH-02 provisional DEV defaults; Security must approve activation.
-    sessionPolicy: {
-      absoluteDurationSeconds: 12 * 60 * 60,
-      idleDurationSeconds: 30 * 60,
-    },
-  },
-};
-
-export function environmentConfig(name: string): EnvironmentConfig {
+export function environmentConfig(
+  name: string,
+  env: NodeJS.ProcessEnv = process.env,
+): EnvironmentConfig {
   if (name !== "dev")
     throw new Error(`Environment ${name} has no approved configuration.`);
-  return dev;
+  if (env.BILLING_ENABLED && !["true", "false"].includes(env.BILLING_ENABLED))
+    throw new Error("BILLING_ENABLED must be true or false.");
+  const config: EnvironmentConfig = {
+    name: "dev",
+    region: "us-east-1",
+    userPoolId: "us-east-1_QVm3dWe4O",
+    appClientId: "6jong3atp2crqcsde6g215ant8",
+    databaseName: "foloo",
+    webAuth: {
+      callbackUrls: [
+        "https://foloo.io/auth/callback",
+        "https://foloo.io/api/auth/google/callback",
+      ],
+      bffCallbackUrl: "https://foloo.io/api/auth/google/callback",
+      logoutUrls: ["https://foloo.io/login"],
+      allowedOrigins: ["https://foloo.io"],
+      cognitoDomain: "us-east-1qvm3dwe4o.auth.us-east-1.amazoncognito.com",
+      successRedirectPath: "/dashboard",
+      // FOL-AUTH-02 provisional DEV defaults; Security must approve activation.
+      sessionPolicy: {
+        absoluteDurationSeconds: 12 * 60 * 60,
+        idleDurationSeconds: 30 * 60,
+      },
+    },
+    billingEnabled: env.BILLING_ENABLED !== "false",
+    stripeSecretName: "foloo/dev/stripe-api-key",
+    stripeWebhookSecretName: "foloo/dev/stripe-webhook-signing",
+    // Stripe test mode: "Foloo Pro (prueba)" 99 USD/month; env overrides.
+    stripePriceId: env.STRIPE_PRICE_ID ?? "price_1UTTLKCp0Un1sf9uyTk4w9NN",
+    billingSuccessUrl:
+      env.BILLING_SUCCESS_URL ?? "https://foloo.io/dashboard?billing=success",
+    billingCancelUrl:
+      env.BILLING_CANCEL_URL ?? "https://foloo.io/dashboard?billing=cancel",
+    billingPortalReturnUrl:
+      env.BILLING_PORTAL_RETURN_URL ?? "https://foloo.io/dashboard",
+  };
+  validateBillingConfig(config);
+  return config;
+}
+
+export function validateBillingConfig(config: EnvironmentConfig) {
+  if (!config.billingEnabled) return;
+  const required = {
+    STRIPE_PRICE_ID: config.stripePriceId,
+    BILLING_SUCCESS_URL: config.billingSuccessUrl,
+    BILLING_CANCEL_URL: config.billingCancelUrl,
+    BILLING_PORTAL_RETURN_URL: config.billingPortalReturnUrl,
+    stripeSecretName: config.stripeSecretName,
+    stripeWebhookSecretName: config.stripeWebhookSecretName,
+  };
+  const missing = Object.entries(required)
+    .filter(([, value]) => !value?.trim())
+    .map(([key]) => key);
+  if (missing.length)
+    throw new Error(
+      `Billing enabled: missing ${missing.join(", ")}. Supply values or explicitly set BILLING_ENABLED=false.`,
+    );
 }
 
 /** Allows the temporary unlimited switch only in an explicitly selected DEV stack. */

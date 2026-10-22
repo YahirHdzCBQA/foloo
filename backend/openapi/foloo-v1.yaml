@@ -11,6 +11,73 @@ servers:
 security:
   - cognitoJwt: []
 paths:
+  /billing/checkout-session:
+    post:
+      operationId: createBillingCheckoutSession
+      description: MON-15/MON-19. Creates hosted subscription Checkout for the JWT sub. Body is ignored; account, price and return URLs are server-owned.
+      responses:
+        "200":
+          description: Stripe hosted session URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url: { type: string, format: uri }
+        "401": { $ref: "#/components/responses/ErrorResponse" }
+        "409":
+          description: Account active or Stripe customer has an active, trialing or past_due subscription; use the billing portal.
+        "503":
+          description: billing_not_configured or billing_provider_unavailable.
+  /billing/portal-session:
+    post:
+      operationId: createBillingPortalSession
+      description: MON-17. Creates Customer Portal for the authenticated account; request body is ignored.
+      responses:
+        "200":
+          description: Stripe Customer Portal URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url: { type: string, format: uri }
+        "401": { $ref: "#/components/responses/ErrorResponse" }
+        "404":
+          description: Account has no Stripe customer.
+        "503":
+          description: billing_not_configured or billing_provider_unavailable.
+  /billing/webhook:
+    post:
+      security: []
+      operationId: receiveStripeWebhook
+      description: MON-16/MON-07. Verifies Stripe signature over raw body, including base64 transport. Snapshot events are deduplicated atomically with account changes. Older snapshots cannot reverse newer state. Checkout activates only paid/no_payment_required sessions with matching sub/account and configured price or foloo-app origin. Foreign subscriptions, payment-mode sessions, unknown types and nonterminal invoice failures are acknowledged. Existing leads remain intact.
+      parameters:
+        - name: Stripe-Signature
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          description: Event processed, already received, or ignored.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [received]
+                properties:
+                  received: { type: boolean, enum: [true] }
+        "400":
+          description: Invalid webhook; no signature details are exposed.
+        "503":
+          description: Webhook secret is not configured/unavailable, or a known subscription is awaiting account binding; Stripe should retry.
   /email/connection:
     get:
       operationId: getEmailConnection

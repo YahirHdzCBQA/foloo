@@ -12,6 +12,13 @@ Producto/CBQA comunicó la dirección de gestionar suscripciones y pagos desde
 cómo esa comercialización, enlace o comunicación externa está permitida por
 región y tienda, además del proveedor definitivo.
 
+**Estado 2026-10-21:** Producto aprobó la variante A de ADR-008 (cobro web con
+Stripe Checkout; la app solo informa, sin precio ni enlace). Queda abierta la
+variante B (compra nativa) si las tiendas rechazan la A.
+
+**Pregunta:** compra in-app, pago externo en navegador o external purchase link
+permitido por región/tienda.
+
 **Bloquea:** compra/checkout de FL-021, confirmación y revisión de tiendas. No
 bloquea el enforcement ni el paywall informativo sin precio de FL-020.
 
@@ -96,6 +103,9 @@ in-app/web y las declaraciones finales App Privacy/Data Safety. No bloquea la
 documentación preliminar ni permite omitir la eliminación exigida por tiendas.
 
 ### `D-21` · Alternativa equivalente para Google Sign-In en iOS
+
+**Estado 2026-10-21:** aprobado Sign in with Apple vía Cognito (ADR-009).
+Falta la configuración en Apple Developer y Cognito.
 
 **Pregunta:** aprobar Sign in with Apple mediante Cognito o retirar Google
 Sign-In de iOS. La lectura conservadora de Apple 4.8 no considera suficiente el
