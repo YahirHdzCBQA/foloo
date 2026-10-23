@@ -307,7 +307,7 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 ## E-11 · Trial y suscripción
 
-**Trazas:** `MON-01`–`MON-12`, Constitución Art. 9.
+**Trazas:** `MON-01`–`MON-12`, `MON-14`–`MON-20`, Constitución Art. 9.
 
 - Leads 1–5 se guardan; el sexto conserva borrador y abre paywall.
 - Evento y Directo consumen un uso histórico; borrar, tombstonear, reiniciar o
@@ -331,6 +331,27 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Sin ambos opt-ins, el sexto Lead vuelve a conservar el borrador y abrir el
   paywall original. Desactivar Unlimited nunca borra ni oculta los Leads ya
   creados; antes de apagar el backend se sincroniza la cola QA pendiente.
+- (`MON-14`) Con `trial_exhausted` o `expired`, el aviso de la app explica que
+  se alcanzó el límite y que la cuenta se administra en la web; no muestra
+  precio, pagar/comprar/upgrade/suscribirse, botón ni enlace.
+- (`MON-15`) Checkout con JWT válido crea la sesión para la cuenta del `sub`;
+  cuenta, precio o URLs enviados en el cuerpo se ignoran. Dos intentos
+  concurrentes reutilizan un solo customer de Stripe.
+- (`MON-16`) Un webhook con firma válida sobre el cuerpo crudo (también en
+  base64) activa solo la cuenta de `client_reference_id`; firma ausente,
+  alterada o vieja responde 400 sin escribir. Entregas repetidas o
+  concurrentes aplican una sola vez; si la transacción falla, el reintento
+  aplica. `customer.subscription.deleted` vence la cuenta sin borrar ni ocultar
+  Leads; eventos fuera de orden no reviven una cuenta vencida.
+- (`MON-17`) Portal abre con el customer de la cuenta autenticada; sin customer
+  responde 404.
+- (`MON-18`) Sin Price ID el backend responde 503 `billing_not_configured` y no
+  crea cobros; sin firma rechaza antes de leer secretos; synth falla si billing
+  está habilitado sin precio, URLs o nombres de secretos.
+- (`MON-19`) Una cuenta `active`, o con suscripción viva en Stripe aunque el
+  estado local esté atrasado, recibe 409 con indicación de Portal en vez de
+  otro Checkout.
+- (`MON-20`) No existe compra nativa en la app; la variante queda Proposed.
 
 ## E-12 · Shell, idioma, seguridad y salida
 
