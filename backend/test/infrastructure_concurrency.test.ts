@@ -187,9 +187,20 @@ test("FL-021 MON-16/MON-18 billing has public egress, scoped secrets and signed 
     billing.Properties.Environment.Variables.STRIPE_WEBHOOK_SECRET_ARN,
     undefined,
   );
-  const routes = Object.values(
+  // API Gateway rejects RouteSettings for a route that does not exist yet.
+  const routeEntries = Object.entries(
     template.findResources("AWS::ApiGatewayV2::Route"),
   );
+  const webhookRouteId = routeEntries.find(
+    ([, item]) => item.Properties.RouteKey === "POST /v1/billing/webhook",
+  )?.[0];
+  assert.ok(webhookRouteId);
+  const stages = Object.values(
+    template.findResources("AWS::ApiGatewayV2::Stage"),
+  ).filter((item) => item.Properties.RouteSettings);
+  assert.equal(stages.length, 1);
+  assert.ok([stages[0]!.DependsOn ?? []].flat().includes(webhookRouteId));
+  const routes = routeEntries.map(([, item]) => item);
   for (const endpoint of ["checkout-session", "portal-session", "webhook"]) {
     const route = routes.find(
       (item) => item.Properties.RouteKey === `POST /v1/billing/${endpoint}`,
