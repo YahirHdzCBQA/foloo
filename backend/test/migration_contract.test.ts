@@ -67,3 +67,24 @@ test("FL-020 stores constrained historical trial consumption on accounts", async
   assert.match(sql, /LEAST\(COUNT\(l\.id\), 5\)/);
   assert.doesNotMatch(sql, /DELETE FROM leads|DROP TABLE|DROP COLUMN/i);
 });
+
+test("FL-021 MON-16 migration provides atomic deduplication without deleting data", async () => {
+  const sql = await readFile(
+    new URL("../migrations/011_billing_stripe.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(sql, /BEGIN;/);
+  assert.match(sql, /COMMIT;/);
+  assert.match(sql, /stripe_customer_id text UNIQUE/);
+  assert.match(sql, /stripe_subscription_id text/);
+  assert.match(sql, /billing_event_at timestamptz/);
+  assert.match(sql, /REVOKE UPDATE, DELETE ON billing_events FROM foloo_app/);
+  assert.doesNotMatch(
+    sql,
+    /^GRANT[^;]*(UPDATE|DELETE)[^;]*ON billing_events/im,
+  );
+  assert.match(sql, /current_period_end timestamptz/);
+  assert.match(sql, /event_id text PRIMARY KEY/);
+  assert.match(sql, /GRANT SELECT, INSERT ON billing_events TO foloo_app/);
+  assert.doesNotMatch(sql, /DELETE FROM|DROP TABLE|DROP COLUMN/i);
+});

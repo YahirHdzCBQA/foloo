@@ -12,6 +12,13 @@ Producto/CBQA comunicó la dirección de gestionar suscripciones y pagos desde
 cómo esa comercialización, enlace o comunicación externa está permitida por
 región y tienda, además del proveedor definitivo.
 
+**Estado 2026-10-21:** Producto aprobó la variante A de ADR-008 (cobro web con
+Stripe Checkout; la app solo informa, sin precio ni enlace). Queda abierta la
+variante B (compra nativa) si las tiendas rechazan la A.
+
+**Pregunta:** compra in-app, pago externo en navegador o external purchase link
+permitido por región/tienda.
+
 **Bloquea:** compra/checkout de FL-021, confirmación y revisión de tiendas. No
 bloquea el enforcement ni el paywall informativo sin precio de FL-020.
 

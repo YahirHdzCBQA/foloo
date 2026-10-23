@@ -9,7 +9,8 @@ import pg from "pg";
 import { applyMigrations, ensureApplicationRole } from "./migration_runner.js";
 
 type Secret = { username: string; password: string };
-type MigrationEvent = { action?: "apply" | "status" };
+// `only` applies one named pending migration, leaving earlier pending ones untouched.
+type MigrationEvent = { action?: "apply" | "status"; only?: string };
 
 export type AccountDeletionMigrationStatus = Readonly<{
   migrationApplied: boolean;
@@ -78,6 +79,7 @@ export async function handler(
       applied: await applyMigrations(
         pool,
         process.env.MIGRATIONS_DIR ?? "/var/task/migrations",
+        event.only,
       ),
     };
   } finally {

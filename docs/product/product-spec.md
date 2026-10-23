@@ -293,6 +293,13 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `MON-11` | Si varios dispositivos consumen offline el mismo saldo, cada uno preserva sus Leads locales; al reconectar el servidor acepta solo el saldo autoritativo y los excedentes quedan visibles con error recuperable, sin pérdida ni duplicación. |
 | `MON-12` | FL-020.5 permite suspender temporalmente solo el bloqueo de nuevas capturas en builds QA conectados a AWS DEV mediante opt-in explícito y coincidente en Flutter/backend. La excepción no concede `active`, no altera pagos ni incrementa/reinicia `trialLeadsUsed`; desactivada, `MON-01`–`MON-11` vuelven a regir. Leads creados durante QA permanecen visibles, editables, exportables y sincronizables. |
 | `MON-13` | Si una cuenta con suscripción PRO contratada mediante `foloo.io` solicita eliminación, Foloo informa el efecto comercial, solicita cancelar futuras renovaciones mediante el proveedor aprobado y verifica el resultado antes de comunicar éxito. Eliminación no implica reembolso ni fin inmediato del periodo pagado. Proveedor, estados, reembolsos, retención contable y canal transaccional siguen bloqueados por `D-01`–`D-04` y FL-021. |
+| `MON-14` | (ADR-008) La app es informativa en `trial_exhausted`/`expired`: explica que se alcanzó el límite y que la cuenta se administra en la web. No muestra precio, las palabras pagar/comprar/upgrade/suscribirse, ni botón o enlace al sitio. |
+| `MON-15` | El cobro se hace en la web con Stripe Checkout alojado. El backend crea la sesión para la cuenta derivada del `sub` del JWT; el cliente no envía cuenta, precio ni estado. |
+| `MON-16` | Solo el webhook de Stripe con firma válida puede pasar la cuenta a `active` o `expired`. Eventos repetidos se ignoran por `event.id`. Ningún dato capturado se borra por un cambio de estado (`MON-07`). |
+| `MON-17` | La cancelación y el cambio de tarjeta usan el Customer Portal de Stripe, abierto desde la web para la cuenta autenticada. |
+| `MON-18` | Precio y moneda (`D-02`) son un Price ID de configuración; sin él, el backend responde `billing_not_configured` y no crea cobros. Claves y secretos de Stripe solo en Secrets Manager. |
+| `MON-19` | Si la cuenta tiene cupo de trial, Checkout no es necesario; una cuenta ya `active` no puede crear otra sesión de Checkout y recibe el portal. |
+| `MON-20` | La variante con compra nativa (StoreKit/Play Billing) es **Proposed** y no forma parte de esta versión (ADR-008). |
 
 ### 4.10 Eliminación integral de cuenta
 

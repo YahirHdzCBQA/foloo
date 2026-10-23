@@ -6,6 +6,8 @@ import type {
 } from "aws-lambda";
 import { z } from "zod";
 
+import { BillingApplication } from "../billing/billing_application.js";
+import { billingNotConfigured } from "../billing/secrets.js";
 import { ApplicationError } from "../application/errors.js";
 import { FolooApplication } from "../application/foloo_application.js";
 import { EmailApplication } from "../email/email_application.js";
@@ -20,6 +22,7 @@ import type { ApiClientAccessGuard } from "../auth/api_client_access_guard.js";
 import type { AccountDeletionHttpController } from "../account_deletion/account_deletion_http.js";
 import { requestHash } from "../persistence/postgres_repository.js";
 import {
+  billingRequestSchema,
   eventSchema,
   eventUpdateSchema,
   eventDeleteSchema,
@@ -134,6 +137,7 @@ export function createRouter(
   accountDeletion?: AccountDeletionHttpController,
   accountDeletionAccessGuard?: { assertActive(subject: string): Promise<void> },
   apiClientAccessGuard?: ApiClientAccessGuard,
+  billingApplication?: BillingApplication,
 ) {
   return async (
     event: APIGatewayProxyEventV2WithJWTAuthorizer,
@@ -170,8 +174,37 @@ export function createRouter(
         body: "<!doctype html><meta charset=utf-8><title>Foloo</title><p>Correo conectado. Puedes regresar a Foloo.</p><p>Email connected. You can return to Foloo.</p>",
       };
     }
+    if (method === "POST" && path === "/v1/billing/webhook") {
+      if (!billingApplication) throw billingNotConfigured();
+      const raw = Buffer.from(
+        event.body ?? "",
+        event.isBase64Encoded ? "base64" : "utf8",
+      );
+      return json(
+        200,
+        await billingApplication.webhook(
+          raw,
+          header(event, "stripe-signature"),
+        ),
+      );
+    }
     const subject = authenticatedSubject(event);
     await accountDeletionAccessGuard?.assertActive(subject);
+    if (
+      method === "POST" &&
+      ["/v1/billing/checkout-session", "/v1/billing/portal-session"].includes(
+        path,
+      )
+    ) {
+      if (!billingApplication) throw billingNotConfigured();
+      billingRequestSchema.parse(event.body);
+      return json(
+        200,
+        path.endsWith("/checkout-session")
+          ? await billingApplication.checkout(subject)
+          : await billingApplication.portal(subject),
+      );
+    }
 
     if (method === "GET" && path === "/v1/workspace")
       return json(200, { data: await application.workspace(subject) });

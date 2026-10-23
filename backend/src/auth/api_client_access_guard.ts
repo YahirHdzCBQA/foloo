@@ -85,6 +85,8 @@ function numericClaim(value: unknown): number | undefined {
 function isPublicRoute(method: string, path: string): boolean {
   return (
     (method === "POST" && path === "/v1/account-deletion-status") ||
+    // Stripe calls it without a JWT; the router verifies the Stripe signature.
+    (method === "POST" && path === "/v1/billing/webhook") ||
     (method === "GET" && /^\/v1\/email\/oauth\/callback\/[^/]+$/u.test(path))
   );
 }

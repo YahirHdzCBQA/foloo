@@ -3,6 +3,13 @@
 import { z } from "zod";
 
 const environmentSchema = z.object({
+  STRIPE_PRICE_ID: z.string().min(1).optional(),
+  STRIPE_SECRET_ARN: z.string().min(1).optional(),
+  STRIPE_WEBHOOK_SECRET_ARN: z.string().min(1).optional(),
+  BILLING_PROVIDER_FUNCTION_NAME: z.string().min(1).optional(),
+  BILLING_SUCCESS_URL: z.string().url().optional(),
+  BILLING_CANCEL_URL: z.string().url().optional(),
+  BILLING_PORTAL_RETURN_URL: z.string().url().optional(),
   AWS_REGION: z.string().min(1),
   DB_SECRET_ARN: z.string().min(1),
   DB_HOST: z.string().min(1),

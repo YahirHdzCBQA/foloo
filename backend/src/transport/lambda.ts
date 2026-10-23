@@ -18,6 +18,10 @@ import { DisabledAccountDeletionHttpController } from "../account_deletion/accou
 import { composeAccountDeletionRuntime } from "../account_deletion/account_deletion_composition.js";
 import { createApiClientAccessGuard } from "../auth/api_client_access_guard.js";
 
+import { BillingApplication } from "../billing/billing_application.js";
+import { PostgresBillingRepository } from "../billing/postgres_billing_repository.js";
+import { LambdaBillingProvider } from "../billing/billing_provider_invoker.js";
+
 let routerPromise: ReturnType<typeof initialize> | undefined;
 
 async function initialize() {
@@ -99,6 +103,12 @@ async function initialize() {
     deletion?.controller ?? new DisabledAccountDeletionHttpController(),
     accessGuard,
     apiClientAccessGuard,
+    new BillingApplication(
+      repository,
+      new PostgresBillingRepository(pool),
+      new LambdaBillingProvider(environment.BILLING_PROVIDER_FUNCTION_NAME),
+      environment,
+    ),
   );
 }
 

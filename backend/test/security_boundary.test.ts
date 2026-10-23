@@ -147,6 +147,17 @@ test("AUT-18 only explicit unauthenticated API contracts bypass the client guard
   });
   assert.doesNotThrow(() => guard.assertAllowed(receipt));
   assert.doesNotThrow(() => guard.assertAllowed(callback));
+  // MON-16: Stripe signs the webhook; it never carries a Cognito JWT.
+  assert.doesNotThrow(() =>
+    guard.assertAllowed(
+      apiEvent({ method: "POST", path: "/v1/billing/webhook" }),
+    ),
+  );
+  assert.throws(() =>
+    guard.assertAllowed(
+      apiEvent({ method: "POST", path: "/v1/billing/checkout-session" }),
+    ),
+  );
   assert.throws(() => guard.assertAllowed(apiEvent({ path: "/v1/events" })));
 });
 

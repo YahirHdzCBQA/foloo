@@ -198,6 +198,9 @@ export function appendFixedEmailFooter(
   _context: string,
   _unsubscribeUrl: string,
 ): EmailPreview {
+  void _language;
+  void _context;
+  void _unsubscribeUrl;
   return withoutLegacyUnsubscribeFooter({
     subject: preview.subject.replace(/[\r\n]+/g, " ").trim(),
     plainText: preview.plainText.trim(),
@@ -211,6 +214,7 @@ export function renderEmailPreview(
   values: EmailValues,
   _legacyUnsubscribeUrl?: string,
 ): EmailPreview {
+  void _legacyUnsubscribeUrl;
   validateEmailTemplate(template);
   const context =
     template.origin === "event" ? values.evento?.trim() : values.lugar?.trim();
