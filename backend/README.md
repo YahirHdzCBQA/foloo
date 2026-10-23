@@ -127,8 +127,8 @@ creates the route before applying that throttle.
 
 Billing is enabled by default and synth fails naming any missing value.
 `BILLING_ENABLED=false npx cdk synth -c environment=dev` disables it without
-removing resources or changing logical IDs; runtime then returns 503
-`billing_not_configured`. Secret values are loaded by hand in the console or
+removing resources or changing logical IDs; billing requests that pass the
+JWT/signature and account checks then return 503 `billing_not_configured`. Secret values are loaded by hand in the console or
 from a file (`--secret-string file://…`), never typed on a command line or
 committed.
 
@@ -154,8 +154,8 @@ to STORE-02 and has its own backup/authorization procedure), name it in `only`:
 aws lambda invoke --function-name MIGRATION_FUNCTION_NAME --payload '{"action":"apply","only":"011_billing_stripe.sql"}' --cli-binary-format raw-in-base64-out --region us-east-1 --profile foloo-dev migration-result.json
 ```
 
-`only` applies that file if it is still pending, returns `[]` if it was already
-applied, fails with `does not exist` for an unknown name, and never applies
+`only` applies that file if it is still pending, returns `{"applied":[]}` if it
+was already applied, fails with `does not exist` for an unknown name, and never applies
 other pending files. A later `{"action":"apply"}` without `only` applies the
 rest in order. DEV applied 011 this way on 2026-10-23.
 
