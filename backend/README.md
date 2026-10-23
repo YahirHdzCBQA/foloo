@@ -96,35 +96,67 @@ token through the existing mobile flow and smoke-test `/v1/workspace`. Do not
 send tokens or secret values through chat or commit them. A PROD config is
 deliberately absent until real values and operational requirements are approved.
 
-## FL-021 billing (MON-07, MON-15–MON-19)
+## FL-021 billing (MON-14–MON-20)
 
 `POST /v1/billing/checkout-session` and `/portal-session` require Cognito JWT;
 account comes only from `sub` and the body is ignored. They return `{url}`.
 The public `/v1/billing/webhook` requires a valid Stripe signature over the raw
 body; event insertion and entitlement update commit together. No billing SQL
-touches leads. Existing `/v1/workspace` supplies subscription status.
+touches leads. Existing `/v1/workspace` supplies subscription status. MON-14
+(the informational notice in the app) is app-side and not part of this backend.
 
 The billing provider Lambda runs outside the VPC and alone reads the Stripe
 API secret. API reads only the webhook secret through Secrets Manager's VPC
-endpoint. Both secrets are referenced, never created: config names default to
-`foloo/dev/stripe-api-key` and `foloo/dev/stripe-webhook-signing`. Store each as a
-raw SecretString (API key and signing secret respectively).
+endpoint. Both secrets are referenced, never created by CDK. The legacy `*_ARN`
+variable names accept exact secret names or complete ARNs; successful reads
+cache for five minutes per Lambda container. The public webhook rejects missing
+signatures before reading Secrets Manager and has a 10 requests/s, burst 20
+route throttle. The API stage depends on the webhook route so CloudFormation
+creates the route before applying that throttle.
 
-Supply `STRIPE_PRICE_ID`, `BILLING_SUCCESS_URL`, `BILLING_CANCEL_URL`, and
-`BILLING_PORTAL_RETURN_URL` when synthesizing the stack. No prices, currencies
-or website URLs are defaulted. CDK injects `STRIPE_SECRET_ARN`,
-`STRIPE_WEBHOOK_SECRET_ARN` and `BILLING_PROVIDER_FUNCTION_NAME`; all runtime
-billing settings are validated at synth when billing is enabled (the default).
-Missing price/URLs fail synth with the missing variable names. Explicitly use
-`BILLING_ENABLED=false npx cdk synth -c environment=dev` to disable billing;
-resources retain their logical IDs, but billing Lambdas receive no billing
-configuration and runtime returns 503 `billing_not_configured`.
-The legacy `*_ARN` variable names accept exact secret names or complete ARNs;
-CDK injects names to avoid ambiguous partial ARNs. Successful reads cache for
-five minutes per Lambda container. The public webhook rejects missing signatures
-before reading Secrets Manager and has a 10 requests/s, burst 20 route throttle. Apply migration 009 before enabling webhooks.
-Register snapshot events for `checkout.session.completed`,
+### DEV configuration (Stripe test mode)
+
+| Setting                | DEV value                                                             | Override                    |
+| ---------------------- | --------------------------------------------------------------------- | --------------------------- |
+| Stripe API key secret  | `foloo/dev/stripe-api-key` (raw SecretString, `sk_test_…`)            | —                           |
+| Webhook signing secret | `foloo/dev/stripe-webhook-signing` (raw SecretString, `whsec_…`)      | —                           |
+| Price                  | `price_1UTTLKCp0Un1sf9uyTk4w9NN` ("Foloo Pro (prueba)", 99 USD/month) | `STRIPE_PRICE_ID`           |
+| Success URL            | `https://foloo.io/dashboard?billing=success`                          | `BILLING_SUCCESS_URL`       |
+| Cancel URL             | `https://foloo.io/dashboard?billing=cancel`                           | `BILLING_CANCEL_URL`        |
+| Portal return URL      | `https://foloo.io/dashboard`                                          | `BILLING_PORTAL_RETURN_URL` |
+
+Billing is enabled by default and synth fails naming any missing value.
+`BILLING_ENABLED=false npx cdk synth -c environment=dev` disables it without
+removing resources or changing logical IDs; runtime then returns 503
+`billing_not_configured`. Secret values are loaded by hand in the console or
+from a file (`--secret-string file://…`), never typed on a command line or
+committed.
+
+In the Stripe dashboard (test mode), register a webhook at the
+`BillingWebhookUrl` stack output for `checkout.session.completed`,
 `customer.subscription.updated`, `customer.subscription.deleted` and
-`invoice.payment_failed` at the `BillingWebhookUrl` output. This task does not
-create/configure secrets, prices, webhook destinations or Portal in Stripe.
+`invoice.payment_failed`, and activate the Customer Portal.
+
+### Migration 011 and `only=<migration>`
+
+Billing needs `migrations/011_billing_stripe.sql` (accounts' Stripe IDs and the
+append-only `billing_events` receipts). `{"action":"status"}` lists applied
+migrations in `appliedMigrations` without writing:
+
+```bash
+aws lambda invoke --function-name MIGRATION_FUNCTION_NAME --payload '{"action":"status"}' --cli-binary-format raw-in-base64-out --region us-east-1 --profile foloo-dev status.json
+```
+
+To apply one migration while an earlier one stays pending (in DEV, 010 belongs
+to STORE-02 and has its own backup/authorization procedure), name it in `only`:
+
+```bash
+aws lambda invoke --function-name MIGRATION_FUNCTION_NAME --payload '{"action":"apply","only":"011_billing_stripe.sql"}' --cli-binary-format raw-in-base64-out --region us-east-1 --profile foloo-dev migration-result.json
+```
+
+`only` applies that file if it is still pending, returns `[]` if it was already
+applied, fails with `does not exist` for an unknown name, and never applies
+other pending files. A later `{"action":"apply"}` without `only` applies the
+rest in order. DEV applied 011 this way on 2026-10-23.
+
 See [DECISIONES.md](DECISIONES.md) for lifecycle limits and acceptance coverage.
