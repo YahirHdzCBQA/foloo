@@ -85,4 +85,4 @@
 - `POST /v1/billing/webhook` se agregó a las rutas públicas del guard de clientes de API: Stripe no manda JWT; la firma la valida el router.
 - El stage depende de la ruta del webhook; sin eso, CloudFormation falló al aplicar el throttling (2026-10-22).
 - Valores por defecto en DEV (las variables de entorno los sobrescriben): Price de prueba de 99 USD/mes `price_1UTTLKCp0Un1sf9uyTk4w9NN` ("Foloo Pro (prueba)"), retornos a `https://foloo.io/dashboard?billing=success|cancel` y portal a `/dashboard`. Es un supuesto: falta la página web real de planes.
-- La 011 NO está aplicada en DEV: `apply` corre todas las pendientes y la 010 de STORE-02 requiere backup y autorización aparte (Yahir).
+- 2026-10-23: la 011 se aplicó sola en DEV con `{"action":"apply","only":"011_billing_stripe.sql"}`. La 010 de STORE-02 sigue pendiente para su propio procedimiento (backup y autorización); es independiente de la 011 y puede aplicarse después.

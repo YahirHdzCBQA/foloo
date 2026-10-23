@@ -34,6 +34,7 @@ export async function ensureApplicationRole(
 export async function applyMigrations(
   pool: pg.Pool,
   directory: string,
+  only?: string,
 ): Promise<string[]> {
   const client = await pool.connect();
   try {
@@ -45,7 +46,10 @@ export async function applyMigrations(
     );
     const files = (await readdir(directory))
       .filter((name) => /^\d+_.*\.sql$/.test(name))
+      .filter((name) => only === undefined || name === only)
       .sort();
+    if (only !== undefined && files.length === 0)
+      throw new Error(`Migration ${only} does not exist`);
     const applied: string[] = [];
     for (const name of files) {
       const existing = await client.query(
