@@ -4,12 +4,17 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 ## E-01 · Alta, confirmación, sesión y perfil
 
-**Trazas:** `AUT-01`–`AUT-17`, `SYN-09`, `SAL-08`, `SAL-09`.
+**Trazas:** `AUT-01`–`AUT-17`, `AUT-22`–`AUT-24`, `SYN-09`, `SAL-08`, `SAL-09`.
 
 - Dado un email nuevo, al registrarse con contraseña, entonces Cognito envía un
   código de seis dígitos y la app solicita confirmación sin pedir perfil.
-- Login y Crear cuenta ofrecen email/contraseña y Google. Microsoft Sign-In no
-  aparece deshabilitado ni como opción futura. Google solicita selección de
+- Login y Crear cuenta ofrecen email/contraseña, Google y Sign in with Apple
+  (`AUT-22`). Microsoft Sign-In no aparece deshabilitado ni como opción futura;
+  solo un build de validación DEV con `FOLOO_MICROSOFT_SIGNIN=true` lo muestra
+  (`AUT-17`, `AUT-23`). Apple entra por Cognito, el owner es el `sub` y un
+  correo relay de Apple no une cuentas. Si un proveedor no está configurado, su
+  botón muestra un error recuperable ES/EN y los demás métodos siguen
+  funcionando (`AUT-24`). Google solicita selección de
   cuenta en cada acción explícita, autentica mediante Cognito y omite el código
   manual; su OAuth nunca se reutiliza como conexión sender.
 - El alta email/password acepta Gmail, Outlook, Hotmail y dominios empresariales
