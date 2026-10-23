@@ -15,6 +15,7 @@
   "orContinueWith": "o entra con",
   "orUseEmail": "o con tu correo",
   "continueWithGoogle": "Continuar con Google",
+  "continueWithApple": "Continuar con Apple",
   "continueWithMicrosoft": "Continuar con Microsoft",
   "authSocialUnavailable": "El acceso social todavía requiere configuración de Cognito. Puedes usar correo y contraseña.",
   "createAccountTitle": "Crea tu cuenta",
@@ -414,7 +415,7 @@
   "subscriptionActive": "Suscripción activa",
   "subscriptionExpired": "Suscripción vencida",
   "paywallTitle": "Tus 5 leads gratuitos ya fueron utilizados",
-  "paywallBody": "Necesitarás una suscripción para seguir creando leads. Todo lo que ya guardaste permanece disponible.",
-  "paywallFutureAction": "La suscripción estará disponible próximamente.",
+  "paywallBody": "Alcanzaste el límite gratuito de leads. Tu cuenta se administra en la web de Foloo. Todo lo que ya guardaste permanece disponible.",
+  "paywallFutureAction": "Aquí puedes consultar y exportar tus registros.",
   "paywallViewRecords": "Ver registros"
 }

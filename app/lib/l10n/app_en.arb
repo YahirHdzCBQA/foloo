@@ -15,6 +15,7 @@
   "orContinueWith": "or continue with",
   "orUseEmail": "or use your email",
   "continueWithGoogle": "Continue with Google",
+  "continueWithApple": "Continue with Apple",
   "continueWithMicrosoft": "Continue with Microsoft",
   "authSocialUnavailable": "Social sign-in still requires Cognito configuration. You can use email and password.",
   "createAccountTitle": "Create your account",
@@ -415,7 +416,7 @@
   "subscriptionActive": "Active subscription",
   "subscriptionExpired": "Subscription expired",
   "paywallTitle": "Your 5 free leads have been used",
-  "paywallBody": "A subscription is required to keep creating leads. Everything you already saved remains available.",
-  "paywallFutureAction": "Subscriptions will be available soon.",
+  "paywallBody": "You reached the free lead limit. Your account is managed on the Foloo website. Everything you already saved remains available.",
+  "paywallFutureAction": "You can still review and export your records here.",
   "paywallViewRecords": "View records"
 }

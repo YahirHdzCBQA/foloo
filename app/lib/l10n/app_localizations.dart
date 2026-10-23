@@ -188,6 +188,12 @@ abstract class AppLocalizations {
   /// **'Continuar con Google'**
   String get continueWithGoogle;
 
+  /// No description provided for @continueWithApple.
+  ///
+  /// In es, this message translates to:
+  /// **'Continuar con Apple'**
+  String get continueWithApple;
+
   /// No description provided for @continueWithMicrosoft.
   ///
   /// In es, this message translates to:
@@ -2572,13 +2578,13 @@ abstract class AppLocalizations {
   /// No description provided for @paywallBody.
   ///
   /// In es, this message translates to:
-  /// **'Necesitarás una suscripción para seguir creando leads. Todo lo que ya guardaste permanece disponible.'**
+  /// **'Alcanzaste el límite gratuito de leads. Tu cuenta se administra en la web de Foloo. Todo lo que ya guardaste permanece disponible.'**
   String get paywallBody;
 
   /// No description provided for @paywallFutureAction.
   ///
   /// In es, this message translates to:
-  /// **'La suscripción estará disponible próximamente.'**
+  /// **'Aquí puedes consultar y exportar tus registros.'**
   String get paywallFutureAction;
 
   /// No description provided for @paywallViewRecords.

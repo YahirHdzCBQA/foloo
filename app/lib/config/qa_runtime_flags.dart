@@ -16,3 +16,12 @@ const bool folooAccountDeletionEnabled = bool.fromEnvironment(
   'FOLOO_ACCOUNT_DELETION_ENABLED',
   defaultValue: false,
 );
+
+/// Shows the Microsoft sign-in button in Login and Create account (AUT-23).
+///
+/// AUT-23 is Proposed until the Cognito OIDC provider is validated in DEV, so
+/// this stays off unless the build passes `--dart-define=FOLOO_MICROSOFT_SIGNIN=true`.
+const bool folooMicrosoftSignInEnabled = bool.fromEnvironment(
+  'FOLOO_MICROSOFT_SIGNIN',
+  defaultValue: false,
+);

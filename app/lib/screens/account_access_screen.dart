@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 
 import '../auth/auth_failure_localization.dart';
 import '../auth/auth_models.dart';
+import '../config/qa_runtime_flags.dart';
 import '../l10n/l10n.dart';
 import '../theme/brand_theme.dart';
+import '../widgets/apple_sign_in_button.dart';
 import '../widgets/auth_text_form_field.dart';
 import '../widgets/language_selector.dart';
 
@@ -84,6 +86,28 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 shape: const StadiumBorder(),
               ),
             ),
+            const SizedBox(height: 12),
+            AppleSignInButton(
+              key: const Key('signUpAppleButton'),
+              onPressed: widget.busy || widget.onSocialSubmit == null
+                  ? null
+                  : () => widget.onSocialSubmit!(AuthProvider.apple),
+            ),
+            if (folooMicrosoftSignInEnabled) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                key: const Key('signUpMicrosoftButton'),
+                onPressed: widget.busy || widget.onSocialSubmit == null
+                    ? null
+                    : () => widget.onSocialSubmit!(AuthProvider.microsoft),
+                icon: const Icon(Icons.grid_view),
+                label: Text(context.l10n.continueWithMicrosoft),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(54),
+                  shape: const StadiumBorder(),
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
             Row(
               children: [

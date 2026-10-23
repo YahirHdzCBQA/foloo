@@ -40,6 +40,20 @@ Widget paywall(Locale locale, ThemeMode mode) => MaterialApp(
   ),
 );
 
+/// MON-14: no price, commercial call to action, button or link on the paywall.
+void _expectNoCommercialCopy(WidgetTester tester) {
+  final forbidden = RegExp(
+    r'pagar|comprar|pago|upgrade|mejorar|suscrib|\$|\bpay\b|\bbuy\b|subscribe|price',
+    caseSensitive: false,
+  );
+  for (final text in tester.widgetList<Text>(find.byType(Text))) {
+    expect(forbidden.hasMatch(text.data ?? ''), isFalse, reason: text.data);
+  }
+  expect(find.byType(FilledButton), findsOne);
+  expect(find.byType(TextButton), findsNothing);
+  expect(find.byType(OutlinedButton), findsNothing);
+}
+
 void main() {
   testWidgets('Paywall is localized and renders in light and dark', (
     tester,
@@ -47,10 +61,14 @@ void main() {
     await tester.pumpWidget(paywall(const Locale('es'), ThemeMode.light));
     expect(find.text('Tus 5 leads gratuitos ya fueron utilizados'), findsOne);
     expect(find.byKey(const Key('paywallViewRecords')), findsOne);
+    expect(find.textContaining('web de Foloo'), findsOne);
+    _expectNoCommercialCopy(tester);
 
     await tester.pumpWidget(paywall(const Locale('en'), ThemeMode.dark));
     await tester.pump();
     expect(find.text('Your 5 free leads have been used'), findsOne);
+    expect(find.textContaining('Foloo website'), findsOne);
+    _expectNoCommercialCopy(tester);
     expect(tester.takeException(), isNull);
   });
 }
