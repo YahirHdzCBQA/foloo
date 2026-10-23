@@ -104,9 +104,6 @@ documentación preliminar ni permite omitir la eliminación exigida por tiendas.
 
 ### `D-21` · Alternativa equivalente para Google Sign-In en iOS
 
-**Estado 2026-10-21:** aprobado Sign in with Apple vía Cognito (ADR-009).
-Falta la configuración en Apple Developer y Cognito.
-
 **Pregunta:** aprobar Sign in with Apple mediante Cognito o retirar Google
 Sign-In de iOS. La lectura conservadora de Apple 4.8 no considera suficiente el
 login email/password mientras Google autentique la cuenta primaria; las
