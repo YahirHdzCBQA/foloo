@@ -1,6 +1,6 @@
 # STORE-02E — Preparación técnica de Account Deletion
 
-- Estado: **DISEÑO TÉCNICO + STORE-02E-01 FORMALIZADA; sin autorización de implementación**
+- Estado: **IMPLEMENTADO Y VALIDADO END-TO-END EN AWS DEV; no autorizado para producción**
 - Fecha: 2026-10-20
 - Contrato funcional: [`account-deletion-contract.md`](account-deletion-contract.md)
 - API propuesta: [`account-deletion-openapi.yaml`](account-deletion-openapi.yaml)
@@ -9,32 +9,34 @@
 - ADR candidatas:
   [`../decisions/ADR-AD-account-deletion-candidates.md`](../decisions/ADR-AD-account-deletion-candidates.md)
 - Decisión abierta: `D-13`
+- Evidencia actual:
+  [`store-02-account-deletion-closure.md`](store-02-account-deletion-closure.md)
 - Trazas relacionadas: `AUT-18`–`AUT-21`, `SYN-11`, `SYN-12`, `MON-13`,
   `INF-15`–`INF-21`, `RNF-09`, `RNF-10`, `RC-06`–`RC-10` y E-14; reutiliza
   `AUT-10`, `SYN-01`–`SYN-10`, `INF-02`–`INF-14`, E-09, E-12 y E-13
 
-Este documento prepara STORE-02E sin crear endpoints, migraciones, pantallas,
-recursos AWS ni operaciones destructivas. Los nombres de tablas, rutas y
-workers son propuestas técnicas. Los acuerdos de Producto no sustituyen las
-validaciones Legal, Seguridad, Infra, Operación o Payments registradas en
-`D-13`.
+Este documento conserva el diseño técnico que guio STORE-02E. Los endpoints,
+migración, pantallas y recursos descritos fueron implementados y validados de
+forma controlada en DEV; el cierre enlazado es la fuente del estado final. Los
+acuerdos de Producto no sustituyen las validaciones Legal, Seguridad, Infra,
+Operación o Payments registradas en `D-13`.
 
 ## 1. Estado real comprobado en HEAD
 
 ### Componentes reutilizables
 
-| Frontera | Evidencia actual | Reutilización posible |
-|---|---|---|
-| Identidad | `CognitoAuthService`, Amplify Auth y JWT Authorizer; `authenticatedSubject()` acepta únicamente access token y extrae `sub` | Reautenticación mediante Cognito, sesión móvil, ownership por `sub` y autorización API |
-| Principal backend | `PostgresRepository.resolvePrincipal()` llama `ensure_personal_workspace(subject)` | Resolución account/workspace, pero debe quedar detrás de la barrera antes de cualquier provisión |
-| API | `createRouter()`, envelopes `ApplicationError`, Zod e idempotency keys | Convenciones HTTP, validación, logging sanitizado e idempotencia; no existe ruta de deletion |
-| PostgreSQL | Migraciones 001–008 y `schema_migrations`; account/workspace/user, perfil, eventos, Leads, medios, Content, correo e idempotencia | Inventario relacional y transacciones; no existen request, barrier ni retention ledger |
-| S3 | Bucket privado, keys derivadas server-side, presigned PUT/GET y confirmación | Resolución segura de objetos; ApiFunction solo tiene `GetObject`/`PutObject`, no delete |
-| Email | `EmailApplication`, `PostgresEmailRepository` y `EmailProviderFunction` aislada | Estado de conexión y provider boundary; contrato actual solo autoriza URL, exchange y send, no revoke |
-| Offline | Drift v12 y `SyncEngine` owner-scoped con outbox idempotente | Conteo de pendientes, parada por owner y base para cleanup; no existe purga integral |
-| Archivos locales | `PrivateMediaStorage` y Content bajo `foloo_media` | Validación de root gestionado y borrado individual; falta manifest de purga por owner |
-| Entitlement | `accounts.subscription_status`, `trial_leads_used`, Drift snapshots/reservas y Unlimited DEV | Detección de `active`; no existe proveedor, customer ID, checkout, cancelación o webhook de pagos |
-| Infraestructura | CDK DEV con ApiFunction, EmailProviderFunction, MigrationFunction, RDS, S3, Cognito JWT authorizer y endpoints VPC | Patrones de IAM/logs/bundling; no existen Step Functions, workers, barrier store ni finalizer Cognito |
+| Frontera          | Evidencia actual                                                                                                                  | Reutilización posible                                                                                 |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Identidad         | `CognitoAuthService`, Amplify Auth y JWT Authorizer; `authenticatedSubject()` acepta únicamente access token y extrae `sub`       | Reautenticación mediante Cognito, sesión móvil, ownership por `sub` y autorización API                |
+| Principal backend | `PostgresRepository.resolvePrincipal()` llama `ensure_personal_workspace(subject)`                                                | Resolución account/workspace, pero debe quedar detrás de la barrera antes de cualquier provisión      |
+| API               | `createRouter()`, envelopes `ApplicationError`, Zod e idempotency keys                                                            | Convenciones HTTP, validación, logging sanitizado e idempotencia; no existe ruta de deletion          |
+| PostgreSQL        | Migraciones 001–008 y `schema_migrations`; account/workspace/user, perfil, eventos, Leads, medios, Content, correo e idempotencia | Inventario relacional y transacciones; no existen request, barrier ni retention ledger                |
+| S3                | Bucket privado, keys derivadas server-side, presigned PUT/GET y confirmación                                                      | Resolución segura de objetos; ApiFunction solo tiene `GetObject`/`PutObject`, no delete               |
+| Email             | `EmailApplication`, `PostgresEmailRepository` y `EmailProviderFunction` aislada                                                   | Estado de conexión y provider boundary; contrato actual solo autoriza URL, exchange y send, no revoke |
+| Offline           | Drift v12 y `SyncEngine` owner-scoped con outbox idempotente                                                                      | Conteo de pendientes, parada por owner y base para cleanup; no existe purga integral                  |
+| Archivos locales  | `PrivateMediaStorage` y Content bajo `foloo_media`                                                                                | Validación de root gestionado y borrado individual; falta manifest de purga por owner                 |
+| Entitlement       | `accounts.subscription_status`, `trial_leads_used`, Drift snapshots/reservas y Unlimited DEV                                      | Detección de `active`; no existe proveedor, customer ID, checkout, cancelación o webhook de pagos     |
+| Infraestructura   | CDK DEV con ApiFunction, EmailProviderFunction, MigrationFunction, RDS, S3, Cognito JWT authorizer y endpoints VPC                | Patrones de IAM/logs/bundling; no existen Step Functions, workers, barrier store ni finalizer Cognito |
 
 ### Funcionalidad inexistente que debe construirse
 
@@ -94,14 +96,14 @@ antes de persistir la barrera.
 
 ### Estados propuestos
 
-| Estado | Efecto |
-|---|---|
-| `awaiting_confirmation` | Preflight temporal; la cuenta sigue operativa y puede abandonarse |
-| `requested` | Confirmación aceptada y barrera durable; irreversible |
-| `in_progress` | Al menos una etapa ejecutándose o en retry |
-| `blocked` | Obligación pendiente que necesita intervención; la cuenta continúa bloqueada |
-| `completed` | Todas las obligaciones aprobadas terminaron o quedaron retenidas legítimamente; identidad finalizada |
-| `expired` | Solo preflight no confirmado; nunca una solicitud aceptada |
+| Estado                  | Efecto                                                                                               |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| `awaiting_confirmation` | Preflight temporal; la cuenta sigue operativa y puede abandonarse                                    |
+| `requested`             | Confirmación aceptada y barrera durable; irreversible                                                |
+| `in_progress`           | Al menos una etapa ejecutándose o en retry                                                           |
+| `blocked`               | Obligación pendiente que necesita intervención; la cuenta continúa bloqueada                         |
+| `completed`             | Todas las obligaciones aprobadas terminaron o quedaron retenidas legítimamente; identidad finalizada |
+| `expired`               | Solo preflight no confirmado; nunca una solicitud aceptada                                           |
 
 No existe `canceled` después de `requested`. Un fallo no se transforma en éxito
 ni elimina la barrera.
@@ -127,17 +129,17 @@ ApiFunction tampoco impide que Cognito cree primero la identidad.
 
 ### Alternativas
 
-| Alternativa | Ventajas | Riesgos / límites |
-|---|---|---|
-| PostgreSQL por `sub` | Simple y consistente con ownership | No detecta un `sub` nuevo; un restore antiguo puede perder el ledger |
-| PostgreSQL por HMAC de email verificado | Cubre distintos `sub` | Cognito puede crear la identidad antes del primer API call; restore requiere fuente externa más nueva |
-| Cognito Pre Sign-up + ledger externo | Bloquea email/password y federados antes del alta; desacoplado del RDS restaurado | Requiere trigger, disponibilidad fail-closed, manejo de aliases y nueva infraestructura |
-| Lista por email en claro | Fácil de operar | Retiene PII innecesaria y queda descartada |
+| Alternativa                             | Ventajas                                                                          | Riesgos / límites                                                                                     |
+| --------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| PostgreSQL por `sub`                    | Simple y consistente con ownership                                                | No detecta un `sub` nuevo; un restore antiguo puede perder el ledger                                  |
+| PostgreSQL por HMAC de email verificado | Cubre distintos `sub`                                                             | Cognito puede crear la identidad antes del primer API call; restore requiere fuente externa más nueva |
+| Cognito Pre Sign-up + ledger externo    | Bloquea email/password y federados antes del alta; desacoplado del RDS restaurado | Requiere trigger, disponibilidad fail-closed, manejo de aliases y nueva infraestructura               |
+| Lista por email en claro                | Fácil de operar                                                                   | Retiene PII innecesaria y queda descartada                                                            |
 
 ### Recomendación sujeta a Seguridad/Infra
 
 1. Calcular `registration_hash = HMAC-SHA-256(keyVersion,
-   canonicalVerifiedEmail)` solo después de verificar el atributo Cognito.
+canonicalVerifiedEmail)` solo después de verificar el atributo Cognito.
 2. Mantener `subject_hash` separado para bloquear sesiones del owner anterior.
 3. Usar un ledger durable fuera del ciclo de restore de RDS como autoridad de
    barrera/registro; DynamoDB con cifrado, `expiresAt` y TTL es candidato. La
@@ -211,27 +213,27 @@ aprobar canonicalización/HMAC, ADR candidatas, D-13 y los flags operativos.
 
 ## 4. Matriz técnica de datos y verificación
 
-| Dato | Ubicación / owner actual | Acción candidata | Dependencias/excepción | Verificación |
-|---|---|---|---|---|
-| Identidad/sesiones | Cognito User Pool; `sub`, username y atributos | Global sign-out y `AdminDeleteUser` al final | Registro de 30 días no conserva Cognito user | `AdminGetUser` devuelve no encontrado; tokens bloqueados además por barrier |
-| User/account/workspace/member | PostgreSQL `app_users`, `accounts`, `workspaces`, `workspace_members` | Borrar después de hijos | Barrier/receipt vive fuera de estas filas | Queries por IDs congelados devuelven cero |
-| Perfil | `seller_profiles`; Drift `LocalProfiles`; foto privada | Borrar fila, archivo local y objeto remoto si existe | Ninguna retención conocida | Cero filas/objetos/path del owner |
-| Events/Leads | PostgreSQL y Drift owner-scoped | Borrado físico ordenado | Datos de terceros: AD-13/Legal | Conteos cero por workspace/owner |
-| Media Lead | `lead_media`, S3 y `foloo_media/cards|voice_notes|reference_images` | Congelar keys, borrar S3, metadata y archivos gestionados | No seguir symlinks ni paths fuera del root | `DeleteObjects` sin errores + `HeadObject` no encontrado + manifest local completo |
-| Content PDF | `content_files`, S3 y `foloo_media/content` | Borrar binario, metadata y asignaciones | Copias ya enviadas quedan fuera de Foloo | Igual que media; cero filas activas/históricas del workspace |
-| Plantillas | `email_templates`, `event_email_templates`; Drift | Borrar | Contienen firma/perfil | Cero filas por workspace/owner |
-| Follow-ups/intents | `email_follow_ups`, `email_send_intents`; Drift | Borrar cuerpos, destinatarios, snapshots e IDs provider | Evidencia contable/legal aún no justificada | Cero filas salvo retención aprobada aislada |
-| Conexión sender | `email_connections`, OAuth ciphertext, states/PKCE | Revocar proveedor, inutilizar/borrar ciphertext y estados | Provider puede fallar; conservar solo incidente no PII | Revoke confirmado o `blocked`; ciphertext/state ausente |
-| Opt-outs/tokens históricos | Tablas email legacy | Borrar o retener mínimo según Legal | Comportamiento activo retirado | Query por workspace/owner/hash según política |
-| Idempotencia | `idempotency_records` | Borrar con workspace | Deletion usa ledger separado | Cero filas por workspace |
-| Entitlement/trial | columnas `accounts`; Drift `LocalEntitlements`/reservas | Borrar con cuenta/owner | Política antifraude de alta nueva pendiente | Cero snapshots/reservas; cuenta nueva no hereda `active` |
-| Outbox | Drift `SyncOperations` | Detener y purgar tras aceptación | Antes se ofrece sync/export | Cero operaciones del owner y timers detenidos |
-| Preferencias | `LocalUserPreferences`; legacy `LocalPreferences` | Borrar solo owner-scoped | No adjudicar legacy/global ni otro owner | Query owner cero; globals intactos |
-| Temporales/export | Temp app y destino externo | Borrar temporales gestionados | Archivo guardado/compartido queda fuera | Temp no existe; disclosure al usuario |
-| Logs | CloudWatch API/provider/migration | Expiración/redacción; no payload/PII | Plazo PROD pendiente | Búsqueda de email/token/payload negativa y retention configurada |
-| Backups | RDS snapshots/backups | Propuesta ordinaria 15 días; no edición selectiva | Legal hold separado | Inventario sin backups ordinarios vencidos; restore gate probado |
-| Compras/facturas/pagos | Futuro sistema `foloo.io`/provider | Retener solo categorías/plazos exigidos | Legal/Contabilidad/Payments | Evidencia aislada y expiración verificable |
-| Receipt/barrier | Nuevo ledger minimizado | Conservar lo mínimo para idempotencia, 30 días y soporte aprobado | HMAC/key version/retención sujetos a Seguridad/Legal | Sin PII cruda; expiry y auditoría comprobables |
+| Dato                          | Ubicación / owner actual                                              | Acción candidata                                                  | Dependencias/excepción                                 | Verificación                                                                |
+| ----------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------- |
+| Identidad/sesiones            | Cognito User Pool; `sub`, username y atributos                        | Global sign-out y `AdminDeleteUser` al final                      | Registro de 30 días no conserva Cognito user           | `AdminGetUser` devuelve no encontrado; tokens bloqueados además por barrier |
+| User/account/workspace/member | PostgreSQL `app_users`, `accounts`, `workspaces`, `workspace_members` | Borrar después de hijos                                           | Barrier/receipt vive fuera de estas filas              | Queries por IDs congelados devuelven cero                                   |
+| Perfil                        | `seller_profiles`; Drift `LocalProfiles`; foto privada                | Borrar fila, archivo local y objeto remoto si existe              | Ninguna retención conocida                             | Cero filas/objetos/path del owner                                           |
+| Events/Leads                  | PostgreSQL y Drift owner-scoped                                       | Borrado físico ordenado                                           | Datos de terceros: AD-13/Legal                         | Conteos cero por workspace/owner                                            |
+| Media Lead                    | `lead_media`, S3 y `foloo_media/cards                                 | voice_notes                                                       | reference_images`                                      | Congelar keys, borrar S3, metadata y archivos gestionados                   | No seguir symlinks ni paths fuera del root | `DeleteObjects` sin errores + `HeadObject` no encontrado + manifest local completo |
+| Content PDF                   | `content_files`, S3 y `foloo_media/content`                           | Borrar binario, metadata y asignaciones                           | Copias ya enviadas quedan fuera de Foloo               | Igual que media; cero filas activas/históricas del workspace                |
+| Plantillas                    | `email_templates`, `event_email_templates`; Drift                     | Borrar                                                            | Contienen firma/perfil                                 | Cero filas por workspace/owner                                              |
+| Follow-ups/intents            | `email_follow_ups`, `email_send_intents`; Drift                       | Borrar cuerpos, destinatarios, snapshots e IDs provider           | Evidencia contable/legal aún no justificada            | Cero filas salvo retención aprobada aislada                                 |
+| Conexión sender               | `email_connections`, OAuth ciphertext, states/PKCE                    | Revocar proveedor, inutilizar/borrar ciphertext y estados         | Provider puede fallar; conservar solo incidente no PII | Revoke confirmado o `blocked`; ciphertext/state ausente                     |
+| Opt-outs/tokens históricos    | Tablas email legacy                                                   | Borrar o retener mínimo según Legal                               | Comportamiento activo retirado                         | Query por workspace/owner/hash según política                               |
+| Idempotencia                  | `idempotency_records`                                                 | Borrar con workspace                                              | Deletion usa ledger separado                           | Cero filas por workspace                                                    |
+| Entitlement/trial             | columnas `accounts`; Drift `LocalEntitlements`/reservas               | Borrar con cuenta/owner                                           | Política antifraude de alta nueva pendiente            | Cero snapshots/reservas; cuenta nueva no hereda `active`                    |
+| Outbox                        | Drift `SyncOperations`                                                | Detener y purgar tras aceptación                                  | Antes se ofrece sync/export                            | Cero operaciones del owner y timers detenidos                               |
+| Preferencias                  | `LocalUserPreferences`; legacy `LocalPreferences`                     | Borrar solo owner-scoped                                          | No adjudicar legacy/global ni otro owner               | Query owner cero; globals intactos                                          |
+| Temporales/export             | Temp app y destino externo                                            | Borrar temporales gestionados                                     | Archivo guardado/compartido queda fuera                | Temp no existe; disclosure al usuario                                       |
+| Logs                          | CloudWatch API/provider/migration                                     | Expiración/redacción; no payload/PII                              | Plazo PROD pendiente                                   | Búsqueda de email/token/payload negativa y retention configurada            |
+| Backups                       | RDS snapshots/backups                                                 | Propuesta ordinaria 15 días; no edición selectiva                 | Legal hold separado                                    | Inventario sin backups ordinarios vencidos; restore gate probado            |
+| Compras/facturas/pagos        | Futuro sistema `foloo.io`/provider                                    | Retener solo categorías/plazos exigidos                           | Legal/Contabilidad/Payments                            | Evidencia aislada y expiración verificable                                  |
+| Receipt/barrier               | Nuevo ledger minimizado                                               | Conservar lo mínimo para idempotencia, 30 días y soporte aprobado | HMAC/key version/retención sujetos a Seguridad/Legal   | Sin PII cruda; expiry y auditoría comprobables                              |
 
 Las claves S3 se obtienen antes de borrar metadata. La implementación local
 congela en el ledger DynamoDB existente un manifest shardeado e íntegro con las
@@ -281,13 +283,13 @@ una interfaz documental y una etapa opcional no implementable.
 
 El borrador completo está en `account-deletion-openapi.yaml`.
 
-| Operación | Auth | Semántica |
-|---|---|---|
-| `POST /v1/account-deletion-reauthentication/verify` | Cognito access JWT | Comprueba frescura server-side; no recibe credenciales |
-| `POST /v1/account-deletion-requests` | JWT reciente + idempotency key | Crea preflight temporal, inventario resumido y `awaiting_confirmation`; no bloquea |
+| Operación                                                | Auth                                   | Semántica                                                                                                                                                             |
+| -------------------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /v1/account-deletion-reauthentication/verify`      | Cognito access JWT                     | Comprueba frescura server-side; no recibe credenciales                                                                                                                |
+| `POST /v1/account-deletion-requests`                     | JWT reciente + idempotency key         | Crea preflight temporal, inventario resumido y `awaiting_confirmation`; no bloquea                                                                                    |
 | `POST /v1/account-deletion-requests/{requestId}/confirm` | JWT reciente + idempotency key estable | Transición condicional `awaiting_confirmation -> requested`, receipt único y outbox DynamoDB en una transacción; el despacho SQS se recupera sin crear otra solicitud |
-| `GET /v1/account-deletion-requests/current` | JWT mientras exista Cognito | Consulta estado mínimo de la solicitud del owner |
-| `POST /v1/account-deletion-status` | Receipt opaco en body; rate limit | Consulta después de eliminar Cognito; nunca incluye receipt/PII en URL |
+| `GET /v1/account-deletion-requests/current`              | JWT mientras exista Cognito            | Consulta estado mínimo de la solicitud del owner                                                                                                                      |
+| `POST /v1/account-deletion-status`                       | Receipt opaco en body; rate limit      | Consulta después de eliminar Cognito; nunca incluye receipt/PII en URL                                                                                                |
 
 El `requestId` es UUID opaco, no secreto ni PII. El receipt sí es secreto de
 capacidad: se entrega una vez, solo se persiste su hash, expira, se limita por
@@ -331,44 +333,44 @@ retenciones y suscripción no es publicable hasta validación regional.
 
 ## 8. Matriz de pruebas con datos sintéticos
 
-| Caso | Evidencia esperada |
-|---|---|
-| FREE con datos / sin datos | Inventario correcto; cleanup total; sin filas/objetos; no hereda trial |
-| PRO activo | No afirma cancelación antes de confirmación provider; email/soporte y resolución durable |
-| Leads, PDF, fotos y voz | Keys congeladas; S3/DB/local verificados; copias externas declaradas fuera de alcance |
-| Offline | No crea solicitud ni muestra aceptación; permite volver a operar |
-| Outbox pendiente | Ofrece sync; continuar exige consentimiento; nada se envía tras barrier |
-| Exportación | Voluntaria, separada y no bloqueante; archivo externo queda fuera de control |
-| Solicitud repetida/simultánea | Misma solicitud/receipt; una sola ejecución; sin doble cancelación/borrado |
-| S3 parcial | Retry solo de keys fallidas; no borra metadata necesaria; nunca `completed` prematuro |
-| Cognito finalizer falla | Cuenta bloqueada y request reintentable/`blocked`; datos no resucitan |
-| Revocación OAuth falla | Ciphertext no vuelve a uso; incidente/retry según política; sin falso éxito |
-| Cancelación de suscripción falla | Sin mensaje de cancelación exitosa; caso durable resoluble |
-| Web | PKCE, CSRF/state, mismo owner/pipeline, receipt fuera de URL y rate limit |
-| Antes de 30 días | Email/password y Google rechazados sin revelar existencia/historial |
-| Después de 30 días | `sub`/account/workspace nuevos; cero datos y PRO; trial según política futura |
-| Token antiguo | Guard central rechaza todas las mutaciones/pulls/callbacks |
-| Restore antiguo | Ledger actual se reaplica antes de tráfico; cuenta no reaparece |
-| Dos dispositivos | Segundo dispositivo recibe barrier, detiene sync y purga solo ese owner |
-| Multi-owner local | Eliminar A conserva íntegros B y filas legacy owner-null |
-| Fallo local de filesystem | Manifest permite retry; no borra fuera de `foloo_media` |
-| Logs/receipt | Sin email, token, payload, path, object key, `sub` o IDs internos |
+| Caso                             | Evidencia esperada                                                                       |
+| -------------------------------- | ---------------------------------------------------------------------------------------- |
+| FREE con datos / sin datos       | Inventario correcto; cleanup total; sin filas/objetos; no hereda trial                   |
+| PRO activo                       | No afirma cancelación antes de confirmación provider; email/soporte y resolución durable |
+| Leads, PDF, fotos y voz          | Keys congeladas; S3/DB/local verificados; copias externas declaradas fuera de alcance    |
+| Offline                          | No crea solicitud ni muestra aceptación; permite volver a operar                         |
+| Outbox pendiente                 | Ofrece sync; continuar exige consentimiento; nada se envía tras barrier                  |
+| Exportación                      | Voluntaria, separada y no bloqueante; archivo externo queda fuera de control             |
+| Solicitud repetida/simultánea    | Misma solicitud/receipt; una sola ejecución; sin doble cancelación/borrado               |
+| S3 parcial                       | Retry solo de keys fallidas; no borra metadata necesaria; nunca `completed` prematuro    |
+| Cognito finalizer falla          | Cuenta bloqueada y request reintentable/`blocked`; datos no resucitan                    |
+| Revocación OAuth falla           | Ciphertext no vuelve a uso; incidente/retry según política; sin falso éxito              |
+| Cancelación de suscripción falla | Sin mensaje de cancelación exitosa; caso durable resoluble                               |
+| Web                              | PKCE, CSRF/state, mismo owner/pipeline, receipt fuera de URL y rate limit                |
+| Antes de 30 días                 | Email/password y Google rechazados sin revelar existencia/historial                      |
+| Después de 30 días               | `sub`/account/workspace nuevos; cero datos y PRO; trial según política futura            |
+| Token antiguo                    | Guard central rechaza todas las mutaciones/pulls/callbacks                               |
+| Restore antiguo                  | Ledger actual se reaplica antes de tráfico; cuenta no reaparece                          |
+| Dos dispositivos                 | Segundo dispositivo recibe barrier, detiene sync y purga solo ese owner                  |
+| Multi-owner local                | Eliminar A conserva íntegros B y filas legacy owner-null                                 |
+| Fallo local de filesystem        | Manifest permite retry; no borra fuera de `foloo_media`                                  |
+| Logs/receipt                     | Sin email, token, payload, path, object key, `sub` o IDs internos                        |
 
 Pruebas destructivas se ejecutarán únicamente en DEV con cuentas/datos
 sintéticos y autorización por ejecución. Ningún test usa usuarios reales.
 
 ## 9. Plan incremental STORE-02E
 
-| Subtarea | Objetivo y módulos probables | Dependencias/riesgo | Criterio/pruebas | ¿Puede iniciar? |
-|---|---|---|---|---|
-| `02E-01` Aprobaciones/trazas | `product-spec`, E-14, D-13, roadmap, traceability, OpenAPI | Legal/Seguridad/Infra/Payments y owners | IDs canónicos, criterios y matriz; autorización sigue pendiente | **Completada documentalmente** |
-| `02E-02` DDL/barrera | nuevas migraciones; `migration_runner`; wrapper de `resolvePrincipal`; ledger externo/trigger Cognito | Retención, HMAC, 30 días, restore, fail-closed | concurrencia, restore y no reprovisión | Revisión arquitectura/seguridad completada en `account-deletion-architecture-security-review.md`; código bloqueado |
-| `02E-03` API/request | `router`, schemas, application/ports, repository, OpenAPI/error envelope | Reauth, receipt, estados y máximo operativo | preflight/confirm idempotentes; token viejo bloqueado | Tests/contrato ahora; código bloqueado |
-| `02E-04` Orquestación/workers | CDK state machine, DB/S3/provider/Cognito workers, IAM/logs/runbooks | owner operativo, retention, Payments, permisos destructivos | retries por stage, no cross-owner, alarmas | Diagramas/spikes; recursos bloqueados |
-| `02E-05` Flutter | Cuenta UI, auth repository, sync lifecycle, Drift cleanup DAO, filesystem manifest, l10n | copy/reautenticación/seguridad | ES/EN, light/dark, offline, multi-device/owner | Prototipos/tests; código bloqueado |
-| `02E-06` Web | `foloo.io`, Cognito web client/PKCE, mismo API/status/soporte | TI, D-21 si aplica, Legal y publicación | E2E web sin secretos ni pipeline alterno | Arquitectura; implementación bloqueada |
-| `02E-07` QA/security | fixtures sintéticos, threat model, matrices E2E/store/restore | Componentes 02–06 y autorización destructiva DEV | evidencia completa y redacción de logs | **Sí**, diseño y tests no destructivos |
-| `02E-08` Compliance | políticas, Data Safety/App Privacy y cierre de D-13 | evidencia técnica + validación Legal | formularios coherentes, owners y plazos | Bloqueado para cierre |
+| Subtarea                      | Objetivo y módulos probables                                                                          | Dependencias/riesgo                                         | Criterio/pruebas                                                | ¿Puede iniciar?                                                                                                    |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `02E-01` Aprobaciones/trazas  | `product-spec`, E-14, D-13, roadmap, traceability, OpenAPI                                            | Legal/Seguridad/Infra/Payments y owners                     | IDs canónicos, criterios y matriz; autorización sigue pendiente | **Completada documentalmente**                                                                                     |
+| `02E-02` DDL/barrera          | nuevas migraciones; `migration_runner`; wrapper de `resolvePrincipal`; ledger externo/trigger Cognito | Retención, HMAC, 30 días, restore, fail-closed              | concurrencia, restore y no reprovisión                          | Revisión arquitectura/seguridad completada en `account-deletion-architecture-security-review.md`; código bloqueado |
+| `02E-03` API/request          | `router`, schemas, application/ports, repository, OpenAPI/error envelope                              | Reauth, receipt, estados y máximo operativo                 | preflight/confirm idempotentes; token viejo bloqueado           | Tests/contrato ahora; código bloqueado                                                                             |
+| `02E-04` Orquestación/workers | CDK state machine, DB/S3/provider/Cognito workers, IAM/logs/runbooks                                  | owner operativo, retention, Payments, permisos destructivos | retries por stage, no cross-owner, alarmas                      | Diagramas/spikes; recursos bloqueados                                                                              |
+| `02E-05` Flutter              | Cuenta UI, auth repository, sync lifecycle, Drift cleanup DAO, filesystem manifest, l10n              | copy/reautenticación/seguridad                              | ES/EN, light/dark, offline, multi-device/owner                  | Prototipos/tests; código bloqueado                                                                                 |
+| `02E-06` Web                  | `foloo.io`, Cognito web client/PKCE, mismo API/status/soporte                                         | TI, D-21 si aplica, Legal y publicación                     | E2E web sin secretos ni pipeline alterno                        | Arquitectura; implementación bloqueada                                                                             |
+| `02E-07` QA/security          | fixtures sintéticos, threat model, matrices E2E/store/restore                                         | Componentes 02–06 y autorización destructiva DEV            | evidencia completa y redacción de logs                          | **Sí**, diseño y tests no destructivos                                                                             |
+| `02E-08` Compliance           | políticas, Data Safety/App Privacy y cierre de D-13                                                   | evidencia técnica + validación Legal                        | formularios coherentes, owners y plazos                         | Bloqueado para cierre                                                                                              |
 
 ### Camino crítico recomendado
 
@@ -405,6 +407,88 @@ puede cumplir.
    políticas Apple/Google.
 10. Producto: elegibilidad de trial para la cuenta nueva después de 30 días.
 
-Hasta resolver estos puntos solo están autorizados documentos, diagramas,
-threat model, contratos y pruebas no destructivas. STORE-02E permanece sin
-implementar y `D-13` abierta.
+Hasta resolver estos puntos no se autoriza activar ni ejecutar el flujo
+destructivo. La implementación local no cierra STORE-02E y `D-13` sigue abierta.
+
+## 11. Incremento funcional local del 2026-10-23
+
+Sin aprobar `D-13` ni las ADR candidatas, el código queda preparado para un QA
+destructivo estrictamente controlado en DEV:
+
+- una allowlist de Account Deletion separada de Web Sessions usa
+  `SHA-256("foloo-account-deletion-qa\\0" + sub)` y exige exactamente una
+  identidad sintética D;
+- la configuración falla cerrada si está vacía, mal formada, contiene más de
+  una identidad o se intenta habilitar fuera de DEV;
+- el controller aplica la barrera antes de HMAC/KMS, preflight o confirmación,
+  por lo que A/B/C y cualquier usuario existente reciben `403` sin crear estado;
+- `FOLOO_ACCOUNT_DELETION_INTAKE_ENABLED` separa la aceptación de solicitudes
+  del runtime protegido. Puede cerrarse el intake y conservar receipt/status,
+  write fence, outbox, worker, finalizer y reconciliación hasta terminar una
+  solicitud ya aceptada; intake exige runtime activo y la allowlist exclusiva;
+- CDK conserva todo apagado por defecto. El contexto explícito de QA prepara en
+  conjunto API, worker, finalizer, outbox/recovery, reconciler y guards Cognito,
+  manteniendo notificaciones SES en `disabled`;
+- Flutter fuerza logout e inicio de sesión interactivo, conserva en memoria la
+  intención solo para el mismo `sub`, reabre el flujo y vuelve a consultar
+  `auth_time`; un refresh silencioso no satisface ese recorrido.
+
+Esto no autoriza despliegue, migración 010, triggers Cognito ni borrado real.
+Antes de un Change Set se requieren: identidad D nueva, hash calculado sin
+registrar el `sub`, estado verificado de migración 010, backup/restore aprobado,
+revisión de IAM y autorización destructiva por ejecución. Las cuentas con
+suscripción Stripe activa continúan bloqueadas con
+`subscription_cancellation_unavailable`: no se simula una cancelación hasta
+que Payments apruebe e integre esa política. Las cuentas Free no dependen de
+Stripe.
+
+El primer QA destructivo debe usar D como cuenta SRP con `email_verified=true`.
+El callback de reautenticación móvil también admite volver desde Google, pero
+la confirmación continúa fail-closed cuando Cognito no aporta correo verificado
+(caso observado en la identidad Google QA B); Seguridad debe aprobar una fuente
+de evidencia verificada antes de autorizar borrado federado en ese caso. Las
+Lambdas PreSignUp/PostAuthentication están preparadas pero el User Pool solo se
+referencia y los triggers no se adjuntan automáticamente: esa mutación requiere
+una auditoría y autorización separadas. Flutter conserva el receipt cifrado tras
+logout; la presentación pública de status posterior al logout sigue pendiente
+de copy/UX aprobados, aunque el contrato `POST /v1/account-deletion-status` está
+implementado y probado.
+
+### Controles progresivos preparados localmente
+
+La activación dejó de depender de un único interruptor. Todos los controles
+siguientes son `false` por defecto y están restringidos a DEV:
+
+| Contexto CDK                              | Boundary                           | Dependencia obligatoria                         |
+| ----------------------------------------- | ---------------------------------- | ----------------------------------------------- |
+| `accountDeletionQaEnabled`                | API/runtime y write fence          | exactamente un hash D                           |
+| `accountDeletionQaIntakeEnabled`          | solicitudes nuevas                 | runtime, worker, finalizer, outbox y scheduler  |
+| `accountDeletionRegistrationGuardEnabled` | PreSignUp/PostAuthentication       | independiente del runtime                       |
+| `accountDeletionWorkerEnabled`            | consumo SQS y workflow destructivo | runtime y finalizer                             |
+| `accountDeletionFinalizerEnabled`         | sign-out/borrado Cognito           | worker                                          |
+| `accountDeletionOutboxRecoveryEnabled`    | reenvío durable a SQS              | worker                                          |
+| `accountDeletionRecoverySchedulerEnabled` | regla EventBridge del outbox       | outbox recovery                                 |
+| `accountDeletionRestoreReconcilerEnabled` | purga tras restore                 | worker                                          |
+
+El hash D puede preconfigurarse pasivamente en DEV sin habilitar ningún
+boundary. Runtime continúa exigiendo exactamente una identidad; valores
+booleanos desconocidos, hashes inválidos, dependencias incompletas o cualquier
+activación fuera de DEV fallan cerrados. Worker y finalizer usan flags propios,
+y el event source SQS queda deshabilitado cuando worker está apagado.
+
+Los handlers Cognito validan, solo cuando su control está activo, el User Pool,
+los App Clients móvil/web, el trigger exacto y el proveedor. Se admite Cognito
+nativo y Google; un contexto ausente, ambiguo o de otro proveedor se rechaza
+sin registrar identificadores. Con el control apagado siguen siendo
+pass-through y no leen KMS/DynamoDB.
+
+### Preparación de la identidad sintética D
+
+D se crea únicamente después de autorización, mediante el alta SRP normal de
+Flutter contra DEV y un buzón sintético nuevo. Se confirma el código para
+obtener `CONFIRMED` y `email_verified=true`; después se inicia sesión una vez
+para crear el workspace. La comprobación previa al QA exige proveedor nativo,
+workspace personal, estado Free/trial y ausencia de una suscripción Stripe
+activa. El `sub` se lee internamente y su hash
+`base64url(SHA-256("foloo-account-deletion-qa\\0" + sub))` se custodia sin
+imprimir correo, `sub`, credenciales ni hash. D no se agrega a Web Sessions.

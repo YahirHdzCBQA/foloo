@@ -146,6 +146,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   EmailConnectionService? _emailConnectionService;
   EntitlementSnapshot _entitlement = EntitlementSnapshot.newTrial();
   bool _paywallVisible = false;
+  String? _accountDeletionReauthenticationOwner;
 
   DateTime get _now => widget.nowProvider?.call() ?? DateTime.now();
 
@@ -573,6 +574,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       return false;
     }
     await _loadUserState(user.id);
+    _resumeAccountDeletionAfterReauthentication(user.id);
     unawaited(_synchronize(trigger: SyncTrigger.startup));
     return true;
   }
@@ -582,6 +584,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     final user = _authRepository.state.user;
     if (!authenticated || user == null) return false;
     await _loadUserState(user.id);
+    _resumeAccountDeletionAfterReauthentication(user.id);
     unawaited(_synchronize(trigger: SyncTrigger.startup));
     return true;
   }
@@ -708,7 +711,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _logout() async {
+  Future<void> _logout({bool preserveDeletionReauthentication = false}) async {
     await _authRepository.signOut();
     if (!mounted) return;
     setState(() {
@@ -729,10 +732,13 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       _pendingConfirmationEmail = null;
       _accountJustConfirmed = false;
       _resolvedOwnerSub = null;
+      if (!preserveDeletionReauthentication) {
+        _accountDeletionReauthenticationOwner = null;
+      }
     });
   }
 
-  void _openAccountDeletion() {
+  void _openAccountDeletion({bool prepareImmediately = false}) {
     final service = widget.accountDeletionService;
     if (!widget.accountDeletionEnabled || service == null) return;
     _navigatorKey.currentState?.push(
@@ -751,8 +757,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
                   .where((operation) => operation.status != 'synced')
                   .length,
           onReauthenticate: () async {
+            _accountDeletionReauthenticationOwner = _userId;
             _navigatorKey.currentState?.pop();
-            await _logout();
+            await _logout(preserveDeletionReauthentication: true);
           },
           onAccepted: (accepted) async {
             _navigatorKey.currentState?.pop();
@@ -767,9 +774,67 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
             );
             await _logout();
           },
+          prepareImmediately: prepareImmediately,
         ),
       ),
     );
+  }
+
+  void _resumeAccountDeletionAfterReauthentication(String ownerSub) {
+    final expectedOwner = _accountDeletionReauthenticationOwner;
+    if (expectedOwner == null) return;
+    _accountDeletionReauthenticationOwner = null;
+    if (expectedOwner != ownerSub || !widget.accountDeletionEnabled) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _openAccountDeletion(prepareImmediately: true);
+    });
+  }
+
+  Future<void> _showAccountDeletionStatus() async {
+    final service = widget.accountDeletionService;
+    if (!widget.accountDeletionEnabled || service == null) return;
+    final saved = await _accountDeletionReceipts.read();
+    if (!mounted) return;
+    if (saved == null) {
+      _messengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text(context.l10n.accountDeletionNoReceipt)),
+      );
+      return;
+    }
+    try {
+      final progress = await service.statusByReceipt(saved['receipt']!);
+      if (!mounted) return;
+      final status = switch (progress.status) {
+        AccountDeletionStatus.awaitingConfirmation =>
+          context.l10n.accountDeletionStatusAwaiting,
+        AccountDeletionStatus.requested =>
+          context.l10n.accountDeletionStatusRequested,
+        AccountDeletionStatus.inProgress =>
+          context.l10n.accountDeletionStatusInProgress,
+        AccountDeletionStatus.blocked =>
+          context.l10n.accountDeletionStatusBlocked,
+        AccountDeletionStatus.completed =>
+          context.l10n.accountDeletionStatusCompleted,
+      };
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(context.l10n.accountDeletionStatusTitle),
+          content: Text(status),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(context.l10n.continueAction),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _messengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text(context.l10n.accountDeletionStatusError)),
+      );
+    }
   }
 
   void _setAppearance(bool darkMode) {
@@ -1157,6 +1222,11 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
                     ? _authRepository.failure ?? AuthFailureCode.unexpected
                     : null,
                 accountConfirmed: _accountJustConfirmed,
+                onAccountDeletionStatus:
+                    widget.accountDeletionEnabled &&
+                        widget.accountDeletionService != null
+                    ? _showAccountDeletionStatus
+                    : null,
                 onCreateAccount: () {
                   _authRepository.clearFailure();
                   setState(() {

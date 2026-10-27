@@ -364,6 +364,27 @@ export class WebSessionService {
     }
   }
 
+  /**
+   * Consumes a provider-cancelled OAuth transaction only after validating its
+   * state. No provider error details cross this boundary or create a session.
+   */
+  async cancelGoogleAuthorization(
+    transactionId: string,
+    state: string,
+  ): Promise<void> {
+    const key = oauthTransactionKey(transactionId);
+    const transaction = await this.store.readOAuthTransaction(key);
+    const nowMs = this.now().getTime();
+    if (
+      !transaction ||
+      transaction.expiresAtMs <= nowMs ||
+      !safeEqual(transaction.stateHash, digest(state)) ||
+      !(await this.store.consumeOAuthTransaction(key, transaction.version))
+    ) {
+      throw new OAuthTransactionError();
+    }
+  }
+
   private async createSession(
     tokens: CognitoTokenSet,
     refreshToken: string,

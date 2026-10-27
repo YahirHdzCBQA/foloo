@@ -4,6 +4,7 @@ import * as cdk from "aws-cdk-lib";
 
 import {
   environmentConfig,
+  accountDeletionQaConfigForEnvironment,
   unlimitedQaModeForEnvironment,
   webSessionQaConfigForEnvironment,
 } from "./config.js";
@@ -23,6 +24,19 @@ const webSessionQa = webSessionQaConfigForEnvironment(
   app.node.tryGetContext("webSessionQaEnabled"),
   app.node.tryGetContext("webSessionQaSubjectHashes"),
 );
+const accountDeletionQa = accountDeletionQaConfigForEnvironment(
+  config.name,
+  app.node.tryGetContext("accountDeletionQaEnabled"),
+  app.node.tryGetContext("accountDeletionQaIntakeEnabled"),
+  app.node.tryGetContext("accountDeletionQaSubjectHashes"),
+  app.node.tryGetContext("accountDeletionRegistrationGuardEnabled"),
+  app.node.tryGetContext("accountDeletionOutboxRecoveryEnabled"),
+  app.node.tryGetContext("accountDeletionRestoreReconcilerEnabled"),
+  app.node.tryGetContext("accountDeletionRecoverySchedulerEnabled"),
+  app.node.tryGetContext("accountDeletionWorkerEnabled"),
+  app.node.tryGetContext("accountDeletionFinalizerEnabled"),
+  app.node.tryGetContext("accountDeletionWorkerEventSourceEnabled"),
+);
 const requiredKeyArn = (contextName: string): string => {
   const value = app.node.tryGetContext(contextName);
   if (typeof value !== "string" || value.trim().length === 0) {
@@ -37,6 +51,7 @@ new FolooBackendStack(app, `FolooBackend-${config.name}`, {
   config,
   unlimitedQaMode,
   webSessionQa,
+  accountDeletionQa,
   accountDeletionKeyArns: {
     identityHmacKeyArn: requiredKeyArn("accountDeletionIdentityHmacKeyArn"),
     notificationRecipientKeyArn: requiredKeyArn(

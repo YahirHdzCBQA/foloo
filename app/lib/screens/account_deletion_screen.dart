@@ -20,6 +20,7 @@ class AccountDeletionScreen extends StatefulWidget {
     required this.pendingSyncCount,
     required this.onReauthenticate,
     required this.onAccepted,
+    this.prepareImmediately = false,
     super.key,
   });
 
@@ -30,6 +31,7 @@ class AccountDeletionScreen extends StatefulWidget {
   final Future<int> Function() pendingSyncCount;
   final Future<void> Function() onReauthenticate;
   final Future<void> Function(AccountDeletionAccepted accepted) onAccepted;
+  final bool prepareImmediately;
 
   @override
   State<AccountDeletionScreen> createState() => _AccountDeletionScreenState();
@@ -43,6 +45,14 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
   bool _cancelRenewal = false;
   String? _error;
   String? _confirmationIdempotencyKey;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.prepareImmediately) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _prepare());
+    }
+  }
 
   Future<void> _prepare() async {
     final locale = Localizations.localeOf(context).languageCode == 'en'
@@ -217,18 +227,18 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 16),
                 child: Text(
-                  _error == 'reauthentication_required'
+                  _requiresReauthentication
                       ? l10n.accountDeletionReauthenticate
                       : l10n.accountDeletionError,
                   key: const Key('accountDeletionError'),
                   style: TextStyle(color: FolooPalette.of(context).error),
                 ),
               ),
-            if (_error == 'reauthentication_required')
+            if (_requiresReauthentication)
               TextButton(
                 key: const Key('accountDeletionReauthenticate'),
                 onPressed: _busy ? null : widget.onReauthenticate,
-                child: Text(l10n.drawerLogout),
+                child: Text(l10n.accountDeletionSignInAgain),
               ),
           ],
         ),
@@ -245,4 +255,9 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
     }
     return true;
   }
+
+  bool get _requiresReauthentication =>
+      _error == 'reauthentication_required' ||
+      _error == 'unauthenticated' ||
+      _error == 'session';
 }

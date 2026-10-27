@@ -1,7 +1,7 @@
 # STORE-02D — Contrato de eliminación integral de cuenta
 
-- Estado: **acuerdos de Producto/CBQA comunicados; pendiente autorización formal
-  de implementación y validaciones Legal/Seguridad/Infra/Payments**
+- Estado: **contrato implementado y validado end-to-end en AWS DEV; pendiente
+  producción y validaciones Legal/Seguridad/Infra/Payments**
 - Fecha: 2026-10-20
 - Alcance: Foloo V1, iOS/Android, recurso web y backend AWS
 - Decisión abierta: `D-13`
@@ -13,20 +13,23 @@
   [`account-deletion-technical-design.md`](account-deletion-technical-design.md)
 - Requisitos y trazabilidad STORE-02E-01:
   [`account-deletion-requirements-traceability.md`](account-deletion-requirements-traceability.md)
+- Cierre y evidencia DEV:
+  [`store-02-account-deletion-closure.md`](store-02-account-deletion-closure.md)
 
 Este documento convierte la propuesta preliminar de STORE-02C en un contrato
 técnico verificable para STORE-02E. No es asesoría legal, no autoriza una
 migración o despliegue y **no cierra `D-13`**. El 2026-10-20 se comunicaron los
 acuerdos de Producto/CBQA para `DEC-AD-01`–`DEC-AD-14`. Esos acuerdos fijan
-dirección funcional, pero no equivalen a una aprobación conjunta de Legal,
-Seguridad, Infra, Payments ni a autorización para implementar STORE-02E. Cada
+dirección funcional. La implementación y el QA destructivo controlado en DEV
+quedaron completados el 2026-10-26, pero no equivalen a una aprobación conjunta
+de Legal, Seguridad, Infra, Payments ni a autorización de producción. Cada
 validación y responsable pendiente se conserva explícitamente.
 
 ## 1. Resultado y límites de STORE-02D
 
-Foloo no tiene hoy eliminación integral de cuenta. Logout, tombstones de
-Event/Lead/Content y desconexión de sender son operaciones distintas. El flujo
-propuesto debe eliminar la cuenta y los datos asociados bajo control de Foloo,
+Al corte de STORE-02D Foloo no tenía eliminación integral de cuenta. Logout,
+tombstones de Event/Lead/Content y desconexión de sender eran operaciones
+distintas. La implementación posterior elimina la cuenta y los datos asociados,
 preservar únicamente las excepciones aprobadas, impedir que sync o una sesión
 antigua reconstruyan datos y producir una confirmación sin PII.
 

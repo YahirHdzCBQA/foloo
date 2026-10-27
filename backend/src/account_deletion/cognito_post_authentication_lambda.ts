@@ -8,6 +8,7 @@ import type { PostAuthenticationTriggerHandler } from "aws-lambda";
 
 import { CognitoAccountAccessProtection } from "./cognito_account_access.js";
 import { createCognitoAccountDeletionGuard } from "./cognito_guard_factory.js";
+import { validateCognitoGuardTriggerContext } from "./cognito_trigger_context.js";
 
 export const handler: PostAuthenticationTriggerHandler = async (event) => {
   if (
@@ -15,6 +16,7 @@ export const handler: PostAuthenticationTriggerHandler = async (event) => {
   ) {
     return event;
   }
+  validateCognitoGuardTriggerContext(event, "post-authentication");
   const attributes = event.request.userAttributes;
   await new CognitoAccountAccessProtection(
     createCognitoAccountDeletionGuard(),

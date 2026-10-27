@@ -106,6 +106,10 @@ function sessions() {
       idleExpiresAt: new Date("2026-10-22T12:30:00Z"),
       authenticationTime: new Date("2026-10-22T11:59:00Z"),
     }),
+    cancelGoogleAuthorization: async (transactionId: string, state: string) => {
+      void transactionId;
+      void state;
+    },
   };
 }
 
@@ -229,6 +233,67 @@ test("AUT-04 Google callback preserves state boundary and creates only an opaque
   assert.match(result.cookies?.[0] ?? "", /^__Host-foloo_session=/u);
   assert.match(result.cookies?.[1] ?? "", /Max-Age=0/u);
   assert.doesNotMatch(result.body ?? "", /authorization-code-synthetic/u);
+});
+
+test("AUT-04 Google provider cancellation returns safely to login", async () => {
+  let cancellation: { transactionId: string; state: string } | undefined;
+  const subject = sessions();
+  subject.cancelGoogleAuthorization = async (transactionId, state) => {
+    cancellation = { transactionId, state };
+  };
+  const handler = createWebSessionHandler(
+    { sessions: subject as never },
+    configuration,
+  );
+  const result = await handler(
+    event("GET", "/api/auth/google/callback", {
+      queryStringParameters: {
+        error: "access_denied",
+        error_description: "provider details must not be reflected",
+        state: "oauth-state-synthetic",
+      },
+      cookies: ["__Host-foloo_oauth=oauth-transaction-identifier-synthetic"],
+    }),
+  );
+
+  assert.equal(result.statusCode, 303);
+  assert.equal(result.headers?.location, "/login");
+  assert.deepEqual(cancellation, {
+    transactionId: "oauth-transaction-identifier-synthetic",
+    state: "oauth-state-synthetic",
+  });
+  assert.equal(result.cookies?.length, 1);
+  assert.match(result.cookies?.[0] ?? "", /^__Host-foloo_oauth=;/u);
+  assert.match(result.cookies?.[0] ?? "", /Max-Age=0/u);
+  assert.doesNotMatch(result.body ?? "", /access_denied|provider details/u);
+});
+
+test("AUT-04 Google cancellation without validated state fails closed", async () => {
+  const subject = sessions();
+  subject.cancelGoogleAuthorization = async () => {
+    const { OAuthTransactionError } =
+      await import("../src/web_auth/web_session.js");
+    throw new OAuthTransactionError();
+  };
+  const handler = createWebSessionHandler(
+    { sessions: subject as never },
+    configuration,
+  );
+  const result = await handler(
+    event("GET", "/api/auth/google/callback", {
+      queryStringParameters: {
+        error: "access_denied",
+        error_description: "provider details must not be reflected",
+        state: "invalid-oauth-state",
+      },
+      cookies: ["__Host-foloo_oauth=oauth-transaction-identifier-synthetic"],
+    }),
+  );
+
+  assert.equal(result.statusCode, 400);
+  assert.equal(result.headers?.location, undefined);
+  assert.match(result.cookies?.[0] ?? "", /^__Host-foloo_oauth=;/u);
+  assert.doesNotMatch(result.body ?? "", /access_denied|provider details/u);
 });
 
 test("AUT-18 mutation requires allowed Origin and CSRF", async () => {

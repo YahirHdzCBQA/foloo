@@ -35,6 +35,18 @@ type FolooBackendStackProps = cdk.StackProps & {
     enabled: boolean;
     subjectHashes: readonly string[];
   };
+  accountDeletionQa?: {
+    enabled: boolean;
+    intakeEnabled: boolean;
+    registrationGuardEnabled: boolean;
+    outboxRecoveryEnabled: boolean;
+    restoreReconcilerEnabled: boolean;
+    recoverySchedulerEnabled: boolean;
+    workerEnabled: boolean;
+    workerEventSourceEnabled: boolean;
+    finalizerEnabled: boolean;
+    subjectHashes: readonly string[];
+  };
   accountDeletionKeyArns: {
     identityHmacKeyArn: string;
     notificationRecipientKeyArn: string;
@@ -46,6 +58,23 @@ export class FolooBackendStack extends cdk.Stack {
     super(scope, id, props);
     const { config } = props;
     validateBillingConfig(config);
+    const accountDeletionEnabled = props.accountDeletionQa?.enabled === true;
+    const accountDeletionIntakeEnabled =
+      accountDeletionEnabled && props.accountDeletionQa?.intakeEnabled === true;
+    const accountDeletionRegistrationGuardEnabled =
+      props.accountDeletionQa?.registrationGuardEnabled === true;
+    const accountDeletionOutboxRecoveryEnabled =
+      props.accountDeletionQa?.outboxRecoveryEnabled === true;
+    const accountDeletionRestoreReconcilerEnabled =
+      props.accountDeletionQa?.restoreReconcilerEnabled === true;
+    const accountDeletionRecoverySchedulerEnabled =
+      props.accountDeletionQa?.recoverySchedulerEnabled === true;
+    const accountDeletionWorkerEnabled =
+      props.accountDeletionQa?.workerEnabled === true;
+    const accountDeletionWorkerEventSourceEnabled =
+      props.accountDeletionQa?.workerEventSourceEnabled === true;
+    const accountDeletionFinalizerEnabled =
+      props.accountDeletionQa?.finalizerEnabled === true;
 
     const userPool = cognito.UserPool.fromUserPoolId(
       this,
@@ -286,11 +315,63 @@ export class FolooBackendStack extends cdk.Stack {
         FOLOO_UNLIMITED_QA_MODE:
           props.unlimitedQaMode === true ? "true" : "false",
         // STORE-02 remains fail-closed until Security/KMS/ledger approval.
-        FOLOO_ACCOUNT_DELETION_ENABLED: "false",
+        FOLOO_ACCOUNT_DELETION_ENABLED: accountDeletionEnabled
+          ? "true"
+          : "false",
+        FOLOO_ACCOUNT_DELETION_INTAKE_ENABLED: accountDeletionIntakeEnabled
+          ? "true"
+          : "false",
+        FOLOO_ENVIRONMENT: config.name,
+        FOLOO_ACCOUNT_DELETION_QA_ENABLED: accountDeletionEnabled
+          ? "true"
+          : "false",
+        ACCOUNT_DELETION_QA_SUBJECT_HASHES: (
+          props.accountDeletionQa?.subjectHashes ?? []
+        ).join(","),
         ACCOUNT_DELETION_NOTIFICATION_MODE: "disabled",
       },
       bundling: { minify: true, sourceMap: true },
     });
+    const verifiedEmailLogGroup = new logs.LogGroup(
+      this,
+      "AccountDeletionVerifiedEmailLogGroup",
+      {
+        retention: logs.RetentionDays.ONE_WEEK,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      },
+    );
+    const verifiedEmailRole = new iam.Role(
+      this,
+      "AccountDeletionVerifiedEmailFunctionRole",
+      { assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com") },
+    );
+    verifiedEmailLogGroup.grantWrite(verifiedEmailRole);
+    const verifiedEmailFunction = new lambdaNode.NodejsFunction(
+      this,
+      "AccountDeletionVerifiedEmailFunction",
+      {
+        entry: join(
+          import.meta.dirname,
+          "../src/account_deletion/cognito_verified_email_lambda.ts",
+        ),
+        handler: "handler",
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(15),
+        logGroup: verifiedEmailLogGroup,
+        role: verifiedEmailRole,
+        environment: {
+          COGNITO_USER_INFO_ENDPOINT: `https://${config.webAuth.cognitoDomain}/oauth2/userInfo`,
+        },
+        bundling: { minify: true, sourceMap: true },
+      },
+    );
+    verifiedEmailFunction.grantInvoke(apiFunction);
+    apiFunction.addEnvironment(
+      "ACCOUNT_DELETION_VERIFIED_EMAIL_FUNCTION_NAME",
+      verifiedEmailFunction.functionName,
+    );
 
     // STORE-02 resources are provisionable but every executable boundary is
     // forced off. Enabling requires the outstanding Security/Legal ADR gates.
@@ -339,7 +420,8 @@ export class FolooBackendStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(30),
         environment: {
           COGNITO_USER_POOL_ID: config.userPoolId,
-          FOLOO_ACCOUNT_DELETION_ENABLED: "false",
+          FOLOO_ACCOUNT_DELETION_FINALIZER_ENABLED:
+            accountDeletionFinalizerEnabled ? "true" : "false",
         },
         bundling: { minify: true, sourceMap: true },
       },
@@ -365,7 +447,9 @@ export class FolooBackendStack extends cdk.Stack {
           ACCOUNT_DELETION_FROM_ADDRESS: "hello@foloo.io",
           ACCOUNT_DELETION_SUPPORT_ADDRESS: "hello@foloo.io",
           ACCOUNT_DELETION_SES_IDENTITY_VERIFIED: "false",
-          FOLOO_ACCOUNT_DELETION_ENABLED: "false",
+          FOLOO_ACCOUNT_DELETION_ENABLED: accountDeletionEnabled
+            ? "true"
+            : "false",
         },
         bundling: { minify: true, sourceMap: true },
       },
@@ -393,7 +477,14 @@ export class FolooBackendStack extends cdk.Stack {
           ACCOUNT_DELETION_HMAC_KEY_ARN: accountDeletion.hmacKey.keyArn,
           ACCOUNT_DELETION_HMAC_KEY_VERSION: "v1",
           ACCOUNT_DELETION_HMAC_READ_VERSIONS: "v1",
-          FOLOO_ACCOUNT_DELETION_REGISTRATION_GUARD_ENABLED: "false",
+          FOLOO_ACCOUNT_DELETION_REGISTRATION_GUARD_ENABLED:
+            accountDeletionRegistrationGuardEnabled ? "true" : "false",
+          COGNITO_USER_POOL_ID: config.userPoolId,
+          COGNITO_ALLOWED_APP_CLIENT_IDS: [
+            config.appClientId,
+            webUserPoolClient.userPoolClientId,
+          ].join(","),
+          COGNITO_ALLOWED_FEDERATED_PROVIDERS: "Google",
         },
         bundling: { minify: true, sourceMap: true },
       },
@@ -417,7 +508,14 @@ export class FolooBackendStack extends cdk.Stack {
           ACCOUNT_DELETION_HMAC_KEY_ARN: accountDeletion.hmacKey.keyArn,
           ACCOUNT_DELETION_HMAC_KEY_VERSION: "v1",
           ACCOUNT_DELETION_HMAC_READ_VERSIONS: "v1",
-          FOLOO_ACCOUNT_DELETION_REGISTRATION_GUARD_ENABLED: "false",
+          FOLOO_ACCOUNT_DELETION_REGISTRATION_GUARD_ENABLED:
+            accountDeletionRegistrationGuardEnabled ? "true" : "false",
+          COGNITO_USER_POOL_ID: config.userPoolId,
+          COGNITO_ALLOWED_APP_CLIENT_IDS: [
+            config.appClientId,
+            webUserPoolClient.userPoolClientId,
+          ].join(","),
+          COGNITO_ALLOWED_FEDERATED_PROVIDERS: "Google",
         },
         bundling: { minify: true, sourceMap: true },
       },
@@ -497,7 +595,16 @@ export class FolooBackendStack extends cdk.Stack {
           ACCOUNT_DELETION_NOTIFICATION_FUNCTION_NAME:
             accountDeletionEmail.functionName,
           ACCOUNT_DELETION_NOTIFICATION_MODE: "disabled",
-          FOLOO_ACCOUNT_DELETION_ENABLED: "false",
+          FOLOO_ENVIRONMENT: config.name,
+          FOLOO_ACCOUNT_DELETION_QA_ENABLED: accountDeletionEnabled
+            ? "true"
+            : "false",
+          ACCOUNT_DELETION_QA_SUBJECT_HASHES: (
+            props.accountDeletionQa?.subjectHashes ?? []
+          ).join(","),
+          FOLOO_ACCOUNT_DELETION_WORKER_ENABLED: accountDeletionWorkerEnabled
+            ? "true"
+            : "false",
         },
         bundling: { minify: true, sourceMap: true },
       },
@@ -531,7 +638,8 @@ export class FolooBackendStack extends cdk.Stack {
           ACCOUNT_DELETION_RECIPIENT_KEY_ARN:
             accountDeletion.recipientKey.keyArn,
           ACCOUNT_DELETION_QUEUE_URL: accountDeletion.queue.queueUrl,
-          FOLOO_ACCOUNT_DELETION_OUTBOX_ENABLED: "false",
+          FOLOO_ACCOUNT_DELETION_OUTBOX_ENABLED:
+            accountDeletionOutboxRecoveryEnabled ? "true" : "false",
         },
         bundling: { minify: true, sourceMap: true },
       },
@@ -541,7 +649,7 @@ export class FolooBackendStack extends cdk.Stack {
       "AccountDeletionOutboxRecoverySchedule",
       {
         schedule: events.Schedule.rate(cdk.Duration.minutes(1)),
-        enabled: false,
+        enabled: accountDeletionRecoverySchedulerEnabled,
       },
     );
     deletionOutboxSchedule.addTarget(
@@ -581,7 +689,8 @@ export class FolooBackendStack extends cdk.Stack {
           ACCOUNT_DELETION_HMAC_KEY_ARN: accountDeletion.hmacKey.keyArn,
           ACCOUNT_DELETION_HMAC_KEY_VERSION: "v1",
           ACCOUNT_DELETION_QUEUE_URL: accountDeletion.queue.queueUrl,
-          FOLOO_ACCOUNT_DELETION_RECONCILER_ENABLED: "false",
+          FOLOO_ACCOUNT_DELETION_RECONCILER_ENABLED:
+            accountDeletionRestoreReconcilerEnabled ? "true" : "false",
         },
         bundling: { minify: true, sourceMap: true },
       },
@@ -599,6 +708,7 @@ export class FolooBackendStack extends cdk.Stack {
     deletionWorker.addEventSource(
       new lambdaEventSources.SqsEventSource(accountDeletion.queue, {
         batchSize: 1,
+        enabled: accountDeletionWorkerEventSourceEnabled,
         reportBatchItemFailures: true,
       }),
     );

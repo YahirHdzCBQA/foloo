@@ -83,9 +83,21 @@ async function initialize() {
           environment.ACCOUNT_DELETION_COGNITO_FINALIZER_FUNCTION_NAME,
           "ACCOUNT_DELETION_COGNITO_FINALIZER_FUNCTION_NAME",
         ),
+        verifiedEmailFunctionName: required(
+          environment.ACCOUNT_DELETION_VERIFIED_EMAIL_FUNCTION_NAME,
+          "ACCOUNT_DELETION_VERIFIED_EMAIL_FUNCTION_NAME",
+        ),
         mediaBucketName: environment.MEDIA_BUCKET_NAME,
         maximumAuthenticationAgeMs:
           environment.ACCOUNT_DELETION_REAUTH_MAX_AGE_SECONDS * 1000,
+        environment: environment.FOLOO_ENVIRONMENT,
+        qaAccessEnabled: environment.FOLOO_ACCOUNT_DELETION_QA_ENABLED,
+        intakeEnabled: environment.FOLOO_ACCOUNT_DELETION_INTAKE_ENABLED,
+        qaAllowedSubjectHashes: new Set(
+          environment.ACCOUNT_DELETION_QA_SUBJECT_HASHES.length === 0
+            ? []
+            : environment.ACCOUNT_DELETION_QA_SUBJECT_HASHES.split(","),
+        ),
       })
     : null;
   const accessGuard = deletion?.accessGuard;

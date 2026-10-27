@@ -1,5 +1,9 @@
 # STORE-02.5 — Cognito Web y preparación de despliegue AWS DEV
 
+> Documento histórico de readiness al 2026-10-21. No describe el estado final
+> desplegado. Consulte
+> [`store-02-account-deletion-closure.md`](store-02-account-deletion-closure.md).
+
 - Fecha de corte: 2026-10-21
 - Ambiente objetivo: AWS DEV (`837153590200`, `us-east-1`,
   `FolooBackend-dev`)
@@ -396,9 +400,10 @@ ese Change Set.
 2. Confirmar backup recuperable de RDS y ventana de baja actividad.
 3. Invocar `status`; debe mostrar 009 aplicada, 010 pendiente, barrera 009
    consistente y cero write-fence triggers.
-4. Confirmar que 010 es la única migración pendiente. `action=apply` ejecuta
-   **todas** las migraciones faltantes en orden; no acepta un nombre individual.
-5. Con autorización separada, invocar `apply` una vez.
+4. Confirmar el estado de las demás migraciones. La operación debe nombrar
+   `010_account_deletion_write_fence.sql` mediante `only`, para no aplicar por
+   accidente otra migración pendiente.
+5. Con autorización separada, invocar `apply` una vez y solo para 010.
 6. Repetir `status`: 010 aplicada y 18 triggers write-fence esperados.
 7. Ejecutar los postchecks y smoke de escrituras normales mientras no existe
    ninguna cuenta pending.
@@ -418,7 +423,8 @@ aws lambda invoke --function-name "$FOLOO_MIGRATION_FUNCTION" \
 
 # Solo después de backup, revisión del status y autorización explícita:
 aws lambda invoke --function-name "$FOLOO_MIGRATION_FUNCTION" \
-  --cli-binary-format raw-in-base64-out --payload '{"action":"apply"}' \
+  --cli-binary-format raw-in-base64-out \
+  --payload '{"action":"apply","only":"010_account_deletion_write_fence.sql"}' \
   --profile foloo-dev --region us-east-1 \
   /tmp/foloo-account-deletion-migration-010.json
 
@@ -507,9 +513,9 @@ autorización destructiva. Usar una cuenta DEV nueva sin datos reales.
 1. Desplegar fases 1–3 pasivamente y aplicar/verificar migración 010.
 2. Desplegar pasivamente y validar el App Client web, audiencia JWT y CORS ya
    preparados localmente.
-3. Implementar y validar en `foloo-landing` PKCE S256 y reautenticación
-   interactiva; la UI móvil actual
-   solo cierra sesión cuando backend pide reauth.
+3. Validar la reautenticación interactiva por proveedor: Flutter ya cierra la
+   sesión, exige login del mismo `sub`, retoma el flujo y vuelve a consultar
+   `auth_time`; web debe conservar PKCE S256 y el regreso seguro al flujo.
 4. Aprobar formalmente la operación receipt/status sin correo o validar SES
    completamente; el desacoplamiento técnico ya está implementado.
 5. Integrar en `foloo-landing` el seguimiento post-logout usando receipt.

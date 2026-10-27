@@ -260,9 +260,8 @@ formularios enviados.**
 
 ### STORE-02D — Account Deletion Contract y resolución de D-13
 
-**Estado:** **ACUERDOS DE PRODUCTO/CBQA COMUNICADOS el 2026-10-20; pendiente
-autorización formal y validaciones Legal/Seguridad/Infra/Payments; sin
-implementación.**
+**Estado:** **CERRADO DOCUMENTALMENTE; implementado después en STORE-02E y
+validado en AWS DEV. D-13 y producción permanecen abiertos.**
 
 - Matriz de datos, barrera anti-resurrección, solicitud autenticada, job durable,
   PostgreSQL/S3/OAuth/Cognito, purga Drift owner-scoped, UX ES/EN y recurso web:
@@ -297,8 +296,14 @@ implementación.**
 
 ### STORE-02E — Preparación técnica de Account Deletion
 
-**Estado:** **IMPLEMENTACIÓN FUNCIONAL LOCAL PREPARADA el 2026-10-20; runtime,
-AWS y borrado real desactivados hasta aprobar los gates de D-13/ADR.**
+**Estado:** **PASS AWS DEV el 2026-10-26 con identidad sintética; NO APTO aún
+para producción por D-13 y aprobaciones externas pendientes.**
+
+- Cierre técnico, incidentes, evidencia real y pendientes de producción:
+  [`store-02-account-deletion-closure.md`](store-02-account-deletion-closure.md).
+- Los puntos siguientes conservan la evolución histórica de cada incremento;
+  las menciones a “local”, “apagado” o “pendiente” describen su fecha de corte,
+  no el estado final consolidado.
 
 - Arquitectura, flujo Mermaid, barrera de nuevo registro por 30 días, matriz de
   datos, integración abstracta de suscripciones, UX, pruebas y plan incremental:
@@ -404,6 +409,16 @@ AWS y borrado real desactivados hasta aprobar los gates de D-13/ADR.**
   El móvil permanece independiente y el BFF puede consultar perfil solo para
   sujetos QA permitidos. El Change Set previo no se ejecutó; se requiere una
   auditoría nueva antes de cualquier despliegue.
+- El incremento local del 2026-10-23 prepara STORE-02 para QA destructivo
+  exclusivo con una identidad sintética D: allowlist separada de Web Sessions,
+  hash con dominio propio, exactamente un sujeto, fail-closed y prohibida fuera
+  de DEV. CDK conserva el modo pasivo por defecto; runtime e intake requieren
+  contextos explícitos separados, de modo que se pueda detener solicitudes
+  nuevas sin interrumpir recovery, worker/finalizer, outbox, reconciler ni
+  guards. SES permanece deshabilitado. Flutter fuerza login interactivo del
+  mismo owner y retoma el
+  preflight para que backend revalide `auth_time`. No se desplegó, no se aplicó
+  migración 010 y A/B/C no se autorizan para borrado.
 - D-13 y las validaciones Legal/Seguridad/Infra/Operación/Payments continúan
   abiertas. No se desplegaron recursos, migraciones ni builds.
 - `02E-02` dispone de primitivas aisladas 02A/02B, pero su conexión y despliegue

@@ -159,12 +159,14 @@ export class AccountDeletionLedgerInfrastructure extends Construct {
     );
   }
 
-  /** Grants the scheduled dispatcher table reads/transaction and its one GSI. */
+  /** Grants the scheduled dispatcher only its transaction component actions. */
   grantOutboxRecoveryAccess(grantee: iam.IGrantable): void {
     this.grantTableActions(
       grantee,
       "dynamodb:GetItem",
+      "dynamodb:DeleteItem",
       "dynamodb:TransactWriteItems",
+      "dynamodb:UpdateItem",
     );
     iam.Grant.addToPrincipal({
       grantee,

@@ -109,6 +109,160 @@ export type WebSessionQaConfig = Readonly<{
   subjectHashes: readonly string[];
 }>;
 
+export type AccountDeletionQaConfig = Readonly<{
+  enabled: boolean;
+  intakeEnabled: boolean;
+  registrationGuardEnabled: boolean;
+  outboxRecoveryEnabled: boolean;
+  restoreReconcilerEnabled: boolean;
+  recoverySchedulerEnabled: boolean;
+  workerEnabled: boolean;
+  workerEventSourceEnabled: boolean;
+  finalizerEnabled: boolean;
+  subjectHashes: readonly string[];
+}>;
+
+/** Allows destructive deletion QA only for exactly one synthetic DEV identity. */
+export function accountDeletionQaConfigForEnvironment(
+  environment: string,
+  rawEnabled: unknown,
+  rawIntakeEnabled: unknown,
+  rawSubjectHashes: unknown,
+  rawRegistrationGuardEnabled?: unknown,
+  rawOutboxRecoveryEnabled?: unknown,
+  rawRestoreReconcilerEnabled?: unknown,
+  rawRecoverySchedulerEnabled?: unknown,
+  rawWorkerEnabled?: unknown,
+  rawFinalizerEnabled?: unknown,
+  rawWorkerEventSourceEnabled?: unknown,
+): AccountDeletionQaConfig {
+  const enabled = activationFlag("accountDeletionQaEnabled", rawEnabled);
+  const intakeEnabled = activationFlag(
+    "accountDeletionQaIntakeEnabled",
+    rawIntakeEnabled,
+  );
+  const registrationGuardEnabled = activationFlag(
+    "accountDeletionRegistrationGuardEnabled",
+    rawRegistrationGuardEnabled,
+  );
+  const outboxRecoveryEnabled = activationFlag(
+    "accountDeletionOutboxRecoveryEnabled",
+    rawOutboxRecoveryEnabled,
+  );
+  const restoreReconcilerEnabled = activationFlag(
+    "accountDeletionRestoreReconcilerEnabled",
+    rawRestoreReconcilerEnabled,
+  );
+  const recoverySchedulerEnabled = activationFlag(
+    "accountDeletionRecoverySchedulerEnabled",
+    rawRecoverySchedulerEnabled,
+  );
+  const workerEnabled = activationFlag(
+    "accountDeletionWorkerEnabled",
+    rawWorkerEnabled,
+  );
+  const finalizerEnabled = activationFlag(
+    "accountDeletionFinalizerEnabled",
+    rawFinalizerEnabled,
+  );
+  const workerEventSourceEnabled = activationFlag(
+    "accountDeletionWorkerEventSourceEnabled",
+    rawWorkerEventSourceEnabled,
+  );
+  const controls = {
+    enabled,
+    intakeEnabled,
+    registrationGuardEnabled,
+    outboxRecoveryEnabled,
+    restoreReconcilerEnabled,
+    recoverySchedulerEnabled,
+    workerEnabled,
+    workerEventSourceEnabled,
+    finalizerEnabled,
+  };
+  const subjectHashes =
+    typeof rawSubjectHashes === "string" && rawSubjectHashes.trim().length > 0
+      ? rawSubjectHashes.split(",").map((value) => value.trim())
+      : [];
+  if (Object.values(controls).some(Boolean) && environment !== "dev") {
+    throw new Error("Account Deletion destructive QA is restricted to DEV.");
+  }
+  if (subjectHashes.some((value) => !/^[A-Za-z0-9_-]{43}$/u.test(value))) {
+    throw new Error("Account Deletion QA subject hash is invalid.");
+  }
+  if (new Set(subjectHashes).size !== subjectHashes.length) {
+    throw new Error("Account Deletion QA subject hashes must be unique.");
+  }
+  if (enabled && subjectHashes.length !== 1) {
+    throw new Error(
+      "Account Deletion destructive QA requires exactly one identity.",
+    );
+  }
+  if (subjectHashes.length > 1) {
+    throw new Error(
+      "Account Deletion destructive QA permits exactly one prepared identity.",
+    );
+  }
+  if (subjectHashes.length > 0 && environment !== "dev") {
+    throw new Error("Account Deletion QA identity preparation is DEV-only.");
+  }
+  if (intakeEnabled && !enabled) {
+    throw new Error(
+      "Account Deletion intake requires the protected runtime to be enabled.",
+    );
+  }
+  if (
+    intakeEnabled &&
+    (!workerEnabled || !finalizerEnabled || !outboxRecoveryEnabled)
+  ) {
+    throw new Error(
+      "Account Deletion intake requires worker, finalizer, and outbox recovery.",
+    );
+  }
+  if (workerEnabled && !enabled) {
+    throw new Error("Account Deletion worker requires runtime to be enabled.");
+  }
+  if (workerEventSourceEnabled && !workerEnabled) {
+    throw new Error(
+      "Account Deletion worker event source requires worker to be enabled.",
+    );
+  }
+  if (workerEnabled && !finalizerEnabled) {
+    throw new Error(
+      "Account Deletion worker requires finalizer to be enabled.",
+    );
+  }
+  if (finalizerEnabled && !workerEnabled) {
+    throw new Error(
+      "Account Deletion finalizer requires worker to be enabled.",
+    );
+  }
+  if (outboxRecoveryEnabled && !workerEnabled) {
+    throw new Error(
+      "Account Deletion outbox recovery requires worker to be enabled.",
+    );
+  }
+  if (recoverySchedulerEnabled && !outboxRecoveryEnabled) {
+    throw new Error(
+      "Account Deletion recovery scheduler requires outbox recovery to be enabled.",
+    );
+  }
+  if (restoreReconcilerEnabled && !workerEnabled) {
+    throw new Error(
+      "Account Deletion restore reconciler requires worker to be enabled.",
+    );
+  }
+  return { ...controls, subjectHashes };
+}
+
+function activationFlag(name: string, rawValue: unknown): boolean {
+  if (rawValue === undefined || rawValue === false || rawValue === "false") {
+    return false;
+  }
+  if (rawValue === true || rawValue === "true") return true;
+  throw new Error(`${name} must be true or false.`);
+}
+
 /** Keeps real web-session activation DEV-only and restricted to pseudonymous QA subjects. */
 export function webSessionQaConfigForEnvironment(
   environment: string,

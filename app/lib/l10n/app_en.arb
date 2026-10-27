@@ -64,6 +64,7 @@
   "accountDeletionIrreversible": "I understand that this action is irreversible",
   "accountDeletionConfirm": "Permanently delete account",
   "accountDeletionReauthenticate": "For your security, sign in again and return here before deleting your account.",
+  "accountDeletionSignInAgain": "Sign in again",
   "accountDeletionError": "The deletion request could not be processed. Your account remains active; try again later.",
   "accountDeletionAccepted": "Your deletion request was accepted. Foloo will now sign out on this device.",
   "drawerSales": "SALES",
@@ -417,5 +418,14 @@
   "paywallTitle": "Your 5 free leads have been used",
   "paywallBody": "A subscription is required to keep creating leads. Everything you already saved remains available.",
   "paywallFutureAction": "Subscriptions will be available soon.",
-  "paywallViewRecords": "View records"
+  "paywallViewRecords": "View records",
+  "accountDeletionCheckStatus": "Check deletion status",
+  "accountDeletionStatusTitle": "Account deletion status",
+  "accountDeletionNoReceipt": "No deletion receipt is stored on this device.",
+  "accountDeletionStatusAwaiting": "The request is awaiting confirmation.",
+  "accountDeletionStatusRequested": "The request was accepted and is waiting to be processed.",
+  "accountDeletionStatusInProgress": "Your account deletion is in progress.",
+  "accountDeletionStatusBlocked": "The process needs support attention. Your deletion barrier remains active.",
+  "accountDeletionStatusCompleted": "Your account and deletable data were removed.",
+  "accountDeletionStatusError": "The deletion status could not be retrieved. Try again later."
 }

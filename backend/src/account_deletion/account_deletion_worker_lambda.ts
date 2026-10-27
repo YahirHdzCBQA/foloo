@@ -30,12 +30,18 @@ async function initialize() {
     cognitoFinalizerFunctionName: required("COGNITO_FINALIZER_FUNCTION_NAME"),
     mediaBucketName: required("MEDIA_BUCKET_NAME"),
     maximumAuthenticationAgeMs: 300_000,
+    environment: required("FOLOO_ENVIRONMENT"),
+    qaAccessEnabled: required("FOLOO_ACCOUNT_DELETION_QA_ENABLED") === "true",
+    intakeEnabled: false,
+    qaAllowedSubjectHashes: new Set(
+      required("ACCOUNT_DELETION_QA_SUBJECT_HASHES").split(","),
+    ),
   });
   return createAccountDeletionWorker(runtime.workflow, runtime.restoreRecovery);
 }
 
 export const handler: SQSHandler = async (event) => {
-  if (process.env.FOLOO_ACCOUNT_DELETION_ENABLED !== "true") {
+  if (process.env.FOLOO_ACCOUNT_DELETION_WORKER_ENABLED !== "true") {
     // A disabled queue should remain empty. Returning failures is fail-closed
     // if a message is delivered by configuration error and drives it to DLQ.
     return {

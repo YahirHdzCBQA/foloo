@@ -26,6 +26,7 @@ import {
 } from "./account_deletion_transactional_email.js";
 import { AccountDeletionWorkflow } from "./account_deletion_workflow.js";
 import { LambdaCognitoErasure } from "./lambda_cognito_erasure.js";
+import { LambdaCognitoVerifiedEmailResolver } from "./lambda_cognito_verified_email.js";
 import { PostgresAccountDeletionRuntime } from "./postgres_account_deletion_runtime.js";
 import { PostgresOAuthErasure } from "./postgres_oauth_erasure.js";
 import { PostgresOwnerErasure } from "./postgres_owner_erasure.js";
@@ -36,6 +37,7 @@ import {
 import { S3OwnerObjectErasure } from "./s3_owner_object_erasure.js";
 import { StagedAccountDeletionExecutor } from "./staged_account_deletion_executor.js";
 import { RestoredOwnerErasureRecovery } from "./restored_owner_erasure_recovery.js";
+import { createAccountDeletionQaAccessGuard } from "./account_deletion_qa_access.js";
 
 export type AccountDeletionAwsConfiguration = Readonly<{
   tableName: string;
@@ -49,6 +51,11 @@ export type AccountDeletionAwsConfiguration = Readonly<{
   cognitoFinalizerFunctionName: string;
   mediaBucketName: string;
   maximumAuthenticationAgeMs: number;
+  environment: string;
+  qaAccessEnabled: boolean;
+  qaAllowedSubjectHashes: ReadonlySet<string>;
+  intakeEnabled: boolean;
+  verifiedEmailFunctionName?: string;
 }>;
 
 export function composeAccountDeletionRuntime(
@@ -63,6 +70,11 @@ export function composeAccountDeletionRuntime(
   });
   const hmac = new KmsHmacSha256Generator(kms);
   const subjects = new PseudonymousSubjectIdentifierService(keyProvider, hmac);
+  const qaAccessGuard = createAccountDeletionQaAccessGuard({
+    environment: config.environment,
+    enabled: config.qaAccessEnabled,
+    allowedSubjectHashes: config.qaAllowedSubjectHashes,
+  });
   const guard = new AccountDeletionGuard(
     new DynamoAccountDeletionLedger(dynamo, config.tableName),
     new PseudonymousEmailIdentifierService(keyProvider, hmac),
@@ -114,6 +126,16 @@ export function composeAccountDeletionRuntime(
     recipientVault,
     postgresRuntime,
   );
+  const verifiedEmailResolver = config.verifiedEmailFunctionName
+    ? new LambdaCognitoVerifiedEmailResolver(
+        lambda,
+        config.verifiedEmailFunctionName,
+      )
+    : {
+        async resolve(): Promise<string> {
+          throw new Error("Verified-email resolver is not configured.");
+        },
+      };
   return {
     workflow,
     controller: new WorkflowAccountDeletionHttpController(
@@ -121,6 +143,9 @@ export function composeAccountDeletionRuntime(
       subjects,
       config.hmacKeyVersion,
       config.maximumAuthenticationAgeMs,
+      qaAccessGuard,
+      verifiedEmailResolver,
+      config.intakeEnabled,
     ),
     accessGuard: new AccountDeletionRuntimeGuard(guard),
     executor,

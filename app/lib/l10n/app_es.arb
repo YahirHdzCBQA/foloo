@@ -64,6 +64,7 @@
   "accountDeletionIrreversible": "Entiendo que esta acción es irreversible",
   "accountDeletionConfirm": "Eliminar cuenta permanentemente",
   "accountDeletionReauthenticate": "Por tu seguridad, vuelve a iniciar sesión y regresa aquí antes de eliminar tu cuenta.",
+  "accountDeletionSignInAgain": "Volver a iniciar sesión",
   "accountDeletionError": "No se pudo procesar la solicitud. Tu cuenta sigue activa; inténtalo más tarde.",
   "accountDeletionAccepted": "Tu solicitud de eliminación fue aceptada. Foloo cerrará la sesión en este dispositivo.",
   "drawerSales": "VENTAS",
@@ -416,5 +417,14 @@
   "paywallTitle": "Tus 5 leads gratuitos ya fueron utilizados",
   "paywallBody": "Necesitarás una suscripción para seguir creando leads. Todo lo que ya guardaste permanece disponible.",
   "paywallFutureAction": "La suscripción estará disponible próximamente.",
-  "paywallViewRecords": "Ver registros"
+  "paywallViewRecords": "Ver registros",
+  "accountDeletionCheckStatus": "Consultar estado de eliminación",
+  "accountDeletionStatusTitle": "Estado de eliminación de cuenta",
+  "accountDeletionNoReceipt": "No hay un recibo de eliminación guardado en este dispositivo.",
+  "accountDeletionStatusAwaiting": "La solicitud está pendiente de confirmación.",
+  "accountDeletionStatusRequested": "La solicitud fue aceptada y espera procesamiento.",
+  "accountDeletionStatusInProgress": "La eliminación de tu cuenta está en curso.",
+  "accountDeletionStatusBlocked": "El proceso requiere atención de soporte. La barrera de eliminación permanece activa.",
+  "accountDeletionStatusCompleted": "Tu cuenta y los datos eliminables fueron borrados.",
+  "accountDeletionStatusError": "No se pudo consultar el estado de eliminación. Inténtalo más tarde."
 }

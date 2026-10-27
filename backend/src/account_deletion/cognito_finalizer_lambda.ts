@@ -14,7 +14,7 @@ const client = new CognitoIdentityProviderClient({});
 export async function handler(command: FinalizerCommand) {
   const userPoolId = process.env.COGNITO_USER_POOL_ID;
   if (!userPoolId) throw new Error("COGNITO_USER_POOL_ID is required.");
-  if (process.env.FOLOO_ACCOUNT_DELETION_ENABLED !== "true") {
+  if (process.env.FOLOO_ACCOUNT_DELETION_FINALIZER_ENABLED !== "true") {
     throw new Error("Account deletion finalizer is disabled.");
   }
   const erasure = new CognitoAdminErasure(client, userPoolId);

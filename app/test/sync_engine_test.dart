@@ -355,6 +355,27 @@ void main() {
     },
   );
 
+  test('AUT-21 public receipt lookup omits bearer authorization', () async {
+    final transport = _Transport();
+    final client = FolooApiClient(
+      configuration: const FolooApiConfiguration(
+        baseUrl: 'https://api.example.test',
+      ),
+      transport: transport,
+    );
+
+    await client.send(
+      '',
+      const SyncRequest(
+        method: 'POST',
+        path: '/v1/account-deletion-status',
+        body: {'receipt': 'synthetic-receipt'},
+      ),
+    );
+
+    expect(transport.headers, isNot(contains('authorization')));
+  });
+
   test('SYN-08 API client preserves safe backend error diagnostics', () async {
     final transport = _Transport()
       ..response = const SyncResponse(

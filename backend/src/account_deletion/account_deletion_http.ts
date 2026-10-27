@@ -12,6 +12,8 @@ import { z } from "zod";
 import { ApplicationError, unauthorized } from "../application/errors.js";
 import { authenticatedSubject } from "../auth/authenticated_identity.js";
 import type { PseudonymousSubjectIdentifierService } from "./pseudonymous_identity.js";
+import type { AccountDeletionQaAccessGuard } from "./account_deletion_qa_access.js";
+import type { VerifiedCognitoEmailResolver } from "./verified_cognito_email.js";
 import {
   AccountDeletionWorkflow,
   verifyRecentAuthentication,
@@ -59,6 +61,9 @@ export class WorkflowAccountDeletionHttpController<
     private readonly subjectIdentifiers: PseudonymousSubjectIdentifierService<KeyHandle>,
     private readonly keyVersion: string,
     private readonly maximumAuthenticationAgeMs: number,
+    private readonly qaAccessGuard: AccountDeletionQaAccessGuard,
+    private readonly verifiedEmailResolver: VerifiedCognitoEmailResolver,
+    private readonly intakeEnabled = false,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
@@ -83,6 +88,7 @@ export class WorkflowAccountDeletionHttpController<
     }
 
     const subject = authenticatedSubject(event);
+    this.qaAccessGuard.assertAllowed(subject);
     const ownerKey = (
       await this.subjectIdentifiers.identify(subject, this.keyVersion)
     ).digest;
@@ -109,6 +115,7 @@ export class WorkflowAccountDeletionHttpController<
       return response(200, { data: record ? publicStatus(record) : null });
     }
     if (method === "POST" && path === "/v1/account-deletion-requests") {
+      this.assertIntakeEnabled();
       const payload = createSchema.parse(readBody(event));
       const result = await this.workflow.preflight({
         ownerSubject: subject,
@@ -132,17 +139,13 @@ export class WorkflowAccountDeletionHttpController<
     const confirmMatch =
       /^\/v1\/account-deletion-requests\/([^/]+)\/confirm$/.exec(path);
     if (method === "POST" && confirmMatch?.[1]) {
+      this.assertIntakeEnabled();
       const payload = confirmSchema.parse(readBody(event));
-      const claims = event.requestContext.authorizer.jwt.claims;
-      const email = claims.email;
-      const verified = claims.email_verified;
-      if (
-        typeof email !== "string" ||
-        !email.includes("@") ||
-        !(verified === true || verified === "true")
-      ) {
-        throw unauthorized();
-      }
+      const email = await this.verifiedEmailResolver.resolve({
+        accessToken: bearerAccessToken(event),
+        expectedSubject: subject,
+        scopes: authenticatedScopes(event),
+      });
       const result = await this.workflow.confirm({
         requestId: requestIdSchema.parse(confirmMatch[1]),
         ownerSubject: subject,
@@ -166,6 +169,43 @@ export class WorkflowAccountDeletionHttpController<
     }
     throw new ApplicationError("route_not_found", 404, "Route was not found.");
   }
+
+  private assertIntakeEnabled(): void {
+    if (this.intakeEnabled) return;
+    throw new ApplicationError(
+      "account_deletion_intake_unavailable",
+      503,
+      "New account deletion requests are not being accepted.",
+    );
+  }
+}
+
+function bearerAccessToken(
+  event: APIGatewayProxyEventV2WithJWTAuthorizer,
+): string {
+  const authorization = Object.entries(event.headers).find(
+    ([key]) => key.toLowerCase() === "authorization",
+  )?.[1];
+  const match = /^Bearer ([^\s]+)$/u.exec(authorization ?? "");
+  if (!match?.[1]) throw unauthorized();
+  return match[1];
+}
+
+function authenticatedScopes(
+  event: APIGatewayProxyEventV2WithJWTAuthorizer,
+): readonly string[] {
+  const values = new Set<string>();
+  const authorizerScopes = event.requestContext.authorizer.jwt.scopes;
+  if (Array.isArray(authorizerScopes)) {
+    for (const value of authorizerScopes) values.add(value);
+  }
+  const claim = event.requestContext.authorizer.jwt.claims.scope;
+  if (typeof claim === "string") {
+    for (const value of claim.split(" ")) {
+      if (value.length > 0) values.add(value);
+    }
+  }
+  return [...values];
 }
 
 function recentAuthentication(

@@ -219,6 +219,9 @@ class AppLocalizationsEs extends AppLocalizations {
       'Por tu seguridad, vuelve a iniciar sesión y regresa aquí antes de eliminar tu cuenta.';
 
   @override
+  String get accountDeletionSignInAgain => 'Volver a iniciar sesión';
+
+  @override
   String get accountDeletionError =>
       'No se pudo procesar la solicitud. Tu cuenta sigue activa; inténtalo más tarde.';
 
@@ -1494,4 +1497,38 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get paywallViewRecords => 'Ver registros';
+
+  @override
+  String get accountDeletionCheckStatus => 'Consultar estado de eliminación';
+
+  @override
+  String get accountDeletionStatusTitle => 'Estado de eliminación de cuenta';
+
+  @override
+  String get accountDeletionNoReceipt =>
+      'No hay un recibo de eliminación guardado en este dispositivo.';
+
+  @override
+  String get accountDeletionStatusAwaiting =>
+      'La solicitud está pendiente de confirmación.';
+
+  @override
+  String get accountDeletionStatusRequested =>
+      'La solicitud fue aceptada y espera procesamiento.';
+
+  @override
+  String get accountDeletionStatusInProgress =>
+      'La eliminación de tu cuenta está en curso.';
+
+  @override
+  String get accountDeletionStatusBlocked =>
+      'El proceso requiere atención de soporte. La barrera de eliminación permanece activa.';
+
+  @override
+  String get accountDeletionStatusCompleted =>
+      'Tu cuenta y los datos eliminables fueron borrados.';
+
+  @override
+  String get accountDeletionStatusError =>
+      'No se pudo consultar el estado de eliminación. Inténtalo más tarde.';
 }

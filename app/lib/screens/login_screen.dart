@@ -28,6 +28,7 @@ class LoginScreen extends StatefulWidget {
     this.authenticating = false,
     this.failure,
     this.accountConfirmed = false,
+    this.onAccountDeletionStatus,
     super.key,
   });
 
@@ -37,6 +38,7 @@ class LoginScreen extends StatefulWidget {
   final bool authenticating;
   final AuthFailureCode? failure;
   final bool accountConfirmed;
+  final Future<void> Function()? onAccountDeletionStatus;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -240,6 +242,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
+                  if (widget.onAccountDeletionStatus != null) ...[
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      key: const Key('accountDeletionStatusButton'),
+                      onPressed: widget.authenticating
+                          ? null
+                          : widget.onAccountDeletionStatus,
+                      icon: const Icon(Icons.manage_search_outlined),
+                      label: Text(context.l10n.accountDeletionCheckStatus),
+                    ),
+                  ],
                 ],
               ),
             );

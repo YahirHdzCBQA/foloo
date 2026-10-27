@@ -86,6 +86,18 @@ export function createWebSessionHandler(
         const code = event.queryStringParameters?.code;
         const state = event.queryStringParameters?.state;
         const transactionId = cookie(event, oauthCookieName);
+        if (event.queryStringParameters?.error) {
+          if (!state || !transactionId) throw new OAuthTransactionError();
+          await dependencies.sessions.cancelGoogleAuthorization(
+            transactionId,
+            state,
+          );
+          return noStore({
+            statusCode: 303,
+            headers: { location: "/login" },
+            cookies: [clearCookie(oauthCookieName)],
+          });
+        }
         if (!code || !state || !transactionId)
           throw new OAuthTransactionError();
         const session = await dependencies.sessions.completeGoogleAuthorization(

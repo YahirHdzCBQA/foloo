@@ -7,6 +7,7 @@
 import type { PreSignUpTriggerHandler } from "aws-lambda";
 import { CognitoAccountAccessProtection } from "./cognito_account_access.js";
 import { createCognitoAccountDeletionGuard } from "./cognito_guard_factory.js";
+import { validateCognitoGuardTriggerContext } from "./cognito_trigger_context.js";
 
 export const handler: PreSignUpTriggerHandler = async (event) => {
   if (
@@ -14,6 +15,7 @@ export const handler: PreSignUpTriggerHandler = async (event) => {
   ) {
     return event;
   }
+  validateCognitoGuardTriggerContext(event, "pre-sign-up");
   // Native signup cannot prove mailbox ownership yet. It proceeds through the
   // existing confirmation flow and is guarded at PostAuthentication instead.
   if (event.triggerSource !== "PreSignUp_ExternalProvider") return event;

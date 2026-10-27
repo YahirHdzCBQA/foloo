@@ -103,7 +103,8 @@ class FolooApiClient implements SyncApi {
       uri: _baseUri.resolve(request.path),
       method: request.method,
       headers: {
-        HttpHeaders.authorizationHeader: 'Bearer $accessToken',
+        if (accessToken.isNotEmpty)
+          HttpHeaders.authorizationHeader: 'Bearer $accessToken',
         HttpHeaders.acceptHeader: 'application/json',
         if (request.body != null)
           HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',

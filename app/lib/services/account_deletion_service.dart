@@ -40,6 +40,23 @@ class AccountDeletionAccepted {
   final AccountDeletionStatus status;
 }
 
+/// Public receipt status that remains queryable after Cognito logout.
+class AccountDeletionProgress {
+  const AccountDeletionProgress({
+    required this.requestId,
+    required this.status,
+    required this.updatedAt,
+    this.completedAt,
+    this.supportCode,
+  });
+
+  final String requestId;
+  final AccountDeletionStatus status;
+  final DateTime updatedAt;
+  final DateTime? completedAt;
+  final String? supportCode;
+}
+
 abstract interface class AccountDeletionService {
   Future<bool> hasRecentAuthentication(String ownerSub);
   Future<AccountDeletionPreflight> createPreflight({
@@ -55,6 +72,9 @@ abstract interface class AccountDeletionService {
     required bool cancelRenewalAccepted,
     required String idempotencyKey,
   });
+
+  /// Queries the receipt-only public route without requiring a user session.
+  Future<AccountDeletionProgress> statusByReceipt(String receipt);
 }
 
 class ApiAccountDeletionService implements AccountDeletionService {
@@ -130,13 +150,46 @@ class ApiAccountDeletionService implements AccountDeletionService {
     );
   }
 
+  @override
+  Future<AccountDeletionProgress> statusByReceipt(String receipt) async {
+    final response = await _api.send(
+      '',
+      SyncRequest(
+        method: 'POST',
+        path: '/v1/account-deletion-status',
+        body: {'receipt': receipt},
+      ),
+    );
+    final envelope = response.data;
+    if (envelope is! Map || envelope['data'] is! Map) {
+      throw const AccountDeletionServiceException('invalid_response');
+    }
+    final data = Map<String, Object?>.from(envelope['data'] as Map);
+    return AccountDeletionProgress(
+      requestId: data['requestId'] as String,
+      status: _status(data['status'] as String),
+      updatedAt: DateTime.parse(data['updatedAt'] as String),
+      completedAt: data['completedAt'] is String
+          ? DateTime.parse(data['completedAt'] as String)
+          : null,
+      supportCode: data['supportCode'] as String?,
+    );
+  }
+
   Future<Map<String, Object?>> _request(
     String ownerSub,
     SyncRequest request,
   ) async {
     final token = await _sessions.accessTokenFor(ownerSub);
     if (token == null) throw const AccountDeletionServiceException('session');
-    final response = await _api.send(token, request);
+    late final SyncResponse response;
+    try {
+      response = await _api.send(token, request);
+    } on SyncHttpException catch (error) {
+      throw AccountDeletionServiceException(
+        error.errorCode ?? 'http_${error.statusCode}',
+      );
+    }
     final envelope = response.data;
     if (envelope is! Map || envelope['data'] is! Map) {
       throw const AccountDeletionServiceException('invalid_response');

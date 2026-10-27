@@ -31,6 +31,9 @@ export function apiEvent(
     subject?: string;
     body?: unknown;
     idempotencyKey?: string;
+    accessToken?: string;
+    scopes?: readonly string[];
+    claims?: Readonly<Record<string, string | number | boolean>>;
   } = {},
 ): APIGatewayProxyEventV2WithJWTAuthorizer {
   return {
@@ -38,9 +41,14 @@ export function apiEvent(
     routeKey: "$default",
     rawPath: options.path ?? "/v1/workspace",
     rawQueryString: "",
-    headers: options.idempotencyKey
-      ? { "idempotency-key": options.idempotencyKey }
-      : {},
+    headers: {
+      ...(options.idempotencyKey
+        ? { "idempotency-key": options.idempotencyKey }
+        : {}),
+      ...(options.accessToken
+        ? { authorization: `Bearer ${options.accessToken}` }
+        : {}),
+    },
     requestContext: {
       accountId: "test",
       apiId: "test",
@@ -61,9 +69,13 @@ export function apiEvent(
       authorizer: {
         jwt: {
           claims: options.subject
-            ? { sub: options.subject, token_use: "access" }
+            ? {
+                sub: options.subject,
+                token_use: "access",
+                ...options.claims,
+              }
             : {},
-          scopes: [],
+          scopes: [...(options.scopes ?? [])],
         },
         principalId: options.subject ?? "",
         integrationLatency: 0,

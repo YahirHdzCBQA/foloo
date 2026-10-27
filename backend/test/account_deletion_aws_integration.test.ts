@@ -295,6 +295,17 @@ test("INF-21 restored owner messages retry independently and never enter normal 
 
 test("OAuth erasure revokes encrypted credentials before owner-scoped SQL deletion", async () => {
   const calls: Array<{ sql?: string; owner?: string; action?: string }> = [];
+  const transactionEvents: string[] = [];
+  const client = {
+    async query(sql: string, values: unknown[] = []) {
+      if (["BEGIN", "COMMIT", "ROLLBACK"].includes(sql)) {
+        transactionEvents.push(sql);
+      }
+      calls.push({ sql, owner: values[0] as string | undefined });
+      return { rows: [] };
+    },
+    release() {},
+  };
   const pool = {
     async query(sql: string, values: unknown[]) {
       calls.push({ sql, owner: values[0] as string });
@@ -312,6 +323,9 @@ test("OAuth erasure revokes encrypted credentials before owner-scoped SQL deleti
       if (sql.includes("SELECT EXISTS")) return { rows: [{ exists: false }] };
       return { rows: [] };
     },
+    async connect() {
+      return client;
+    },
   };
   const provider = {
     async invoke(command: { action: string }) {
@@ -322,14 +336,61 @@ test("OAuth erasure revokes encrypted credentials before owner-scoped SQL deleti
   const erasure = new PostgresOAuthErasure(pool as never, provider as never);
   await erasure.revokeAndDestroy("subject-synthetic");
   assert.equal(calls[1]?.action, "revoke");
-  assert.match(calls[2]?.sql ?? "", /DELETE FROM email_oauth_states/u);
-  assert.match(calls[3]?.sql ?? "", /DELETE FROM email_connections/u);
+  assert.match(calls[3]?.sql ?? "", /DELETE FROM email_send_intents/u);
+  assert.match(calls[3]?.sql ?? "", /i\.workspace_id=w\.id/u);
+  assert.match(calls[4]?.sql ?? "", /DELETE FROM email_oauth_states/u);
+  assert.match(calls[5]?.sql ?? "", /DELETE FROM email_connections/u);
+  assert.deepEqual(transactionEvents, ["BEGIN", "COMMIT"]);
   assert.equal(
     calls.every(
       (call) => call.owner === undefined || call.owner === "subject-synthetic",
     ),
     true,
   );
+});
+
+test("OAuth erasure rolls back all owner SQL cleanup when a parent delete fails", async () => {
+  const transactionEvents: string[] = [];
+  let released = false;
+  const client = {
+    async query(sql: string) {
+      if (["BEGIN", "COMMIT", "ROLLBACK"].includes(sql)) {
+        transactionEvents.push(sql);
+        return { rows: [] };
+      }
+      if (sql.includes("DELETE FROM email_connections")) {
+        throw new Error("synthetic restrictive FK failure");
+      }
+      return { rows: [] };
+    },
+    release() {
+      released = true;
+    },
+  };
+  const pool = {
+    async query(sql: string) {
+      if (sql.includes("SELECT c.workspace_id")) return { rows: [] };
+      throw new Error("Unexpected pool query.");
+    },
+    async connect() {
+      return client;
+    },
+  };
+  const erasure = new PostgresOAuthErasure(
+    pool as never,
+    {
+      async invoke() {
+        throw new Error("Provider must not be called without connections.");
+      },
+    } as never,
+  );
+
+  await assert.rejects(
+    erasure.revokeAndDestroy("subject-synthetic"),
+    /synthetic restrictive FK failure/u,
+  );
+  assert.deepEqual(transactionEvents, ["BEGIN", "ROLLBACK"]);
+  assert.equal(released, true);
 });
 
 test("RNF-09 stores only KMS ciphertext for the short-lived SES recipient", async () => {

@@ -110,6 +110,7 @@ test("STORE-02 infrastructure is deployable but every runtime boundary stays dis
   );
   assert.doesNotMatch(json, /ACCOUNT_DELETION_SES_IDENTITY_VERIFIED[^}]*true/u);
   assert.doesNotMatch(json, /FOLOO_ACCOUNT_DELETION_ENABLED[^}]*true/u);
+  assert.doesNotMatch(json, /FOLOO_ACCOUNT_DELETION_INTAKE_ENABLED[^}]*true/u);
   assert.doesNotMatch(json, /FOLOO_ACCOUNT_DELETION_OUTBOX_ENABLED[^}]*true/u);
   assert.doesNotMatch(
     json,
@@ -262,6 +263,102 @@ test("STORE-02 infrastructure is deployable but every runtime boundary stays dis
   }
 });
 
+test("AUT-18 destructive DEV activation is bound to one pseudonymous identity", () => {
+  const app = new cdk.App();
+  const stack = new FolooBackendStack(app, "DeletionQaActivationTest", {
+    config: environmentConfig("dev"),
+    env: { account: "111111111111", region: "us-east-1" },
+    unlimitedQaMode: true,
+    accountDeletionQa: {
+      enabled: true,
+      intakeEnabled: true,
+      registrationGuardEnabled: true,
+      outboxRecoveryEnabled: true,
+      restoreReconcilerEnabled: true,
+      recoverySchedulerEnabled: true,
+      workerEnabled: true,
+      workerEventSourceEnabled: true,
+      finalizerEnabled: true,
+      subjectHashes: ["D".repeat(43)],
+    },
+    accountDeletionKeyArns: importedKeyArns,
+  });
+  const template = Template.fromStack(stack);
+  const json = JSON.stringify(template.toJSON());
+
+  assert.match(json, /FOLOO_UNLIMITED_QA_MODE[^}]*true/u);
+  assert.match(json, /FOLOO_ACCOUNT_DELETION_ENABLED[^}]*true/u);
+  assert.match(json, /FOLOO_ACCOUNT_DELETION_INTAKE_ENABLED[^}]*true/u);
+  assert.match(json, /FOLOO_ACCOUNT_DELETION_QA_ENABLED[^}]*true/u);
+  assert.match(json, /ACCOUNT_DELETION_QA_SUBJECT_HASHES[^}]*D{43}/u);
+  assert.match(json, /FOLOO_ACCOUNT_DELETION_OUTBOX_ENABLED[^}]*true/u);
+  assert.match(
+    json,
+    /FOLOO_ACCOUNT_DELETION_REGISTRATION_GUARD_ENABLED[^}]*true/u,
+  );
+  assert.match(json, /FOLOO_ACCOUNT_DELETION_RECONCILER_ENABLED[^}]*true/u);
+  assert.match(json, /FOLOO_ACCOUNT_DELETION_WORKER_ENABLED[^}]*true/u);
+  assert.match(json, /FOLOO_ACCOUNT_DELETION_FINALIZER_ENABLED[^}]*true/u);
+  assert.match(json, /ACCOUNT_DELETION_NOTIFICATION_MODE[^}]*disabled/u);
+  template.hasResourceProperties("AWS::Lambda::Function", {
+    Environment: {
+      Variables: Match.objectLike({
+        ACCOUNT_DELETION_SES_IDENTITY_VERIFIED: "false",
+      }),
+    },
+  });
+  template.hasResourceProperties("AWS::Events::Rule", {
+    State: "ENABLED",
+    ScheduleExpression: "rate(1 minute)",
+  });
+  template.hasResourceProperties("AWS::Lambda::EventSourceMapping", {
+    Enabled: true,
+  });
+});
+
+test("AUT-18 Registration Guards can deploy in pass-through independently", () => {
+  const app = new cdk.App();
+  const stack = new FolooBackendStack(app, "GuardPassThroughTest", {
+    config: environmentConfig("dev"),
+    env: { account: "111111111111", region: "us-east-1" },
+    unlimitedQaMode: true,
+    accountDeletionQa: {
+      enabled: false,
+      intakeEnabled: false,
+      registrationGuardEnabled: false,
+      outboxRecoveryEnabled: false,
+      restoreReconcilerEnabled: false,
+      recoverySchedulerEnabled: false,
+      workerEnabled: false,
+      workerEventSourceEnabled: false,
+      finalizerEnabled: false,
+      subjectHashes: ["D".repeat(43)],
+    },
+    accountDeletionKeyArns: importedKeyArns,
+  });
+  const template = Template.fromStack(stack);
+  const json = JSON.stringify(template.toJSON());
+
+  assert.match(
+    json,
+    /FOLOO_ACCOUNT_DELETION_REGISTRATION_GUARD_ENABLED[^}]*false/u,
+  );
+  assert.match(json, /COGNITO_USER_POOL_ID/u);
+  assert.match(json, /COGNITO_ALLOWED_APP_CLIENT_IDS/u);
+  assert.match(json, /COGNITO_ALLOWED_FEDERATED_PROVIDERS[^}]*Google/u);
+  assert.match(json, /ACCOUNT_DELETION_QA_SUBJECT_HASHES[^}]*D{43}/u);
+  assert.doesNotMatch(json, /FOLOO_ACCOUNT_DELETION_ENABLED[^}]*true/u);
+  assert.doesNotMatch(json, /FOLOO_ACCOUNT_DELETION_WORKER_ENABLED[^}]*true/u);
+  assert.doesNotMatch(
+    json,
+    /FOLOO_ACCOUNT_DELETION_FINALIZER_ENABLED[^}]*true/u,
+  );
+  template.hasResourceProperties("AWS::Events::Rule", { State: "DISABLED" });
+  template.hasResourceProperties("AWS::Lambda::EventSourceMapping", {
+    Enabled: false,
+  });
+});
+
 test("RNF-09 Account Deletion Lambdas receive only their required ledger actions", () => {
   const app = new cdk.App();
   const stack = new FolooBackendStack(app, "LeastPrivilegeLedgerTest", {
@@ -287,7 +384,13 @@ test("RNF-09 Account Deletion Lambdas receive only their required ledger actions
   assertLedgerPermissions(
     template,
     "AccountDeletionOutboxRecoveryFunction",
-    ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:TransactWriteItems"],
+    [
+      "dynamodb:DeleteItem",
+      "dynamodb:GetItem",
+      "dynamodb:Query",
+      "dynamodb:TransactWriteItems",
+      "dynamodb:UpdateItem",
+    ],
     true,
   );
   assertLedgerPermissions(template, "AccountDeletionPreSignUpFunction", [
@@ -306,6 +409,75 @@ test("RNF-09 Account Deletion Lambdas receive only their required ledger actions
     template,
     "AccountDeletionRestoreReconcilerFunction",
     ["dynamodb:BatchGetItem"],
+  );
+});
+
+test("AUT-19 verified-email resolver is private and API invocation is least privilege", () => {
+  const app = new cdk.App();
+  const stack = new FolooBackendStack(app, "VerifiedEmailResolverTest", {
+    config: environmentConfig("dev"),
+    env: { account: "111111111111", region: "us-east-1" },
+    unlimitedQaMode: true,
+    accountDeletionKeyArns: importedKeyArns,
+  });
+  const template = Template.fromStack(stack);
+  const functions = template.findResources("AWS::Lambda::Function");
+  const resolverEntry = Object.entries(functions).find(([logicalId]) =>
+    logicalId.startsWith("AccountDeletionVerifiedEmailFunction"),
+  );
+  assert.ok(resolverEntry, "verified-email resolver was not synthesized");
+  assert.deepEqual(resolverEntry[1].Properties?.Environment?.Variables, {
+    COGNITO_USER_INFO_ENDPOINT:
+      "https://us-east-1qvm3dwe4o.auth.us-east-1.amazoncognito.com/oauth2/userInfo",
+  });
+  assert.equal(resolverEntry[1].Properties?.VpcConfig, undefined);
+  const resolverRoleId = resolverEntry[1].Properties?.Role?.["Fn::GetAtt"]?.[0];
+  assert.equal(typeof resolverRoleId, "string");
+
+  const apiEntry = Object.entries(functions).find(([logicalId]) =>
+    logicalId.startsWith("ApiFunction"),
+  );
+  assert.ok(apiEntry, "ApiFunction was not synthesized");
+  const apiRoleId = apiEntry[1].Properties?.Role?.["Fn::GetAtt"]?.[0];
+  assert.equal(typeof apiRoleId, "string");
+  const policies = template.findResources("AWS::IAM::Policy");
+  const apiPolicy = Object.values(policies).find((resource) =>
+    JSON.stringify(resource.Properties?.Roles).includes(
+      JSON.stringify({ Ref: apiRoleId }),
+    ),
+  );
+  assert.ok(apiPolicy, "ApiFunction policy was not synthesized");
+  const invokeStatements = (
+    apiPolicy.Properties?.PolicyDocument?.Statement ?? []
+  ).filter((statement: { Action?: unknown }) =>
+    JSON.stringify(statement.Action).includes("lambda:InvokeFunction"),
+  );
+  assert.ok(
+    invokeStatements.some((statement: { Resource?: unknown }) =>
+      JSON.stringify(statement.Resource).includes(resolverEntry[0]),
+    ),
+    "ApiFunction must invoke only the private verified-email resolver",
+  );
+  assert.equal(
+    JSON.stringify(invokeStatements).includes("cognito-idp:AdminGetUser"),
+    false,
+  );
+  const resolverPolicy = Object.values(policies).find((resource) =>
+    JSON.stringify(resource.Properties?.Roles).includes(
+      JSON.stringify({ Ref: resolverRoleId }),
+    ),
+  );
+  assert.ok(resolverPolicy, "verified-email log policy was not synthesized");
+  const resolverPolicyJson = JSON.stringify(
+    resolverPolicy.Properties?.PolicyDocument?.Statement ?? [],
+  );
+  assert.match(resolverPolicyJson, /logs:CreateLogStream/u);
+  assert.match(resolverPolicyJson, /logs:PutLogEvents/u);
+  assert.doesNotMatch(resolverPolicyJson, /cognito-idp:/u);
+  assert.doesNotMatch(resolverPolicyJson, /lambda:InvokeFunction/u);
+  assert.equal(
+    Object.keys(template.findResources("AWS::Lambda::Url")).length,
+    0,
   );
 });
 

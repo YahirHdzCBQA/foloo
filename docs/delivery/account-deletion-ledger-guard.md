@@ -1,15 +1,15 @@
 # STORE-02E-02B — Ledger y guard aislados
 
 - Fecha: 2026-10-20
-- Estado: **incremento preparatorio implementado; inactivo y no desplegado**
+- Estado: **base implementada y validada en AWS DEV; documento conserva el corte histórico del incremento 02B**
 - Trazas: `AUT-21`, `INF-18`, `INF-20`, `INF-21`, `RNF-09`, `RNF-10`,
   E-14, `AD-T-17`, `AD-T-18`, `AD-T-24`–`AD-T-26`, `AD-T-30`–`AD-T-32`
 - Decisiones: `ADR-AD-01`–`ADR-AD-05` continúan candidatas; D-13 abierta
 
-Este incremento materializa contratos y adaptadores aislados para probar la
+Este incremento materializó contratos y adaptadores aislados para probar la
 separación entre el bloqueo temporal por correo y el tombstone durable por
-`sub`. No habilita Account Deletion, no cambia el runtime actual y no crea
-recursos AWS.
+`sub`. La integración y validación posteriores se consolidan en
+[`store-02-account-deletion-closure.md`](store-02-account-deletion-closure.md).
 
 ## Componentes implementados
 
@@ -302,3 +302,14 @@ Pre sign-up usa el ARN `AccountDeletionPreSignUpFunctionArn` y Post
 authentication usa `AccountDeletionPostAuthenticationFunctionArn`. Primero se
 adjuntan con `FOLOO_ACCOUNT_DELETION_REGISTRATION_GUARD_ENABLED=false`; no se
 habilitan hasta aprobar canonicalización/KMS y completar las pruebas sintéticas.
+
+## Diagnóstico temporal owner-scoped previo a QA destructivo
+
+El diagnóstico privado se desplegó una sola vez para validar la identidad
+sintética de QA y después se retiró completamente de AWS mediante Change Set.
+Confirmó un workspace personal de un miembro, trial sin Stripe, dos Leads, seis
+medios, siete objetos S3 y cero anomalías owner-scoped. El código, pruebas y
+wiring CDK temporales también fueron retirados durante el cierre del
+repositorio; no existe endpoint administrativo permanente. La evidencia
+agregada y el alcance de limpieza se conservan en
+[`store-02-account-deletion-closure.md`](store-02-account-deletion-closure.md).

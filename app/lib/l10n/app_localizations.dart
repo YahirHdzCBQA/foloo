@@ -476,6 +476,12 @@ abstract class AppLocalizations {
   /// **'Por tu seguridad, vuelve a iniciar sesión y regresa aquí antes de eliminar tu cuenta.'**
   String get accountDeletionReauthenticate;
 
+  /// No description provided for @accountDeletionSignInAgain.
+  ///
+  /// In es, this message translates to:
+  /// **'Volver a iniciar sesión'**
+  String get accountDeletionSignInAgain;
+
   /// No description provided for @accountDeletionError.
   ///
   /// In es, this message translates to:
@@ -2586,6 +2592,60 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Ver registros'**
   String get paywallViewRecords;
+
+  /// No description provided for @accountDeletionCheckStatus.
+  ///
+  /// In es, this message translates to:
+  /// **'Consultar estado de eliminación'**
+  String get accountDeletionCheckStatus;
+
+  /// No description provided for @accountDeletionStatusTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Estado de eliminación de cuenta'**
+  String get accountDeletionStatusTitle;
+
+  /// No description provided for @accountDeletionNoReceipt.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay un recibo de eliminación guardado en este dispositivo.'**
+  String get accountDeletionNoReceipt;
+
+  /// No description provided for @accountDeletionStatusAwaiting.
+  ///
+  /// In es, this message translates to:
+  /// **'La solicitud está pendiente de confirmación.'**
+  String get accountDeletionStatusAwaiting;
+
+  /// No description provided for @accountDeletionStatusRequested.
+  ///
+  /// In es, this message translates to:
+  /// **'La solicitud fue aceptada y espera procesamiento.'**
+  String get accountDeletionStatusRequested;
+
+  /// No description provided for @accountDeletionStatusInProgress.
+  ///
+  /// In es, this message translates to:
+  /// **'La eliminación de tu cuenta está en curso.'**
+  String get accountDeletionStatusInProgress;
+
+  /// No description provided for @accountDeletionStatusBlocked.
+  ///
+  /// In es, this message translates to:
+  /// **'El proceso requiere atención de soporte. La barrera de eliminación permanece activa.'**
+  String get accountDeletionStatusBlocked;
+
+  /// No description provided for @accountDeletionStatusCompleted.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu cuenta y los datos eliminables fueron borrados.'**
+  String get accountDeletionStatusCompleted;
+
+  /// No description provided for @accountDeletionStatusError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo consultar el estado de eliminación. Inténtalo más tarde.'**
+  String get accountDeletionStatusError;
 }
 
 class _AppLocalizationsDelegate

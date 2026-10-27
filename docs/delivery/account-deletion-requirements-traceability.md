@@ -1,20 +1,22 @@
 # STORE-02E-01 — Requisitos y trazabilidad de Account Deletion
 
-- Estado: **FORMALIZACIÓN DOCUMENTAL COMPLETADA; sin implementación**
+- Estado: **FORMALIZACIÓN COMPLETADA; implementación y E-14 validadas en AWS DEV**
 - Fecha: 2026-10-20
 - Escenario canónico: `E-14`
 - Decisión abierta: `D-13`
+- Evidencia actual:
+  [`store-02-account-deletion-closure.md`](store-02-account-deletion-closure.md)
 - Contrato: [`account-deletion-contract.md`](account-deletion-contract.md)
 - Diseño: [`account-deletion-technical-design.md`](account-deletion-technical-design.md)
 - API propuesta: [`account-deletion-openapi.yaml`](account-deletion-openapi.yaml)
 - Decisiones arquitectónicas candidatas:
   [`../decisions/ADR-AD-account-deletion-candidates.md`](../decisions/ADR-AD-account-deletion-candidates.md)
 
-Este documento cierra únicamente STORE-02E-01 como trabajo SDD. Los requisitos
-canónicos viven en `product-spec.md` y su aceptación en E-14. No autoriza DDL,
-endpoints, recursos AWS, pantallas, borrados, pruebas destructivas ni cierre de
-`D-13`. Los identificadores `AD-*` de STORE-02D se conservan como antecedentes,
-no como un segundo namespace de producto.
+Este documento cerró STORE-02E-01 como trabajo SDD. Los requisitos canónicos
+viven en `product-spec.md` y su aceptación en E-14. La implementación y prueba
+destructiva posteriores se documentan en el cierre; no autorizan producción ni
+cierran `D-13`. Los identificadores `AD-*` de STORE-02D se conservan como
+antecedentes, no como un segundo namespace de producto.
 
 ## 1. Estado de aprobación
 

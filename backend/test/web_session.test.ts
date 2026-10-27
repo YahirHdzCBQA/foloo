@@ -347,6 +347,35 @@ test("AUT-18 Google PKCE transaction is single-use", async () => {
   );
 });
 
+test("AUT-04 Google cancellation validates state and consumes the transaction", async () => {
+  const store = new MemoryStore();
+  const cognito = new TestCognito();
+  const service = new WebSessionService(
+    store,
+    new TestCipher(),
+    cognito,
+    policy,
+    now,
+  );
+  const started = await service.beginGoogleAuthorization();
+  const state = new URL(started.authorizationUrl).searchParams.get("state");
+  assert.ok(state);
+
+  await assert.rejects(
+    service.cancelGoogleAuthorization(
+      started.transactionId,
+      "invalid-oauth-state",
+    ),
+  );
+  await service.cancelGoogleAuthorization(started.transactionId, state);
+  await assert.rejects(
+    service.cancelGoogleAuthorization(started.transactionId, state),
+  );
+  assert.equal(store.sessions.size, 0);
+  assert.equal(cognito.refreshCount, 0);
+  assert.deepEqual(cognito.revoked, []);
+});
+
 test("AUT-18 concurrent refreshes converge through conditional versions", async () => {
   const store = new MemoryStore();
   const cognito = new TestCognito();

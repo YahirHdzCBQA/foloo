@@ -1,5 +1,10 @@
 # STORE-02E-02 — Revisión de arquitectura y seguridad
 
+> Revisión histórica previa a implementación (2026-10-20). El estado técnico y
+> la evidencia DEV actuales están en
+> [`store-02-account-deletion-closure.md`](store-02-account-deletion-closure.md).
+> Las ADR-AD permanecen candidatas y D-13 continúa abierta.
+
 - Fecha de corte: 2026-10-20
 - Rama revisada: `feature/STORE-02/account-deletion`
 - Estado: **revisión documental completada; ADR no aprobadas; sin implementación**
@@ -15,19 +20,19 @@ Cognito, endpoints, wiring, borrados ni un cierre de D-13.
 
 ## 1. Evidencia comprobada en HEAD
 
-| Frontera | Evidencia actual | Consecuencia para Account Deletion |
-|---|---|---|
-| Identidad API | `authenticatedSubject()` acepta exclusivamente access token Cognito y devuelve `sub` | `sub` sigue siendo owner; la barrera no debe cambiar ownership a email |
-| Provisión | `PostgresFolooRepository.resolvePrincipal()` ejecuta directamente `ensure_personal_workspace(subject)` | Hoy una petición válida puede recrear user/account/workspace antes de cualquier check |
-| Rutas | API JWT para `/v1`; callback OAuth de sender es público y resuelve owner desde `email_oauth_states` | El guard de JWT no cubre por sí solo callbacks, replays ni estados ya emitidos |
-| Cognito | User Pool y App Client llegan al stack como IDs externos; CDK solo crea el JWT authorizer | No existe trigger, ownership IaC ni permiso de invocación Cognito en este stack |
-| PostgreSQL | RDS PostgreSQL 16 privada; backup automático de 1 día, Single-AZ, deletion protection desactivada y `SNAPSHOT` al retirar el recurso | La propuesta de 15 días no está aplicada; snapshots manuales/finales requieren lifecycle separado |
-| S3 | Bucket privado, cifrado, no versionado, `RETAIN`; ApiFunction solo posee Get/Put | No existe borrado físico, inventario de keys ni backup de 15 días de objetos |
-| Red | ApiFunction está en subred aislada, sin NAT; existen endpoints de S3, Secrets Manager y Lambda | DynamoDB necesita gateway endpoint; Cognito/KMS no deben asumirse alcanzables desde esa Lambda |
-| Email | Provider Lambda está fuera de VPC; callback consume state antes del intercambio y no consulta barrera | Debe verificarse owner antes de exchange/connect y sin volver reutilizable el state |
-| Trial | El límite vive en `accounts`; Unlimited DEV evita consumo/bloqueo cuando su flag global está activo | La barrera debe ejecutarse antes y de forma independiente del entitlement y de Unlimited |
-| Migraciones | Runner ordenado con `schema_migrations`; ejecución manual mediante MigrationFunction | Las nuevas tablas PostgreSQL no se crean por deploy automático y no resuelven el ledger externo |
-| Cliente local | Drift contiene datos owner-scoped y algunas filas legacy nullable; filesystem usa `foloo_media` | La purga integral sigue en `02E-05`; no debe preceder a la aceptación durable backend |
+| Frontera      | Evidencia actual                                                                                                                     | Consecuencia para Account Deletion                                                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| Identidad API | `authenticatedSubject()` acepta exclusivamente access token Cognito y devuelve `sub`                                                 | `sub` sigue siendo owner; la barrera no debe cambiar ownership a email                            |
+| Provisión     | `PostgresFolooRepository.resolvePrincipal()` ejecuta directamente `ensure_personal_workspace(subject)`                               | Hoy una petición válida puede recrear user/account/workspace antes de cualquier check             |
+| Rutas         | API JWT para `/v1`; callback OAuth de sender es público y resuelve owner desde `email_oauth_states`                                  | El guard de JWT no cubre por sí solo callbacks, replays ni estados ya emitidos                    |
+| Cognito       | User Pool y App Client llegan al stack como IDs externos; CDK solo crea el JWT authorizer                                            | No existe trigger, ownership IaC ni permiso de invocación Cognito en este stack                   |
+| PostgreSQL    | RDS PostgreSQL 16 privada; backup automático de 1 día, Single-AZ, deletion protection desactivada y `SNAPSHOT` al retirar el recurso | La propuesta de 15 días no está aplicada; snapshots manuales/finales requieren lifecycle separado |
+| S3            | Bucket privado, cifrado, no versionado, `RETAIN`; ApiFunction solo posee Get/Put                                                     | No existe borrado físico, inventario de keys ni backup de 15 días de objetos                      |
+| Red           | ApiFunction está en subred aislada, sin NAT; existen endpoints de S3, Secrets Manager y Lambda                                       | DynamoDB necesita gateway endpoint; Cognito/KMS no deben asumirse alcanzables desde esa Lambda    |
+| Email         | Provider Lambda está fuera de VPC; callback consume state antes del intercambio y no consulta barrera                                | Debe verificarse owner antes de exchange/connect y sin volver reutilizable el state               |
+| Trial         | El límite vive en `accounts`; Unlimited DEV evita consumo/bloqueo cuando su flag global está activo                                  | La barrera debe ejecutarse antes y de forma independiente del entitlement y de Unlimited          |
+| Migraciones   | Runner ordenado con `schema_migrations`; ejecución manual mediante MigrationFunction                                                 | Las nuevas tablas PostgreSQL no se crean por deploy automático y no resuelven el ledger externo   |
+| Cliente local | Drift contiene datos owner-scoped y algunas filas legacy nullable; filesystem usa `foloo_media`                                      | La purga integral sigue en `02E-05`; no debe preceder a la aceptación durable backend             |
 
 ## 2. Resultado por ADR candidata
 
@@ -119,6 +124,28 @@ auditado que preserve toda la LambdaConfig existente. Crear la Lambda en CDK no
 la conecta automáticamente. Además se requiere resource policy
 `lambda:InvokeFunction` limitada al User Pool y validación de `userPoolId`,
 `clientId` y trigger source dentro del handler.
+
+La revisión posterior confirma que `AWS::Cognito::UserPool` admite importación
+manual de CloudFormation, pero no drift detection. Un import exige declarar el
+pool completo con `DeletionPolicy`/`UpdateReplacePolicy: Retain`, partir de un
+stack sin cambios pendientes y ejecutar una operación de importación aislada:
+no puede mezclarse con altas, bajas o actualizaciones. La plantilla debe
+reproducir exactamente `DescribeUserPool`, incluida schema, username/alias,
+políticas, recuperación, correo, MFA, protección contra borrado y toda la
+`LambdaConfig`; los App Clients, IdP, dominio y branding continúan como recursos
+separados. Una omisión o normalización incorrecta puede cambiar autenticación,
+mensajería o triggers, y algunas propiedades de identidad son inmutables.
+
+**Dictamen de ownership:** técnicamente viable, pero no apto para el siguiente
+Change Set de activación. Primero se requiere una operación exclusiva de import
+auditada, respaldo del template/payload efectivo, comparación propiedad por
+propiedad y autorización de Infra. El rollback seguro es conservar el recurso y
+retirarlo del stack solo mediante el proceso de retain/import correspondiente;
+nunca reemplazar el pool ni recrear usuarios. Como alternativa DEV, un
+`UpdateUserPool` puntual puede conectar triggers, pero debe construirse desde
+la configuración efectiva completa y tener payload inverso probado, porque la
+API restablece a defaults parámetros omitidos. Esa alternativa no ofrece
+ownership ni drift de CloudFormation y requiere autorización separada.
 
 El trigger debe fallar cerrado cuando no pueda comprobar un blocker, con
 timeouts breves, alarma y copy genérico. Esto puede degradar temporalmente
@@ -229,48 +256,48 @@ resource-based. El guard accede a DynamoDB/KMS con privilegio mínimo.
 
 ### Regla de 30 días validada
 
-| Momento/canal | Resultado requerido |
-|---|---|
-| Cuenta eliminada, token viejo | `subject_hash` bloquea API aunque Unlimited esté activo |
-| Email/password antes del día 30 | Pre Sign-up compara candidato y rechaza genéricamente |
-| Google antes del día 30 | primer acceso federado compara atributo mapeado y rechaza; no crea/linkea perfil |
-| Ledger/TTL retrasado después del día 30 | `blockedUntil <= now` permite el alta aunque el item siga presente |
-| Alta después del día 30 | Cognito emite `sub` nuevo; backend crea account/workspace nuevos; no restaura datos/PRO |
-| Restore posterior | tombstone del `sub` viejo sigue filtrando sus datos; blocker de email expirado no afecta la cuenta nueva |
-| Error del ledger | no se crea identidad ni workspace; alarma/retry evita convertirlo en bloqueo permanente silencioso |
+| Momento/canal                           | Resultado requerido                                                                                      |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Cuenta eliminada, token viejo           | `subject_hash` bloquea API aunque Unlimited esté activo                                                  |
+| Email/password antes del día 30         | Pre Sign-up compara candidato y rechaza genéricamente                                                    |
+| Google antes del día 30                 | primer acceso federado compara atributo mapeado y rechaza; no crea/linkea perfil                         |
+| Ledger/TTL retrasado después del día 30 | `blockedUntil <= now` permite el alta aunque el item siga presente                                       |
+| Alta después del día 30                 | Cognito emite `sub` nuevo; backend crea account/workspace nuevos; no restaura datos/PRO                  |
+| Restore posterior                       | tombstone del `sub` viejo sigue filtrando sus datos; blocker de email expirado no afecta la cuenta nueva |
+| Error del ledger                        | no se crea identidad ni workspace; alarma/retry evita convertirlo en bloqueo permanente silencioso       |
 
 La concesión o no de un trial nuevo después de 30 días permanece pendiente de
 FL-021. La barrera no consulta ni modifica `trial_leads_used`.
 
 ## 4. IAM mínimo por componente
 
-| Componente | Permisos nuevos propuestos | Prohibiciones explícitas |
-|---|---|---|
-| Guard Lambda | operaciones item-scoped DynamoDB; `kms:GenerateMac`/`VerifyMac`; logs | sin Scan/export, sin RDS/S3, sin borrar Cognito |
-| ApiFunction | `lambda:InvokeFunction` solo Guard; DB actual | sin DynamoDB/KMS directo si se adopta guard aislado |
-| Cognito | resource policy para invocar Guard desde User Pool exacto | ningún wildcard de principal/source ARN |
-| Deletion orchestrator futuro | invocar workers exactos y escribir estado/request | sin credenciales DB/S3/Cognito directas |
-| DB worker futuro | Secrets scoped + conexión DB | sin S3/Cognito/KMS email |
-| S3 worker futuro | List/Get/Delete solo prefijo derivado server-side del owner | sin bucket wildcard ajeno ni key recibida del cliente |
-| Cognito finalizer futuro | AdminDisableUser, AdminUserGlobalSignOut y AdminDeleteUser en User Pool exacto | sin crear/linkear usuarios |
-| Restore reconciler | lectura ledger y acceso DB restaurada temporal | sin abrir tráfico ni mutar ledger autoritativo |
+| Componente                   | Permisos nuevos propuestos                                                     | Prohibiciones explícitas                              |
+| ---------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| Guard Lambda                 | operaciones item-scoped DynamoDB; `kms:GenerateMac`/`VerifyMac`; logs          | sin Scan/export, sin RDS/S3, sin borrar Cognito       |
+| ApiFunction                  | `lambda:InvokeFunction` solo Guard; DB actual                                  | sin DynamoDB/KMS directo si se adopta guard aislado   |
+| Cognito                      | resource policy para invocar Guard desde User Pool exacto                      | ningún wildcard de principal/source ARN               |
+| Deletion orchestrator futuro | invocar workers exactos y escribir estado/request                              | sin credenciales DB/S3/Cognito directas               |
+| DB worker futuro             | Secrets scoped + conexión DB                                                   | sin S3/Cognito/KMS email                              |
+| S3 worker futuro             | List/Get/Delete solo prefijo derivado server-side del owner                    | sin bucket wildcard ajeno ni key recibida del cliente |
+| Cognito finalizer futuro     | AdminDisableUser, AdminUserGlobalSignOut y AdminDeleteUser en User Pool exacto | sin crear/linkear usuarios                            |
+| Restore reconciler           | lectura ledger y acceso DB restaurada temporal                                 | sin abrir tráfico ni mutar ledger autoritativo        |
 
 Los permisos destructivos pertenecen a `02E-04`, no al primer incremento de
 `02E-02`.
 
 ## 5. Plan verificable de STORE-02E-02
 
-| Paso | Cambio futuro (no ejecutado) | Prueba/gate | Reversión segura |
-|---|---|---|---|
-| 0 | Aprobar threat model, AD-01–05 modificadas, fuente/canonicalización y scope de backups | actas Seguridad/Infra/Legal; D-13 sigue abierta hasta completar sus puntos | no iniciar código |
-| 1 | Implementar canonicalizador/HMAC y modelo ledger como librería pura | vectores ES/EN/Unicode/case; ninguna PII en logs/snapshots | retirar módulo sin impacto runtime |
-| 2 | Añadir DynamoDB/KMS/Guard/endpoint como recursos inactivos, sin triggers ni rutas | CDK synth/diff, IAM assertions, PITR/deletion protection/alarms | rollback de recursos vacíos según retention aprobada |
-| 3 | Probar Guard directamente con cuentas sintéticas y tiempos controlados | concurrencia, conditional writes, día 29/30/31, TTL atrasado, rotación | deshabilitar invocador; conservar evidencia sintética |
-| 4 | Añadir estado PostgreSQL `deletion_pending` y migración aditiva, sin borrado | migration contract, rerun, locks, registros existentes | código compatible hacia atrás; no drop/rollback destructivo |
-| 5 | Integrar guard previo a resolver y callbacks detrás de flag interno DEV default off | todas las rutas, callback antes de exchange, token viejo, fallo ledger, Unlimited on/off | flag off restaura tráfico; no elimina ledger |
-| 6 | Incorporar Pre Sign-up/Pre Authentication solo tras resolver ownership Cognito | email/password, Google, IdP attrs, generic error, timeout/fail-closed | desacoplar trigger preservando backend guard |
-| 7 | Ejecutar simulación de restore a recursos nuevos con traffic gate | owner viejo ausente, owner nuevo intacto, blocker expirado no bloquea | abandonar recursos restaurados; producción no cambia |
-| 8 | Promover barrera en DEV y observar; **sin endpoint de eliminación real** | métricas, alarmas, latencia, falsos positivos, runbook | disable flag/trigger; no borrar usuarios/datos |
+| Paso | Cambio futuro (no ejecutado)                                                           | Prueba/gate                                                                              | Reversión segura                                            |
+| ---- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| 0    | Aprobar threat model, AD-01–05 modificadas, fuente/canonicalización y scope de backups | actas Seguridad/Infra/Legal; D-13 sigue abierta hasta completar sus puntos               | no iniciar código                                           |
+| 1    | Implementar canonicalizador/HMAC y modelo ledger como librería pura                    | vectores ES/EN/Unicode/case; ninguna PII en logs/snapshots                               | retirar módulo sin impacto runtime                          |
+| 2    | Añadir DynamoDB/KMS/Guard/endpoint como recursos inactivos, sin triggers ni rutas      | CDK synth/diff, IAM assertions, PITR/deletion protection/alarms                          | rollback de recursos vacíos según retention aprobada        |
+| 3    | Probar Guard directamente con cuentas sintéticas y tiempos controlados                 | concurrencia, conditional writes, día 29/30/31, TTL atrasado, rotación                   | deshabilitar invocador; conservar evidencia sintética       |
+| 4    | Añadir estado PostgreSQL `deletion_pending` y migración aditiva, sin borrado           | migration contract, rerun, locks, registros existentes                                   | código compatible hacia atrás; no drop/rollback destructivo |
+| 5    | Integrar guard previo a resolver y callbacks detrás de flag interno DEV default off    | todas las rutas, callback antes de exchange, token viejo, fallo ledger, Unlimited on/off | flag off restaura tráfico; no elimina ledger                |
+| 6    | Incorporar Pre Sign-up/Pre Authentication solo tras resolver ownership Cognito         | email/password, Google, IdP attrs, generic error, timeout/fail-closed                    | desacoplar trigger preservando backend guard                |
+| 7    | Ejecutar simulación de restore a recursos nuevos con traffic gate                      | owner viejo ausente, owner nuevo intacto, blocker expirado no bloquea                    | abandonar recursos restaurados; producción no cambia        |
+| 8    | Promover barrera en DEV y observar; **sin endpoint de eliminación real**               | métricas, alarmas, latencia, falsos positivos, runbook                                   | disable flag/trigger; no borrar usuarios/datos              |
 
 Módulos futuros previstos: `backend/infra/foloo_backend_stack.ts`, nueva
 frontera `backend/src/account_deletion/`, `authenticated_identity.ts`,
@@ -301,13 +328,13 @@ requiere fixtures sintéticos y aprobación por corrida.
 
 ## 7. Riesgos y aprobaciones pendientes
 
-| Owner | Decisión bloqueante |
-|---|---|
-| Seguridad | HMAC/canonicalización/fuentes de email; KMS; retención del tombstone de subject; fail-closed; trigger validation; threat model |
-| Infra | ownership/configuración del User Pool; DynamoDB/PITR/alarms; RDS 15 días; snapshots manuales/finales; S3 backup; RTO/RPO; restore drill |
-| Legal/Privacy | alcance exacto de backups ordinarios; retención de hashes/receipts; legal holds; datos de terceros y regiones |
-| Producto | copy genérico de bloqueo; comportamiento temporal ante caída; trial nuevo después de 30 días (con FL-021) |
-| Operación | owner de alertas, retry budgets, escalamiento, dual approval para restore y plazo de soporte |
+| Owner         | Decisión bloqueante                                                                                                                     |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Seguridad     | HMAC/canonicalización/fuentes de email; KMS; retención del tombstone de subject; fail-closed; trigger validation; threat model          |
+| Infra         | ownership/configuración del User Pool; DynamoDB/PITR/alarms; RDS 15 días; snapshots manuales/finales; S3 backup; RTO/RPO; restore drill |
+| Legal/Privacy | alcance exacto de backups ordinarios; retención de hashes/receipts; legal holds; datos de terceros y regiones                           |
+| Producto      | copy genérico de bloqueo; comportamiento temporal ante caída; trial nuevo después de 30 días (con FL-021)                               |
+| Operación     | owner de alertas, retry budgets, escalamiento, dual approval para restore y plazo de soporte                                            |
 
 ## 8. Recomendación ejecutiva
 
@@ -318,4 +345,3 @@ requiere fixtures sintéticos y aprobación por corrida.
 - Implementar primero componentes inertes y pruebas del guard; no habilitar
   eliminación, Pre Sign-up ni bloqueo global hasta validar la cadena completa.
 - Mantener `ADR-AD-06`, D-13, STORE-02E-03 y todo borrado real bloqueados.
-

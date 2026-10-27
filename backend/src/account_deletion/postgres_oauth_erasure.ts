@@ -36,16 +36,37 @@ export class PostgresOAuthErasure implements OAuthErasurePort {
         throw new Error("OAuth provider did not confirm revocation.");
       }
     }
-    await this.pool.query(
-      `DELETE FROM email_oauth_states s USING app_users u
-       WHERE s.owner_user_id=u.id AND u.cognito_sub=$1`,
-      [ownerSubject],
-    );
-    await this.pool.query(
-      `DELETE FROM email_connections c USING app_users u
-       WHERE c.owner_user_id=u.id AND u.cognito_sub=$1`,
-      [ownerSubject],
-    );
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      // Intents own the restrictive FK to connections and may also reference
+      // one another. Deleting the complete owner workspace set in one
+      // statement removes both dependency layers before their parent rows.
+      await client.query(
+        `DELETE FROM email_send_intents i
+         USING app_users u,accounts a,workspaces w
+         WHERE u.cognito_sub=$1
+           AND a.owner_user_id=u.id AND a.kind='personal'
+           AND w.account_id=a.id AND i.workspace_id=w.id`,
+        [ownerSubject],
+      );
+      await client.query(
+        `DELETE FROM email_oauth_states s USING app_users u
+         WHERE s.owner_user_id=u.id AND u.cognito_sub=$1`,
+        [ownerSubject],
+      );
+      await client.query(
+        `DELETE FROM email_connections c USING app_users u
+         WHERE c.owner_user_id=u.id AND u.cognito_sub=$1`,
+        [ownerSubject],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async isDestroyed(ownerSubject: string): Promise<boolean> {

@@ -216,6 +216,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'For your security, sign in again and return here before deleting your account.';
 
   @override
+  String get accountDeletionSignInAgain => 'Sign in again';
+
+  @override
   String get accountDeletionError =>
       'The deletion request could not be processed. Your account remains active; try again later.';
 
@@ -1486,4 +1489,38 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paywallViewRecords => 'View records';
+
+  @override
+  String get accountDeletionCheckStatus => 'Check deletion status';
+
+  @override
+  String get accountDeletionStatusTitle => 'Account deletion status';
+
+  @override
+  String get accountDeletionNoReceipt =>
+      'No deletion receipt is stored on this device.';
+
+  @override
+  String get accountDeletionStatusAwaiting =>
+      'The request is awaiting confirmation.';
+
+  @override
+  String get accountDeletionStatusRequested =>
+      'The request was accepted and is waiting to be processed.';
+
+  @override
+  String get accountDeletionStatusInProgress =>
+      'Your account deletion is in progress.';
+
+  @override
+  String get accountDeletionStatusBlocked =>
+      'The process needs support attention. Your deletion barrier remains active.';
+
+  @override
+  String get accountDeletionStatusCompleted =>
+      'Your account and deletable data were removed.';
+
+  @override
+  String get accountDeletionStatusError =>
+      'The deletion status could not be retrieved. Try again later.';
 }
