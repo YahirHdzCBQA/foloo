@@ -160,3 +160,39 @@ other pending files. A later `{"action":"apply"}` without `only` applies the
 rest in order. DEV applied 011 this way on 2026-10-23.
 
 See [DECISIONES.md](DECISIONES.md) for lifecycle limits and acceptance coverage.
+
+
+### WEB-01 — Registration Guard: empaquetado y despliegue limitado
+
+El fix AUT-01/AUT-21, INF-18 y RNF-09 normaliza exclusivamente proveedores
+permitidos. Su módulo compartido cambia los paquetes de PreSignUp y
+PostAuthentication; no modifica identidades, allowlists, OAuth ni las barreras
+STORE-02. Las 54 pruebas focalizadas, typecheck y build pasaron.
+
+El synth de auditoría en `/tmp` modificaba las rutas `sources` de los source
+maps: las otras once Lambdas tenían JavaScript idéntico al desplegado. Para
+reproducir los hashes, ejecutar synth desde `backend/` con salida **`cdk.out`**
+y los contextos efectivos del stack DEV, conservando flags, claves existentes
+y allowlists. Después se puede copiar la assembly ya generada a una ubicación
+inmutable: no volver a empaquetar allí. No normalizar source maps a mano ni
+actualizar funciones directamente para ocultar el diff.
+
+La release de esta intervención se conserva localmente en
+`/tmp/foloo-guard-deploy/release`, con manifiesto SHA-256, comparación de assets,
+plantilla anterior y ZIPs anteriores en la misma carpeta padre. El despliegue
+usa CDK `--method prepare-change-set` sobre esa assembly; antes de ejecutarlo,
+exigir únicamente Modify sin reemplazo en
+`AccountDeletionPreSignUpFunction5C21A596` y
+`AccountDeletionPostAuthenticationFunctionD316CC49`, con diferencias de Code y
+metadatos del asset. Toda diferencia adicional detiene el procedimiento.
+
+CloudFormation conserva el rollback automático. Para revertir después de un
+update exitoso, preparar un Change Set inverso usando `rollback-template.json`
+y los S3Key anteriores (artefactos descargados y verificados contra CodeSha256).
+Si la plantilla supera el límite inline, subir esa copia a una key nueva por
+SHA-256 del bucket de assets CDK y usar TemplateURL; inspeccionar nuevamente que
+solo cambien los dos Code antes de ejecutar. No usar update-function-code.
+El stack desplegado y el synth estándar deben coincidir tras el despliegue:
+no queda divergencia que reconciliar ni un patch manual a la plantilla CDK.
+
+Estado de la preparación (2026-10-27): el Change Set `web-01-google-provider-case-fix` quedó `CREATE_COMPLETE / AVAILABLE`, sin ejecutar. Aunque la comparación de plantillas solo modifica Code y metadata de las dos funciones, CloudFormation incluye también los dos permisos de invocación Cognito con reemplazo `Conditional` por dependencia dinámica del ARN. Esto excede la autorización limitada a paquetes de código: no ejecutar sin resolver o autorizar expresamente ese alcance. Verificación posterior: stack `UPDATE_COMPLETE`; las 14 Lambdas conservan CodeSha256 y LastModified anteriores. Evidencia y respaldos locales: `/tmp/foloo-guard-deploy/` (temporales; conservar antes de una futura ejecución). No se utilizó actualización directa de código Lambda.

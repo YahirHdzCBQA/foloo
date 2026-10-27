@@ -32,6 +32,13 @@ export function validateCognitoGuardTriggerContext(
     environment,
     "COGNITO_ALLOWED_FEDERATED_PROVIDERS",
   );
+  if (
+    new Set(
+      [...allowedFederatedProviders].map((provider) => provider.toLowerCase()),
+    ).size !== allowedFederatedProviders.size
+  ) {
+    throw new Error("Cognito guard configuration is incomplete.");
+  }
   if (event.userPoolId !== expectedPoolId) deny();
   const clientId = event.callerContext?.clientId;
   if (!clientId || !allowedClientIds.has(clientId)) deny();
@@ -48,14 +55,31 @@ export function validateCognitoGuardTriggerContext(
       return { provider: "COGNITO" };
     }
     const provider = federatedProvider(event);
-    if (!provider || !allowedFederatedProviders.has(provider)) deny();
-    return { provider };
+    if (!provider) deny();
+    return { provider: permittedProvider(provider, allowedFederatedProviders) };
   }
 
   if (event.triggerSource !== "PostAuthentication_Authentication") deny();
   const provider = federatedProvider(event);
-  if (provider && !allowedFederatedProviders.has(provider)) deny();
-  return { provider: provider ?? "COGNITO" };
+  return {
+    provider: provider
+      ? permittedProvider(provider, allowedFederatedProviders)
+      : "COGNITO",
+  };
+}
+
+/** AUT-01/AUT-21: case-insensitive pools lowercase the external username prefix.
+ * Canonicalize only a matching allowlisted provider, never subjects or clients.
+ */
+function permittedProvider(
+  provider: string,
+  allowed: ReadonlySet<string>,
+): string {
+  const canonical = [...allowed].find(
+    (candidate) => candidate.toLowerCase() === provider.toLowerCase(),
+  );
+  if (!canonical) deny();
+  return canonical;
 }
 
 function federatedProvider(event: CognitoTriggerContext): string | undefined {

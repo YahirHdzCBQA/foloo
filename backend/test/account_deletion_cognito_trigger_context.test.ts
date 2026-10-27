@@ -191,3 +191,112 @@ test("AUT-18 disabled handlers remain pass-through before configuration", async 
     }
   }
 });
+
+test("AUT-01/AUT-21 canonicalizes only allowlisted provider capitalization", () => {
+  for (const provider of ["google", "Google", "GOOGLE", "gOoGlE"]) {
+    const signup = event({
+      triggerSource: "PreSignUp_ExternalProvider",
+      userName: `${provider}_CaseSensitiveSubject`,
+      callerContext: { clientId: "web-client" },
+    });
+    const original = structuredClone(signup);
+    assert.deepEqual(
+      validateCognitoGuardTriggerContext(signup, "pre-sign-up", environment),
+      { provider: "Google" },
+    );
+    assert.deepEqual(signup, original);
+    for (const kind of ["pre-sign-up", "post-authentication"] as const) {
+      assert.deepEqual(
+        validateCognitoGuardTriggerContext(
+          event({
+            triggerSource:
+              kind === "pre-sign-up"
+                ? "PreSignUp_ExternalProvider"
+                : "PostAuthentication_Authentication",
+            request: {
+              userAttributes: {
+                identities: JSON.stringify([{ providerName: provider }]),
+              },
+            },
+          }),
+          kind,
+          environment,
+        ),
+        { provider: "Google" },
+      );
+    }
+  }
+});
+
+test("RNF-09 provider normalization never broadens identifiers or provenance", () => {
+  for (const provider of [
+    "Microsoft",
+    "microsoft",
+    "GoogleOther",
+    " Google",
+    "Google ",
+    "Gοogle",
+    "",
+    "google.evil",
+  ]) {
+    for (const attributes of [
+      {},
+      { identities: JSON.stringify([{ providerName: provider }]) },
+    ]) {
+      assert.throws(
+        () =>
+          validateCognitoGuardTriggerContext(
+            event({
+              triggerSource: "PreSignUp_ExternalProvider",
+              userName: `${provider}_fixture`,
+              request: { userAttributes: attributes },
+            }),
+            "pre-sign-up",
+            environment,
+          ),
+        /not permitted/u,
+      );
+    }
+  }
+  for (const overrides of [
+    { userPoolId: "US-EAST-1_fixture" },
+    { callerContext: { clientId: "WEB-CLIENT" } },
+  ]) {
+    assert.throws(
+      () =>
+        validateCognitoGuardTriggerContext(
+          event({
+            triggerSource: "PreSignUp_ExternalProvider",
+            userName: "google_fixture",
+            ...overrides,
+          }),
+          "pre-sign-up",
+          environment,
+        ),
+      /not permitted/u,
+    );
+  }
+  assert.throws(
+    () =>
+      validateCognitoGuardTriggerContext(event(), "post-authentication", {
+        ...environment,
+        COGNITO_ALLOWED_FEDERATED_PROVIDERS: "Google,google",
+      }),
+    /configuration is incomplete/u,
+  );
+  assert.throws(
+    () =>
+      validateCognitoGuardTriggerContext(
+        event({
+          triggerSource: "PreSignUp_ExternalProvider",
+          userName: "google_fixture",
+        }),
+        "pre-sign-up",
+        {
+          ...environment,
+          COGNITO_ALLOWED_FEDERATED_PROVIDERS: "OtherProvider",
+        },
+      ),
+    /not permitted/u,
+  );
+});

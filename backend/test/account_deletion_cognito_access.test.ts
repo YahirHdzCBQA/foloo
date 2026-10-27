@@ -9,6 +9,8 @@ import {
 } from "../src/account_deletion/cognito_account_access.js";
 import type { AccountDeletionGuardDecision } from "../src/account_deletion/account_deletion_guard.js";
 
+import { validateCognitoGuardTriggerContext } from "../src/account_deletion/cognito_trigger_context.js";
+
 const active: AccountDeletionGuardDecision = { state: "active" };
 const pending: AccountDeletionGuardDecision = {
   state: "deletion_pending",
@@ -106,4 +108,43 @@ test("RNF-09 guard failures remain fail-closed without leaking identity data", a
       return true;
     },
   );
+});
+
+test("AUT-21/INF-18 normalized Google still reaches the registration barrier and fails closed", async () => {
+  for (const provider of ["google", "Google", "GOOGLE", "gOoGlE"]) {
+    validateCognitoGuardTriggerContext(
+      {
+        userPoolId: "us-east-1_fixture",
+        triggerSource: "PreSignUp_ExternalProvider",
+        userName: `${provider}_fixture`,
+        callerContext: { clientId: "web-client" },
+        request: { userAttributes: {} },
+      },
+      "pre-sign-up",
+      {
+        COGNITO_USER_POOL_ID: "us-east-1_fixture",
+        COGNITO_ALLOWED_APP_CLIENT_IDS: "web-client",
+        COGNITO_ALLOWED_FEDERATED_PROVIDERS: "Google",
+      },
+    );
+    const input = { email: "federated@example.test", emailVerified: true };
+    await protection().assertFederatedRegistration(input);
+    for (const denied of [
+      protection({ registration: blocked }),
+      protection({ registration: pending }),
+      protection({ failure: new Error("ledger unavailable") }),
+    ]) {
+      await assert.rejects(
+        denied.assertFederatedRegistration(input),
+        CognitoAccountAccessDeniedError,
+      );
+    }
+    await assert.rejects(
+      protection({ identity: pending }).assertPostAuthentication({
+        ...input,
+        subject: "deleted-subject",
+      }),
+      CognitoAccountAccessDeniedError,
+    );
+  }
 });
