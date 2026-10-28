@@ -174,6 +174,7 @@ void main() {
       );
       expect(viewport.physics, isA<NeverScrollableScrollPhysics>());
       expect(find.byKey(const Key('loginGoogleButton')), findsOneWidget);
+      expect(find.byKey(const Key('loginAppleButton')), findsOneWidget);
       expect(find.byKey(const Key('loginMicrosoftButton')), findsNothing);
       expect(find.byKey(const Key('openSignUpButton')), findsOneWidget);
       expect(find.byKey(const Key('loginButton')), findsOneWidget);
@@ -214,6 +215,7 @@ void main() {
       find.byKey(const Key('signUpGoogleButton')),
     );
     expect(google.style?.shape?.resolve({}), isA<StadiumBorder>());
+    expect(find.byKey(const Key('signUpAppleButton')), findsOneWidget);
     expect(find.byKey(const Key('signUpMicrosoftButton')), findsNothing);
     final primary = tester.widget<FilledButton>(
       find.byKey(const Key('signUpButton')),

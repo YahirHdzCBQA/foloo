@@ -68,7 +68,9 @@ class _FakeCognitoClient implements CognitoAuthClient {
 
 void main() {
   test('AUT-15 Google and Microsoft explicit auth request account choice', () {
-    for (final provider in AuthProvider.values) {
+    for (final provider in AuthProvider.values.where(
+      (p) => p != AuthProvider.apple,
+    )) {
       final options = AmplifyCognitoAuthClient.webUiOptionsFor(provider);
       final plugin =
           options.pluginOptions as cognito.CognitoSignInWithWebUIPluginOptions;
@@ -77,6 +79,29 @@ void main() {
         contains(cognito.CognitoSignInWithWebUIPrompt.selectAccount),
       );
     }
+  });
+
+  test('AUT-22 Apple maps to the Cognito provider and sends no prompt', () {
+    final provider = AmplifyCognitoAuthClient.amplifyProviderFor(
+      AuthProvider.apple,
+    );
+    expect(provider.uriParameter, 'SignInWithApple');
+    final options = AmplifyCognitoAuthClient.webUiOptionsFor(
+      AuthProvider.apple,
+    );
+    expect(options.pluginOptions, isNull);
+  });
+
+  test('AUT-22 federated usernames resolve to their provider', () {
+    expect(
+      AmplifyCognitoAuthClient.providerFromUsername('SignInWithApple_001'),
+      AuthProvider.apple,
+    );
+    expect(
+      AmplifyCognitoAuthClient.providerFromUsername('Google_123'),
+      AuthProvider.google,
+    );
+    expect(AmplifyCognitoAuthClient.providerFromUsername('a@b.co'), isNull);
   });
 
   test('AUT-01 Microsoft uses the exact Cognito custom provider name', () {

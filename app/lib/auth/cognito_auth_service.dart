@@ -237,20 +237,24 @@ class AmplifyCognitoAuthClient
   static amplify.AuthProvider amplifyProviderFor(AuthProvider provider) =>
       switch (provider) {
         AuthProvider.google => amplify.AuthProvider.google,
+        AuthProvider.apple => amplify.AuthProvider.apple,
         // This must match the externally configured Cognito IdP name exactly.
         AuthProvider.microsoft => const amplify.AuthProvider.custom(
           'Microsoft',
         ),
       };
 
-  /// Explicit social actions always let the user choose an IdP account.
+  /// Explicit social actions let the user choose an IdP account when the IdP
+  /// supports it. Apple has no `select_account` prompt, so it gets defaults.
   static amplify.SignInWithWebUIOptions webUiOptionsFor(
     AuthProvider provider,
-  ) => const amplify.SignInWithWebUIOptions(
-    pluginOptions: cognito.CognitoSignInWithWebUIPluginOptions(
-      prompt: [cognito.CognitoSignInWithWebUIPrompt.selectAccount],
-    ),
-  );
+  ) => provider == AuthProvider.apple
+      ? const amplify.SignInWithWebUIOptions()
+      : const amplify.SignInWithWebUIOptions(
+          pluginOptions: cognito.CognitoSignInWithWebUIPluginOptions(
+            prompt: [cognito.CognitoSignInWithWebUIPrompt.selectAccount],
+          ),
+        );
 
   Future<CognitoIdentity> _currentIdentity({AuthProvider? provider}) async {
     final user = await amplify.Amplify.Auth.getCurrentUser();
@@ -292,9 +296,15 @@ class AmplifyCognitoAuthClient
     );
   }
 
-  AuthProvider? _providerFromUsername(String username) {
+  AuthProvider? _providerFromUsername(String username) =>
+      providerFromUsername(username);
+
+  /// Cognito prefixes federated usernames with the lowercase IdP name.
+  @visibleForTesting
+  static AuthProvider? providerFromUsername(String username) {
     final normalized = username.toLowerCase();
     if (normalized.startsWith('google_')) return AuthProvider.google;
+    if (normalized.startsWith('signinwithapple_')) return AuthProvider.apple;
     if (normalized.startsWith('microsoft_')) return AuthProvider.microsoft;
     return null;
   }

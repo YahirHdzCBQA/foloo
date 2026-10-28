@@ -22,6 +22,10 @@ deben confirmarse en las guías oficiales antes de cada envío a revisión.
    `expired` explica que se alcanzó el límite y que la cuenta se administra en
    la web. No muestra precio, ni la palabra pagar/comprar/upgrade/suscribirse,
    ni botón o enlace al sitio. El texto es solo texto.
+   **Enmienda 2026-10-28 (Producto):** la app sí ofrece un botón que abre la
+   cuenta en la web de Foloo ("agregar más leads"), sin precio ni palabras de
+   cobro. El enlace se puede apagar por build (`FOLOO_WEB_ACCOUNT_LINK=false`)
+   para las tiendas/regiones donde `D-01` no lo permita.
 3. **Autoridad**: el backend. El webhook de Stripe, con firma verificada, es lo
    único que puede pasar `accounts.subscription_status` a `active` o
    `expired`. Flutter y la web nunca escriben ese estado (`MON-05`).

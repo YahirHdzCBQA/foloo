@@ -127,6 +127,10 @@ void main() {
         repository.state.user?.username,
         'microsoft@development.foloo.local',
       );
+
+      await repository.signOut();
+      expect(await repository.signInWithProvider(AuthProvider.apple), isTrue);
+      expect(repository.state.user?.provider, AuthProvider.apple);
     },
   );
 }

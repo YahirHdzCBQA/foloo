@@ -56,6 +56,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get continueWithGoogle => 'Continue with Google';
 
   @override
+  String get continueWithApple => 'Continue with Apple';
+
+  @override
   String get continueWithMicrosoft => 'Continue with Microsoft';
 
   @override
@@ -1481,11 +1484,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paywallTitle => 'Your 5 free leads have been used';
 
   @override
-  String get paywallBody =>
-      'A subscription is required to keep creating leads. Everything you already saved remains available.';
+  String get paywallExpiredTitle => 'Your Foloo plan ended';
 
   @override
-  String get paywallFutureAction => 'Subscriptions will be available soon.';
+  String get paywallBody =>
+      'If you used your free leads or your plan ended, you can add more from your account on the Foloo website. Everything you already saved remains available.';
+
+  @override
+  String get paywallOpenWeb => 'Add more leads on the web';
+
+  @override
+  String get paywallOpenWebError =>
+      'The Foloo website could not be opened. Try again.';
+
+  @override
+  String get paywallFutureAction =>
+      'You can still review and export your records here.';
 
   @override
   String get paywallViewRecords => 'View records';

@@ -16,6 +16,10 @@ región y tienda, además del proveedor definitivo.
 Stripe Checkout; la app solo informa, sin precio ni enlace). Queda abierta la
 variante B (compra nativa) si las tiendas rechazan la A.
 
+**Estado 2026-10-28:** Producto pidió que la app sí lleve a la web con un
+botón (enmienda de `MON-14`). Esto vuelve más urgente validar si cada tienda y
+región admite ese enlace; mientras tanto se puede apagar por build.
+
 **Pregunta:** compra in-app, pago externo en navegador o external purchase link
 permitido por región/tienda.
 
@@ -124,6 +128,9 @@ in-app/web y las declaraciones finales App Privacy/Data Safety. No invalida la
 evidencia técnica DEV ni permite omitir la eliminación exigida por tiendas.
 
 ### `D-21` · Alternativa equivalente para Google Sign-In en iOS
+
+**Estado 2026-10-21:** aprobado Sign in with Apple vía Cognito (ADR-009).
+Falta la configuración en Apple Developer y Cognito.
 
 **Pregunta:** aprobar Sign in with Apple mediante Cognito o retirar Google
 Sign-In de iOS. La lectura conservadora de Apple 4.8 no considera suficiente el
