@@ -137,6 +137,13 @@ In the Stripe dashboard (test mode), register a webhook at the
 `customer.subscription.updated`, `customer.subscription.deleted` and
 `invoice.payment_failed`, and activate the Customer Portal.
 
+The DEV default Price above (99 USD/month) predates `D-02` and is obsolete.
+The plan is "Foloo", yearly only: 89 USD / 1,780 MXN per year, tax included
+(`MON-04`, `MON-18`). Create one recurring yearly Price for it in Stripe and
+set it through `STRIPE_PRICE_ID`; no monthly Price is valid. Which currency
+each region sees, and whether the USD amount is also tax-inclusive, remain
+open in `D-02`.
+
 ### Migration 011 and `only=<migration>`
 
 Billing needs `migrations/011_billing_stripe.sql` (accounts' Stripe IDs and the

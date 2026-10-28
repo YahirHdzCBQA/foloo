@@ -24,7 +24,27 @@ bloquea el enforcement ni el paywall informativo sin precio de FL-020.
 
 ### `D-02` · Precio, moneda y regiones
 
-**Bloquea:** productos, copy y pruebas de `MON-04`.
+**Estado 2026-10-28:** los ajustes de contenido del landing
+(`foloo-landing-ajustes.md`, paquete de diseño recibido el 2026-10-27) fijan
+los planes comerciales:
+
+| Plan       | Precio                                              | Límite                        |
+| ---------- | --------------------------------------------------- | ----------------------------- |
+| Free trial | Gratis                                              | 5 leads, sin límite de tiempo |
+| Foloo      | 89 USD al año · 1,780 MXN al año, impuesto incluido | Sin límite de capturas        |
+
+- Compra anual únicamente: no existe modalidad mensual.
+- Las capacidades son las mismas en los dos planes; solo cambia el tope de
+  capturas (`MON-01`, `MON-04`).
+- Foloo Team solo se menciona como nombre + "Próximamente", sin capacidades
+  ni precio (`D-10`).
+
+Siguen abiertos: regiones/países de venta, qué moneda se presenta en cada
+región y si "impuesto incluido" aplica también al importe en USD.
+
+**Bloquea:** solo la configuración regional/fiscal del Price de Stripe
+(`MON-18`). Ya no bloquea el precio, la moneda base ni el periodo de
+`MON-04`.
 
 ### `D-03` · Vencimiento, avisos y periodo de gracia
 

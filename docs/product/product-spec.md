@@ -283,7 +283,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `MON-01` | Cada cuenta identificada por Cognito `sub` dispone de cinco creaciones gratuitas; `trialLeadsUsed` es histórico, server-side, acotado a 0…5 y no se reinicia al reinstalar, cambiar dispositivo o cerrar sesión. Evento y Directo consumen igual. |
 | `MON-02` | Saldo y aviso previo al límite son visibles en captura y Drawer. |
 | `MON-03` | `trial_exhausted` y `expired` bloquean al iniciar una nueva captura y abren el paywall; `trial` con saldo y `active` permiten crear. |
-| `MON-04` | `active` habilita creación ilimitada. FL-020 representa el estado, pero solo FL-021 podrá activarlo desde una compra confiable; precio, moneda y periodo siguen abiertos. |
+| `MON-04` | `active` habilita creación ilimitada. FL-020 representa el estado, pero solo FL-021 podrá activarlo desde una compra confiable. Plan único de pago "Foloo": anual, 89 USD / 1,780 MXN impuesto incluido; sin modalidad mensual (`D-02`, 2026-10-28). Regiones siguen abiertas. |
 | `MON-05` | PostgreSQL es autoridad: aceptación del Lead y consumo se realizan transaccional e idempotentemente; Flutter no puede enviar ni modificar estado o contador. |
 | `MON-06` | Drift cachea por owner el último snapshot remoto y reservas locales históricas. Offline puede consumir como máximo el saldo efectivo restante y restart/logout no lo reinician. |
 | `MON-07` | `trial_exhausted` o `expired` bloquean exclusivamente crear Leads; los datos y operaciones existentes siguen visibles/editables/exportables. |
@@ -297,7 +297,7 @@ no sustituye la identidad técnica local ni se muestra en el detalle actual.
 | `MON-15` | El cobro se hace en la web con Stripe Checkout alojado. El backend crea la sesión para la cuenta derivada del `sub` del JWT; el cliente no envía cuenta, precio ni estado. |
 | `MON-16` | Solo el webhook de Stripe con firma válida puede pasar la cuenta a `active` o `expired`. Eventos repetidos se ignoran por `event.id`. Ningún dato capturado se borra por un cambio de estado (`MON-07`). |
 | `MON-17` | La cancelación y el cambio de tarjeta usan el Customer Portal de Stripe, abierto desde la web para la cuenta autenticada. |
-| `MON-18` | Precio y moneda (`D-02`) son un Price ID de configuración; sin él, el backend responde `billing_not_configured` y no crea cobros. Claves y secretos de Stripe solo en Secrets Manager. |
+| `MON-18` | Precio y moneda (`D-02`) son un Price ID de configuración: recurrente anual con los importes del plan Foloo; un Price mensual no es válido. Sin él, el backend responde `billing_not_configured` y no crea cobros. Claves y secretos de Stripe solo en Secrets Manager. |
 | `MON-19` | Si la cuenta tiene cupo de trial, Checkout no es necesario; una cuenta ya `active` no puede crear otra sesión de Checkout y recibe el portal. |
 | `MON-20` | La variante con compra nativa (StoreKit/Play Billing) es **Proposed** y no forma parte de esta versión (ADR-008). |
 

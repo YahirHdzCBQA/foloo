@@ -348,6 +348,9 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - (`MON-18`) Sin Price ID el backend responde 503 `billing_not_configured` y no
   crea cobros; sin firma rechaza antes de leer secretos; synth falla si billing
   está habilitado sin precio, URLs o nombres de secretos.
+- (`MON-04`/`MON-18`, `D-02`) El Price configurado en cada entorno es el plan
+  Foloo anual: 89 USD y 1,780 MXN impuesto incluido. Checkout no ofrece
+  ningún periodo mensual.
 - (`MON-19`) Una cuenta `active`, o con suscripción viva en Stripe aunque el
   estado local esté atrasado, recibe 409 con indicación de Portal en vez de
   otro Checkout.

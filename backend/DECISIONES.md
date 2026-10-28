@@ -86,3 +86,10 @@
 - El stage depende de la ruta del webhook; sin eso, CloudFormation falló al aplicar el throttling (2026-10-22).
 - Valores por defecto en DEV (las variables de entorno los sobrescriben): Price de prueba de 99 USD/mes `price_1UTTLKCp0Un1sf9uyTk4w9NN` ("Foloo Pro (prueba)"), retornos a `https://foloo.io/dashboard?billing=success|cancel` y portal a `/dashboard`. Es un supuesto: falta la página web real de planes.
 - 2026-10-23: la 011 se aplicó sola en DEV con `{"action":"apply","only":"011_billing_stripe.sql"}`. La 010 de STORE-02 sigue pendiente para su propio procedimiento (backup y autorización); es independiente de la 011 y puede aplicarse después.
+
+## 2026-10-28 · Planes del landing (D-02)
+
+- Fuente: `foloo-landing-ajustes.md` del paquete de diseño del landing (2026-10-27). Free trial: 5 leads, gratis, sin límite de tiempo. Foloo: 89 USD / 1,780 MXN al año, impuesto incluido, solo anual. Team: solo "Próximamente".
+- El Price de prueba de 99 USD/mes `price_1UTTLKCp0Un1sf9uyTk4w9NN` queda obsoleto. No se cambia el default de `infra/config.ts` hasta que exista el Price anual real en Stripe: un ID inventado haría fallar Checkout. Se configura con `STRIPE_PRICE_ID`.
+- Sin cambio de código: el backend ya trata el precio solo como Price ID (`MON-18`); el periodo anual lo define el Price en Stripe.
+- El PDF "Planes y capacidades" (agosto 2026, Basic/Pro/Team con capacidades distintas) es histórico y no se usa.
