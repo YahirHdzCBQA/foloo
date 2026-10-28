@@ -90,6 +90,6 @@
 ## 2026-10-28 · Planes del landing (D-02)
 
 - Fuente: `foloo-landing-ajustes.md` del paquete de diseño del landing (2026-10-27). Free trial: 5 leads, gratis, sin límite de tiempo. Foloo: 89 USD / 1,780 MXN al año, impuesto incluido, solo anual. Team: solo "Próximamente".
-- El Price de prueba de 99 USD/mes `price_1UTTLKCp0Un1sf9uyTk4w9NN` queda obsoleto. No se cambia el default de `infra/config.ts` hasta que exista el Price anual real en Stripe: un ID inventado haría fallar Checkout. Se configura con `STRIPE_PRICE_ID`.
+- El Price de prueba de 99 USD/mes `price_1UTTLKCp0Un1sf9uyTk4w9NN` queda obsoleto. Nuevo default de DEV: `price_1UVXnvCp0Un1sf9u7wMePBtt` (producto `prod_VWazHCD9JjCJDj`, lookup key `foloo_annual`), creado en modo test el 2026-10-28: anual, 89 USD con opción MXN 1,780 `inclusive`; USD queda `unspecified` mientras D-02 no lo defina.
 - Sin cambio de código: el backend ya trata el precio solo como Price ID (`MON-18`); el periodo anual lo define el Price en Stripe.
 - El PDF "Planes y capacidades" (agosto 2026, Basic/Pro/Team con capacidades distintas) es histórico y no se usa.

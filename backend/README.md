@@ -120,7 +120,7 @@ creates the route before applying that throttle.
 | ---------------------- | --------------------------------------------------------------------- | --------------------------- |
 | Stripe API key secret  | `foloo/dev/stripe-api-key` (raw SecretString, `sk_test_…`)            | —                           |
 | Webhook signing secret | `foloo/dev/stripe-webhook-signing` (raw SecretString, `whsec_…`)      | —                           |
-| Price                  | `price_1UTTLKCp0Un1sf9uyTk4w9NN` ("Foloo Pro (prueba)", 99 USD/month) | `STRIPE_PRICE_ID`           |
+| Price                  | `price_1UVXnvCp0Un1sf9u7wMePBtt` ("Foloo", yearly: 89 USD / 1,780 MXN, lookup key `foloo_annual`) | `STRIPE_PRICE_ID`           |
 | Success URL            | `https://foloo.io/dashboard?billing=success`                          | `BILLING_SUCCESS_URL`       |
 | Cancel URL             | `https://foloo.io/dashboard?billing=cancel`                           | `BILLING_CANCEL_URL`        |
 | Portal return URL      | `https://foloo.io/dashboard`                                          | `BILLING_PORTAL_RETURN_URL` |
@@ -137,12 +137,12 @@ In the Stripe dashboard (test mode), register a webhook at the
 `customer.subscription.updated`, `customer.subscription.deleted` and
 `invoice.payment_failed`, and activate the Customer Portal.
 
-The DEV default Price above (99 USD/month) predates `D-02` and is obsolete.
-The plan is "Foloo", yearly only: 89 USD / 1,780 MXN per year, tax included
-(`MON-04`, `MON-18`). Create one recurring yearly Price for it in Stripe and
-set it through `STRIPE_PRICE_ID`; no monthly Price is valid. Which currency
-each region sees, and whether the USD amount is also tax-inclusive, remain
-open in `D-02`.
+The Price is the `D-02` plan "Foloo", yearly only (`MON-04`, `MON-18`): one
+recurring yearly Price of 89 USD with an MXN currency option of 1,780,
+tax-inclusive. No monthly Price is valid. The USD amount keeps tax behavior
+`unspecified` because `D-02` has not said whether it includes tax, and which
+currency each region sees is still open. The former 99 USD/month test Price
+(`price_1UTTLKCp0Un1sf9uyTk4w9NN`) is obsolete.
 
 ### Migration 011 and `only=<migration>`
 

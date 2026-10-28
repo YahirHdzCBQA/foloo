@@ -60,8 +60,8 @@ export function environmentConfig(
     billingEnabled: env.BILLING_ENABLED !== "false",
     stripeSecretName: "foloo/dev/stripe-api-key",
     stripeWebhookSecretName: "foloo/dev/stripe-webhook-signing",
-    // Stripe test mode: "Foloo Pro (prueba)" 99 USD/month; env overrides.
-    stripePriceId: env.STRIPE_PRICE_ID ?? "price_1UTTLKCp0Un1sf9uyTk4w9NN",
+    // Stripe test mode: "Foloo" yearly, 89 USD / 1,780 MXN (D-02); env overrides.
+    stripePriceId: env.STRIPE_PRICE_ID ?? "price_1UVXnvCp0Un1sf9u7wMePBtt",
     billingSuccessUrl:
       env.BILLING_SUCCESS_URL ?? "https://foloo.io/dashboard?billing=success",
     billingCancelUrl:
