@@ -37,7 +37,7 @@ import {
 import { S3OwnerObjectErasure } from "./s3_owner_object_erasure.js";
 import { StagedAccountDeletionExecutor } from "./staged_account_deletion_executor.js";
 import { RestoredOwnerErasureRecovery } from "./restored_owner_erasure_recovery.js";
-import { createAccountDeletionQaAccessGuard } from "./account_deletion_qa_access.js";
+import { createAccountDeletionAdmissionGuard } from "./account_deletion_admission.js";
 
 export type AccountDeletionAwsConfiguration = Readonly<{
   tableName: string;
@@ -52,6 +52,7 @@ export type AccountDeletionAwsConfiguration = Readonly<{
   mediaBucketName: string;
   maximumAuthenticationAgeMs: number;
   environment: string;
+  normalAccessEnabled?: boolean;
   qaAccessEnabled: boolean;
   qaAllowedSubjectHashes: ReadonlySet<string>;
   intakeEnabled: boolean;
@@ -70,10 +71,11 @@ export function composeAccountDeletionRuntime(
   });
   const hmac = new KmsHmacSha256Generator(kms);
   const subjects = new PseudonymousSubjectIdentifierService(keyProvider, hmac);
-  const qaAccessGuard = createAccountDeletionQaAccessGuard({
+  const admissionGuard = createAccountDeletionAdmissionGuard({
     environment: config.environment,
-    enabled: config.qaAccessEnabled,
-    allowedSubjectHashes: config.qaAllowedSubjectHashes,
+    normalAccessEnabled: config.normalAccessEnabled === true,
+    qaEnabled: config.qaAccessEnabled,
+    qaAllowedSubjectHashes: config.qaAllowedSubjectHashes,
   });
   const guard = new AccountDeletionGuard(
     new DynamoAccountDeletionLedger(dynamo, config.tableName),
@@ -143,7 +145,7 @@ export function composeAccountDeletionRuntime(
       subjects,
       config.hmacKeyVersion,
       config.maximumAuthenticationAgeMs,
-      qaAccessGuard,
+      admissionGuard,
       verifiedEmailResolver,
       config.intakeEnabled,
     ),

@@ -12,7 +12,7 @@ import { z } from "zod";
 import { ApplicationError, unauthorized } from "../application/errors.js";
 import { authenticatedSubject } from "../auth/authenticated_identity.js";
 import type { PseudonymousSubjectIdentifierService } from "./pseudonymous_identity.js";
-import type { AccountDeletionQaAccessGuard } from "./account_deletion_qa_access.js";
+import type { AccountDeletionAdmissionGuard } from "./account_deletion_admission.js";
 import type { VerifiedCognitoEmailResolver } from "./verified_cognito_email.js";
 import {
   AccountDeletionWorkflow,
@@ -61,7 +61,7 @@ export class WorkflowAccountDeletionHttpController<
     private readonly subjectIdentifiers: PseudonymousSubjectIdentifierService<KeyHandle>,
     private readonly keyVersion: string,
     private readonly maximumAuthenticationAgeMs: number,
-    private readonly qaAccessGuard: AccountDeletionQaAccessGuard,
+    private readonly admissionGuard: AccountDeletionAdmissionGuard,
     private readonly verifiedEmailResolver: VerifiedCognitoEmailResolver,
     private readonly intakeEnabled = false,
     private readonly now: () => Date = () => new Date(),
@@ -88,7 +88,7 @@ export class WorkflowAccountDeletionHttpController<
     }
 
     const subject = authenticatedSubject(event);
-    this.qaAccessGuard.assertAllowed(subject);
+    this.admissionGuard.assertAllowed(subject);
     const ownerKey = (
       await this.subjectIdentifiers.identify(subject, this.keyVersion)
     ).digest;

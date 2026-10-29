@@ -26,6 +26,7 @@ import type { Construct } from "constructs";
 
 import { validateBillingConfig, type EnvironmentConfig } from "./config.js";
 import { AccountDeletionLedgerInfrastructure } from "./account_deletion_ledger_infrastructure.js";
+import { qaInventoryEnvironment } from "./qa_inventory_config.js";
 import { WebSessionInfrastructure } from "./web_session_infrastructure.js";
 
 type FolooBackendStackProps = cdk.StackProps & {
@@ -37,6 +38,8 @@ type FolooBackendStackProps = cdk.StackProps & {
   };
   accountDeletionQa?: {
     enabled: boolean;
+    runtimeEnabled?: boolean;
+    normalAccessEnabled?: boolean;
     intakeEnabled: boolean;
     registrationGuardEnabled: boolean;
     outboxRecoveryEnabled: boolean;
@@ -58,7 +61,12 @@ export class FolooBackendStack extends cdk.Stack {
     super(scope, id, props);
     const { config } = props;
     validateBillingConfig(config);
-    const accountDeletionEnabled = props.accountDeletionQa?.enabled === true;
+    const accountDeletionEnabled =
+      (props.accountDeletionQa?.runtimeEnabled ??
+        props.accountDeletionQa?.enabled) === true;
+    const accountDeletionQaEnabled = props.accountDeletionQa?.enabled === true;
+    const accountDeletionNormalAccessEnabled =
+      props.accountDeletionQa?.normalAccessEnabled === true;
     const accountDeletionIntakeEnabled =
       accountDeletionEnabled && props.accountDeletionQa?.intakeEnabled === true;
     const accountDeletionRegistrationGuardEnabled =
@@ -112,9 +120,20 @@ export class FolooBackendStack extends cdk.Stack {
         },
       },
     );
+    // AUT-18 / RNF-09: opt-in local evaluation; preserve the resource dependency.
+    // Ref and GetAtt ClientId are documented equivalents, but AWS drift-aware
+    // evaluation still needs a separately authorized Change Set.
+    const explicitWebClientId = this.node.tryGetContext(
+      "webClientIdExplicitAttribute",
+    );
+    const webClientId =
+      explicitWebClientId === true || explicitWebClientId === "true"
+        ? (webUserPoolClient.node.defaultChild as cognito.CfnUserPoolClient)
+            .attrClientId
+        : webUserPoolClient.userPoolClientId;
     new cognito.CfnManagedLoginBranding(this, "WebManagedLoginBranding", {
       userPoolId: config.userPoolId,
-      clientId: webUserPoolClient.userPoolClientId,
+      clientId: webClientId,
       useCognitoProvidedValues: true,
     });
 
@@ -306,7 +325,7 @@ export class FolooBackendStack extends cdk.Stack {
         PUBLIC_API_BASE_URL: "https://placeholder.invalid",
         COGNITO_ISSUER: `https://cognito-idp.${config.region}.amazonaws.com/${config.userPoolId}`,
         MOBILE_COGNITO_CLIENT_ID: config.appClientId,
-        WEB_COGNITO_CLIENT_ID: webUserPoolClient.userPoolClientId,
+        WEB_COGNITO_CLIENT_ID: webClientId,
         FOLOO_WEB_SESSION_ENABLED:
           props.webSessionQa?.enabled === true ? "true" : "false",
         WEB_SESSION_QA_SUBJECT_HASHES: (
@@ -322,7 +341,9 @@ export class FolooBackendStack extends cdk.Stack {
           ? "true"
           : "false",
         FOLOO_ENVIRONMENT: config.name,
-        FOLOO_ACCOUNT_DELETION_QA_ENABLED: accountDeletionEnabled
+        FOLOO_ACCOUNT_DELETION_NORMAL_ACCESS_ENABLED:
+          accountDeletionNormalAccessEnabled ? "true" : "false",
+        FOLOO_ACCOUNT_DELETION_QA_ENABLED: accountDeletionQaEnabled
           ? "true"
           : "false",
         ACCOUNT_DELETION_QA_SUBJECT_HASHES: (
@@ -482,7 +503,7 @@ export class FolooBackendStack extends cdk.Stack {
           COGNITO_USER_POOL_ID: config.userPoolId,
           COGNITO_ALLOWED_APP_CLIENT_IDS: [
             config.appClientId,
-            webUserPoolClient.userPoolClientId,
+            webClientId,
           ].join(","),
           COGNITO_ALLOWED_FEDERATED_PROVIDERS: "Google",
         },
@@ -513,7 +534,7 @@ export class FolooBackendStack extends cdk.Stack {
           COGNITO_USER_POOL_ID: config.userPoolId,
           COGNITO_ALLOWED_APP_CLIENT_IDS: [
             config.appClientId,
-            webUserPoolClient.userPoolClientId,
+            webClientId,
           ].join(","),
           COGNITO_ALLOWED_FEDERATED_PROVIDERS: "Google",
         },
@@ -596,7 +617,9 @@ export class FolooBackendStack extends cdk.Stack {
             accountDeletionEmail.functionName,
           ACCOUNT_DELETION_NOTIFICATION_MODE: "disabled",
           FOLOO_ENVIRONMENT: config.name,
-          FOLOO_ACCOUNT_DELETION_QA_ENABLED: accountDeletionEnabled
+          FOLOO_ACCOUNT_DELETION_NORMAL_ACCESS_ENABLED:
+            accountDeletionNormalAccessEnabled ? "true" : "false",
+          FOLOO_ACCOUNT_DELETION_QA_ENABLED: accountDeletionQaEnabled
             ? "true"
             : "false",
           ACCOUNT_DELETION_QA_SUBJECT_HASHES: (
@@ -881,6 +904,13 @@ export class FolooBackendStack extends cdk.Stack {
           ...commonEnvironment,
           DB_ADMIN_SECRET_ARN: database.secret!.secretArn,
           MIGRATIONS_DIR: "/var/task/migrations",
+          ...qaInventoryEnvironment(
+            config.name,
+            this.node.tryGetContext("qaInventorySubject"),
+            props.accountDeletionQa?.enabled === true,
+            props.accountDeletionQa?.subjectHashes ?? [],
+            props.webSessionQa?.subjectHashes ?? [],
+          ),
         },
         bundling: {
           minify: true,
@@ -901,7 +931,7 @@ export class FolooBackendStack extends cdk.Stack {
     const authorizer = new authorizers.HttpJwtAuthorizer(
       "CognitoJwt",
       `https://cognito-idp.${config.region}.amazonaws.com/${config.userPoolId}`,
-      { jwtAudience: [config.appClientId, webUserPoolClient.userPoolClientId] },
+      { jwtAudience: [config.appClientId, webClientId] },
     );
     const api = new apigateway.HttpApi(this, "HttpApi", {
       apiName: `foloo-${config.name}`,
@@ -921,7 +951,7 @@ export class FolooBackendStack extends cdk.Stack {
     const webSessions = new WebSessionInfrastructure(this, "WebSessions", {
       environmentName: config.name,
       userPoolId: config.userPoolId,
-      webClientId: webUserPoolClient.userPoolClientId,
+      webClientId: webClientId,
       cognitoDomain: config.webAuth.cognitoDomain,
       callbackUrl: config.webAuth.bffCallbackUrl,
       allowedOrigin: config.webAuth.allowedOrigins[0]!,
@@ -979,6 +1009,8 @@ export class FolooBackendStack extends cdk.Stack {
     const webSessionRoutes: apigateway.HttpRoute[] = [];
     for (const [path, method] of [
       ["/api/auth/session/srp", apigateway.HttpMethod.POST],
+      ["/api/auth/reauthentication/start", apigateway.HttpMethod.POST],
+      ["/api/auth/reauthentication/srp", apigateway.HttpMethod.POST],
       ["/api/auth/google/start", apigateway.HttpMethod.GET],
       ["/api/auth/google/callback", apigateway.HttpMethod.GET],
       ["/api/auth/session", apigateway.HttpMethod.GET],
@@ -1113,7 +1145,7 @@ export class FolooBackendStack extends cdk.Stack {
     });
     new cdk.CfnOutput(this, "ApiUrl", { value: api.apiEndpoint });
     new cdk.CfnOutput(this, "WebUserPoolClientId", {
-      value: webUserPoolClient.userPoolClientId,
+      value: webClientId,
     });
     new cdk.CfnOutput(this, "WebSessionFunctionName", {
       value: webSessions.function.functionName,

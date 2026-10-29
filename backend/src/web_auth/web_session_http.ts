@@ -12,6 +12,7 @@ import type {
 import {
   OAuthTransactionError,
   WebSessionConcurrencyError,
+  WebReauthenticationError,
   WebSessionCsrfError,
   WebSessionService,
   WebSessionUnauthorizedError,
@@ -58,6 +59,54 @@ export function createWebSessionHandler(
         assertOrigin(event, configuration.allowedOrigin);
       }
 
+      if (
+        path === "/api/auth/reauthentication/start" &&
+        method(event) === "POST"
+      ) {
+        const payload = parseObjectBody(event);
+        if (payload.provider !== "srp" && payload.provider !== "google")
+          throw new HttpInputError(400, "invalid_provider");
+        const result = await dependencies.sessions.beginReauthentication(
+          requiredCookie(event, sessionCookieName),
+          requiredHeader(event, "x-csrf-token"),
+          payload.provider,
+        );
+        return json(
+          200,
+          result,
+          result.authorizationUrl
+            ? [
+                secureCookie(
+                  oauthCookieName,
+                  result.transactionId,
+                  configuration.oauthMaxAgeSeconds,
+                ),
+              ]
+            : undefined,
+        );
+      }
+      if (
+        path === "/api/auth/reauthentication/srp" &&
+        method(event) === "POST"
+      ) {
+        const payload = parseObjectBody(event);
+        const session =
+          await dependencies.sessions.completeNativeReauthentication(
+            requiredCookie(event, sessionCookieName),
+            requiredHeader(event, "x-csrf-token"),
+            requiredString(payload, "transactionId"),
+            requiredString(payload, "accessToken"),
+          );
+        return json(200, {
+          authenticated: true,
+          identity: { ...session.identity, displayName: null },
+          csrfToken: session.csrfToken,
+          expiresAt: session.expiresAt.toISOString(),
+          idleExpiresAt: session.idleExpiresAt.toISOString(),
+          authenticationTime: session.authenticationTime.toISOString(),
+        });
+      }
+
       if (path === "/api/auth/session/srp" && method(event) === "POST") {
         const payload = parseObjectBody(event);
         const refreshToken = requiredString(payload, "refreshToken");
@@ -88,13 +137,18 @@ export function createWebSessionHandler(
         const transactionId = cookie(event, oauthCookieName);
         if (event.queryStringParameters?.error) {
           if (!state || !transactionId) throw new OAuthTransactionError();
-          await dependencies.sessions.cancelGoogleAuthorization(
-            transactionId,
-            state,
-          );
+          const reauthentication =
+            await dependencies.sessions.cancelGoogleAuthorization(
+              transactionId,
+              state,
+            );
           return noStore({
             statusCode: 303,
-            headers: { location: "/login" },
+            headers: {
+              location: reauthentication
+                ? "/settings/account?reauth=failed#peligro"
+                : "/login",
+            },
             cookies: [clearCookie(oauthCookieName)],
           });
         }
@@ -104,7 +158,14 @@ export function createWebSessionHandler(
           transactionId,
           state,
           code,
+          cookie(event, sessionCookieName),
         );
+        if (session.reauthenticated)
+          return noStore({
+            statusCode: 303,
+            headers: { location: "/settings/account#peligro" },
+            cookies: [clearCookie(oauthCookieName)],
+          });
         const response = sessionResponse(303, session, configuration);
         return {
           ...response,
@@ -177,6 +238,12 @@ export function createWebSessionHandler(
         path === "/api/auth/logout"
           ? [clearCookie(sessionCookieName), clearCookie(oauthCookieName)]
           : undefined;
+      if (error instanceof WebReauthenticationError)
+        return noStore({
+          statusCode: 303,
+          headers: { location: "/settings/account?reauth=failed#peligro" },
+          cookies: [clearCookie(oauthCookieName)],
+        });
       if (error instanceof WebSessionUnauthorizedError) {
         return problem(401, "web_session_unauthorized", clearLogoutCookie);
       }

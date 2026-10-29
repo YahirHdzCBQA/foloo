@@ -110,7 +110,10 @@ export type WebSessionQaConfig = Readonly<{
 }>;
 
 export type AccountDeletionQaConfig = Readonly<{
+  /** Legacy field: QA exception only; no implicit normal admission. */
   enabled: boolean;
+  runtimeEnabled?: boolean;
+  normalAccessEnabled?: boolean;
   intakeEnabled: boolean;
   registrationGuardEnabled: boolean;
   outboxRecoveryEnabled: boolean;
@@ -135,8 +138,23 @@ export function accountDeletionQaConfigForEnvironment(
   rawWorkerEnabled?: unknown,
   rawFinalizerEnabled?: unknown,
   rawWorkerEventSourceEnabled?: unknown,
+  rawRuntimeEnabled?: unknown,
+  rawNormalAccessEnabled?: unknown,
 ): AccountDeletionQaConfig {
   const enabled = activationFlag("accountDeletionQaEnabled", rawEnabled);
+  // Omitted runtime flag preserves old QA deployments during code migration.
+  const runtimeEnabled =
+    rawRuntimeEnabled === undefined
+      ? enabled
+      : activationFlag("accountDeletionRuntimeEnabled", rawRuntimeEnabled);
+  const normalAccessEnabled = activationFlag(
+    "accountDeletionNormalAccessEnabled",
+    rawNormalAccessEnabled,
+  );
+  if (enabled && normalAccessEnabled)
+    throw new Error("Choose normal admission or QA, not both.");
+  if ((enabled || normalAccessEnabled) && !runtimeEnabled)
+    throw new Error("Deletion admission requires runtime.");
   const intakeEnabled = activationFlag(
     "accountDeletionQaIntakeEnabled",
     rawIntakeEnabled,
@@ -171,6 +189,8 @@ export function accountDeletionQaConfigForEnvironment(
   );
   const controls = {
     enabled,
+    runtimeEnabled,
+    normalAccessEnabled,
     intakeEnabled,
     registrationGuardEnabled,
     outboxRecoveryEnabled,
@@ -198,6 +218,11 @@ export function accountDeletionQaConfigForEnvironment(
       "Account Deletion destructive QA requires exactly one identity.",
     );
   }
+  if (rawRuntimeEnabled !== undefined && !enabled && subjectHashes.length > 0) {
+    throw new Error(
+      "Disabled deletion QA must not retain subject authorizations.",
+    );
+  }
   if (subjectHashes.length > 1) {
     throw new Error(
       "Account Deletion destructive QA permits exactly one prepared identity.",
@@ -206,7 +231,7 @@ export function accountDeletionQaConfigForEnvironment(
   if (subjectHashes.length > 0 && environment !== "dev") {
     throw new Error("Account Deletion QA identity preparation is DEV-only.");
   }
-  if (intakeEnabled && !enabled) {
+  if (intakeEnabled && !runtimeEnabled) {
     throw new Error(
       "Account Deletion intake requires the protected runtime to be enabled.",
     );
@@ -219,7 +244,7 @@ export function accountDeletionQaConfigForEnvironment(
       "Account Deletion intake requires worker, finalizer, and outbox recovery.",
     );
   }
-  if (workerEnabled && !enabled) {
+  if (workerEnabled && !runtimeEnabled) {
     throw new Error("Account Deletion worker requires runtime to be enabled.");
   }
   if (workerEventSourceEnabled && !workerEnabled) {

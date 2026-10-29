@@ -91,6 +91,8 @@ async function initialize() {
         maximumAuthenticationAgeMs:
           environment.ACCOUNT_DELETION_REAUTH_MAX_AGE_SECONDS * 1000,
         environment: environment.FOLOO_ENVIRONMENT,
+        normalAccessEnabled:
+          environment.FOLOO_ACCOUNT_DELETION_NORMAL_ACCESS_ENABLED,
         qaAccessEnabled: environment.FOLOO_ACCOUNT_DELETION_QA_ENABLED,
         intakeEnabled: environment.FOLOO_ACCOUNT_DELETION_INTAKE_ENABLED,
         qaAllowedSubjectHashes: new Set(

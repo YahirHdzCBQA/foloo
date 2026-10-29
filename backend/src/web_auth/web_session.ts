@@ -32,6 +32,9 @@ export type OAuthTransactionRecord = Readonly<{
   key: string;
   stateHash: string;
   encryptedVerifier: Uint8Array;
+  reauthSessionKey?: string;
+  reauthSubjectHash?: string;
+  reauthProvider?: "srp" | "google";
   createdAtMs: number;
   expiresAtMs: number;
   expiresAtEpochSeconds: number;
@@ -87,9 +90,11 @@ export interface CognitoWebSessionProvider {
   refresh(refreshToken: string): Promise<CognitoTokenSet>;
   revoke(refreshToken: string): Promise<void>;
   identity(accessToken: string): Promise<WebSessionIdentity>;
+  verifyNativeResult?(accessToken: string): Promise<CognitoTokenSet>;
   googleAuthorizationUrl(input: {
     state: string;
     codeChallenge: string;
+    reauthenticate?: boolean;
   }): string;
   exchangeAuthorizationCode(
     code: string,
@@ -109,6 +114,7 @@ export type WebSessionAccessPolicy = Readonly<{
 }>;
 
 export type SessionCredentials = Readonly<{
+  reauthenticated?: boolean;
   sessionId: string;
   csrfToken: string;
   expiresAt: Date;
@@ -155,6 +161,13 @@ export class WebSessionConcurrencyError extends Error {
   constructor() {
     super("Web session changed concurrently.");
     this.name = "WebSessionConcurrencyError";
+  }
+}
+
+export class WebReauthenticationError extends Error {
+  constructor() {
+    super("Reauthentication could not be completed.");
+    this.name = "WebReauthenticationError";
   }
 }
 
@@ -302,6 +315,138 @@ export class WebSessionService {
     await this.cognito.revoke(refreshToken);
   }
 
+  /** AUT-18/RNF-09: single-use intent, bound to the original opaque session.
+   * auth_time must be strictly newer than the start second; refreshed old
+   * credentials cannot satisfy this condition. No session mutation on rejection.
+   */
+  private async reauthenticationSession(sessionId: string, csrfToken?: string) {
+    const record = await this.store.readSession(sessionKey(sessionId));
+    if (
+      !record ||
+      record.state !== "active" ||
+      isExpired(record, this.now().getTime(), this.policy.idleDurationMs)
+    )
+      throw new WebSessionUnauthorizedError();
+    this.assertSubjectAllowed(record.subjectHash);
+    if (csrfToken !== undefined) assertCsrf(csrfToken, record.csrfHash);
+    return record;
+  }
+
+  async beginReauthentication(
+    sessionId: string,
+    csrfToken: string,
+    provider: "srp" | "google",
+  ) {
+    const record = await this.reauthenticationSession(sessionId, csrfToken);
+    const transactionId = opaqueToken(),
+      state = opaqueToken(),
+      verifier = opaqueToken();
+    const key = oauthTransactionKey(transactionId),
+      nowMs = this.now().getTime();
+    const expiresAtMs = nowMs + this.policy.oauthTransactionDurationMs;
+    await this.store.createOAuthTransaction({
+      key,
+      stateHash: digest(state),
+      encryptedVerifier: await this.cipher.encrypt(verifier, key, "pkce"),
+      createdAtMs: nowMs,
+      expiresAtMs,
+      expiresAtEpochSeconds: Math.ceil(expiresAtMs / 1000),
+      version: 1,
+      reauthSessionKey: record.key,
+      reauthSubjectHash: record.subjectHash,
+      reauthProvider: provider,
+    });
+    return {
+      transactionId,
+      validAfter: new Date((Math.floor(nowMs / 1000) + 1) * 1000).toISOString(),
+      ...(provider === "google"
+        ? {
+            authorizationUrl: this.cognito.googleAuthorizationUrl({
+              state,
+              codeChallenge: digest(verifier),
+              reauthenticate: true,
+            }),
+          }
+        : {}),
+    };
+  }
+
+  async completeNativeReauthentication(
+    sessionId: string,
+    csrfToken: string,
+    transactionId: string,
+    accessToken: string,
+  ): Promise<AuthorizedWebSession> {
+    const record = await this.reauthenticationSession(sessionId, csrfToken);
+    const transaction = await this.store.readOAuthTransaction(
+      oauthTransactionKey(transactionId),
+    );
+    if (
+      !transaction ||
+      transaction.reauthProvider !== "srp" ||
+      transaction.reauthSessionKey !== record.key ||
+      transaction.reauthSubjectHash !== record.subjectHash ||
+      transaction.expiresAtMs <= this.now().getTime()
+    )
+      throw new OAuthTransactionError();
+    if (
+      !(await this.store.consumeOAuthTransaction(
+        transaction.key,
+        transaction.version,
+      ))
+    )
+      throw new OAuthTransactionError();
+    assertOpaqueSecret(accessToken, "access token");
+    if (!this.cognito.verifyNativeResult)
+      throw new WebSessionUnavailableError();
+    const tokens = await this.cognito.verifyNativeResult(accessToken);
+    return this.acceptReauthentication(record, transaction, tokens, undefined);
+  }
+
+  private async acceptReauthentication(
+    record: WebSessionRecord,
+    transaction: OAuthTransactionRecord,
+    tokens: CognitoTokenSet,
+    refreshToken: string | undefined,
+  ): Promise<AuthorizedWebSession> {
+    validateTokenSet(tokens);
+    const nowMs = this.now().getTime();
+    if (
+      webSessionSubjectHash(tokens.subject) !== record.subjectHash ||
+      tokens.authenticationTimeMs <=
+        Math.floor(transaction.createdAtMs / 1000) * 1000 ||
+      tokens.authenticationTimeMs <= record.authenticationTimeMs ||
+      tokens.authenticationTimeMs > nowMs ||
+      tokens.accessExpiresAtMs <= nowMs ||
+      nowMs >= transaction.expiresAtMs
+    )
+      throw new WebSessionUnauthorizedError();
+    const identity = await this.cognito.identity(tokens.accessToken);
+    if (identity.sub !== tokens.subject)
+      throw new WebSessionUnauthorizedError();
+    const next: WebSessionRecord = {
+      ...record,
+      encryptedRefreshToken: refreshToken
+        ? await this.cipher.encrypt(refreshToken, record.key, "refresh")
+        : record.encryptedRefreshToken,
+      encryptedAccessToken: await this.cipher.encrypt(
+        tokens.accessToken,
+        record.key,
+        "access",
+      ),
+      accessExpiresAtMs: tokens.accessExpiresAtMs,
+      authenticationTimeMs: tokens.authenticationTimeMs,
+      version: record.version + 1,
+    };
+    // Compare-and-swap also rejects logout/refresh races. Preserve expiry/CSRF/id.
+    if (
+      isExpired(record, this.now().getTime(), this.policy.idleDurationMs) ||
+      !(await this.store.replaceSession(next, record.version))
+    )
+      throw new WebSessionConcurrencyError();
+    return this.authorized(next, tokens.accessToken, identity);
+  }
+
   async beginGoogleAuthorization(): Promise<GoogleAuthorization> {
     const transactionId = opaqueToken();
     const key = oauthTransactionKey(transactionId);
@@ -331,6 +476,7 @@ export class WebSessionService {
     transactionId: string,
     state: string,
     code: string,
+    originalSessionId?: string,
   ): Promise<SessionCredentials> {
     assertOpaqueSecret(code, "authorization code");
     const key = oauthTransactionKey(transactionId);
@@ -343,6 +489,17 @@ export class WebSessionService {
     ) {
       throw new OAuthTransactionError();
     }
+    let original: WebSessionRecord | undefined;
+    if (transaction.reauthProvider) {
+      if (transaction.reauthProvider !== "google" || !originalSessionId)
+        throw new OAuthTransactionError();
+      original = await this.reauthenticationSession(originalSessionId);
+      if (
+        transaction.reauthSessionKey !== original.key ||
+        transaction.reauthSubjectHash !== original.subjectHash
+      )
+        throw new OAuthTransactionError();
+    }
     const verifier = await this.cipher.decrypt(
       transaction.encryptedVerifier,
       key,
@@ -353,6 +510,26 @@ export class WebSessionService {
     if (!(await this.store.consumeOAuthTransaction(key, transaction.version))) {
       await this.cognito.revoke(tokens.refreshToken);
       throw new OAuthTransactionError();
+    }
+    if (original && originalSessionId) {
+      try {
+        const restored = await this.acceptReauthentication(
+          original,
+          transaction,
+          tokens,
+          tokens.refreshToken,
+        );
+        return {
+          sessionId: originalSessionId,
+          csrfToken: restored.csrfToken,
+          expiresAt: restored.expiresAt,
+          idleExpiresAt: restored.idleExpiresAt,
+          authenticationTime: restored.authenticationTime,
+          reauthenticated: true,
+        };
+      } catch {
+        throw new WebReauthenticationError();
+      }
     }
     try {
       return await this.createSession(tokens, tokens.refreshToken);
@@ -371,7 +548,7 @@ export class WebSessionService {
   async cancelGoogleAuthorization(
     transactionId: string,
     state: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const key = oauthTransactionKey(transactionId);
     const transaction = await this.store.readOAuthTransaction(key);
     const nowMs = this.now().getTime();
@@ -383,6 +560,7 @@ export class WebSessionService {
     ) {
       throw new OAuthTransactionError();
     }
+    return transaction.reauthProvider === "google";
   }
 
   private async createSession(

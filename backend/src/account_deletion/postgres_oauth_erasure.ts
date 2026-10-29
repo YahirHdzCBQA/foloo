@@ -1,4 +1,6 @@
-/** Revokes provider access, then destroys owner-scoped OAuth state in Postgres. */
+/** INF-15 / RNF-09, E-14: erase owner OAuth state without revoking shared grants
+ * for server-disconnected connections. Active grants still require revocation.
+ */
 
 import type { Pool } from "pg";
 
@@ -16,15 +18,33 @@ export class PostgresOAuthErasure implements OAuthErasurePort {
     const connections = await this.pool.query<{
       workspace_id: string;
       provider: EmailProviderName;
+      status: string;
       encrypted_credentials: Buffer;
     }>(
-      `SELECT c.workspace_id,c.provider,c.encrypted_credentials
+      `SELECT c.workspace_id,c.provider,c.status,c.encrypted_credentials
        FROM email_connections c
        JOIN app_users u ON u.id=c.owner_user_id
        WHERE u.cognito_sub=$1`,
       [ownerSubject],
     );
+    // Validate the entire snapshot before any external side effect. Status is
+    // read from PostgreSQL, never supplied by the deletion request. STORE-02's
+    // accepted-request write barrier prevents reconnecting during erasure.
+    if (
+      connections.rows.some(
+        (connection) =>
+          !["connected", "reconnect_required", "disconnected"].includes(
+            connection.status,
+          ),
+      )
+    ) {
+      throw new Error("OAuth connection state is not supported for erasure.");
+    }
     for (const connection of connections.rows) {
+      // Revoking a disconnected Google grant can invalidate other Foloo clients
+      // using the same external account. Local cleanup below still removes its
+      // encrypted credentials and dependent intents; it never retains the row.
+      if (connection.status === "disconnected") continue;
       const result = await this.provider.invoke({
         action: "revoke",
         provider: connection.provider,

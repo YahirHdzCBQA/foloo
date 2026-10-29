@@ -5,6 +5,33 @@ modular serverless monolith: API Gateway HTTP API validates Cognito JWTs, one
 application Lambda derives ownership from `sub`, and PostgreSQL runs privately
 on RDS. Flutter stays write-first in Drift and synchronizes through the outbox.
 
+## Estado vigente WEB-01 / WEB-02 en AWS DEV
+
+WEB-01 está publicado y aprobado en QA manual sin Overrides. WEB-02 está publicado
+pasivamente y cerrado funcional y administrativamente en DEV: la única eliminación
+sintética autorizada llegó a `completed`, con verificaciones de Cognito, PostgreSQL,
+S3 y worker. No es aprobación de producción ni de acceso público.
+
+La reconciliación de WEB-01 y las dos etapas de desacoplamiento/limpieza terminaron
+con CloudFormation `UPDATE_COMPLETE`. Permanecen tres identidades web QA; QA
+destructivo está deshabilitado y su allowlist vacía. Runtime, intake, barreras y
+procesamiento de trabajo aceptado siguen habilitados; acceso normal y
+`storeEnabled` público permanecen en `false`. No se deben restaurar contextos
+privados históricos con autorizaciones retiradas.
+
+Trazas AUT-18/AUT-19, INF-15–INF-21, RNF-09/RNF-10, E-14. Véase
+[desacoplamiento y evidencias de las dos etapas](../docs/delivery/web-02-admission-decoupling.md).
+D-13, gates de tiendas/producción y presentación del recibo/logout siguen siendo
+pendientes independientes. La ausencia de una auditoría por llamada OAuth y la
+consulta manual del recibo no realizada después del logout limitan la evidencia;
+no invalidan la verificación del procesamiento real.
+
+Un synth completo aún requiere reconciliar el helper opcional `qa-inventory` y
+revisar assets incidentales. El código versionado no autoriza `cdk deploy`.
+La propuesta mínima y su gate están en
+[el registro del inventario](../docs/delivery/web-02-qa-inventory-preparation.md#propuesta-pendiente-del-helper-cdk).
+Las notas de preparación posteriores son históricas y no sustituyen este estado.
+
 ## Boundaries
 
 Implemented: account/workspace bootstrap, seller profile, events, leads, lead
@@ -196,3 +223,13 @@ El stack desplegado y el synth estándar deben coincidir tras el despliegue:
 no queda divergencia que reconciliar ni un patch manual a la plantilla CDK.
 
 Estado de la preparación (2026-10-27): el Change Set `web-01-google-provider-case-fix` quedó `CREATE_COMPLETE / AVAILABLE`, sin ejecutar. Aunque la comparación de plantillas solo modifica Code y metadata de las dos funciones, CloudFormation incluye también los dos permisos de invocación Cognito con reemplazo `Conditional` por dependencia dinámica del ARN. Esto excede la autorización limitada a paquetes de código: no ejecutar sin resolver o autorizar expresamente ese alcance. Verificación posterior: stack `UPDATE_COMPLETE`; las 14 Lambdas conservan CodeSha256 y LastModified anteriores. Evidencia y respaldos locales: `/tmp/foloo-guard-deploy/` (temporales; conservar antes de una futura ejecución). No se utilizó actualización directa de código Lambda.
+
+### WEB-02 — Contrato BFF desplegado y validado en DEV
+
+- `POST /api/auth/reauthentication/start`: sesión válida + Origin + CSRF; body `{provider:"srp"|"google"}`. Crea intención de un solo uso ligada al identificador de sesión y hash del sub; devuelve transactionId y validAfter. Google añade authorizationUrl y cookie OAuth HttpOnly. No se aceptan return URLs arbitrarias.
+- `POST /api/auth/reauthentication/srp`: misma sesión/Origin/CSRF; body `{transactionId,accessToken}`. Cognito GetUser valida el token, y el servidor comprueba issuer/client/token_use/exp/sub y auth_time posterior tanto al inicio de la intención como a la autenticación anterior. Refresh por sí solo no satisface esta condición. Se consume la intención incluso ante evidencia rechazada; el usuario debe iniciar otra.
+- Solo tras validar se actualiza por CAS el access token cifrado y auth_time de la sesión original. Se conservan id, CSRF, expiración absoluta y refresh token cifrado. No se intercambia un refresh token presentado: una rotación previa al rechazo podría dañar la sesión original. Una renovación posterior utiliza el auth_time real del token renovado, que puede volver al de la sesión original; STORE-02 puede exigir otra reautenticación. Nunca se falsifica frescura.
+- Google reutiliza el callback BFF y PKCE/state, con intención ligada a la sesión y prompt `login select_account`. Un sub diferente se rechaza; no se fusionan cuentas ni se emite cookie de otra identidad. Éxito retorna a `/settings/account#peligro`; rechazo de la identidad retorna con indicador no sensible. El login normal conserva `/dashboard`.
+- STORE-02 sigue siendo autoridad para verify/preflight/confirm y sus barreras. No se modifican Billing, allowlists ni identidades. Las dos rutas BFF están desplegadas y fueron utilizadas en QA real DEV.
+
+Pruebas locales cubren reautenticación nativa/Google, cambio de identidad, CSRF/Origin, expiración, replay, conservación de sesión y refresh token, fallos Cognito y regresión WEB-01. La QA real de WEB-02 terminó y la identidad sintética fue eliminada; `storeEnabled:false` mantiene el flujo público bloqueado. El drift de allowlists WEB-01 ya fue reconciliado. Los snapshots y contextos anteriores se conservan como evidencia privada, no como entradas vigentes de despliegue.

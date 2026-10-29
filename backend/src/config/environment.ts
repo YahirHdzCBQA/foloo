@@ -27,6 +27,10 @@ const environmentSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  FOLOO_ACCOUNT_DELETION_NORMAL_ACCESS_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   FOLOO_ACCOUNT_DELETION_INTAKE_ENABLED: z
     .enum(["true", "false"])
     .default("false")

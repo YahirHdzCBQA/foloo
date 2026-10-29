@@ -5,12 +5,21 @@ import {
   SecretsManagerClient,
 } from "@aws-sdk/client-secrets-manager";
 import pg from "pg";
+import type { Context } from "aws-lambda";
+import {
+  inventorySubject,
+  inspectSyntheticInventory,
+  type QaInventory,
+} from "./qa_inventory.js";
 
 import { applyMigrations, ensureApplicationRole } from "./migration_runner.js";
 
 type Secret = { username: string; password: string };
 // `only` applies one named pending migration, leaving earlier pending ones untouched.
-type MigrationEvent = { action?: "apply" | "status"; only?: string };
+type MigrationEvent = {
+  action?: "apply" | "status" | "qa-inventory";
+  only?: string;
+};
 
 export type AccountDeletionMigrationStatus = Readonly<{
   migrationApplied: boolean;
@@ -40,7 +49,61 @@ async function readSecret(
 
 export async function handler(
   event: MigrationEvent = {},
-): Promise<{ applied: string[] } | AccountDeletionMigrationStatus> {
+  context?: Pick<Context, "invokedFunctionArn">,
+): Promise<
+  { applied: string[] } | AccountDeletionMigrationStatus | QaInventory
+> {
+  // Fail closed for misspelled inventory actions/extra fields before touching secrets.
+  if (
+    !event ||
+    typeof event !== "object" ||
+    Array.isArray(event) ||
+    Object.keys(event).some((k) => !["action", "only"].includes(k)) ||
+    (event.action !== undefined &&
+      !["apply", "status", "qa-inventory"].includes(event.action))
+  )
+    throw new Error("invalid_operator_action");
+  if (event.action === "qa-inventory") {
+    if (Object.keys(event).some((k) => k !== "action"))
+      throw new Error("invalid_operator_action");
+    const subject = inventorySubject(process.env, context?.invokedFunctionArn);
+    let pool: pg.Pool | undefined;
+    try {
+      if (
+        !process.env.DB_SECRET_ARN ||
+        !process.env.DB_HOST ||
+        !process.env.DB_NAME
+      )
+        throw new Error("missing_configuration");
+      const secrets = new SecretsManagerClient({
+        region: process.env.AWS_REGION,
+        maxAttempts: 1,
+        requestHandler: { connectionTimeout: 3000, requestTimeout: 5000 },
+      });
+      const app = await readSecret(secrets, process.env.DB_SECRET_ARN);
+      if (app.username !== "foloo_app")
+        throw new Error("invalid_database_role");
+      pool = new pg.Pool({
+        host: process.env.DB_HOST,
+        port: 5432,
+        database: process.env.DB_NAME,
+        user: app.username,
+        password: app.password,
+        ssl: { rejectUnauthorized: true },
+        max: 1,
+        connectionTimeoutMillis: 5000,
+        query_timeout: 8000,
+        options:
+          "-c default_transaction_read_only=on -c statement_timeout=5000 -c lock_timeout=1000 -c idle_in_transaction_session_timeout=5000",
+      });
+      return await inspectSyntheticInventory(pool, subject);
+    } catch {
+      // No database/SDK errors containing identifiers, SQL or credentials escape.
+      throw new Error("qa_inventory_unavailable");
+    } finally {
+      if (pool) await pool.end().catch(() => {});
+    }
+  }
   const region = process.env.AWS_REGION;
   const adminArn = process.env.DB_ADMIN_SECRET_ARN;
   const appArn = process.env.DB_SECRET_ARN;

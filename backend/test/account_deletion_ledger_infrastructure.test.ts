@@ -257,7 +257,14 @@ test("STORE-02 infrastructure is deployable but every runtime boundary stays dis
   )
     .filter(([, route]) => String(route.Properties?.RouteKey).includes("/api/"))
     .map(([logicalId]) => logicalId);
-  assert.equal(webRouteIds.length, 10);
+  assert.equal(webRouteIds.length, 12);
+  for (const route of [
+    "POST /api/auth/reauthentication/start",
+    "POST /api/auth/reauthentication/srp",
+  ])
+    template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+      RouteKey: route,
+    });
   for (const logicalId of webRouteIds) {
     assert.ok(stage.DependsOn.includes(logicalId));
   }
@@ -532,3 +539,60 @@ function assertLedgerPermissions(
     assert.doesNotMatch(serializedResources, /\/index\//u);
   }
 }
+
+test("AUT-18 QA cleanup changes only admission variables and keeps STORE-02 infrastructure active", () => {
+  const synth = (qa: boolean) => {
+    const app = new cdk.App();
+    return Template.fromStack(
+      new FolooBackendStack(app, "DecoupledDeletionTest", {
+        config: environmentConfig("dev"),
+        env: { account: "111111111111", region: "us-east-1" },
+        accountDeletionKeyArns: importedKeyArns,
+        accountDeletionQa: {
+          enabled: qa,
+          runtimeEnabled: true,
+          normalAccessEnabled: false,
+          intakeEnabled: true,
+          registrationGuardEnabled: true,
+          outboxRecoveryEnabled: true,
+          restoreReconcilerEnabled: true,
+          recoverySchedulerEnabled: true,
+          workerEnabled: true,
+          workerEventSourceEnabled: true,
+          finalizerEnabled: true,
+          subjectHashes: qa ? ["D".repeat(43)] : [],
+        },
+      }),
+    ).toJSON();
+  };
+  const before = synth(true),
+    after = synth(false);
+  const changed: string[] = [];
+  for (const [id, resource] of Object.entries(after.Resources) as [
+    string,
+    { Properties?: { Environment?: { Variables?: Record<string, string> } } },
+  ][]) {
+    if (JSON.stringify(resource) === JSON.stringify(before.Resources[id]))
+      continue;
+    changed.push(id);
+    const env = resource.Properties!.Environment!.Variables!;
+    assert.equal(env.FOLOO_ACCOUNT_DELETION_QA_ENABLED, "false");
+    assert.equal(env.ACCOUNT_DELETION_QA_SUBJECT_HASHES, "");
+    assert.equal(env.FOLOO_ACCOUNT_DELETION_NORMAL_ACCESS_ENABLED, "false");
+    if (id.startsWith("ApiFunction"))
+      assert.equal(env.FOLOO_ACCOUNT_DELETION_ENABLED, "true");
+    else assert.equal(env.FOLOO_ACCOUNT_DELETION_WORKER_ENABLED, "true");
+    const restored = structuredClone(resource);
+    restored.Properties!.Environment!.Variables!.FOLOO_ACCOUNT_DELETION_QA_ENABLED =
+      "true";
+    restored.Properties!.Environment!.Variables!.ACCOUNT_DELETION_QA_SUBJECT_HASHES =
+      "D".repeat(43);
+    assert.deepEqual(restored, before.Resources[id]);
+  }
+  assert.equal(changed.length, 2);
+  assert.ok(changed.some((id) => id.startsWith("ApiFunction")));
+  assert.ok(
+    changed.some((id) => id.startsWith("AccountDeletionWorkerFunction")),
+  );
+  assert.deepEqual(Object.keys(before.Resources), Object.keys(after.Resources));
+});

@@ -659,3 +659,187 @@ test("workflow store never exposes another owner's current request", async () =>
   await store.createPreflight(record);
   assert.equal(await store.findCurrent("owner-b"), null);
 });
+
+test("AUT-18 normal HTTP admission keeps owner binding, freshness and acknowledgement controls", async () => {
+  const { WorkflowAccountDeletionHttpController } =
+    await import("../src/account_deletion/account_deletion_http.js");
+  const { createAccountDeletionAdmissionGuard } =
+    await import("../src/account_deletion/account_deletion_admission.js");
+  const { apiEvent } = await import("./helpers.js");
+  const harness = fixture({ recipientVault: new RecipientVault() });
+  const controller = new WorkflowAccountDeletionHttpController(
+    harness.workflow,
+    {
+      async identify(s: string) {
+        return { digest: "owner-" + s, keyVersion: "v1" };
+      },
+    } as unknown as PseudonymousSubjectIdentifierService<Uint8Array>,
+    "v1",
+    300000,
+    createAccountDeletionAdmissionGuard({
+      environment: "dev",
+      normalAccessEnabled: true,
+      qaEnabled: false,
+      qaAllowedSubjectHashes: new Set(),
+    }),
+    {
+      async resolve() {
+        return email;
+      },
+    },
+    true,
+    () => new Date(now),
+  );
+  const make = (
+    s: string,
+    path: string,
+    body: unknown,
+    key: string,
+    fresh = true,
+  ) => {
+    const e = apiEvent({
+      subject: s,
+      method: "POST",
+      path,
+      body,
+      idempotencyKey: key,
+      accessToken: "synthetic-access-token",
+    });
+    e.requestContext.authorizer.jwt.claims.auth_time =
+      Math.floor(now.getTime() / 1000) - (fresh ? 0 : 301);
+    return e;
+  };
+  const invalidToken = make(
+    subject,
+    "/v1/account-deletion-requests",
+    { locale: "es" },
+    "invalid-token-key",
+  );
+  invalidToken.requestContext.authorizer.jwt.claims.token_use = "id";
+  await assert.rejects(() => controller.handle(invalidToken));
+  await assert.rejects(() =>
+    controller.handle(
+      make(
+        "",
+        "/v1/account-deletion-requests",
+        { locale: "es" },
+        "no-subject-key",
+      ),
+    ),
+  );
+  const create = () =>
+    controller.handle(
+      make(
+        subject,
+        "/v1/account-deletion-requests",
+        {
+          locale: "es",
+          ownerSubject: "another-owner",
+          workspaceId: "other-workspace",
+        },
+        "normal-preflight-key",
+      ),
+    );
+  await assert.rejects(() =>
+    controller.handle(
+      make(
+        subject,
+        "/v1/account-deletion-requests",
+        { locale: "es" },
+        "stale-preflight-key",
+        false,
+      ),
+    ),
+  );
+  const first = await create();
+  const data = JSON.parse(first!.body as string).data;
+  assert.equal(
+    (await harness.workflow.current("owner-" + subject))?.requestId,
+    data.requestId,
+  );
+  assert.equal(await harness.workflow.current("owner-another-owner"), null);
+  assert.equal(
+    JSON.parse((await create())!.body as string).data.requestId,
+    data.requestId,
+  );
+  const path = "/v1/account-deletion-requests/" + data.requestId + "/confirm";
+  const ack = {
+    acknowledgementVersion: "test-v1",
+    irreversibleAccepted: true,
+    discardUnsyncedAccepted: false,
+    cancelRenewalAccepted: false,
+  };
+  await assert.rejects(() =>
+    controller.handle(make("another-owner", path, ack, "other-confirm-key")),
+  );
+  await assert.rejects(() =>
+    controller.handle(make(subject, path, ack, "stale-confirm-key", false)),
+  );
+  await assert.rejects(() =>
+    controller.handle(
+      make(
+        subject,
+        path,
+        { ...ack, irreversibleAccepted: false },
+        "false-confirm-key",
+      ),
+    ),
+  );
+  const accepted = await controller.handle(
+    make(subject, path, ack, "normal-confirm-key"),
+  );
+  assert.equal(accepted!.statusCode, 202);
+  const replay = await controller.handle(
+    make(subject, path, ack, "normal-confirm-key"),
+  );
+  assert.equal(replay!.body, accepted!.body);
+  const receipt = JSON.parse(accepted!.body as string).data.receipt;
+  const closed = new WorkflowAccountDeletionHttpController(
+    harness.workflow,
+    {} as PseudonymousSubjectIdentifierService<Uint8Array>,
+    "v1",
+    300000,
+    createAccountDeletionAdmissionGuard({
+      environment: "dev",
+      normalAccessEnabled: false,
+      qaEnabled: false,
+      qaAllowedSubjectHashes: new Set(),
+    }),
+    {
+      async resolve() {
+        throw new Error("must not run");
+      },
+    },
+    true,
+    () => new Date(now),
+  );
+  const status = await closed.handle(
+    apiEvent({
+      method: "POST",
+      path: "/v1/account-deletion-status",
+      body: { receipt },
+    }),
+  );
+  assert.equal(status!.statusCode, 200);
+  await assert.rejects(() =>
+    closed.handle(
+      make(
+        subject,
+        "/v1/account-deletion-requests",
+        { locale: "es" },
+        "closed-preflight-key",
+      ),
+    ),
+  );
+  // Accepted work continues without admitting any new request.
+  harness.advance(accountDeletionWriteQuiescenceMs);
+  assert.equal(
+    (
+      await harness.workflow.process({
+        requestId: data.requestId,
+        ownerSubject: subject,
+      })
+    ).status,
+    "completed",
+  );
+});

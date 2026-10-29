@@ -191,3 +191,48 @@ test("AUT-04 code exchange validates the Cognito response before session creatio
   );
   assert.doesNotMatch(posted, /client_secret/u);
 });
+
+test("AUT-18 native evidence calls only Cognito GetUser, never rotates a refresh token", async () => {
+  const calls: string[] = [];
+  const subject = provider(async (command) => {
+    calls.push((command as { constructor: { name: string } }).constructor.name);
+    return { UserAttributes: [{ Name: "sub", Value: "synthetic-subject" }] };
+  });
+  assert.equal(
+    (await subject.verifyNativeResult(jwt())).subject,
+    "synthetic-subject",
+  );
+  assert.deepEqual(calls, ["GetUserCommand"]);
+});
+for (const mode of [
+  "invalid",
+  "expired",
+  "wrong-client",
+  "wrong-subject",
+  "provider-failure",
+] as const)
+  test(`AUT-18 rejects ${mode} SRP evidence`, async () => {
+    const subject = provider(async () => {
+      if (mode === "invalid" || mode === "provider-failure")
+        throw new Error("Cognito rejected token");
+      return {
+        UserAttributes: [
+          {
+            Name: "sub",
+            Value: mode === "wrong-subject" ? "other" : "synthetic-subject",
+          },
+        ],
+      };
+    });
+    await assert.rejects(
+      subject.verifyNativeResult(
+        jwt(
+          mode === "expired"
+            ? { exp: 1 }
+            : mode === "wrong-client"
+              ? { client_id: "other" }
+              : {},
+        ),
+      ),
+    );
+  });

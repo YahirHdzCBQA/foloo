@@ -71,6 +71,18 @@ export class AwsCognitoWebSessionProvider implements CognitoWebSessionProvider {
     return this.validatedTokenSet(result.AccessToken, result.RefreshToken);
   }
 
+  /** AUT-18: Cognito GetUser validates this browser-supplied native access
+   * token. Never exchange a submitted refresh token: rotation could affect
+   * the original session before a rejection. Freshness is intent-bound below.
+   */
+  async verifyNativeResult(accessToken: string): Promise<CognitoTokenSet> {
+    const claims = this.validatedAccessClaims(accessToken);
+    if (claims.exp * 1000 <= Date.now())
+      throw new Error("Expired native result");
+    await this.sdkIdentity(accessToken, claims.sub);
+    return this.validatedTokenSet(accessToken);
+  }
+
   async revoke(refreshToken: string): Promise<void> {
     await this.client.send(
       new RevokeTokenCommand({
@@ -131,6 +143,7 @@ export class AwsCognitoWebSessionProvider implements CognitoWebSessionProvider {
   googleAuthorizationUrl(input: {
     state: string;
     codeChallenge: string;
+    reauthenticate?: boolean;
   }): string {
     const url = new URL("/oauth2/authorize", this.domainOrigin());
     url.searchParams.set("client_id", this.configuration.clientId);
@@ -138,7 +151,10 @@ export class AwsCognitoWebSessionProvider implements CognitoWebSessionProvider {
     url.searchParams.set("redirect_uri", this.configuration.callbackUrl);
     url.searchParams.set("scope", "openid email profile");
     url.searchParams.set("identity_provider", "Google");
-    url.searchParams.set("prompt", "select_account");
+    url.searchParams.set(
+      "prompt",
+      input.reauthenticate ? "login select_account" : "select_account",
+    );
     url.searchParams.set("state", input.state);
     url.searchParams.set("code_challenge", input.codeChallenge);
     url.searchParams.set("code_challenge_method", "S256");

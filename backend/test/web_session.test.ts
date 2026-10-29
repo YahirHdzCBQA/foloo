@@ -15,6 +15,7 @@ import type {
 } from "../src/web_auth/web_session.js";
 import {
   WebSessionCsrfError,
+  WebReauthenticationError,
   WebSessionService,
   WebSessionUnauthorizedError,
   sessionKey,
@@ -402,4 +403,274 @@ test("AUT-18 concurrent refreshes converge through conditional versions", async 
   assert.ok(first.accessToken);
   assert.ok(second.accessToken);
   assert.equal(store.sessions.get(sessionKey(created.sessionId))?.version, 3);
+});
+
+// WEB-02 / AUT-18: new interactive evidence is bound to a single-use intent.
+class ReauthCognito extends TestCognito {
+  result: CognitoTokenSet | null = null;
+  fail = false;
+  override async identity(): Promise<WebSessionIdentity> {
+    return {
+      ...(await super.identity()),
+      sub: this.result?.subject ?? "synthetic-subject-a",
+    };
+  }
+  async verifyNativeResult(): Promise<CognitoTokenSet> {
+    if (this.fail) throw new Error("provider unavailable");
+    return this.result!;
+  }
+  override async exchangeAuthorizationCode(): Promise<CognitoTokenSet> {
+    return this.result!;
+  }
+}
+function reauthFixture() {
+  clock.now = Date.parse("2026-10-22T12:00:00Z");
+  const store = new MemoryStore(),
+    cognito = new ReauthCognito();
+  const service = new WebSessionService(
+    store,
+    new TestCipher(),
+    cognito,
+    policy,
+    now,
+  );
+  return { store, cognito, service };
+}
+test("AUT-18 native reauth preserves session identity, CSRF and absolute expiry; intent cannot replay", async () => {
+  const f = reauthFixture();
+  const original = await f.service.bootstrapWithRefreshToken(
+    "original-refresh-token",
+  );
+  const prior = f.store.sessions.get(sessionKey(original.sessionId))!;
+  const intent = await f.service.beginReauthentication(
+    original.sessionId,
+    original.csrfToken,
+    "srp",
+  );
+  clock.now += 2000;
+  f.cognito.result = {
+    ...tokens("new-interactive-access-token", "new-interactive-refresh-token"),
+    authenticationTimeMs: clock.now,
+  };
+  const result = await f.service.completeNativeReauthentication(
+    original.sessionId,
+    original.csrfToken,
+    intent.transactionId,
+    "new-interactive-access-token",
+  );
+  assert.equal(result.identity.sub, "synthetic-subject-a");
+  assert.equal(result.csrfToken, original.csrfToken);
+  assert.equal(result.expiresAt.getTime(), prior.absoluteExpiresAtMs);
+  assert.equal(f.store.sessions.size, 1);
+  assert.deepEqual(
+    f.store.sessions.get(sessionKey(original.sessionId))!.encryptedRefreshToken,
+    prior.encryptedRefreshToken,
+  );
+  await assert.rejects(
+    f.service.completeNativeReauthentication(
+      original.sessionId,
+      original.csrfToken,
+      intent.transactionId,
+      "new-interactive-access-token",
+    ),
+  );
+});
+for (const mode of [
+  "other-account",
+  "old-auth-time",
+  "expired-token",
+  "future-auth-time",
+  "provider-failure",
+] as const) {
+  test(`AUT-18 ${mode} rejects without changing original session`, async () => {
+    const f = reauthFixture();
+    const original = await f.service.bootstrapWithRefreshToken(
+      "original-refresh-token",
+    );
+    const intent = await f.service.beginReauthentication(
+      original.sessionId,
+      original.csrfToken,
+      "srp",
+    );
+    const before = JSON.stringify(
+      f.store.sessions.get(sessionKey(original.sessionId)),
+    );
+    clock.now += 2000;
+    f.cognito.result = {
+      ...tokens("interactive-access-token", "interactive-refresh-token"),
+      authenticationTimeMs: clock.now,
+    };
+    if (mode === "other-account")
+      f.cognito.result = { ...f.cognito.result, subject: "other-account" };
+    if (mode === "old-auth-time")
+      f.cognito.result = {
+        ...f.cognito.result,
+        authenticationTimeMs: clock.now - 10000,
+      };
+    if (mode === "expired-token")
+      f.cognito.result = {
+        ...f.cognito.result,
+        accessExpiresAtMs: clock.now - 1,
+      };
+    if (mode === "future-auth-time")
+      f.cognito.result = {
+        ...f.cognito.result,
+        authenticationTimeMs: clock.now + 1000,
+      };
+    if (mode === "provider-failure") f.cognito.fail = true;
+    await assert.rejects(
+      f.service.completeNativeReauthentication(
+        original.sessionId,
+        original.csrfToken,
+        intent.transactionId,
+        "interactive-access-token",
+      ),
+    );
+    assert.deepEqual(
+      JSON.stringify(f.store.sessions.get(sessionKey(original.sessionId))),
+      before,
+    );
+    assert.equal(f.store.sessions.size, 1);
+  });
+}
+test("AUT-18 native reauth requires original session and CSRF", async () => {
+  const f = reauthFixture();
+  const original = await f.service.bootstrapWithRefreshToken(
+    "original-refresh-token",
+  );
+  await assert.rejects(
+    f.service.beginReauthentication(
+      original.sessionId,
+      "invalid-csrf-token",
+      "srp",
+    ),
+    WebSessionCsrfError,
+  );
+  await assert.rejects(
+    f.service.beginReauthentication(
+      "unknown-session-identifier",
+      original.csrfToken,
+      "srp",
+    ),
+    WebSessionUnauthorizedError,
+  );
+  clock.now += policy.idleDurationMs + 1;
+  await assert.rejects(
+    f.service.beginReauthentication(
+      original.sessionId,
+      original.csrfToken,
+      "srp",
+    ),
+    WebSessionUnauthorizedError,
+  );
+  assert.equal(f.store.oauth.size, 0);
+});
+for (const mismatch of [false, true])
+  test(`AUT-18 Google reauth is bound to original identity (mismatch=${mismatch})`, async () => {
+    const f = reauthFixture();
+    const original = await f.service.bootstrapWithRefreshToken(
+      "original-refresh-token",
+    );
+    const intent = await f.service.beginReauthentication(
+      original.sessionId,
+      original.csrfToken,
+      "google",
+    );
+    const state = new URL(intent.authorizationUrl!).searchParams.get("state")!;
+    const before = JSON.stringify(
+      f.store.sessions.get(sessionKey(original.sessionId)),
+    );
+    clock.now += 2000;
+    f.cognito.result = {
+      ...tokens("google-new-access-token", "google-new-refresh-token"),
+      authenticationTimeMs: clock.now,
+      subject: mismatch ? "different-subject" : "synthetic-subject-a",
+    };
+    const complete = () =>
+      f.service.completeGoogleAuthorization(
+        intent.transactionId,
+        state,
+        "synthetic-authorization-code",
+        original.sessionId,
+      );
+    if (mismatch) {
+      await assert.rejects(complete(), WebReauthenticationError);
+      assert.deepEqual(
+        JSON.stringify(f.store.sessions.get(sessionKey(original.sessionId))),
+        before,
+      );
+    } else {
+      const result = await complete();
+      assert.equal(result.sessionId, original.sessionId);
+      assert.equal(result.reauthenticated, true);
+    }
+    assert.equal(f.store.sessions.size, 1);
+  });
+
+test("AUT-18 intents cannot cross sessions or survive logout; refresh is not interactive evidence", async () => {
+  const f = reauthFixture();
+  const first = await f.service.bootstrapWithRefreshToken(
+      "original-refresh-token",
+    ),
+    second = await f.service.bootstrapWithRefreshToken("second-refresh-token");
+  const intent = await f.service.beginReauthentication(
+    first.sessionId,
+    first.csrfToken,
+    "srp",
+  );
+  clock.now += 2000;
+  f.cognito.result = {
+    ...tokens("new-access-token", "new-refresh-token"),
+    authenticationTimeMs: clock.now,
+  };
+  await assert.rejects(
+    f.service.completeNativeReauthentication(
+      second.sessionId,
+      second.csrfToken,
+      intent.transactionId,
+      "new-access-token",
+    ),
+  );
+  await f.service.logout(first.sessionId, first.csrfToken);
+  await assert.rejects(
+    f.service.completeNativeReauthentication(
+      first.sessionId,
+      first.csrfToken,
+      intent.transactionId,
+      "new-access-token",
+    ),
+  );
+});
+
+test("AUT-18 a later refresh cannot retain step-up freshness from native reauthentication", async () => {
+  const f = reauthFixture();
+  const original = await f.service.bootstrapWithRefreshToken(
+    "original-refresh-token",
+  );
+  const originalAuth = original.authenticationTime.getTime();
+  const intent = await f.service.beginReauthentication(
+    original.sessionId,
+    original.csrfToken,
+    "srp",
+  );
+  clock.now += 2000;
+  f.cognito.result = {
+    ...tokens("new-interactive-access-token"),
+    authenticationTimeMs: clock.now,
+  };
+  await f.service.completeNativeReauthentication(
+    original.sessionId,
+    original.csrfToken,
+    intent.transactionId,
+    "new-interactive-access-token",
+  );
+  f.cognito.refresh = async () => ({
+    ...tokens("refreshed-original-access-token"),
+    authenticationTimeMs: originalAuth,
+  });
+  const restored = await f.service.restore(original.sessionId, {
+    csrfToken: original.csrfToken,
+    forceRefresh: true,
+  });
+  assert.equal(restored.authenticationTime.getTime(), originalAuth);
 });

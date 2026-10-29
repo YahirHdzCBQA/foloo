@@ -36,6 +36,8 @@ const accountDeletionQa = accountDeletionQaConfigForEnvironment(
   app.node.tryGetContext("accountDeletionWorkerEnabled"),
   app.node.tryGetContext("accountDeletionFinalizerEnabled"),
   app.node.tryGetContext("accountDeletionWorkerEventSourceEnabled"),
+  app.node.tryGetContext("accountDeletionRuntimeEnabled"),
+  app.node.tryGetContext("accountDeletionNormalAccessEnabled"),
 );
 const requiredKeyArn = (contextName: string): string => {
   const value = app.node.tryGetContext(contextName);

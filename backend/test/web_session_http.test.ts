@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
 
+import { WebSessionCsrfError } from "../src/web_auth/web_session.js";
 import { createWebSessionHandler } from "../src/web_auth/web_session_http.js";
 
 const configuration = {
@@ -345,4 +346,155 @@ test("AUT-18 BFF exposes only the explicit Account Deletion allowlist", async ()
     }),
   );
   assert.equal(denied.statusCode, 404);
+});
+
+test("AUT-18 native reauth HTTP enforces Origin, session cookie and CSRF before accepting evidence", async () => {
+  let calls = 0;
+  const handler = createWebSessionHandler(
+    {
+      sessions: {
+        ...sessions(),
+        beginReauthentication: async (_id: string, csrf: string) => {
+          calls++;
+          if (csrf !== "correct-csrf") throw new WebSessionCsrfError();
+          return {
+            transactionId: "synthetic-transaction",
+            validAfter: new Date().toISOString(),
+          };
+        },
+      } as never,
+    },
+    configuration,
+  );
+  const path = "/api/auth/reauthentication/start";
+  const body = JSON.stringify({ provider: "srp" });
+  assert.equal((await handler(event("POST", path, { body }))).statusCode, 403);
+  assert.equal(
+    (
+      await handler(
+        event("POST", path, {
+          body,
+          headers: {
+            origin: configuration.allowedOrigin,
+            "x-csrf-token": "correct-csrf",
+          },
+        }),
+      )
+    ).statusCode,
+    401,
+  );
+  assert.equal(calls, 0);
+  assert.equal(
+    (
+      await handler(
+        event("POST", path, {
+          body,
+          headers: { origin: configuration.allowedOrigin },
+          cookies: ["__Host-foloo_session=synthetic-original-session"],
+        }),
+      )
+    ).statusCode,
+    400,
+  );
+  assert.equal(
+    (
+      await handler(
+        event("POST", path, {
+          body,
+          headers: {
+            origin: configuration.allowedOrigin,
+            "x-csrf-token": "wrong-csrf",
+          },
+          cookies: ["__Host-foloo_session=synthetic-original-session"],
+        }),
+      )
+    ).statusCode,
+    403,
+  );
+  const ok = await handler(
+    event("POST", path, {
+      body,
+      headers: {
+        origin: configuration.allowedOrigin,
+        "x-csrf-token": "correct-csrf",
+      },
+      cookies: ["__Host-foloo_session=synthetic-original-session"],
+    }),
+  );
+  assert.equal(ok.statusCode, 200);
+  assert.equal(ok.cookies, undefined);
+});
+
+test("AUT-18 native reauth completion returns metadata without changing a cookie", async () => {
+  let calls = 0;
+  const original = sessions();
+  const handler = createWebSessionHandler(
+    {
+      sessions: {
+        ...original,
+        completeNativeReauthentication: async (
+          _session: string,
+          csrf: string,
+          transaction: string,
+        ) => {
+          calls++;
+          assert.equal(csrf, "correct-csrf");
+          assert.equal(transaction, "synthetic-intent");
+          return original.restore("original");
+        },
+      } as never,
+      request: (async () =>
+        Response.json({ data: { name: "QA" } })) as typeof fetch,
+    },
+    configuration,
+  );
+  const result = await handler(
+    event("POST", "/api/auth/reauthentication/srp", {
+      headers: {
+        origin: configuration.allowedOrigin,
+        "x-csrf-token": "correct-csrf",
+      },
+      cookies: ["__Host-foloo_session=original-session-identifier"],
+      body: JSON.stringify({
+        transactionId: "synthetic-intent",
+        accessToken: "synthetic-access-token",
+        refreshToken: "synthetic-refresh-token",
+      }),
+    }),
+  );
+  assert.equal(result.statusCode, 200);
+  assert.equal(calls, 1);
+  assert.equal(result.cookies, undefined);
+  assert.equal(JSON.parse(result.body!).authenticated, true);
+});
+test("AUT-18 Google reauth callback uses fixed account return without replacing session cookie", async () => {
+  const handler = createWebSessionHandler(
+    {
+      sessions: {
+        ...sessions(),
+        completeGoogleAuthorization: async () => ({
+          ...(await sessions().bootstrapWithRefreshToken()),
+          reauthenticated: true,
+        }),
+      } as never,
+    },
+    configuration,
+  );
+  const result = await handler(
+    event("GET", "/api/auth/google/callback", {
+      queryStringParameters: {
+        code: "synthetic-code",
+        state: "synthetic-state",
+      },
+      cookies: [
+        "__Host-foloo_oauth=synthetic-transaction",
+        "__Host-foloo_session=synthetic-original",
+      ],
+    }),
+  );
+  assert.equal(result.statusCode, 303);
+  assert.equal(result.headers?.location, "/settings/account#peligro");
+  assert.ok(
+    result.cookies?.every((c) => !c.startsWith("__Host-foloo_session=")),
+  );
 });

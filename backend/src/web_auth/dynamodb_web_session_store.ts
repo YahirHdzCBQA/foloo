@@ -180,6 +180,13 @@ function encodeTransaction(record: OAuthTransactionRecord): DynamoItem {
   return {
     pk: { S: record.key },
     entity_type: { S: "oauth_transaction" },
+    ...(record.reauthSessionKey
+      ? {
+          reauth_session_key: { S: record.reauthSessionKey },
+          reauth_subject_hash: { S: record.reauthSubjectHash! },
+          reauth_provider: { S: record.reauthProvider! },
+        }
+      : {}),
     state_hash: { S: record.stateHash },
     encrypted_verifier: { B: record.encryptedVerifier },
     created_at_ms: { N: String(record.createdAtMs) },
@@ -196,6 +203,15 @@ function decodeTransaction(item: DynamoItem): OAuthTransactionRecord {
   return {
     key: readString(item, "pk"),
     stateHash: readString(item, "state_hash"),
+    ...(item.reauth_session_key ||
+    item.reauth_subject_hash ||
+    item.reauth_provider
+      ? {
+          reauthSessionKey: readString(item, "reauth_session_key"),
+          reauthSubjectHash: readString(item, "reauth_subject_hash"),
+          reauthProvider: readReauthProvider(item),
+        }
+      : {}),
     encryptedVerifier: readBinary(item, "encrypted_verifier"),
     createdAtMs: readNumber(item, "created_at_ms"),
     expiresAtMs: readNumber(item, "expires_at_ms"),
@@ -235,4 +251,11 @@ function isConditionalFailure(error: unknown): boolean {
     "name" in error &&
     error.name === "ConditionalCheckFailedException"
   );
+}
+
+function readReauthProvider(item: DynamoItem): "srp" | "google" {
+  const value = readString(item, "reauth_provider");
+  if (value !== "srp" && value !== "google")
+    throw new Error("Invalid reauthentication provider");
+  return value;
 }

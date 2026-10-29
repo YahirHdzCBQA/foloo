@@ -315,6 +315,7 @@ test("OAuth erasure revokes encrypted credentials before owner-scoped SQL deleti
             {
               workspace_id: "workspace-synthetic",
               provider: "google",
+              status: "connected",
               encrypted_credentials: Buffer.from("ciphertext"),
             },
           ],

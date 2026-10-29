@@ -31,10 +31,14 @@ async function initialize() {
     mediaBucketName: required("MEDIA_BUCKET_NAME"),
     maximumAuthenticationAgeMs: 300_000,
     environment: required("FOLOO_ENVIRONMENT"),
+    normalAccessEnabled:
+      process.env.FOLOO_ACCOUNT_DELETION_NORMAL_ACCESS_ENABLED === "true",
     qaAccessEnabled: required("FOLOO_ACCOUNT_DELETION_QA_ENABLED") === "true",
     intakeEnabled: false,
     qaAllowedSubjectHashes: new Set(
-      required("ACCOUNT_DELETION_QA_SUBJECT_HASHES").split(","),
+      (process.env.ACCOUNT_DELETION_QA_SUBJECT_HASHES ?? "")
+        .split(",")
+        .filter(Boolean),
     ),
   });
   return createAccountDeletionWorker(runtime.workflow, runtime.restoreRecovery);
