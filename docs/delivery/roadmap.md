@@ -196,6 +196,8 @@ FL-022, pagos, PROD o publicación en tiendas.
 autoridad de FL-020.
 
 - Bloqueos: D-01–D-04 y mockups D-11.
+- Plan de pago (D-02, 2026-10-28): "Foloo", anual, 89 USD / 1,780 MXN
+  impuesto incluido. Regiones siguen abiertas.
 
 ## FL-022 — Infra/Production Hardening
 

@@ -8,8 +8,10 @@ import 'package:flutter/material.dart';
 
 import '../auth/auth_failure_localization.dart';
 import '../auth/auth_models.dart';
+import '../config/qa_runtime_flags.dart';
 import '../theme/brand_theme.dart';
 import '../l10n/l10n.dart';
+import '../widgets/apple_sign_in_button.dart';
 import '../widgets/auth_text_form_field.dart';
 import '../widgets/language_selector.dart';
 
@@ -25,6 +27,8 @@ class LoginScreen extends StatefulWidget {
     required this.onAuthenticated,
     required this.onCreateAccount,
     this.onSocialAuthenticated,
+    this.appleSignInEnabled = folooAppleSignInEnabled,
+    this.microsoftSignInEnabled = folooMicrosoftSignInEnabled,
     this.authenticating = false,
     this.failure,
     this.accountConfirmed = false,
@@ -35,6 +39,8 @@ class LoginScreen extends StatefulWidget {
   final LoginRequested onAuthenticated;
   final VoidCallback onCreateAccount;
   final SocialLoginRequested? onSocialAuthenticated;
+  final bool appleSignInEnabled;
+  final bool microsoftSignInEnabled;
   final bool authenticating;
   final AuthFailureCode? failure;
   final bool accountConfirmed;
@@ -224,6 +230,36 @@ class _LoginScreenState extends State<LoginScreen> {
                             AuthProvider.google,
                           ),
                   ),
+                  if (widget.appleSignInEnabled) ...[
+                    SizedBox(height: compact ? 8 : 14),
+                    AppleSignInButton(
+                      key: const Key('loginAppleButton'),
+                      minimumHeight: compact ? 48 : 54,
+                      onPressed:
+                          widget.authenticating ||
+                              widget.onSocialAuthenticated == null
+                          ? null
+                          : () => widget.onSocialAuthenticated!(
+                              AuthProvider.apple,
+                            ),
+                    ),
+                  ],
+                  if (widget.microsoftSignInEnabled) ...[
+                    SizedBox(height: compact ? 8 : 14),
+                    _SocialButton(
+                      key: const Key('loginMicrosoftButton'),
+                      icon: Icons.grid_view,
+                      label: context.l10n.continueWithMicrosoft,
+                      compact: compact,
+                      onPressed:
+                          widget.authenticating ||
+                              widget.onSocialAuthenticated == null
+                          ? null
+                          : () => widget.onSocialAuthenticated!(
+                              AuthProvider.microsoft,
+                            ),
+                    ),
+                  ],
                   SizedBox(height: compact ? 8 : 14),
                   Row(
                     children: [

@@ -4,12 +4,19 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 ## E-01 · Alta, confirmación, sesión y perfil
 
-**Trazas:** `AUT-01`–`AUT-17`, `SYN-09`, `SAL-08`, `SAL-09`.
+**Trazas:** `AUT-01`–`AUT-17`, `AUT-22`–`AUT-24`, `SYN-09`, `SAL-08`, `SAL-09`.
 
 - Dado un email nuevo, al registrarse con contraseña, entonces Cognito envía un
   código de seis dígitos y la app solicita confirmación sin pedir perfil.
-- Login y Crear cuenta ofrecen email/contraseña y Google. Microsoft Sign-In no
-  aparece deshabilitado ni como opción futura. Google solicita selección de
+- Login y Crear cuenta ofrecen email/contraseña y Google. La implementación de
+  Apple se muestra solo en un build autorizado con `FOLOO_APPLE_SIGNIN=true`
+  después de validar la configuración externa (`AUT-22`). Microsoft Sign-In no
+  aparece deshabilitado ni como opción futura; solo un build de validación DEV
+  con `FOLOO_MICROSOFT_SIGNIN=true` lo muestra (`AUT-17`, `AUT-23`). Ambos
+  flags son `false` por defecto. Apple entra por Cognito, el owner es el `sub` y un
+  correo relay de Apple no une cuentas. Si un proveedor no está configurado, su
+  botón muestra un error recuperable ES/EN y los demás métodos siguen
+  funcionando (`AUT-24`). Google solicita selección de
   cuenta en cada acción explícita, autentica mediante Cognito y omite el código
   manual; su OAuth nunca se reutiliza como conexión sender.
 - El alta email/password acepta Gmail, Outlook, Hotmail y dominios empresariales
@@ -331,9 +338,13 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Sin ambos opt-ins, el sexto Lead vuelve a conservar el borrador y abrir el
   paywall original. Desactivar Unlimited nunca borra ni oculta los Leads ya
   creados; antes de apagar el backend se sincroniza la cola QA pendiente.
-- (`MON-14`) Con `trial_exhausted` o `expired`, el aviso de la app explica que
-  se alcanzó el límite y que la cuenta se administra en la web; no muestra
-  precio, pagar/comprar/upgrade/suscribirse, botón ni enlace.
+- (`MON-14`) Con `trial_exhausted` o `expired`, la app explica que se pueden
+  agregar más leads desde la cuenta en la web de Foloo; `expired` usa su propio
+  título. El botón principal abre la página web fuera de la app; si no abre,
+  la app lo explica y el paywall sigue visible. No hay precio ni
+  pagar/comprar/upgrade/suscribirse. Por defecto y sin aprobación regional el
+  enlace está oculto; solo `FOLOO_WEB_ACCOUNT_LINK=true` muestra el botón. En
+  caso contrario queda Ver registros.
 - (`MON-15`) Checkout con JWT válido crea la sesión para la cuenta del `sub`;
   cuenta, precio o URLs enviados en el cuerpo se ignoran. Dos intentos
   concurrentes reutilizan un solo customer de Stripe.
@@ -348,6 +359,9 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - (`MON-18`) Sin Price ID el backend responde 503 `billing_not_configured` y no
   crea cobros; sin firma rechaza antes de leer secretos; synth falla si billing
   está habilitado sin precio, URLs o nombres de secretos.
+- (`MON-04`/`MON-18`, `D-02`) El Price configurado en cada entorno es el plan
+  Foloo anual: 89 USD y 1,780 MXN impuesto incluido. Checkout no ofrece
+  ningún periodo mensual.
 - (`MON-19`) Una cuenta `active`, o con suscripción viva en Stripe aunque el
   estado local esté atrasado, recibe 409 con indicación de Portal en vez de
   otro Checkout.
