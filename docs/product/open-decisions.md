@@ -16,6 +16,11 @@ región y tienda, además del proveedor definitivo.
 Stripe Checkout; la app solo informa, sin precio ni enlace). Queda abierta la
 variante B (compra nativa) si las tiendas rechazan la A.
 
+**Estado 2026-10-28:** Producto pidió que la app sí lleve a la web con un
+botón (enmienda de `MON-14`). Esto vuelve más urgente validar si cada tienda y
+región admite ese enlace; mientras tanto permanece apagado por defecto y cada
+build aprobado debe habilitarlo explícitamente.
+
 **Pregunta:** compra in-app, pago externo en navegador o external purchase link
 permitido por región/tienda.
 
@@ -24,7 +29,29 @@ bloquea el enforcement ni el paywall informativo sin precio de FL-020.
 
 ### `D-02` · Precio, moneda y regiones
 
-**Bloquea:** productos, copy y pruebas de `MON-04`.
+**Estado 2026-10-28:** los ajustes de contenido del landing
+(`foloo-landing-ajustes.md`, paquete de diseño recibido el 2026-10-27) fijan
+los planes comerciales:
+
+| Plan       | Precio                                              | Límite                        |
+| ---------- | --------------------------------------------------- | ----------------------------- |
+| Free trial | Gratis                                              | 5 leads, sin límite de tiempo |
+| Foloo      | 89 USD al año · 1,780 MXN al año                    | Sin límite de capturas        |
+
+- Compra anual únicamente: no existe modalidad mensual.
+- El importe MXN incluye impuesto. El tratamiento fiscal del importe USD y las
+  regiones/monedas de venta siguen pendientes; no se infieren de este precio.
+- Las capacidades son las mismas en los dos planes; solo cambia el tope de
+  capturas (`MON-01`, `MON-04`).
+- Foloo Team solo se menciona como nombre + "Próximamente", sin capacidades
+  ni precio (`D-10`).
+
+Siguen abiertos: regiones/países de venta, qué moneda se presenta en cada
+región y si "impuesto incluido" aplica también al importe en USD.
+
+**Bloquea:** solo la configuración regional/fiscal del Price de Stripe
+(`MON-18`). Ya no bloquea el precio, la moneda base ni el periodo de
+`MON-04`.
 
 ### `D-03` · Vencimiento, avisos y periodo de gracia
 
@@ -104,6 +131,10 @@ in-app/web y las declaraciones finales App Privacy/Data Safety. No invalida la
 evidencia técnica DEV ni permite omitir la eliminación exigida por tiendas.
 
 ### `D-21` · Alternativa equivalente para Google Sign-In en iOS
+
+**Estado 2026-10-21:** aprobado Sign in with Apple vía Cognito (ADR-009).
+Falta la configuración en Apple Developer y Cognito y su verificación E2E; el
+botón permanece detrás de `FOLOO_APPLE_SIGNIN=false` hasta completarlas.
 
 **Pregunta:** aprobar Sign in with Apple mediante Cognito o retirar Google
 Sign-In de iOS. La lectura conservadora de Apple 4.8 no considera suficiente el
