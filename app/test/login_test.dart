@@ -174,6 +174,7 @@ void main() {
       );
       expect(viewport.physics, isA<NeverScrollableScrollPhysics>());
       expect(find.byKey(const Key('loginGoogleButton')), findsOneWidget);
+      expect(find.byKey(const Key('loginAppleButton')), findsNothing);
       expect(find.byKey(const Key('loginMicrosoftButton')), findsNothing);
       expect(find.byKey(const Key('openSignUpButton')), findsOneWidget);
       expect(find.byKey(const Key('loginButton')), findsOneWidget);
@@ -207,13 +208,17 @@ void main() {
 
     await tester.pumpWidget(const FolooApp());
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('openSignUpButton')));
+    final openSignUp = find.byKey(const Key('openSignUpButton'));
+    await tester.ensureVisible(openSignUp);
+    await tester.pumpAndSettle();
+    await tester.tap(openSignUp);
     await tester.pumpAndSettle();
 
     final google = tester.widget<OutlinedButton>(
       find.byKey(const Key('signUpGoogleButton')),
     );
     expect(google.style?.shape?.resolve({}), isA<StadiumBorder>());
+    expect(find.byKey(const Key('signUpAppleButton')), findsNothing);
     expect(find.byKey(const Key('signUpMicrosoftButton')), findsNothing);
     final primary = tester.widget<FilledButton>(
       find.byKey(const Key('signUpButton')),
@@ -222,6 +227,27 @@ void main() {
     expect(find.byKey(const Key('signUpEmailField')), findsOneWidget);
     expect(find.byKey(const Key('signUpPasswordField')), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Apple and Microsoft remain available behind explicit flags', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const FolooApp(appleSignInEnabled: true, microsoftSignInEnabled: true),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('loginAppleButton')), findsOneWidget);
+    expect(find.byKey(const Key('loginMicrosoftButton')), findsOneWidget);
+
+    final openSignUp = find.byKey(const Key('openSignUpButton'));
+    await tester.ensureVisible(openSignUp);
+    await tester.pumpAndSettle();
+    await tester.tap(openSignUp);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('signUpAppleButton')), findsOneWidget);
+    expect(find.byKey(const Key('signUpMicrosoftButton')), findsOneWidget);
   });
 
   testWidgets('Auth inputs share subtle idle and emphasized focused borders', (

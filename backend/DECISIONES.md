@@ -81,8 +81,15 @@
 ## 2026-10-22 · Rebase sobre STORE-02 y despliegue en DEV
 
 - La migración de billing pasa a `011_billing_stripe.sql` (STORE-02 ocupa 009/010).
-- IDs renumerados por choque con STORE-02: billing `MON-14`–`MON-20`. Apple/Microsoft (`AUT-22`–`AUT-24`, ADR-009) salen de este PR a uno propio (2026-10-23).
+- IDs renumerados por choque con STORE-02: billing `MON-14`–`MON-20`. Este PR conserva Apple/Microsoft (`AUT-22`–`AUT-24`, ADR-009); su disponibilidad queda condicionada por flags desactivados por defecto y por la configuración externa validada.
 - `POST /v1/billing/webhook` se agregó a las rutas públicas del guard de clientes de API: Stripe no manda JWT; la firma la valida el router.
 - El stage depende de la ruta del webhook; sin eso, CloudFormation falló al aplicar el throttling (2026-10-22).
 - Valores por defecto en DEV (las variables de entorno los sobrescriben): Price de prueba de 99 USD/mes `price_1UTTLKCp0Un1sf9uyTk4w9NN` ("Foloo Pro (prueba)"), retornos a `https://foloo.io/dashboard?billing=success|cancel` y portal a `/dashboard`. Es un supuesto: falta la página web real de planes.
 - 2026-10-23: la 011 se aplicó sola en DEV con `{"action":"apply","only":"011_billing_stripe.sql"}`. La 010 de STORE-02 sigue pendiente para su propio procedimiento (backup y autorización); es independiente de la 011 y puede aplicarse después.
+
+## 2026-10-28 · Planes del landing (D-02)
+
+- Fuente: `foloo-landing-ajustes.md` del paquete de diseño del landing (2026-10-27). Free trial: 5 leads, gratis, sin límite de tiempo. Foloo: 89 USD / 1,780 MXN al año, solo anual; MXN incluye impuesto y el tratamiento fiscal de USD sigue pendiente. Team: solo "Próximamente".
+- El Price de prueba de 99 USD/mes `price_1UTTLKCp0Un1sf9uyTk4w9NN` queda obsoleto. Nuevo default de DEV: `price_1UVXnvCp0Un1sf9u7wMePBtt` (producto `prod_VWazHCD9JjCJDj`, lookup key `foloo_annual`), creado en modo test el 2026-10-28: anual, 89 USD con opción MXN 1,780 `inclusive`; USD queda `unspecified` mientras D-02 no lo defina.
+- Sin cambio de código: el backend ya trata el precio solo como Price ID (`MON-18`); el periodo anual lo define el Price en Stripe.
+- El PDF "Planes y capacidades" (agosto 2026, Basic/Pro/Team con capacidades distintas) es histórico y no se usa.

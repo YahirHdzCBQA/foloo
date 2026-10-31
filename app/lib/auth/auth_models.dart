@@ -6,7 +6,7 @@ library;
 
 enum AuthStatus { initializing, authenticated, unauthenticated, error }
 
-enum AuthProvider { google, microsoft }
+enum AuthProvider { google, apple, microsoft }
 
 /// Stable UI-safe authentication failures; provider messages never reach UI.
 enum AuthFailureCode {

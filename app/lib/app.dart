@@ -80,6 +80,8 @@ class FolooApp extends StatefulWidget {
     this.mediaBinaryTransfer,
     this.accountDeletionService,
     this.accountDeletionEnabled = folooAccountDeletionEnabled,
+    this.appleSignInEnabled = folooAppleSignInEnabled,
+    this.microsoftSignInEnabled = folooMicrosoftSignInEnabled,
     this.userStateLoadGate,
     super.key,
   });
@@ -100,6 +102,8 @@ class FolooApp extends StatefulWidget {
   final MediaBinaryTransfer? mediaBinaryTransfer;
   final AccountDeletionService? accountDeletionService;
   final bool accountDeletionEnabled;
+  final bool appleSignInEnabled;
+  final bool microsoftSignInEnabled;
 
   /// Optional async boundary used to exercise slow owner hydration in tests.
   final Future<void> Function(String userId)? userStateLoadGate;
@@ -1216,6 +1220,8 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
                 key: const ValueKey('loginScreen'),
                 onAuthenticated: _authenticate,
                 onSocialAuthenticated: _authenticateWithProvider,
+                appleSignInEnabled: widget.appleSignInEnabled,
+                microsoftSignInEnabled: widget.microsoftSignInEnabled,
                 authenticating:
                     _authRepository.state.status == AuthStatus.initializing,
                 failure: _authRepository.state.status == AuthStatus.error
@@ -1239,6 +1245,8 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
                 key: const ValueKey('signUpScreen'),
                 onSubmit: _signUp,
                 onSocialSubmit: _authenticateWithProvider,
+                appleSignInEnabled: widget.appleSignInEnabled,
+                microsoftSignInEnabled: widget.microsoftSignInEnabled,
                 onBack: () {
                   _authRepository.clearFailure();
                   setState(() => _accessStage = _AccessStage.login);

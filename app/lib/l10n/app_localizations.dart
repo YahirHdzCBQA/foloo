@@ -188,6 +188,12 @@ abstract class AppLocalizations {
   /// **'Continuar con Google'**
   String get continueWithGoogle;
 
+  /// No description provided for @continueWithApple.
+  ///
+  /// In es, this message translates to:
+  /// **'Continuar con Apple'**
+  String get continueWithApple;
+
   /// No description provided for @continueWithMicrosoft.
   ///
   /// In es, this message translates to:
@@ -2575,16 +2581,34 @@ abstract class AppLocalizations {
   /// **'Tus 5 leads gratuitos ya fueron utilizados'**
   String get paywallTitle;
 
+  /// No description provided for @paywallExpiredTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu plan de Foloo terminó'**
+  String get paywallExpiredTitle;
+
   /// No description provided for @paywallBody.
   ///
   /// In es, this message translates to:
-  /// **'Necesitarás una suscripción para seguir creando leads. Todo lo que ya guardaste permanece disponible.'**
+  /// **'Si ya usaste tus leads gratuitos o tu plan terminó, puedes agregar más desde tu cuenta en la web de Foloo. Todo lo que ya guardaste permanece disponible.'**
   String get paywallBody;
+
+  /// No description provided for @paywallOpenWeb.
+  ///
+  /// In es, this message translates to:
+  /// **'Agregar más leads en la web'**
+  String get paywallOpenWeb;
+
+  /// No description provided for @paywallOpenWebError.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo abrir la web de Foloo. Inténtalo de nuevo.'**
+  String get paywallOpenWebError;
 
   /// No description provided for @paywallFutureAction.
   ///
   /// In es, this message translates to:
-  /// **'La suscripción estará disponible próximamente.'**
+  /// **'Aquí puedes consultar y exportar tus registros.'**
   String get paywallFutureAction;
 
   /// No description provided for @paywallViewRecords.

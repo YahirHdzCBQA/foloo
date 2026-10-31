@@ -56,6 +56,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get continueWithGoogle => 'Continuar con Google';
 
   @override
+  String get continueWithApple => 'Continuar con Apple';
+
+  @override
   String get continueWithMicrosoft => 'Continuar con Microsoft';
 
   @override
@@ -1488,12 +1491,22 @@ class AppLocalizationsEs extends AppLocalizations {
   String get paywallTitle => 'Tus 5 leads gratuitos ya fueron utilizados';
 
   @override
+  String get paywallExpiredTitle => 'Tu plan de Foloo terminó';
+
+  @override
   String get paywallBody =>
-      'Necesitarás una suscripción para seguir creando leads. Todo lo que ya guardaste permanece disponible.';
+      'Si ya usaste tus leads gratuitos o tu plan terminó, puedes agregar más desde tu cuenta en la web de Foloo. Todo lo que ya guardaste permanece disponible.';
+
+  @override
+  String get paywallOpenWeb => 'Agregar más leads en la web';
+
+  @override
+  String get paywallOpenWebError =>
+      'No se pudo abrir la web de Foloo. Inténtalo de nuevo.';
 
   @override
   String get paywallFutureAction =>
-      'La suscripción estará disponible próximamente.';
+      'Aquí puedes consultar y exportar tus registros.';
 
   @override
   String get paywallViewRecords => 'Ver registros';
