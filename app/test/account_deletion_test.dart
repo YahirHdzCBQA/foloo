@@ -338,6 +338,10 @@ void main() {
           db,
           persistence.mediaStorage,
         ).purge('owner-a');
+        await LocalAccountDeletionPurger(
+          db,
+          persistence.mediaStorage,
+        ).purge('owner-a');
 
         final ownerA = await db
             .customSelect(
@@ -373,12 +377,14 @@ void main() {
       await manifest.writeAsString(
         '{"owner":"owner-a","paths":["${ownerFile.path}"]}',
       );
-      await LocalAccountDeletionPurger(
+      final purger = LocalAccountDeletionPurger(
         persistence.database,
         persistence.mediaStorage,
-      ).purge('owner-a');
+      );
+      expect(await purger.resumePending(), 'owner-a');
       expect(await ownerFile.exists(), false);
       expect(await manifest.exists(), false);
+      expect(await purger.resumePending(), isNull);
     } finally {
       await persistence.close();
       if (await root.exists()) await root.delete(recursive: true);

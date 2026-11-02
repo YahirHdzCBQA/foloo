@@ -208,7 +208,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get accountDeletionCancelRenewal =>
-      'Entiendo que la cancelación de la renovación debe confirmarse antes de eliminar';
+      'Entiendo que Foloo solicitará cancelar futuras renovaciones antes de eliminar. La eliminación no genera un reembolso automático, sin limitar los derechos exigidos por la ley aplicable.';
 
   @override
   String get accountDeletionIrreversible =>
@@ -231,6 +231,10 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get accountDeletionAccepted =>
       'Tu solicitud de eliminación fue aceptada. Foloo cerrará la sesión en este dispositivo.';
+
+  @override
+  String get accountDeletionPendingDevice =>
+      'La eliminación de tu cuenta está en proceso. Este dispositivo ya no puede usarla y sus datos locales de Foloo se están eliminando.';
 
   @override
   String get drawerSales => 'VENTAS';

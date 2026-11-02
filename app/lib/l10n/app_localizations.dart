@@ -461,7 +461,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountDeletionCancelRenewal.
   ///
   /// In es, this message translates to:
-  /// **'Entiendo que la cancelación de la renovación debe confirmarse antes de eliminar'**
+  /// **'Entiendo que Foloo solicitará cancelar futuras renovaciones antes de eliminar. La eliminación no genera un reembolso automático, sin limitar los derechos exigidos por la ley aplicable.'**
   String get accountDeletionCancelRenewal;
 
   /// No description provided for @accountDeletionIrreversible.
@@ -499,6 +499,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Tu solicitud de eliminación fue aceptada. Foloo cerrará la sesión en este dispositivo.'**
   String get accountDeletionAccepted;
+
+  /// No description provided for @accountDeletionPendingDevice.
+  ///
+  /// In es, this message translates to:
+  /// **'La eliminación de tu cuenta está en proceso. Este dispositivo ya no puede usarla y sus datos locales de Foloo se están eliminando.'**
+  String get accountDeletionPendingDevice;
 
   /// No description provided for @drawerSales.
   ///

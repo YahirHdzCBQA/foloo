@@ -135,6 +135,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   late Locale _locale;
   late Locale _defaultLocale;
   late final LocalPersistence _persistence;
+  late final LocalAccountDeletionPurger _localAccountDeletionPurger;
   late final ConnectivityService _connectivity;
   StreamSubscription<bool>? _connectivitySubscription;
   bool _isOnline = false;
@@ -151,6 +152,10 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   EntitlementSnapshot _entitlement = EntitlementSnapshot.newTrial();
   bool _paywallVisible = false;
   String? _accountDeletionReauthenticationOwner;
+  String? _accountDeletionPendingOwner;
+  Future<void>? _accountDeletionCleanup;
+  bool _showAccountDeletionPendingMessage = false;
+  bool _accountDeletionAcceptedLocally = false;
 
   DateTime get _now => widget.nowProvider?.call() ?? DateTime.now();
 
@@ -188,6 +193,10 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _persistence = widget.persistence ?? LocalPersistence.inMemory();
+    _localAccountDeletionPurger = LocalAccountDeletionPurger(
+      _persistence.database,
+      _persistence.mediaStorage,
+    );
     _ownsAuthRepository = widget.authRepository == null;
     _authRepository =
         widget.authRepository ??
@@ -209,6 +218,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
         widget.syncSessionProvider ?? const NoSyncSessionProvider(),
         now: widget.nowProvider,
         onRetryScheduled: _scheduleSyncRetry,
+        onAccountDeletionPending: _handleAccountDeletionPending,
         mediaTransfer: widget.mediaBinaryTransfer,
       )..addListener(_onSyncChanged);
     }
@@ -281,10 +291,22 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   Future<void> _initializeApplication() async {
     try {
       await _persistence.initialize();
+      final resumedOwner = await _localAccountDeletionPurger.resumePending();
       await _authRepository.initialize();
-      final user = _authRepository.state.user;
+      var user = _authRepository.state.user;
+      if (resumedOwner != null && user?.id == resumedOwner) {
+        _accountDeletionPendingOwner = resumedOwner;
+        await _authRepository.signOut();
+        _showAccountDeletionPendingMessage = true;
+        user = null;
+      }
       if (user != null) await _loadUserState(user.id);
       if (mounted) setState(() => _appInitialized = true);
+      if (_showAccountDeletionPendingMessage) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _showAccountDeletionPendingMessageNow();
+        });
+      }
       if (user != null) {
         unawaited(_synchronize(trigger: SyncTrigger.startup));
       }
@@ -742,6 +764,39 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     });
   }
 
+  Future<void> _handleAccountDeletionPending(String ownerSub) {
+    final current = _accountDeletionCleanup;
+    if (_accountDeletionPendingOwner == ownerSub && current != null) {
+      return current;
+    }
+    _accountDeletionPendingOwner = ownerSub;
+    _cancelScheduledSync();
+    if (mounted) setState(() {});
+    final cleanup = _purgeAndSignOutDeletedOwner(ownerSub);
+    _accountDeletionCleanup = cleanup;
+    return cleanup;
+  }
+
+  Future<void> _purgeAndSignOutDeletedOwner(String ownerSub) async {
+    try {
+      await _localAccountDeletionPurger.purge(ownerSub);
+    } finally {
+      if (_authRepository.state.user?.id == ownerSub) await _logout();
+      if (mounted) _showAccountDeletionPendingMessageNow();
+    }
+  }
+
+  void _showAccountDeletionPendingMessageNow() {
+    _showAccountDeletionPendingMessage = false;
+    final message = _accountDeletionAcceptedLocally
+        ? lookupAppLocalizations(_locale).accountDeletionAccepted
+        : lookupAppLocalizations(_locale).accountDeletionPendingDevice;
+    _accountDeletionAcceptedLocally = false;
+    _messengerKey.currentState?.showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 8)),
+    );
+  }
+
   void _openAccountDeletion({bool prepareImmediately = false}) {
     final service = widget.accountDeletionService;
     if (!widget.accountDeletionEnabled || service == null) return;
@@ -768,15 +823,14 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           onAccepted: (accepted) async {
             _navigatorKey.currentState?.pop();
             await _accountDeletionReceipts.save(accepted);
-            await LocalAccountDeletionPurger(
-              _persistence.database,
-              _persistence.mediaStorage,
-            ).purge(_userId);
-            if (!mounted) return;
-            _messengerKey.currentState?.showSnackBar(
-              SnackBar(content: Text(context.l10n.accountDeletionAccepted)),
-            );
-            await _logout();
+            final ownerSub = _userId;
+            _accountDeletionAcceptedLocally = true;
+            final engine = _syncEngine;
+            if (engine == null) {
+              await _handleAccountDeletionPending(ownerSub);
+            } else {
+              await engine.stopForAccountDeletion(ownerSub);
+            }
           },
           prepareImmediately: prepareImmediately,
         ),
@@ -1089,6 +1143,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     final engine = _syncEngine;
     final user = _authRepository.state.user;
     if (engine == null || user == null) return;
+    if (_accountDeletionPendingOwner == user.id) return;
     if (trigger == SyncTrigger.manual ||
         trigger == SyncTrigger.connectivityRestored) {
       _cancelScheduledSync();
@@ -1120,7 +1175,10 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   }
 
   void _scheduleSyncRetry(String ownerSub, DateTime nextAttemptAt) {
-    if (!mounted || !_isOnline || _authRepository.state.user?.id != ownerSub) {
+    if (!mounted ||
+        !_isOnline ||
+        _accountDeletionPendingOwner == ownerSub ||
+        _authRepository.state.user?.id != ownerSub) {
       return;
     }
     final scheduled = _scheduledSyncAt;
@@ -1162,6 +1220,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
         authState.status == AuthStatus.authenticated &&
         authenticatedUser != null &&
         _resolvedOwnerSub != authenticatedUser.id;
+    final accountDeletionPending =
+        authenticatedUser != null &&
+        _accountDeletionPendingOwner == authenticatedUser.id;
     return MaterialApp(
       navigatorKey: _navigatorKey,
       scaffoldMessengerKey: _messengerKey,
@@ -1213,6 +1274,29 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           ? const Scaffold(
               key: ValueKey('authenticatedStateLoading'),
               body: Center(child: CircularProgressIndicator()),
+            )
+          : accountDeletionPending
+          ? Scaffold(
+              key: const ValueKey('accountDeletionPendingDevice'),
+              body: SafeArea(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: 24),
+                        Text(
+                          lookupAppLocalizations(_locale)
+                              .accountDeletionPendingDevice,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             )
           : authState.status != AuthStatus.authenticated
           ? switch (_accessStage) {

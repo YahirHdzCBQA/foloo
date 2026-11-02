@@ -19,13 +19,30 @@ class LocalAccountDeletionPurger {
   final AppDatabase database;
   final PrivateMediaStorage mediaStorage;
 
+  /// Resumes an interrupted owner purge before authenticated state is loaded.
+  ///
+  /// The durable manifest is the only authority for this recovery path. A
+  /// malformed manifest fails closed instead of guessing an owner.
+  Future<String?> resumePending() async {
+    final manifest = _manifest;
+    // The manifest is intentionally tiny. Synchronous discovery ensures the
+    // session cannot render between detecting an interrupted purge and fencing
+    // its owner during application bootstrap.
+    if (!manifest.existsSync()) return null;
+    final decoded = jsonDecode(manifest.readAsStringSync());
+    if (decoded is! Map || decoded['owner'] is! String) {
+      throw const FormatException('Invalid account deletion manifest.');
+    }
+    final ownerSub = decoded['owner'] as String;
+    if (ownerSub.isEmpty) {
+      throw const FormatException('Invalid account deletion manifest.');
+    }
+    await purge(ownerSub);
+    return ownerSub;
+  }
+
   Future<void> purge(String ownerSub) async {
-    final manifest = File(
-      p.join(
-        mediaStorage.root.absolute.path,
-        '.account_deletion_manifest.json',
-      ),
-    );
+    final manifest = _manifest;
     final paths = await _pathsForPurge(ownerSub, manifest);
 
     await database.transaction(() async {
@@ -110,4 +127,8 @@ class LocalAccountDeletionPurger {
       database.customStatement('DELETE FROM $table WHERE owner_user_id = ?', [
         ownerSub,
       ]);
+
+  File get _manifest => File(
+    p.join(mediaStorage.root.absolute.path, '.account_deletion_manifest.json'),
+  );
 }

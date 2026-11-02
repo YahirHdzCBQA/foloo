@@ -23,6 +23,7 @@ class SyncEngine extends ChangeNotifier {
     DateTime Function()? now,
     this.logger = _defaultLogger,
     this.onRetryScheduled,
+    this.onAccountDeletionPending,
     this.mediaTransfer,
   }) : _now = now ?? DateTime.now;
 
@@ -34,16 +35,25 @@ class SyncEngine extends ChangeNotifier {
   final void Function(Map<String, Object?> event) logger;
   final void Function(String ownerSub, DateTime nextAttemptAt)?
   onRetryScheduled;
+  final Future<void> Function(String ownerSub)? onAccountDeletionPending;
   final Map<String, SyncTrigger> _queuedTriggers = {};
+  final Set<String> _accountDeletionPendingOwners = {};
   bool _running = false;
   Future<void>? _activeRun;
 
   bool get running => _running;
 
+  /// Permanently fences one owner after backend acceptance on this device.
+  ///
+  /// The same path is used when another device discovers the backend barrier.
+  Future<void> stopForAccountDeletion(String ownerSub) =>
+      _blockDeletedOwner(ownerSub);
+
   Future<void> synchronize(
     String ownerSub, {
     SyncTrigger trigger = SyncTrigger.automatic,
   }) async {
+    if (_accountDeletionPendingOwners.contains(ownerSub)) return;
     if (_running) {
       _queue(ownerSub, trigger);
       await _activeRun;
@@ -62,11 +72,21 @@ class SyncEngine extends ChangeNotifier {
     _running = true;
     notifyListeners();
     try {
-      await _synchronizeOnce(ownerSub, trigger);
+      try {
+        await _synchronizeOnce(ownerSub, trigger);
+      } on _AccountDeletionPendingSync {
+        _queuedTriggers.remove(ownerSub);
+        return;
+      }
       while (_queuedTriggers.isNotEmpty) {
         final queued = _queuedTriggers.entries.first;
         _queuedTriggers.remove(queued.key);
-        await _synchronizeOnce(queued.key, queued.value);
+        if (_accountDeletionPendingOwners.contains(queued.key)) continue;
+        try {
+          await _synchronizeOnce(queued.key, queued.value);
+        } on _AccountDeletionPendingSync {
+          _queuedTriggers.remove(queued.key);
+        }
       }
     } finally {
       _running = false;
@@ -227,6 +247,12 @@ class SyncEngine extends ChangeNotifier {
             requestId: error.requestId,
           );
         }
+      } on _AccountDeletionPendingSync {
+        // Cleanup normally removes this owner-scoped row. If cleanup is
+        // interrupted first, never strand it in `syncing`; the in-memory
+        // owner fence still prevents another attempt in this process.
+        await _store.pause(operation, _now());
+        rethrow;
       } on SyncTransportException {
         await _retry(operation, null, 'transport');
       } on MediaTransferException catch (error) {
@@ -290,7 +316,8 @@ class SyncEngine extends ChangeNotifier {
       if (localPath == null) {
         throw const MediaTransferException(code: 'local_file_missing');
       }
-      final authorization = await _api.send(
+      final authorization = await _send(
+        operation.ownerUserId,
         token,
         SyncRequest(
           method: 'POST',
@@ -303,11 +330,11 @@ class SyncEngine extends ChangeNotifier {
         headers: upload.headers,
         localPath: localPath,
       );
-      return _api.send(token, _request(operation));
+      return _send(operation.ownerUserId, token, _request(operation));
     }
     if (operation.entityType != SyncEntityType.leadMedia.name ||
         mediaTransfer == null) {
-      return _api.send(token, _request(operation));
+      return _send(operation.ownerUserId, token, _request(operation));
     }
     final payload = _payload(operation);
     final leadId = payload.remove('leadId');
@@ -319,7 +346,8 @@ class SyncEngine extends ChangeNotifier {
       throw const MediaTransferException(code: 'local_metadata_missing');
     }
     _logMedia(operation, 'upload_start');
-    final authorization = await _api.send(
+    final authorization = await _send(
+      operation.ownerUserId,
       token,
       SyncRequest(
         method: 'POST',
@@ -335,7 +363,11 @@ class SyncEngine extends ChangeNotifier {
       localPath: media.localPath,
     );
     _logMedia(operation, 'upload_success');
-    final confirmation = await _api.send(token, _request(operation));
+    final confirmation = await _send(
+      operation.ownerUserId,
+      token,
+      _request(operation),
+    );
     _logMedia(operation, 'confirm_success');
     return confirmation;
   }
@@ -344,7 +376,8 @@ class SyncEngine extends ChangeNotifier {
     try {
       final events = _list(
         _data(
-          await _api.send(
+          await _send(
+            ownerSub,
             token,
             const SyncRequest(method: 'GET', path: '/v1/events'),
           ),
@@ -352,7 +385,8 @@ class SyncEngine extends ChangeNotifier {
       );
       final leads = _list(
         _data(
-          await _api.send(
+          await _send(
+            ownerSub,
             token,
             const SyncRequest(method: 'GET', path: '/v1/leads'),
           ),
@@ -362,7 +396,8 @@ class SyncEngine extends ChangeNotifier {
       try {
         content = _list(
           _data(
-            await _api.send(
+            await _send(
+              ownerSub,
               token,
               const SyncRequest(method: 'GET', path: '/v1/content'),
             ),
@@ -787,7 +822,8 @@ class SyncEngine extends ChangeNotifier {
     try {
       try {
         final workspace = _data(
-          await _api.send(
+          await _send(
+            ownerSub,
             token,
             const SyncRequest(method: 'GET', path: '/v1/workspace'),
           ),
@@ -802,7 +838,8 @@ class SyncEngine extends ChangeNotifier {
         // remains enforceable while staged/legacy adapters catch up.
       }
       final profile = _data(
-        await _api.send(
+        await _send(
+          ownerSub,
           token,
           const SyncRequest(method: 'GET', path: '/v1/profile'),
         ),
@@ -813,7 +850,8 @@ class SyncEngine extends ChangeNotifier {
       try {
         final templates = _list(
           _data(
-            await _api.send(
+            await _send(
+              ownerSub,
               token,
               const SyncRequest(method: 'GET', path: '/v1/email/templates'),
             ),
@@ -822,7 +860,8 @@ class SyncEngine extends ChangeNotifier {
         await _store.applyRemoteEmailTemplates(ownerSub, templates);
         final eventTemplates = _list(
           _data(
-            await _api.send(
+            await _send(
+              ownerSub,
               token,
               const SyncRequest(
                 method: 'GET',
@@ -837,7 +876,8 @@ class SyncEngine extends ChangeNotifier {
       }
       final events = _list(
         _data(
-          await _api.send(
+          await _send(
+            ownerSub,
             token,
             const SyncRequest(method: 'GET', path: '/v1/events'),
           ),
@@ -847,7 +887,8 @@ class SyncEngine extends ChangeNotifier {
       try {
         final content = _list(
           _data(
-            await _api.send(
+            await _send(
+              ownerSub,
               token,
               const SyncRequest(method: 'GET', path: '/v1/content'),
             ),
@@ -873,7 +914,8 @@ class SyncEngine extends ChangeNotifier {
       }
       final leads = _list(
         _data(
-          await _api.send(
+          await _send(
+            ownerSub,
             token,
             const SyncRequest(method: 'GET', path: '/v1/leads'),
           ),
@@ -885,7 +927,8 @@ class SyncEngine extends ChangeNotifier {
         if (id is! String || lead['deletedAt'] != null) continue;
         final media = _list(
           _data(
-            await _api.send(
+            await _send(
+              ownerSub,
               token,
               SyncRequest(method: 'GET', path: '/v1/leads/$id/media'),
             ),
@@ -912,7 +955,8 @@ class SyncEngine extends ChangeNotifier {
       try {
         final followUps = _list(
           _data(
-            await _api.send(
+            await _send(
+              ownerSub,
               token,
               const SyncRequest(method: 'GET', path: '/v1/email/follow-ups'),
             ),
@@ -945,4 +989,44 @@ class SyncEngine extends ChangeNotifier {
             .map((item) => item.cast<String, Object?>())
             .toList()
       : const [];
+
+  Future<SyncResponse> _send(
+    String ownerSub,
+    String token,
+    SyncRequest request,
+  ) async {
+    if (_accountDeletionPendingOwners.contains(ownerSub)) {
+      throw const _AccountDeletionPendingSync();
+    }
+    try {
+      return await _api.send(token, request);
+    } on SyncHttpException catch (error) {
+      if (error.statusCode != 423 ||
+          error.errorCode != 'account_deletion_pending') {
+        rethrow;
+      }
+      await _blockDeletedOwner(ownerSub);
+      throw const _AccountDeletionPendingSync();
+    }
+  }
+
+  Future<void> _blockDeletedOwner(String ownerSub) async {
+    if (!_accountDeletionPendingOwners.add(ownerSub)) return;
+    _queuedTriggers.remove(ownerSub);
+    logger({'scope': 'sync_account_deletion', 'result': 'owner_blocked'});
+    try {
+      await onAccountDeletionPending?.call(ownerSub);
+    } on Object catch (error) {
+      // The sync fence stays active even if local cleanup must resume on boot.
+      logger({
+        'scope': 'sync_account_deletion',
+        'result': 'local_cleanup_pending',
+        'errorClass': error.runtimeType.toString(),
+      });
+    }
+  }
+}
+
+class _AccountDeletionPendingSync implements Exception {
+  const _AccountDeletionPendingSync();
 }

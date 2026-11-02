@@ -180,6 +180,21 @@ class _PathFailApi extends _Api {
   }
 }
 
+class _AccountDeletionPendingApi extends _Api {
+  _AccountDeletionPendingApi({this.mutationsOnly = false});
+
+  final bool mutationsOnly;
+
+  @override
+  Future<SyncResponse> send(String accessToken, SyncRequest request) async {
+    if (!mutationsOnly || request.method != 'GET') {
+      calls.add(_Call(accessToken, request));
+      throw const SyncHttpException(423, errorCode: 'account_deletion_pending');
+    }
+    return super.send(accessToken, request);
+  }
+}
+
 class _MediaApi extends _Api {
   int authorizationCount = 0;
 
@@ -1397,6 +1412,98 @@ void main() {
       final operation = (await store.all(owner)).single;
       expect(operation.status, 'pending');
       expect(operation.attemptCount, 0);
+    },
+  );
+
+  test(
+    'SYN-12 account deletion pending fences outbox and suppresses retries',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final store = SyncStore(database);
+      await store.enqueue(
+        ownerSub: owner,
+        entityType: SyncEntityType.profile,
+        entityId: 'profile-a',
+        action: 'upsert',
+        payload: const {'name': 'A', 'company': 'A'},
+      );
+      final api = _AccountDeletionPendingApi(mutationsOnly: true);
+      final blockedOwners = <String>[];
+      var retries = 0;
+      final engine = SyncEngine(
+        store,
+        api,
+        _Session('token'),
+        onAccountDeletionPending: (ownerSub) async {
+          blockedOwners.add(ownerSub);
+        },
+        onRetryScheduled: (_, _) => retries += 1,
+      );
+
+      await engine.synchronize(
+        owner,
+        trigger: SyncTrigger.connectivityRestored,
+      );
+      final callsAfterBlock = api.calls.length;
+      await engine.synchronize(owner, trigger: SyncTrigger.manual);
+
+      expect(blockedOwners, [owner]);
+      expect(callsAfterBlock, 1);
+      expect(api.calls, hasLength(callsAfterBlock));
+      expect(retries, 0);
+      expect((await store.all(owner)).single.status, 'pending');
+    },
+  );
+
+  test(
+    'SYN-12 account deletion pending during pull blocks later synchronization',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final api = _AccountDeletionPendingApi();
+      final blockedOwners = <String>[];
+      final engine = SyncEngine(
+        SyncStore(database),
+        api,
+        _Session('token'),
+        onAccountDeletionPending: (ownerSub) async {
+          blockedOwners.add(ownerSub);
+        },
+      );
+
+      await engine.synchronize(owner, trigger: SyncTrigger.startup);
+      await engine.synchronize(owner, trigger: SyncTrigger.manual);
+
+      expect(blockedOwners, [owner]);
+      expect(api.calls, hasLength(1));
+    },
+  );
+
+  test(
+    'SYN-12 concurrent triggers invoke terminal account cleanup once',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final api = _AccountDeletionPendingApi();
+      final blockedOwners = <String>[];
+      final engine = SyncEngine(
+        SyncStore(database),
+        api,
+        _Session('token'),
+        onAccountDeletionPending: (ownerSub) async {
+          blockedOwners.add(ownerSub);
+        },
+      );
+
+      await Future.wait([
+        engine.synchronize(owner, trigger: SyncTrigger.startup),
+        engine.synchronize(owner, trigger: SyncTrigger.connectivityRestored),
+        engine.synchronize(owner, trigger: SyncTrigger.manual),
+      ]);
+
+      expect(blockedOwners, [owner]);
+      expect(api.calls, hasLength(1));
     },
   );
 

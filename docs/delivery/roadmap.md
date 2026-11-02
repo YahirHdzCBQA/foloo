@@ -428,6 +428,15 @@ para producción por D-13 y aprobaciones externas pendientes.**
   queda `blocked` y reintentable. No añade migraciones ni activa flags; D-03,
   D-04 y D-13 continúan abiertas para políticas comerciales/legales y la
   validación DEV con Stripe de prueba sigue pendiente.
+- STORE-02D Entrega B integra localmente la barrera de dispositivos secundarios:
+  cualquier `423 account_deletion_pending` detiene sincronización, outbox y
+  reintentos para ese owner, dispara la purga local owner-scoped y cierra la
+  sesión. Un manifiesto durable permite completar la purga antes de restaurar
+  una sesión después de un reinicio. La copia ES/EN comunica el bloqueo y, para
+  PRO, cancelación de futuras renovaciones sin prometer reembolso automático.
+  La cobertura automatizada verifica pull/outbox/concurrencia, reanudación,
+  idempotencia y preservación entre owners; falta QA físico Android/iOS con un
+  dispositivo secundario antes de cerrar la entrega.
 - D-13 y las validaciones Legal/Seguridad/Infra/Operación/Payments continúan
   abiertas. No se desplegaron recursos, migraciones ni builds.
 - `02E-02` dispone de primitivas aisladas 02A/02B, pero su conexión y despliegue
