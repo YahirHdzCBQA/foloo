@@ -838,6 +838,11 @@ export class FolooBackendStack extends cdk.Stack {
     stripeSecret?.grantRead(billingFunction);
     webhookSecret?.grantRead(apiFunction);
     billingFunction.grantInvoke(apiFunction);
+    billingFunction.grantInvoke(deletionWorker);
+    deletionWorker.addEnvironment(
+      "BILLING_PROVIDER_FUNCTION_NAME",
+      billingFunction.functionName,
+    );
     const billingEnvironment = {
       BILLING_PROVIDER_FUNCTION_NAME: billingFunction.functionName,
       STRIPE_SECRET_ARN: stripeSecret?.secretName,

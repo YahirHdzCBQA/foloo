@@ -275,9 +275,33 @@ Reglas:
   vendedor y no posee SES transaccional;
 - reembolsos y periodos pagados no se infieren de la cancelación de renovación.
 
-FL-021 debe resolver proveedor/API, D-01–D-04, canal transaccional, políticas
-Apple/Google, retries, soporte y retención contable. Hasta entonces esta rama es
-una interfaz documental y una etapa opcional no implementable.
+### Implementación STORE-02D Entrega A
+
+La integración local reutiliza el proveedor privado de Billing/Stripe de
+FL-021. La aceptación irreversible no llama a Stripe: primero conserva el
+receipt, tombstone, barrera y outbox existentes. El worker ejecuta después una
+etapa durable `subscription_renewal_cancelled`, anterior a OAuth, S3,
+PostgreSQL y Cognito:
+
+- para Free/trial o PRO sin suscripción activa registra `not_applicable`;
+- para una suscripción activa consulta las referencias owner-scoped únicamente
+  en PostgreSQL y solicita `cancel_at_period_end=true` con una idempotency key
+  derivada del request;
+- recupera el estado actual antes de actualizar, valida que customer y
+  subscription pertenezcan a la misma cuenta y solo crea el checkpoint cuando
+  Stripe confirma que no habrá otra renovación;
+- un timeout, respuesta incierta o resultado `pending` deja el workflow
+  `blocked` y reintentable, con receipt y barrera intactos; nunca se interpreta
+  como cancelación;
+- webhooks duplicados o fuera de orden siguen deduplicándose, pero después de
+  la barrera no pueden mutar la cuenta. El retry consulta directamente a Stripe
+  y resuelve de forma idempotente un timeout cuyo efecto sí se hubiera aplicado.
+
+No se añade una migración ni una tabla: el checkpoint reutiliza el ledger
+DynamoDB. CDK solo prepara el nombre de la Lambda privada de Billing para el
+worker y `lambda:InvokeFunction` acotado a esa función. D-03 y D-04 continúan
+abiertas para gracia, avisos, reembolsos y copy comercial; D-13 continúa abierta
+para retención contable/legal. Esta entrega no inventa ni aprueba esas reglas.
 
 ## 6. Contratos API propuestos
 
@@ -459,16 +483,16 @@ implementado y probado.
 La activación dejó de depender de un único interruptor. Todos los controles
 siguientes son `false` por defecto y están restringidos a DEV:
 
-| Contexto CDK                              | Boundary                           | Dependencia obligatoria                         |
-| ----------------------------------------- | ---------------------------------- | ----------------------------------------------- |
-| `accountDeletionQaEnabled`                | API/runtime y write fence          | exactamente un hash D                           |
-| `accountDeletionQaIntakeEnabled`          | solicitudes nuevas                 | runtime, worker, finalizer, outbox y scheduler  |
-| `accountDeletionRegistrationGuardEnabled` | PreSignUp/PostAuthentication       | independiente del runtime                       |
-| `accountDeletionWorkerEnabled`            | consumo SQS y workflow destructivo | runtime y finalizer                             |
-| `accountDeletionFinalizerEnabled`         | sign-out/borrado Cognito           | worker                                          |
-| `accountDeletionOutboxRecoveryEnabled`    | reenvío durable a SQS              | worker                                          |
-| `accountDeletionRecoverySchedulerEnabled` | regla EventBridge del outbox       | outbox recovery                                 |
-| `accountDeletionRestoreReconcilerEnabled` | purga tras restore                 | worker                                          |
+| Contexto CDK                              | Boundary                           | Dependencia obligatoria                        |
+| ----------------------------------------- | ---------------------------------- | ---------------------------------------------- |
+| `accountDeletionQaEnabled`                | API/runtime y write fence          | exactamente un hash D                          |
+| `accountDeletionQaIntakeEnabled`          | solicitudes nuevas                 | runtime, worker, finalizer, outbox y scheduler |
+| `accountDeletionRegistrationGuardEnabled` | PreSignUp/PostAuthentication       | independiente del runtime                      |
+| `accountDeletionWorkerEnabled`            | consumo SQS y workflow destructivo | runtime y finalizer                            |
+| `accountDeletionFinalizerEnabled`         | sign-out/borrado Cognito           | worker                                         |
+| `accountDeletionOutboxRecoveryEnabled`    | reenvío durable a SQS              | worker                                         |
+| `accountDeletionRecoverySchedulerEnabled` | regla EventBridge del outbox       | outbox recovery                                |
+| `accountDeletionRestoreReconcilerEnabled` | purga tras restore                 | worker                                         |
 
 El hash D puede preconfigurarse pasivamente en DEV sin habilitar ningún
 boundary. Runtime continúa exigiendo exactamente una identidad; valores

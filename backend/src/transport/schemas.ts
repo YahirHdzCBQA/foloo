@@ -228,6 +228,7 @@ export const billingSubscriptionSchema = z.object({
   id: z.string().min(1),
   customer: z.string().min(1),
   status: z.string(),
+  cancel_at_period_end: z.boolean().optional(),
   current_period_end: z.number().int().nonnegative().optional(),
   items: z
     .object({

@@ -32,6 +32,9 @@ export class LambdaBillingProvider implements BillingProvider {
           result: z.union([
             z.object({ url: z.url() }),
             z.object({ customerId: z.string().min(1) }),
+            z.object({
+              cancellationStatus: z.enum(["confirmed", "pending"]),
+            }),
           ]),
         })
         .parse(payload).result;

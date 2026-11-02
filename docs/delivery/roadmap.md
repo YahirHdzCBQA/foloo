@@ -421,6 +421,13 @@ para producción por D-13 y aprobaciones externas pendientes.**
   mismo owner y retoma el
   preflight para que backend revalide `auth_time`. No se desplegó, no se aplicó
   migración 010 y A/B/C no se autorizan para borrado.
+- STORE-02D Entrega A extiende localmente el flujo ya validado para cuentas PRO:
+  la confirmación conserva receipt, tombstone y barrera aunque Stripe falle; el
+  worker cancela la renovación con la Lambda privada de Billing y un checkpoint
+  durable antes de iniciar OAuth/S3/PostgreSQL/Cognito. Timeout o estado incierto
+  queda `blocked` y reintentable. No añade migraciones ni activa flags; D-03,
+  D-04 y D-13 continúan abiertas para políticas comerciales/legales y la
+  validación DEV con Stripe de prueba sigue pendiente.
 - D-13 y las validaciones Legal/Seguridad/Infra/Operación/Payments continúan
   abiertas. No se desplegaron recursos, migraciones ni builds.
 - `02E-02` dispone de primitivas aisladas 02A/02B, pero su conexión y despliegue

@@ -419,6 +419,62 @@ test("RNF-09 Account Deletion Lambdas receive only their required ledger actions
   );
 });
 
+test("MON-13 deletion worker invokes only the private Billing provider", () => {
+  const stack = new FolooBackendStack(
+    new cdk.App(),
+    "DeletionBillingBoundary",
+    {
+      config: environmentConfig("dev"),
+      env: { account: "111111111111", region: "us-east-1" },
+      accountDeletionKeyArns: importedKeyArns,
+    },
+  );
+  const template = Template.fromStack(stack);
+  const functions = template.findResources("AWS::Lambda::Function");
+  const worker = Object.entries(functions).find(([id]) =>
+    id.startsWith("AccountDeletionWorkerFunction"),
+  );
+  const billing = Object.entries(functions).find(([id]) =>
+    id.startsWith("BillingProviderFunction"),
+  );
+  assert.ok(worker);
+  assert.ok(billing);
+  assert.deepEqual(
+    worker[1].Properties?.Environment?.Variables
+      ?.BILLING_PROVIDER_FUNCTION_NAME,
+    { Ref: billing[0] },
+  );
+  const workerRoleId = worker[1].Properties?.Role?.["Fn::GetAtt"]?.[0];
+  const policies = template.findResources("AWS::IAM::Policy");
+  const workerPolicy = Object.values(policies).find((resource) =>
+    JSON.stringify(resource.Properties?.Roles).includes(
+      JSON.stringify({ Ref: workerRoleId }),
+    ),
+  );
+  assert.ok(workerPolicy);
+  const invokeStatements = (
+    workerPolicy.Properties?.PolicyDocument?.Statement ?? []
+  ).filter((statement: { Action?: unknown }) =>
+    JSON.stringify(statement.Action).includes("lambda:InvokeFunction"),
+  );
+  const billingInvokeStatements = invokeStatements.filter(
+    (statement: { Resource?: unknown }) =>
+      JSON.stringify(statement.Resource).includes(billing[0]),
+  );
+  assert.deepEqual(billingInvokeStatements, [
+    {
+      Action: "lambda:InvokeFunction",
+      Effect: "Allow",
+      Resource: [
+        { "Fn::GetAtt": [billing[0], "Arn"] },
+        {
+          "Fn::Join": ["", [{ "Fn::GetAtt": [billing[0], "Arn"] }, ":*"]],
+        },
+      ],
+    },
+  ]);
+});
+
 test("AUT-19 verified-email resolver is private and API invocation is least privilege", () => {
   const app = new cdk.App();
   const stack = new FolooBackendStack(app, "VerifiedEmailResolverTest", {

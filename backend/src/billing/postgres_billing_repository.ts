@@ -79,11 +79,14 @@ export class PostgresBillingRepository implements BillingRepository {
       )
         return;
       // Resolve signed metadata through existing ownership; never provision from webhook input.
-      const owner = await db.query(
-        `SELECT a.id FROM accounts a JOIN app_users u ON u.id=a.owner_user_id WHERE a.id=$1 AND u.cognito_sub=$2 AND a.deleted_at IS NULL FOR UPDATE OF a`,
+      const owner = await db.query<{ deletion_pending_at: Date | null }>(
+        `SELECT u.deletion_pending_at FROM accounts a JOIN app_users u ON u.id=a.owner_user_id WHERE a.id=$1 AND u.cognito_sub=$2 AND a.deleted_at IS NULL FOR UPDATE OF a`,
         [session.client_reference_id, session.metadata.sub],
       );
       if (!owner.rowCount) return;
+      // The deletion barrier is authoritative. A delayed Checkout event is
+      // acknowledged/deduplicated but cannot reactivate or mutate the account.
+      if (owner.rows[0]?.deletion_pending_at) return;
       const status = ["paid", "no_payment_required"].includes(
         session.payment_status,
       )
@@ -117,8 +120,14 @@ export class PostgresBillingRepository implements BillingRepository {
         await db.query<{
           customerId: string | null;
           subscriptionId: string | null;
+          deletionPendingAt: Date | null;
         }>(
-          `SELECT stripe_customer_id AS "customerId", stripe_subscription_id AS "subscriptionId" FROM accounts WHERE (stripe_customer_id=$1 OR id::text=$2) AND deleted_at IS NULL FOR UPDATE`,
+          `SELECT a.stripe_customer_id AS "customerId",
+                  a.stripe_subscription_id AS "subscriptionId",
+                  u.deletion_pending_at AS "deletionPendingAt"
+           FROM accounts a JOIN app_users u ON u.id=a.owner_user_id
+           WHERE (a.stripe_customer_id=$1 OR a.id::text=$2)
+             AND a.deleted_at IS NULL FOR UPDATE OF a`,
           [subscription.customer, subscription.metadata?.accountId ?? ""],
         )
       ).rows[0];
@@ -128,6 +137,10 @@ export class PostgresBillingRepository implements BillingRepository {
         return;
       if (!account.subscriptionId) throw unavailable();
       if (account.subscriptionId !== subscription.id) return;
+      // Cancellation is confirmed directly against Stripe by STORE-02 and
+      // checkpointed in DynamoDB. Webhooks remain safely deduplicated here but
+      // must not cross the PostgreSQL write fence after irreversible acceptance.
+      if (account.deletionPendingAt) return;
       const status =
         event.type === "customer.subscription.deleted" ||
         ["canceled", "unpaid"].includes(subscription.status)

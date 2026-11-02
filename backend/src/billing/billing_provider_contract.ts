@@ -10,9 +10,19 @@ export type BillingCommand =
       successUrl: string;
       cancelUrl: string;
     }
-  | { action: "createPortalSession"; customerId: string; returnUrl: string };
+  | { action: "createPortalSession"; customerId: string; returnUrl: string }
+  | {
+      action: "cancelSubscriptionRenewal";
+      customerId: string;
+      subscriptionId: string;
+      idempotencyKey: string;
+    };
+
+export type BillingProviderResult =
+  | { url: string }
+  | { customerId: string }
+  | { cancellationStatus: "confirmed" | "pending" };
+
 export interface BillingProvider {
-  invoke(
-    command: BillingCommand,
-  ): Promise<{ url: string } | { customerId: string }>;
+  invoke(command: BillingCommand): Promise<BillingProviderResult>;
 }

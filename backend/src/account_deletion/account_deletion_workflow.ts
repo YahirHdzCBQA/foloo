@@ -75,9 +75,15 @@ export interface AccountDeletionInventory {
   exportAvailable(ownerSubject: string): Promise<boolean>;
 }
 
-export interface SubscriptionCancellationPort {
+export interface SubscriptionInventory {
   summary(ownerSubject: string): Promise<SubscriptionSummary>;
-  cancelRenewal(ownerSubject: string): Promise<"not_applicable" | "confirmed">;
+}
+
+export interface SubscriptionCancellationPort {
+  cancelRenewal(input: {
+    requestId: string;
+    ownerSubject: string;
+  }): Promise<"not_applicable" | "confirmed" | "pending">;
 }
 
 export interface AccountDeletionNotifier {
@@ -176,7 +182,9 @@ export class AccountDeletionConfirmationConflictError extends ApplicationError {
   }
 }
 
-export class UnavailableSubscriptionCancellation implements SubscriptionCancellationPort {
+export class UnavailableSubscriptionCancellation
+  implements SubscriptionInventory, SubscriptionCancellationPort
+{
   constructor(
     private readonly subscriptionStatus: SubscriptionSummary["status"] = "none",
   ) {}
@@ -212,7 +220,7 @@ export class AccountDeletionWorkflow<KeyHandle> {
     private readonly store: AccountDeletionWorkflowStore,
     private readonly guard: AccountDeletionGuard<KeyHandle>,
     private readonly inventory: AccountDeletionInventory,
-    private readonly subscriptions: SubscriptionCancellationPort,
+    private readonly subscriptions: SubscriptionInventory,
     private readonly executor: AccountDeletionExecutor,
     private readonly notifier: AccountDeletionNotifier,
     private readonly clock: WorkflowClock = { now: () => new Date() },
@@ -360,7 +368,6 @@ export class AccountDeletionWorkflow<KeyHandle> {
         "Subscription cancellation must be acknowledged.",
       );
     }
-    await this.subscriptions.cancelRenewal(input.ownerSubject);
     // The encrypted address is captured before the irreversible barrier. A
     // failed attempt can safely be retried and the orphan expires by TTL.
     const generatedReceipt = randomBytes(32).toString("base64url");

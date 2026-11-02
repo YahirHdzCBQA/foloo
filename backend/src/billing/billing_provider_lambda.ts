@@ -24,6 +24,28 @@ export async function executeBillingCommand(
         throw conflict("Subscription already exists. Use the billing portal.");
     }
   }
+  if (command.action === "cancelSubscriptionRenewal") {
+    const current = await stripe.subscriptions.retrieve(command.subscriptionId);
+    if (subscriptionCustomerId(current) !== command.customerId) {
+      throw new Error("billing_subscription_owner_mismatch");
+    }
+    if (renewalCancellationConfirmed(current)) {
+      return { cancellationStatus: "confirmed" as const };
+    }
+    const updated = await stripe.subscriptions.update(
+      command.subscriptionId,
+      { cancel_at_period_end: true },
+      { idempotencyKey: command.idempotencyKey },
+    );
+    if (subscriptionCustomerId(updated) !== command.customerId) {
+      throw new Error("billing_subscription_owner_mismatch");
+    }
+    return {
+      cancellationStatus: renewalCancellationConfirmed(updated)
+        ? ("confirmed" as const)
+        : ("pending" as const),
+    };
+  }
   const session =
     command.action === "createCheckoutSession"
       ? await stripe.checkout.sessions.create({
@@ -42,6 +64,19 @@ export async function executeBillingCommand(
         });
   if (!session.url) throw new Error("billing_provider_failed");
   return { url: session.url };
+}
+
+function renewalCancellationConfirmed(subscription: Stripe.Subscription) {
+  return (
+    subscription.cancel_at_period_end === true ||
+    subscription.status === "canceled"
+  );
+}
+
+function subscriptionCustomerId(subscription: Stripe.Subscription): string {
+  return typeof subscription.customer === "string"
+    ? subscription.customer
+    : subscription.customer.id;
 }
 export async function handler(command: BillingCommand) {
   try {

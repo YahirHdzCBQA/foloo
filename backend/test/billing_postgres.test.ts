@@ -27,7 +27,7 @@ test(
       await admin.query(
         `DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='foloo_app') THEN CREATE ROLE foloo_app; END IF; END $$`,
       );
-      await admin.query(`CREATE TABLE app_users(id uuid PRIMARY KEY, cognito_sub text UNIQUE NOT NULL);
+      await admin.query(`CREATE TABLE app_users(id uuid PRIMARY KEY, cognito_sub text UNIQUE NOT NULL, deletion_pending_at timestamptz);
       CREATE TABLE accounts(id uuid PRIMARY KEY, owner_user_id uuid REFERENCES app_users(id), subscription_status text NOT NULL DEFAULT 'trial_exhausted', deleted_at timestamptz, updated_at timestamptz, entitlement_updated_at timestamptz);
       GRANT USAGE ON SCHEMA ${schema} TO foloo_app;
       GRANT SELECT ON app_users TO foloo_app;

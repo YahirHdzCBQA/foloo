@@ -6,7 +6,7 @@ import { ApplicationError } from "../application/errors.js";
 import type {
   AccountDeletionInventory,
   AccountDeletionOperationalBarrier,
-  SubscriptionCancellationPort,
+  SubscriptionInventory,
   SubscriptionSummary,
 } from "./account_deletion_workflow.js";
 
@@ -14,7 +14,7 @@ export class PostgresAccountDeletionRuntime
   implements
     AccountDeletionInventory,
     AccountDeletionOperationalBarrier,
-    SubscriptionCancellationPort
+    SubscriptionInventory
 {
   constructor(private readonly pool: Pool) {}
 
@@ -43,18 +43,6 @@ export class PostgresAccountDeletionRuntime
       planDisplayName: null,
       currentPeriodEnd: null,
     };
-  }
-
-  async cancelRenewal(ownerSubject: string): Promise<"not_applicable"> {
-    const summary = await this.summary(ownerSubject);
-    if (summary.cancellationRequired) {
-      throw new ApplicationError(
-        "subscription_cancellation_unavailable",
-        409,
-        "Subscription cancellation requires the approved Stripe integration.",
-      );
-    }
-    return "not_applicable";
   }
 
   async markPending(input: {

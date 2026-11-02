@@ -90,8 +90,12 @@ la sección 7 para no presentar como aprobada una prueba no ejecutada.
   reautenticación, acceso operativo y respuesta a incidentes.
 - Infra/Operaciones debe formalizar backup/restore con reaplicación del ledger,
   monitoreo, alarmas con destinatarios, runbooks, ownership y SLA.
-- Payments debe cerrar el tratamiento de suscripciones Stripe activas; ninguna
-  confirmación puede afirmar una cancelación no realizada.
+- STORE-02D Entrega A implementa localmente la aceptación durable de cuentas
+  PRO y la cancelación idempotente de futuras renovaciones vía Stripe antes de
+  borrar datos. Falta desplegarla y validarla en DEV con Stripe de prueba.
+  Payments/Legal todavía debe cerrar D-03/D-04 y D-13 para gracia, avisos,
+  reembolsos, copy y retención contable; ninguna confirmación puede afirmar una
+  cancelación no verificada.
 - Falta validar el recurso público de `foloo.io`, notificaciones reales SES,
   política/entregabilidad, QA iOS y matriz completa de publicación.
 - Deben sustituirse allowlists/flags de QA por una política de producción

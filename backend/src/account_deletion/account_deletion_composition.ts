@@ -7,6 +7,7 @@ import { SQSClient } from "@aws-sdk/client-sqs";
 import type { Pool } from "pg";
 
 import { LambdaEmailProviderBoundary } from "../email/provider_invoker.js";
+import { LambdaBillingProvider } from "../billing/billing_provider_invoker.js";
 import { AccountDeletionGuard } from "./account_deletion_guard.js";
 import { WorkflowAccountDeletionHttpController } from "./account_deletion_http.js";
 import { AccountDeletionRuntimeGuard } from "./account_deletion_runtime_guard.js";
@@ -36,6 +37,7 @@ import {
 } from "./pseudonymous_identity.js";
 import { S3OwnerObjectErasure } from "./s3_owner_object_erasure.js";
 import { StagedAccountDeletionExecutor } from "./staged_account_deletion_executor.js";
+import { StripeSubscriptionCancellation } from "./stripe_subscription_cancellation.js";
 import { RestoredOwnerErasureRecovery } from "./restored_owner_erasure_recovery.js";
 import { createAccountDeletionAdmissionGuard } from "./account_deletion_admission.js";
 
@@ -48,6 +50,7 @@ export type AccountDeletionAwsConfiguration = Readonly<{
   notificationFunctionName: string;
   notificationMode: AccountDeletionNotificationMode;
   emailProviderFunctionName: string;
+  billingProviderFunctionName: string;
   cognitoFinalizerFunctionName: string;
   mediaBucketName: string;
   maximumAuthenticationAgeMs: number;
@@ -87,6 +90,10 @@ export function composeAccountDeletionRuntime(
     },
   );
   const postgresRuntime = new PostgresAccountDeletionRuntime(pool);
+  const subscriptionCancellation = new StripeSubscriptionCancellation(
+    pool,
+    new LambdaBillingProvider(config.billingProviderFunctionName),
+  );
   const erasureInventory = new DynamoErasureInventoryStore(
     dynamo,
     config.tableName,
@@ -94,6 +101,7 @@ export function composeAccountDeletionRuntime(
   const postgres = new PostgresOwnerErasure(pool, erasureInventory);
   const executor = new StagedAccountDeletionExecutor(
     new DynamoErasureCheckpointStore(dynamo, config.tableName),
+    subscriptionCancellation,
     new PostgresOAuthErasure(
       pool,
       new LambdaEmailProviderBoundary(config.emailProviderFunctionName),

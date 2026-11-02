@@ -61,6 +61,7 @@ class BillingDatabase {
         subscriptionId: null as string | null,
         periodEnd: null as number | null,
         billingEventAt: null as number | null,
+        deletionPendingAt: null as Date | null,
       },
     ]),
   );
@@ -102,7 +103,7 @@ class BillingDatabase {
           events.add(id);
           return { rows: [{ event_id: id }], rowCount: 1 };
         }
-        if (sql.startsWith("SELECT a.id")) {
+        if (sql.startsWith("SELECT u.deletion_pending_at")) {
           const account = accounts.get(String(values[0]));
           const matches =
             account &&
@@ -110,7 +111,10 @@ class BillingDatabase {
           assert.match(sql, /u.cognito_sub=\$2/);
           return { rows: matches ? [account] : [], rowCount: matches ? 1 : 0 };
         }
-        if (sql.startsWith("SELECT stripe_customer_id")) {
+        if (
+          sql.includes('a.stripe_customer_id AS "customerId"') &&
+          sql.includes("FOR UPDATE OF a")
+        ) {
           const matches = [...accounts.values()].filter(
             (a) => a.customerId === values[0] || a.id === values[1],
           );
@@ -374,6 +378,18 @@ test("MON-16 repeated and concurrent deliveries commit exactly once", async () =
   assert.equal(f.db.events.size, 1);
   assert.equal(f.db.writes, 1);
 });
+test("RC-10 webhooks are deduplicated without crossing an accepted deletion barrier", async () => {
+  const f = fixture();
+  await f.repo.apply(completed());
+  const account = f.db.accounts.get(accountId)!;
+  account.deletionPendingAt = new Date("2032-04-01T12:00:00Z");
+  const writesBefore = f.db.writes;
+  const event = snapshot("evt_cancel_pending_deletion", 200);
+  await Promise.all([f.repo.apply(event), f.repo.apply(event)]);
+  assert.equal(f.db.events.has(event.id), true);
+  assert.equal(f.db.writes, writesBefore);
+  assert.equal(account.subscriptionStatus, "active");
+});
 test("MON-16 failed transaction rolls back event receipt so a retry applies", async () => {
   const f = fixture();
   f.db.failUpdate = true;
@@ -505,6 +521,67 @@ test("MON-15/MON-17 official SDK receives server-owned subscription metadata and
     customer: "cus_a",
     return_url: config.BILLING_PORTAL_RETURN_URL,
   });
+});
+
+test("MON-13 Stripe cancellation is owner-checked and idempotent at period end", async () => {
+  const calls: unknown[] = [];
+  const subscription = {
+    id: "sub_synthetic",
+    customer: "cus_synthetic",
+    status: "active",
+    cancel_at_period_end: false,
+  } as Stripe.Subscription;
+  const stripe = {
+    subscriptions: {
+      retrieve: async (id: string) => {
+        calls.push(["retrieve", id]);
+        return subscription;
+      },
+      update: async (id: string, body: unknown, options: unknown) => {
+        calls.push(["update", id, body, options]);
+        return { ...subscription, cancel_at_period_end: true };
+      },
+    },
+  } as unknown as Stripe;
+  const result = await executeBillingCommand(stripe, {
+    action: "cancelSubscriptionRenewal",
+    customerId: "cus_synthetic",
+    subscriptionId: "sub_synthetic",
+    idempotencyKey: "account-deletion-synthetic-request",
+  });
+  assert.deepEqual(result, { cancellationStatus: "confirmed" });
+  assert.deepEqual(calls, [
+    ["retrieve", "sub_synthetic"],
+    [
+      "update",
+      "sub_synthetic",
+      { cancel_at_period_end: true },
+      { idempotencyKey: "account-deletion-synthetic-request" },
+    ],
+  ]);
+});
+
+test("MON-13 Stripe cancellation rejects a mismatched customer", async () => {
+  const stripe = {
+    subscriptions: {
+      retrieve: async () =>
+        ({
+          id: "sub_synthetic",
+          customer: "cus_other",
+          status: "active",
+          cancel_at_period_end: false,
+        }) as Stripe.Subscription,
+    },
+  } as unknown as Stripe;
+  await assert.rejects(
+    executeBillingCommand(stripe, {
+      action: "cancelSubscriptionRenewal",
+      customerId: "cus_expected",
+      subscriptionId: "sub_synthetic",
+      idempotencyKey: "account-deletion-synthetic-request",
+    }),
+    /owner_mismatch/,
+  );
 });
 
 test("MON-16 webhook HTTP smoke test preserves raw bytes through actual local HTTP", async () => {

@@ -264,7 +264,12 @@ test("RNF-10 concurrent confirmation keeps one receipt and one accepted transiti
   const store = new InMemoryAccountDeletionWorkflowStore();
   const vault = new RecipientVault();
   const dispatcher = new Dispatcher();
-  const harness = fixture({ store, recipientVault: vault, dispatcher });
+  const harness = fixture({
+    store,
+    recipientVault: vault,
+    dispatcher,
+    subscription: "active",
+  });
   const preflight = await harness.workflow.preflight({
     ownerSubject: subject,
     ownerKey: "owner-concurrent",
@@ -281,7 +286,7 @@ test("RNF-10 concurrent confirmation keeps one receipt and one accepted transiti
     recentAuthentication: true,
     irreversibleAccepted: true,
     discardUnsyncedAccepted: false,
-    cancelRenewalAccepted: false,
+    cancelRenewalAccepted: true,
     confirmationIdempotencyKey: "confirmation-concurrent",
   };
   const [first, second] = await Promise.all([
@@ -574,8 +579,8 @@ test("RNF-09 fails closed when DynamoDB barrier acceptance fails", async () => {
   );
 });
 
-test("FL-021 dependency never reports an active Stripe subscription canceled", async () => {
-  const { workflow } = fixture({ subscription: "active" });
+test("MON-13 active Stripe subscription is accepted before provider processing", async () => {
+  const { workflow, ledger } = fixture({ subscription: "active" });
   const preflight = await workflow.preflight({
     ownerSubject: subject,
     ownerKey: "owner-pro",
@@ -584,20 +589,20 @@ test("FL-021 dependency never reports an active Stripe subscription canceled", a
     requestedExport: false,
     recentAuthentication: true,
   });
-  await assert.rejects(
-    workflow.confirm({
-      requestId: preflight.record.requestId,
-      ownerSubject: subject,
-      verifiedEmail: email,
-      ownerKey: "owner-pro",
-      recentAuthentication: true,
-      irreversibleAccepted: true,
-      discardUnsyncedAccepted: false,
-      cancelRenewalAccepted: true,
-      confirmationIdempotencyKey: "confirmation-key-0004",
-    }),
-    /payments/,
-  );
+  const accepted = await workflow.confirm({
+    requestId: preflight.record.requestId,
+    ownerSubject: subject,
+    verifiedEmail: email,
+    ownerKey: "owner-pro",
+    recentAuthentication: true,
+    irreversibleAccepted: true,
+    discardUnsyncedAccepted: false,
+    cancelRenewalAccepted: true,
+    confirmationIdempotencyKey: "confirmation-key-0004",
+  });
+  assert.equal(accepted.record.status, "requested");
+  assert.ok(accepted.receipt.length >= 32);
+  assert.equal([...ledger.subjects.values()][0]?.state, "pending");
 });
 
 test("AUT-19 recent-auth boundary is inclusive and server-derived", () => {

@@ -6,10 +6,13 @@
 
 import type {
   AccountDeletionExecutor,
+  SubscriptionCancellationPort,
   SubscriptionSummary,
 } from "./account_deletion_workflow.js";
+import { AccountDeletionDependencyUnavailableError } from "./account_deletion_workflow.js";
 
 export type ErasureStage =
+  | "subscription_renewal_cancelled"
   | "oauth_revoked"
   | "objects_inventoried"
   | "objects_deleted"
@@ -47,6 +50,7 @@ export interface CognitoErasurePort {
 export class StagedAccountDeletionExecutor implements AccountDeletionExecutor {
   constructor(
     private readonly checkpoints: ErasureCheckpointStore,
+    private readonly subscriptions: SubscriptionCancellationPort,
     private readonly oauth: OAuthErasurePort,
     private readonly objects: ObjectErasurePort,
     private readonly postgres: PostgresErasurePort,
@@ -58,10 +62,21 @@ export class StagedAccountDeletionExecutor implements AccountDeletionExecutor {
     ownerSubject: string;
     subscription: SubscriptionSummary;
   }): Promise<void> {
-    if (input.subscription.cancellationRequired) {
-      throw new Error("Subscription renewal cancellation is not confirmed.");
-    }
     const completed = await this.checkpoints.completed(input.requestId);
+    await this.run(
+      input.requestId,
+      "subscription_renewal_cancelled",
+      completed,
+      async () => {
+        const result = await this.subscriptions.cancelRenewal({
+          requestId: input.requestId,
+          ownerSubject: input.ownerSubject,
+        });
+        if (input.subscription.cancellationRequired && result !== "confirmed") {
+          throw new AccountDeletionDependencyUnavailableError("payments");
+        }
+      },
+    );
     await this.run(input.requestId, "oauth_revoked", completed, async () => {
       await this.oauth.revokeAndDestroy(input.ownerSubject);
       if (!(await this.oauth.isDestroyed(input.ownerSubject))) {
@@ -113,6 +128,7 @@ export class StagedAccountDeletionExecutor implements AccountDeletionExecutor {
     const completed = await this.checkpoints.completed(input.requestId);
     if (
       ![
+        "subscription_renewal_cancelled",
         "oauth_revoked",
         "objects_inventoried",
         "objects_deleted",

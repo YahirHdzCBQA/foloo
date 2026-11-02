@@ -27,6 +27,7 @@ async function initialize() {
     ),
     notificationMode: notificationMode(),
     emailProviderFunctionName: required("EMAIL_PROVIDER_FUNCTION_NAME"),
+    billingProviderFunctionName: required("BILLING_PROVIDER_FUNCTION_NAME"),
     cognitoFinalizerFunctionName: required("COGNITO_FINALIZER_FUNCTION_NAME"),
     mediaBucketName: required("MEDIA_BUCKET_NAME"),
     maximumAuthenticationAgeMs: 300_000,
