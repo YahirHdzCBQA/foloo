@@ -37,6 +37,7 @@ export type AccountDeletionRecord = Readonly<{
   createdAt: Date;
   expiresAt: Date;
   acceptedAt: Date | null;
+  operationalDeadline: Date | null;
   updatedAt: Date;
   completedAt: Date | null;
   receiptHash: string | null;
@@ -66,6 +67,13 @@ export interface AccountDeletionWorkflowStore {
   pendingDispatches(
     limit: number,
   ): Promise<AccountDeletionDispatchOutboxItem[]>;
+  activeRequests(limit: number): Promise<AccountDeletionRecord[]>;
+  claimOperationalAction(input: {
+    requestId: string;
+    action: string;
+    now: Date;
+    leaseUntil?: Date;
+  }): Promise<boolean>;
   markDispatchCompleted(requestId: string): Promise<AccountDeletionRecord>;
   update(record: AccountDeletionRecord): Promise<AccountDeletionRecord>;
 }
@@ -275,6 +283,7 @@ export class AccountDeletionWorkflow<KeyHandle> {
         now.getTime() + AccountDeletionWorkflow.preflightLifetimeMs,
       ),
       acceptedAt: null,
+      operationalDeadline: null,
       updatedAt: now,
       completedAt: null,
       receiptHash: null,
@@ -394,6 +403,7 @@ export class AccountDeletionWorkflow<KeyHandle> {
       ...record,
       status: "requested",
       acceptedAt: now,
+      operationalDeadline: accountDeletionOperationalDeadline(now),
       updatedAt: now,
       receiptHash: receiptDigest(receipt),
       receiptExpiresAt: new Date(
@@ -550,6 +560,19 @@ export class AccountDeletionWorkflow<KeyHandle> {
       });
     }
   }
+}
+
+export const accountDeletionOperationalSlaDays = 15;
+
+/** The operational clock starts at durable acceptance, never at worker start. */
+export function accountDeletionOperationalDeadline(acceptedAt: Date): Date {
+  if (!Number.isFinite(acceptedAt.getTime())) {
+    throw new Error("Account deletion acceptance timestamp is invalid.");
+  }
+  return new Date(
+    acceptedAt.getTime() +
+      accountDeletionOperationalSlaDays * 24 * 60 * 60 * 1000,
+  );
 }
 
 export function receiptDigest(receipt: string): string {

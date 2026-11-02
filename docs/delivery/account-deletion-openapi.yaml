@@ -314,7 +314,15 @@ components:
         data:
           type: object
           additionalProperties: false
-          required: [requestId, status, acceptedAt, receipt, receiptExpiresAt]
+          required:
+            [
+              requestId,
+              status,
+              acceptedAt,
+              operationalDeadline,
+              receipt,
+              receiptExpiresAt,
+            ]
           properties:
             requestId:
               type: string
@@ -325,9 +333,9 @@ components:
               type: string
               format: date-time
             operationalDeadline:
-              type: [string, "null"]
+              type: string
               format: date-time
-              description: Present only after operational/legal validation of the 15-day promise.
+              description: Fifteen calendar days after durable acceptance.
             receipt:
               type: string
               minLength: 32
@@ -358,7 +366,7 @@ components:
     DeletionStatus:
       type: object
       additionalProperties: false
-      required: [requestId, status, updatedAt]
+      required: [requestId, status, acceptedAt, operationalDeadline, updatedAt]
       properties:
         requestId:
           type: string
@@ -366,6 +374,12 @@ components:
         status:
           type: string
           enum: [requested, in_progress, blocked, completed]
+        acceptedAt:
+          type: [string, "null"]
+          format: date-time
+        operationalDeadline:
+          type: [string, "null"]
+          format: date-time
         updatedAt:
           type: string
           format: date-time

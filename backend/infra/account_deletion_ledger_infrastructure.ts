@@ -165,6 +165,7 @@ export class AccountDeletionLedgerInfrastructure extends Construct {
       grantee,
       "dynamodb:GetItem",
       "dynamodb:DeleteItem",
+      "dynamodb:PutItem",
       "dynamodb:TransactWriteItems",
       "dynamodb:UpdateItem",
     );
@@ -184,7 +185,13 @@ export class AccountDeletionLedgerInfrastructure extends Construct {
 
   /** Grants the SES notification boundary recipient lookup and final purge. */
   grantEmailAccess(grantee: iam.IGrantable): void {
-    this.grantTableActions(grantee, "dynamodb:GetItem", "dynamodb:DeleteItem");
+    this.grantTableActions(
+      grantee,
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem",
+      "dynamodb:DeleteItem",
+    );
   }
 
   private grantTableActions(

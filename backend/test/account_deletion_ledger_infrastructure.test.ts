@@ -103,6 +103,23 @@ test("STORE-02 infrastructure is deployable but every runtime boundary stays dis
   assert.match(json, /AccountDeletionRestoreReconcilerFunction/u);
   assert.match(json, /AccountDeletionOutboxRecoveryFunction/u);
   assert.match(json, /hello@foloo\.io/u);
+  assert.match(json, /Foloo\/AccountDeletion/u);
+  assert.match(json, /PendingRequests/u);
+  assert.match(json, /BlockedRequests/u);
+  assert.match(json, /FailedRequests/u);
+  assert.match(json, /OverdueRequests/u);
+  assert.match(json, /Day10Alerts/u);
+  assert.match(json, /Day13Alerts/u);
+  assert.match(json, /CriticalDay15Alerts/u);
+  template.hasResourceProperties("AWS::SNS::Topic", {
+    DisplayName: "Foloo Account Deletion operations",
+  });
+  template.hasResourceProperties("AWS::RDS::DBInstance", {
+    BackupRetentionPeriod: 15,
+  });
+  template.hasResourceProperties("AWS::Logs::LogGroup", {
+    RetentionInDays: 7,
+  });
   assert.match(json, /ACCOUNT_DELETION_NOTIFICATION_MODE[^}]*disabled/u);
   assert.doesNotMatch(
     json,
@@ -394,6 +411,7 @@ test("RNF-09 Account Deletion Lambdas receive only their required ledger actions
     [
       "dynamodb:DeleteItem",
       "dynamodb:GetItem",
+      "dynamodb:PutItem",
       "dynamodb:Query",
       "dynamodb:TransactWriteItems",
       "dynamodb:UpdateItem",
@@ -411,6 +429,8 @@ test("RNF-09 Account Deletion Lambdas receive only their required ledger actions
   assertLedgerPermissions(template, "AccountDeletionEmailFunction", [
     "dynamodb:DeleteItem",
     "dynamodb:GetItem",
+    "dynamodb:PutItem",
+    "dynamodb:UpdateItem",
   ]);
   assertLedgerPermissions(
     template,

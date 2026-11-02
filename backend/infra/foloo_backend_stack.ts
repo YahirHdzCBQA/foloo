@@ -18,10 +18,12 @@ import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as kms from "aws-cdk-lib/aws-kms";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
+import * as cloudwatchActions from "aws-cdk-lib/aws-cloudwatch-actions";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as ses from "aws-cdk-lib/aws-ses";
 import * as events from "aws-cdk-lib/aws-events";
 import * as eventTargets from "aws-cdk-lib/aws-events-targets";
+import * as sns from "aws-cdk-lib/aws-sns";
 import type { Construct } from "constructs";
 
 import { validateBillingConfig, type EnvironmentConfig } from "./config.js";
@@ -274,7 +276,9 @@ export class FolooBackendStack extends cdk.Stack {
       multiAz: false,
       publiclyAccessible: false,
       deletionProtection: false,
-      backupRetention: cdk.Duration.days(1),
+      // RC-07: ordinary automated backups expire after the approved 15 days.
+      // Manual snapshots/legal holds remain governed by the restore runbook.
+      backupRetention: cdk.Duration.days(15),
       cloudwatchLogsExports: ["postgresql"],
       cloudwatchLogsRetention: logs.RetentionDays.ONE_WEEK,
       vpc,
@@ -406,6 +410,20 @@ export class FolooBackendStack extends cdk.Stack {
           props.accountDeletionKeyArns.notificationRecipientKeyArn,
       },
     );
+    const accountDeletionOperationsTopic = new sns.Topic(
+      this,
+      "AccountDeletionOperationsTopic",
+      {
+        displayName: "Foloo Account Deletion operations",
+        enforceSSL: true,
+      },
+    );
+    const accountDeletionLogGroup = (id: string) =>
+      new logs.LogGroup(this, id, {
+        // INF-14/RNF-09: DEV operational logs are PII-free and retained 7 days.
+        retention: logs.RetentionDays.ONE_WEEK,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      });
     const accountDeletionEmailDlq = new sqs.Queue(
       this,
       "AccountDeletionEmailDeadLetterQueue",
@@ -439,6 +457,9 @@ export class FolooBackendStack extends cdk.Stack {
         runtime: lambda.Runtime.NODEJS_22_X,
         architecture: lambda.Architecture.ARM_64,
         timeout: cdk.Duration.seconds(30),
+        logGroup: accountDeletionLogGroup(
+          "AccountDeletionCognitoFinalizerLogGroup",
+        ),
         environment: {
           COGNITO_USER_POOL_ID: config.userPoolId,
           FOLOO_ACCOUNT_DELETION_FINALIZER_ENABLED:
@@ -461,6 +482,7 @@ export class FolooBackendStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(30),
         retryAttempts: 2,
         deadLetterQueue: accountDeletionEmailDlq,
+        logGroup: accountDeletionLogGroup("AccountDeletionEmailLogGroup"),
         environment: {
           ACCOUNT_DELETION_TABLE_NAME: accountDeletion.table.tableName,
           ACCOUNT_DELETION_RECIPIENT_KEY_ARN:
@@ -493,6 +515,7 @@ export class FolooBackendStack extends cdk.Stack {
         runtime: lambda.Runtime.NODEJS_22_X,
         architecture: lambda.Architecture.ARM_64,
         timeout: cdk.Duration.seconds(10),
+        logGroup: accountDeletionLogGroup("AccountDeletionPreSignUpLogGroup"),
         environment: {
           ACCOUNT_DELETION_TABLE_NAME: accountDeletion.table.tableName,
           ACCOUNT_DELETION_HMAC_KEY_ARN: accountDeletion.hmacKey.keyArn,
@@ -524,6 +547,9 @@ export class FolooBackendStack extends cdk.Stack {
         runtime: lambda.Runtime.NODEJS_22_X,
         architecture: lambda.Architecture.ARM_64,
         timeout: cdk.Duration.seconds(10),
+        logGroup: accountDeletionLogGroup(
+          "AccountDeletionPostAuthenticationLogGroup",
+        ),
         environment: {
           ACCOUNT_DELETION_TABLE_NAME: accountDeletion.table.tableName,
           ACCOUNT_DELETION_HMAC_KEY_ARN: accountDeletion.hmacKey.keyArn,
@@ -598,6 +624,7 @@ export class FolooBackendStack extends cdk.Stack {
         architecture: lambda.Architecture.ARM_64,
         memorySize: 512,
         timeout: cdk.Duration.minutes(10),
+        logGroup: accountDeletionLogGroup("AccountDeletionWorkerLogGroup"),
         vpc,
         vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
         securityGroups: [lambdaSg],
@@ -656,6 +683,9 @@ export class FolooBackendStack extends cdk.Stack {
         runtime: lambda.Runtime.NODEJS_22_X,
         architecture: lambda.Architecture.ARM_64,
         timeout: cdk.Duration.minutes(1),
+        logGroup: accountDeletionLogGroup(
+          "AccountDeletionOutboxRecoveryLogGroup",
+        ),
         environment: {
           ACCOUNT_DELETION_TABLE_NAME: accountDeletion.table.tableName,
           ACCOUNT_DELETION_RECIPIENT_KEY_ARN:
@@ -684,6 +714,32 @@ export class FolooBackendStack extends cdk.Stack {
       evaluationPeriods: 1,
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
+    const operationalAlarm = (name: string, metricName: string) => {
+      const alarm = new cloudwatch.Alarm(this, name, {
+        metric: new cloudwatch.Metric({
+          namespace: "Foloo/AccountDeletion",
+          metricName,
+          statistic: "Maximum",
+          period: cdk.Duration.minutes(1),
+        }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      });
+      alarm.addAlarmAction(
+        new cloudwatchActions.SnsAction(accountDeletionOperationsTopic),
+      );
+    };
+    operationalAlarm("AccountDeletionPendingRequestsAlarm", "PendingRequests");
+    operationalAlarm("AccountDeletionBlockedRequestsAlarm", "BlockedRequests");
+    operationalAlarm("AccountDeletionFailedRequestsAlarm", "FailedRequests");
+    operationalAlarm("AccountDeletionOverdueRequestsAlarm", "OverdueRequests");
+    operationalAlarm("AccountDeletionDay10Alarm", "Day10Alerts");
+    operationalAlarm("AccountDeletionDay13Alarm", "Day13Alerts");
+    operationalAlarm(
+      "AccountDeletionCriticalDay15Alarm",
+      "CriticalDay15Alerts",
+    );
     accountDeletion.grantOutboxRecoveryAccess(deletionOutboxRecovery);
     accountDeletion.grantRecipientEncryption(deletionOutboxRecovery);
     accountDeletion.queue.grantSendMessages(deletionOutboxRecovery);
@@ -700,6 +756,9 @@ export class FolooBackendStack extends cdk.Stack {
         architecture: lambda.Architecture.ARM_64,
         memorySize: 512,
         timeout: cdk.Duration.minutes(5),
+        logGroup: accountDeletionLogGroup(
+          "AccountDeletionRestoreReconcilerLogGroup",
+        ),
         vpc,
         vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
         securityGroups: [lambdaSg],
@@ -1163,6 +1222,9 @@ export class FolooBackendStack extends cdk.Stack {
     });
     new cdk.CfnOutput(this, "AccountDeletionLedgerTableName", {
       value: accountDeletion.table.tableName,
+    });
+    new cdk.CfnOutput(this, "AccountDeletionOperationsTopicArn", {
+      value: accountDeletionOperationsTopic.topicArn,
     });
     new cdk.CfnOutput(this, "AccountDeletionQueueUrl", {
       value: accountDeletion.queue.queueUrl,

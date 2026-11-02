@@ -13,6 +13,7 @@ export class InMemoryAccountDeletionWorkflowStore implements AccountDeletionWork
     string,
     AccountDeletionDispatchOutboxItem
   >();
+  private readonly operationalActions = new Map<string, Date | null>();
 
   async findCurrent(ownerKey: string): Promise<AccountDeletionRecord | null> {
     return (
@@ -83,6 +84,33 @@ export class InMemoryAccountDeletionWorkflowStore implements AccountDeletionWork
     return [...this.outbox.values()]
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
       .slice(0, limit);
+  }
+
+  async activeRequests(limit: number): Promise<AccountDeletionRecord[]> {
+    return [...this.records.values()]
+      .filter(
+        (record) => record.acceptedAt !== null && record.status !== "completed",
+      )
+      .sort(
+        (left, right) =>
+          left.acceptedAt!.getTime() - right.acceptedAt!.getTime(),
+      )
+      .slice(0, limit);
+  }
+
+  async claimOperationalAction(input: {
+    requestId: string;
+    action: string;
+    now: Date;
+    leaseUntil?: Date;
+  }): Promise<boolean> {
+    const key = `${input.requestId}:${input.action}`;
+    const current = this.operationalActions.get(key);
+    if (current !== undefined && (current === null || current > input.now)) {
+      return false;
+    }
+    this.operationalActions.set(key, input.leaseUntil ?? null);
+    return true;
   }
 
   async markDispatchCompleted(

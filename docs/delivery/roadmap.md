@@ -437,6 +437,14 @@ para producción por D-13 y aprobaciones externas pendientes.**
   La cobertura automatizada verifica pull/outbox/concurrencia, reanudación,
   idempotencia y preservación entre owners; falta QA físico Android/iOS con un
   dispositivo secundario antes de cerrar la entrega.
+- STORE-02D Entrega C añade localmente operación del SLA: persiste
+  `operationalDeadline` a 15 días desde la aceptación durable, reconcilia
+  `requested|blocked` con lease idempotente, deduplica alertas de días 10/13/15
+  y emite métricas PII-free para pending/blocked/failed/overdue. CloudWatch
+  prepara alarmas y un tópico SNS sin suscriptores inventados; SES conserva
+  ES/EN, retries acotados y deduplicación durable. CDK declara 15 días para
+  backups automáticos RDS y retención explícita de logs, sin desplegar. Runbooks
+  y gates de lanzamiento están en `account-deletion-operations.md`.
 - D-13 y las validaciones Legal/Seguridad/Infra/Operación/Payments continúan
   abiertas. No se desplegaron recursos, migraciones ni builds.
 - `02E-02` dispone de primitivas aisladas 02A/02B, pero su conexión y despliegue

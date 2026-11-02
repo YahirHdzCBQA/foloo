@@ -8,6 +8,7 @@ import {
   accountDeletionCompletedEmail,
   accountDeletionRequestEmail,
 } from "./account_deletion_email.js";
+import { DynamoAccountDeletionNotificationDelivery } from "./account_deletion_notification_delivery.js";
 import { DynamoKmsDeletionRecipientVault } from "./account_deletion_transactional_email.js";
 import type { DeletionLocale } from "./account_deletion_workflow.js";
 
@@ -38,29 +39,48 @@ export async function handler(command: Command): Promise<{ sent: true }> {
     tableName,
     keyId,
   );
-  const recipient = await vault.reveal(command.requestId);
-  const content =
-    command.action === "request_accepted"
-      ? accountDeletionRequestEmail(command.locale, supportAddress)
-      : accountDeletionCompletedEmail(command.locale, supportAddress);
-  await ses.send(
-    new SendEmailCommand({
-      FromEmailAddress: fromAddress,
-      Destination: { ToAddresses: [recipient] },
-      ReplyToAddresses: [supportAddress],
-      Content: {
-        Simple: {
-          Subject: { Data: content.subject, Charset: "UTF-8" },
-          Body: {
-            Text: { Data: content.plainBody, Charset: "UTF-8" },
-            Html: { Data: content.htmlBody, Charset: "UTF-8" },
+  const delivery = new DynamoAccountDeletionNotificationDelivery(
+    dynamo,
+    tableName,
+  );
+  const claim = await delivery.claim(command.requestId, command.action);
+  if (claim.state === "already_sent") {
+    // SES delivery and recipient retention are separate checkpoints. If the
+    // prior invocation stopped after SES accepted the message, a retry must
+    // still complete the short-lived recipient purge without sending again.
+    if (command.action === "deletion_completed")
+      await vault.purge(command.requestId);
+    return { sent: true };
+  }
+  try {
+    const recipient = await vault.reveal(command.requestId);
+    const content =
+      command.action === "request_accepted"
+        ? accountDeletionRequestEmail(command.locale, supportAddress)
+        : accountDeletionCompletedEmail(command.locale, supportAddress);
+    await ses.send(
+      new SendEmailCommand({
+        FromEmailAddress: fromAddress,
+        Destination: { ToAddresses: [recipient] },
+        ReplyToAddresses: [supportAddress],
+        Content: {
+          Simple: {
+            Subject: { Data: content.subject, Charset: "UTF-8" },
+            Body: {
+              Text: { Data: content.plainBody, Charset: "UTF-8" },
+              Html: { Data: content.htmlBody, Charset: "UTF-8" },
+            },
           },
         },
-      },
-    }),
-  );
-  if (command.action === "deletion_completed")
-    await vault.purge(command.requestId);
+      }),
+    );
+    await delivery.markSent(command.requestId, command.action, claim.token);
+    if (command.action === "deletion_completed")
+      await vault.purge(command.requestId);
+  } catch (error) {
+    await delivery.release(command.requestId, command.action, claim.token);
+    throw error;
+  }
   return { sent: true };
 }
 

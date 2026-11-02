@@ -33,10 +33,10 @@ bloquea el enforcement ni el paywall informativo sin precio de FL-020.
 (`foloo-landing-ajustes.md`, paquete de diseño recibido el 2026-10-27) fijan
 los planes comerciales:
 
-| Plan       | Precio                                              | Límite                        |
-| ---------- | --------------------------------------------------- | ----------------------------- |
-| Free trial | Gratis                                              | 5 leads, sin límite de tiempo |
-| Foloo      | 89 USD al año · 1,780 MXN al año                    | Sin límite de capturas        |
+| Plan       | Precio                           | Límite                        |
+| ---------- | -------------------------------- | ----------------------------- |
+| Free trial | Gratis                           | 5 leads, sin límite de tiempo |
+| Foloo      | 89 USD al año · 1,780 MXN al año | Sin límite de capturas        |
 
 - Compra anual únicamente: no existe modalidad mensual.
 - El importe MXN incluye impuesto. El tratamiento fiscal del importe USD y las
@@ -55,6 +55,10 @@ región y si "impuesto incluido" aplica también al importe en USD.
 
 ### `D-03` · Vencimiento, avisos y periodo de gracia
 
+Para Account Deletion no existe periodo de gracia de acceso después de la
+confirmación irreversible: la barrera se aplica de inmediato. Esta regla no
+resuelve el periodo de gracia comercial de una suscripción que vence.
+
 **Bloquea:** reglas temporales reales que produzcan `expired`, avisos y gracia
 en FL-021. No bloquea representar ni aplicar un snapshot `expired`.
 
@@ -62,8 +66,10 @@ en FL-021. No bloquea representar ni aplicar un snapshot `expired`.
 
 Account Deletion debe solicitar la cancelación de renovaciones de una
 suscripción PRO activa y comprobar el resultado antes de anunciar éxito. Siguen
-abiertos proveedor/API, pagos ya efectuados, periodos pagados, reembolsos y
-resolución de fallos en FL-021.
+abiertos pagos ya efectuados, periodos pagados y excepciones legales de
+reembolso en FL-021. Para STORE-02D, Stripe es el proveedor implementado, no se
+emiten reembolsos automáticos y un fallo mantiene la solicitud durable y
+reintentable sin anunciar cancelación ni eliminación completa.
 
 **Bloquea:** términos, ficha de tienda y flujo de recuperación comercial.
 
@@ -120,10 +126,13 @@ de datos personales/operativos por defecto; irreversibilidad tras aceptación;
 posibilidad de alta nueva con el mismo correo después de 30 días; máximo
 operativo de eliminación de 15 días; `foloo.io` como punto previsto para
 eliminación y suscripciones; y alcance multirregión. No constituyen autorización
-integral para producción. Continúan pendientes: categorías/base/plazos
-Legal/Contabilidad; propuesta de backups ordinarios de 15 días; registro mínimo
-y enforcement seudonimizado de 30 días; propuesta de reautenticación de cinco
-minutos; owner operativo; proveedor/políticas de pagos; rol sobre datos de
+integral para producción. La Entrega C aprueba como reglas de producto la
+retención ordinaria de backups por 15 días, reautenticación de cinco minutos,
+escalamiento operativo a TI de CBQA, cancelación de renovación Stripe sin
+reembolso automático ni gracia de acceso, y notificaciones SES ES/EN. Continúan
+pendientes: categorías/base/plazos Legal/Contabilidad; registro mínimo y
+enforcement seudonimizado de 30 días; destinatarios individuales de alertas;
+validación efectiva de PROD/backups; rol sobre datos de
 terceros; países, idiomas y menores; y validación/publicación web.
 
 **Bloquea:** habilitación de producción de `INF-02`, `RC-02`–`RC-04`, el flujo

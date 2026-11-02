@@ -2,6 +2,7 @@
 
 import {
   GetItemCommand,
+  PutItemCommand,
   QueryCommand,
   TransactWriteItemsCommand,
   type AttributeValue,
@@ -204,6 +205,85 @@ export class DynamoAccountDeletionWorkflowStore implements AccountDeletionWorkfl
     }));
   }
 
+  async activeRequests(limit: number): Promise<AccountDeletionRecord[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 1000) {
+      throw new Error("Active request query limit must be between 1 and 1000.");
+    }
+    const records: AccountDeletionRecord[] = [];
+    let exclusiveStartKey: Item | undefined;
+    do {
+      const result = await this.client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          IndexName: accountDeletionEntityCreatedAtIndex,
+          KeyConditionExpression: "#entity_type = :entity_type",
+          ExpressionAttributeNames: { "#entity_type": "entity_type" },
+          ExpressionAttributeValues: {
+            ":entity_type": { S: "workflow_request" },
+          },
+          ScanIndexForward: true,
+          Limit: Math.min(100, limit - records.length),
+          ExclusiveStartKey: exclusiveStartKey,
+        }),
+      );
+      for (const item of result.Items ?? []) {
+        const record = decodeRecord(item);
+        if (record.acceptedAt && record.status !== "completed") {
+          records.push(record);
+          if (records.length >= limit) break;
+        }
+      }
+      exclusiveStartKey = result.LastEvaluatedKey;
+    } while (exclusiveStartKey && records.length < limit);
+    return records;
+  }
+
+  async claimOperationalAction(input: {
+    requestId: string;
+    action: string;
+    now: Date;
+    leaseUntil?: Date;
+  }): Promise<boolean> {
+    requestKey(input.requestId);
+    if (!/^[a-z0-9_:-]{1,80}$/u.test(input.action)) {
+      throw new Error("Invalid operational action.");
+    }
+    try {
+      await this.client.send(
+        new PutItemCommand({
+          TableName: this.tableName,
+          Item: {
+            pk: { S: `OPERATION#${input.requestId}#${input.action}` },
+            entity_type: { S: "operational_action" },
+            request_id: { S: input.requestId },
+            action: { S: input.action },
+            created_at: { S: input.now.toISOString() },
+            ...(input.leaseUntil
+              ? {
+                  lease_until: { S: input.leaseUntil.toISOString() },
+                  expires_at: {
+                    N: String(
+                      Math.ceil(
+                        (input.leaseUntil.getTime() + 24 * 60 * 60 * 1000) /
+                          1000,
+                      ),
+                    ),
+                  },
+                }
+              : {}),
+          },
+          ConditionExpression:
+            "attribute_not_exists(pk) OR (attribute_exists(lease_until) AND lease_until <= :now)",
+          ExpressionAttributeValues: { ":now": { S: input.now.toISOString() } },
+        }),
+      );
+      return true;
+    } catch (error) {
+      if (isConditionalWriteFailure(error)) return false;
+      throw error;
+    }
+  }
+
   async markDispatchCompleted(
     requestId: string,
   ): Promise<AccountDeletionRecord> {
@@ -319,6 +399,7 @@ function encodeRecord(record: AccountDeletionRecord): Item {
     created_at: { S: record.createdAt.toISOString() },
     expires_at_iso: { S: record.expiresAt.toISOString() },
     accepted_at: nullableDate(record.acceptedAt),
+    operational_deadline: nullableDate(record.operationalDeadline),
     updated_at: { S: record.updatedAt.toISOString() },
     completed_at: nullableDate(record.completedAt),
     receipt_hash: nullableString(record.receiptHash),
@@ -376,6 +457,9 @@ function decodeRecord(item: Item): AccountDeletionRecord {
     createdAt: requiredDate(item, "created_at"),
     expiresAt: requiredDate(item, "expires_at_iso"),
     acceptedAt: optionalDate(item, "accepted_at"),
+    operationalDeadline:
+      optionalDate(item, "operational_deadline") ??
+      deriveOperationalDeadline(optionalDate(item, "accepted_at")),
     updatedAt: requiredDate(item, "updated_at"),
     completedAt: optionalDate(item, "completed_at"),
     receiptHash: optionalString(item, "receipt_hash"),
@@ -401,6 +485,12 @@ function decodeRecord(item: Item): AccountDeletionRecord {
       currentPeriodEnd: optionalDate(subscription, "current_period_end"),
     },
   };
+}
+
+function deriveOperationalDeadline(acceptedAt: Date | null): Date | null {
+  return acceptedAt
+    ? new Date(acceptedAt.getTime() + 15 * 24 * 60 * 60 * 1000)
+    : null;
 }
 
 function nullableString(value: string | null): AttributeValue {
@@ -430,4 +520,10 @@ function requiredMap(item: Item, key: string): Item {
   const value = item[key]?.M;
   if (!value) throw new Error(`Workflow item is missing ${key}.`);
   return value;
+}
+
+function isConditionalWriteFailure(error: unknown): boolean {
+  return (
+    error instanceof Error && error.name === "ConditionalCheckFailedException"
+  );
 }

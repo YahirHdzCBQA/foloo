@@ -270,9 +270,10 @@ Reglas:
 - solo `confirmed` permite decir “cancelada”; `pending` se sigue verificando;
 - un fallo deja etapa `blocked` o un incidente durable según la política que
   apruebe Payments, sin restaurar la cuenta ni perder capacidad de resolución;
-- el email de resultado se envía antes de eliminar la conexión necesaria o por
-  un canal transaccional aprobado; hoy Foloo solo envía con sender OAuth del
-  vendedor y no posee SES transaccional;
+- el email de resultado se envía mediante el canal transaccional SES preparado
+  para Account Deletion, independiente del OAuth del vendedor; receipt y status
+  siguen siendo la autoridad y el envío permanece condicionado a identidad,
+  dominio y configuración aprobados por entorno;
 - reembolsos y periodos pagados no se infieren de la cancelación de renovación.
 
 ### Implementación STORE-02D Entrega A
@@ -299,9 +300,29 @@ PostgreSQL y Cognito:
 
 No se añade una migración ni una tabla: el checkpoint reutiliza el ledger
 DynamoDB. CDK solo prepara el nombre de la Lambda privada de Billing para el
-worker y `lambda:InvokeFunction` acotado a esa función. D-03 y D-04 continúan
-abiertas para gracia, avisos, reembolsos y copy comercial; D-13 continúa abierta
-para retención contable/legal. Esta entrega no inventa ni aprueba esas reglas.
+worker y `lambda:InvokeFunction` acotado a esa función. STORE-02D C aprueba para
+eliminación la ausencia de gracia y de reembolso automático, sin limitar
+derechos legales; D-13 continúa abierta para categorías y retención
+contable/legal.
+
+### Implementación STORE-02D Entrega C
+
+La aceptación persiste `acceptedAt` y `operationalDeadline` (15 días naturales)
+en el workflow DynamoDB; registros anteriores derivan el deadline de
+`acceptedAt` al leerlos. El scheduler existente conserva la recuperación del
+outbox y además inspecciona solicitudes activas. Solo `requested|blocked` se
+redespachan mediante un lease condicional de 15 minutos; `in_progress` se mide
+pero no se ejecuta concurrentemente. Alertas `day_10`, `day_13` y `day_15` se
+reclaman atómicamente una sola vez y escalan a TI de CBQA mediante logs
+estructurados y métricas EMF sin PII.
+
+CloudWatch prepara métricas/alarmas pending, blocked, failed y overdue y un
+tópico SNS sin suscriptores. `PEND-OPS-01` debe asignar destinos antes de PROD.
+SES usa un claim/lease DynamoDB por request+tipo de aviso, conserva dos retries
+Lambda y DLQ; receipt/status sigue siendo autoridad. CDK declara backups RDS
+ordinarios de 15 días y logs STORE-02 de una semana en DEV. Snapshots manuales,
+exportaciones y legal holds requieren el runbook y nunca abren tráfico antes de
+reconciliar ledger/tombstones.
 
 ## 6. Contratos API propuestos
 

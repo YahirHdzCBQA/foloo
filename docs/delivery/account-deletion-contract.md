@@ -110,34 +110,34 @@ autenticación.
 `Borrar` significa eliminación física del sistema indicado. `Retener` requiere
 base y plazo aprobados; sin ellos la fila permanece bloqueada para STORE-02E.
 
-| Categoría | Owner / ubicación actual | Dependencias | Disposición propuesta | Riesgo / decisión pendiente |
-|---|---|---|---|---|
-| Identidad Cognito | User Pool; `sub`, username, email, proveedor, atributos y sesiones | Root de ownership y login | Resolver server-side el Cognito Username exacto, global sign-out/revocación y `AdminDeleteUser` al final | Federados requieren su username técnico, nunca uno enviado por Flutter; linking Google/Apple futuro; reautenticación y SLA |
-| `app_users` | PostgreSQL, por `cognito_sub` | Accounts, memberships, perfil, Leads y email | Borrar al final de la transacción de datos | Barrera no puede depender de esta fila después del borrado |
-| Account/workspace/member | PostgreSQL | Contenedor de todos los recursos y entitlement | Marcar pending; borrar después de hijos | Teams futuro fuera de V1; suscripción pendiente FL-021 |
-| Perfil vendedor | PostgreSQL `seller_profiles`; Drift `LocalProfiles`; foto local/url | Firma de templates/intents y Drawer | Borrar DB/local/foto S3 si existe | Retención no justificada hoy |
-| Events | PostgreSQL/Drift | Leads, templates de evento y Content assignments | Borrar después de Leads/templates; no solo tombstone | Leads históricos referencian Event |
-| Leads y contacto | PostgreSQL/Drift | Media, email follow-ups, outbox, trial | Borrar junto con notas y snapshots | Datos de terceros; rol CBQA/vendedor requiere Legal |
-| Tarjeta, referencias y voz | Archivos privados + Drift; S3 + `lead_media` | Lead, key derivada por workspace | Capturar keys, borrar S3 con verificación y luego metadata/local | Consentimiento; objetos huérfanos; D-05/D-06 |
-| Content/PDF | Archivo privado + Drift; S3 + `content_files` | Events y snapshots de email | Capturar keys, borrar S3, metadata/asignaciones y copia local | Copias adjuntas ya enviadas no son recuperables por Foloo |
-| Templates Event/Direct | Drift/PostgreSQL | Owner, Event, idioma | Borrar | Pueden contener firma/datos personales |
-| Follow-ups e intents | Drift/PostgreSQL | Lead, conexión, Content, remitente/destinatario | Borrar cuerpo, destinatario, IDs y estado salvo excepción aprobada | Historial/evidencia de envío y obligaciones legales |
-| Copias Gmail/Graph/destinatario | Proveedor y buzones externos | Envío ya aceptado | Fuera de control; no prometer borrado | Debe comunicarse explícitamente |
-| Conexión OAuth sender | PostgreSQL; subject/address/ciphertext/KMS/status | Google/Microsoft/provider Lambda | Intentar revocar; borrar ciphertext, states y PKCE | Política por proveedor y conducta si revocación falla |
-| OAuth states/PKCE | PostgreSQL, temporal y cifrado | Callback público | Invalidar/borrar inmediatamente | Callback tardío debe quedar bloqueado |
-| Opt-outs/tokens históricos | PostgreSQL, hashes/ciphertext | Historial de correo | Borrar o retener minimizado según Legal | FL-019.5 retiró comportamiento activo, no las tablas |
-| Trial/entitlement | Account + Drift reservations/snapshot | Creación histórica de Leads | Borrar; una cuenta nueva no recupera beneficios anteriores | Si se justifica prevención de abuso, usar solo registro seudonimizado mínimo con finalidad/plazo aprobados |
-| Idempotency records | PostgreSQL | Mutaciones/replays | Borrar con workspace; receipt de deletion usa ledger separado | Ventana mínima post-delete por retries requiere plazo |
-| Drift estructurado | `foloo.sqlite`, owner-scoped | UI, sync y múltiples cuentas del dispositivo | Purga transaccional selectiva | Owner nullable histórico no se adjudica ni borra por inferencia |
-| Outbox | Drift `SyncOperations` | Mutaciones y snapshots JSON | Detener y purgar para ese owner tras aceptación | Elegir conducta de pendientes antes de confirmar |
-| Preferencias | Drift owner-scoped + legacy global | Tema, idioma/onboarding/auth bootstrap | Borrar solo `LocalUserPreferences` del owner | No borrar globales ni valores de otra cuenta |
-| Archivos privados locales | Directorio de aplicación | Paths Drift y foto por owner | Manifest local reintentable y borrado solo bajo root gestionado | No perder paths antes de terminar borrado de archivos |
-| Exportaciones | Temporal Foloo y destino elegido por usuario | App receptora/share sheet | Borrar temporal gestionado; destino externo fuera de control | Informar límites de alcance |
-| Logs técnicos | CloudWatch | Diagnóstico/requestId | No registrar PII; expirar según plazo aprobado | Retención PROD y accesos `APROBACIÓN REQUERIDA` |
-| Backups/snapshots | RDS/AWS | Recuperación operativa | Propuesta: expiración ordinaria en 15 días; restore reaplica ledger antes de servir | Infra/Seguridad validan viabilidad; Legal separa legal hold del backup ordinario |
-| Registros administrativos/contables/legales | Sistemas contables, facturación o evidencia de pago futuros | Compras, suscripciones, facturas y obligaciones aplicables | Retener únicamente categorías realmente exigidas, aisladas del producto, y eliminar al vencer su plazo | Legal/Contabilidad definen categorías, base, región, acceso y plazo; no retención indefinida por defecto |
-| Request/receipt de deletion | Nueva persistencia minimizada | Idempotencia, soporte, anti-resurrección y bloqueo de nuevo registro por 30 días | Conservar solo hashes/estado/timestamps/códigos no PII durante el plazo mínimo aprobado | Diseño técnico debe cubrir email verificado e IdP externo sin conservar PII innecesaria |
-| Métricas/auditoría administrativa | Nueva telemetría sin payload | Operación/seguridad | Conteos y stage/error sanitizados | Acceso, plazo y responsable `APROBACIÓN REQUERIDA` |
+| Categoría                                   | Owner / ubicación actual                                            | Dependencias                                                                     | Disposición propuesta                                                                                    | Riesgo / decisión pendiente                                                                                                |
+| ------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Identidad Cognito                           | User Pool; `sub`, username, email, proveedor, atributos y sesiones  | Root de ownership y login                                                        | Resolver server-side el Cognito Username exacto, global sign-out/revocación y `AdminDeleteUser` al final | Federados requieren su username técnico, nunca uno enviado por Flutter; linking Google/Apple futuro; reautenticación y SLA |
+| `app_users`                                 | PostgreSQL, por `cognito_sub`                                       | Accounts, memberships, perfil, Leads y email                                     | Borrar al final de la transacción de datos                                                               | Barrera no puede depender de esta fila después del borrado                                                                 |
+| Account/workspace/member                    | PostgreSQL                                                          | Contenedor de todos los recursos y entitlement                                   | Marcar pending; borrar después de hijos                                                                  | Teams futuro fuera de V1; suscripción pendiente FL-021                                                                     |
+| Perfil vendedor                             | PostgreSQL `seller_profiles`; Drift `LocalProfiles`; foto local/url | Firma de templates/intents y Drawer                                              | Borrar DB/local/foto S3 si existe                                                                        | Retención no justificada hoy                                                                                               |
+| Events                                      | PostgreSQL/Drift                                                    | Leads, templates de evento y Content assignments                                 | Borrar después de Leads/templates; no solo tombstone                                                     | Leads históricos referencian Event                                                                                         |
+| Leads y contacto                            | PostgreSQL/Drift                                                    | Media, email follow-ups, outbox, trial                                           | Borrar junto con notas y snapshots                                                                       | Datos de terceros; rol CBQA/vendedor requiere Legal                                                                        |
+| Tarjeta, referencias y voz                  | Archivos privados + Drift; S3 + `lead_media`                        | Lead, key derivada por workspace                                                 | Capturar keys, borrar S3 con verificación y luego metadata/local                                         | Consentimiento; objetos huérfanos; D-05/D-06                                                                               |
+| Content/PDF                                 | Archivo privado + Drift; S3 + `content_files`                       | Events y snapshots de email                                                      | Capturar keys, borrar S3, metadata/asignaciones y copia local                                            | Copias adjuntas ya enviadas no son recuperables por Foloo                                                                  |
+| Templates Event/Direct                      | Drift/PostgreSQL                                                    | Owner, Event, idioma                                                             | Borrar                                                                                                   | Pueden contener firma/datos personales                                                                                     |
+| Follow-ups e intents                        | Drift/PostgreSQL                                                    | Lead, conexión, Content, remitente/destinatario                                  | Borrar cuerpo, destinatario, IDs y estado salvo excepción aprobada                                       | Historial/evidencia de envío y obligaciones legales                                                                        |
+| Copias Gmail/Graph/destinatario             | Proveedor y buzones externos                                        | Envío ya aceptado                                                                | Fuera de control; no prometer borrado                                                                    | Debe comunicarse explícitamente                                                                                            |
+| Conexión OAuth sender                       | PostgreSQL; subject/address/ciphertext/KMS/status                   | Google/Microsoft/provider Lambda                                                 | Intentar revocar; borrar ciphertext, states y PKCE                                                       | Política por proveedor y conducta si revocación falla                                                                      |
+| OAuth states/PKCE                           | PostgreSQL, temporal y cifrado                                      | Callback público                                                                 | Invalidar/borrar inmediatamente                                                                          | Callback tardío debe quedar bloqueado                                                                                      |
+| Opt-outs/tokens históricos                  | PostgreSQL, hashes/ciphertext                                       | Historial de correo                                                              | Borrar o retener minimizado según Legal                                                                  | FL-019.5 retiró comportamiento activo, no las tablas                                                                       |
+| Trial/entitlement                           | Account + Drift reservations/snapshot                               | Creación histórica de Leads                                                      | Borrar; una cuenta nueva no recupera beneficios anteriores                                               | Si se justifica prevención de abuso, usar solo registro seudonimizado mínimo con finalidad/plazo aprobados                 |
+| Idempotency records                         | PostgreSQL                                                          | Mutaciones/replays                                                               | Borrar con workspace; receipt de deletion usa ledger separado                                            | Ventana mínima post-delete por retries requiere plazo                                                                      |
+| Drift estructurado                          | `foloo.sqlite`, owner-scoped                                        | UI, sync y múltiples cuentas del dispositivo                                     | Purga transaccional selectiva                                                                            | Owner nullable histórico no se adjudica ni borra por inferencia                                                            |
+| Outbox                                      | Drift `SyncOperations`                                              | Mutaciones y snapshots JSON                                                      | Detener y purgar para ese owner tras aceptación                                                          | Elegir conducta de pendientes antes de confirmar                                                                           |
+| Preferencias                                | Drift owner-scoped + legacy global                                  | Tema, idioma/onboarding/auth bootstrap                                           | Borrar solo `LocalUserPreferences` del owner                                                             | No borrar globales ni valores de otra cuenta                                                                               |
+| Archivos privados locales                   | Directorio de aplicación                                            | Paths Drift y foto por owner                                                     | Manifest local reintentable y borrado solo bajo root gestionado                                          | No perder paths antes de terminar borrado de archivos                                                                      |
+| Exportaciones                               | Temporal Foloo y destino elegido por usuario                        | App receptora/share sheet                                                        | Borrar temporal gestionado; destino externo fuera de control                                             | Informar límites de alcance                                                                                                |
+| Logs técnicos                               | CloudWatch                                                          | Diagnóstico/requestId                                                            | No registrar PII; expirar según plazo aprobado                                                           | Retención PROD y accesos `APROBACIÓN REQUERIDA`                                                                            |
+| Backups/snapshots                           | RDS/AWS                                                             | Recuperación operativa                                                           | Propuesta: expiración ordinaria en 15 días; restore reaplica ledger antes de servir                      | Infra/Seguridad validan viabilidad; Legal separa legal hold del backup ordinario                                           |
+| Registros administrativos/contables/legales | Sistemas contables, facturación o evidencia de pago futuros         | Compras, suscripciones, facturas y obligaciones aplicables                       | Retener únicamente categorías realmente exigidas, aisladas del producto, y eliminar al vencer su plazo   | Legal/Contabilidad definen categorías, base, región, acceso y plazo; no retención indefinida por defecto                   |
+| Request/receipt de deletion                 | Nueva persistencia minimizada                                       | Idempotencia, soporte, anti-resurrección y bloqueo de nuevo registro por 30 días | Conservar solo hashes/estado/timestamps/códigos no PII durante el plazo mínimo aprobado                  | Diseño técnico debe cubrir email verificado e IdP externo sin conservar PII innecesaria                                    |
+| Métricas/auditoría administrativa           | Nueva telemetría sin payload                                        | Operación/seguridad                                                              | Conteos y stage/error sanitizados                                                                        | Acceso, plazo y responsable `APROBACIÓN REQUERIDA`                                                                         |
 
 ## 5. Arquitectura propuesta
 
@@ -224,12 +224,12 @@ owner canónico de los datos Foloo.
 
 ### 6.1 Estados server-side
 
-| Estado | Significado | Operaciones permitidas |
-|---|---|---|
-| `requested` | Solicitud aceptada y barrera confirmada | Consultar estado; iniciar job |
-| `in_progress` | Al menos una etapa está ejecutándose/reintentando | Consultar estado; ninguna mutación de producto |
-| `blocked` | Requiere intervención o decisión; no es fracaso silencioso | Consultar estado/soporte; barrera permanece |
-| `completed` | Datos controlados por Foloo eliminados/retención aplicada y Cognito finalizado | Solo receipt opaco hasta su expiración |
+| Estado        | Significado                                                                    | Operaciones permitidas                         |
+| ------------- | ------------------------------------------------------------------------------ | ---------------------------------------------- |
+| `requested`   | Solicitud aceptada y barrera confirmada                                        | Consultar estado; iniciar job                  |
+| `in_progress` | Al menos una etapa está ejecutándose/reintentando                              | Consultar estado; ninguna mutación de producto |
+| `blocked`     | Requiere intervención o decisión; no es fracaso silencioso                     | Consultar estado/soporte; barrera permanece    |
+| `completed`   | Datos controlados por Foloo eliminados/retención aplicada y Cognito finalizado | Solo receipt opaco hasta su expiración         |
 
 No existe estado de cancelación después de la aceptación definitiva del
 backend. `failed` no debe ser terminal: un error técnico queda `in_progress`
@@ -374,23 +374,23 @@ La entrada recomendada es el Drawer/perfil → sección **Cuenta / Account**, co
 “Eliminar cuenta” separado visual y semánticamente de “Cerrar sesión”. Debe ser
 accesible, no depender del color y conservar objetivos táctiles ≥44 dp.
 
-| Momento | Español propuesto | Inglés propuesto |
-|---|---|---|
-| Acción | Eliminar cuenta | Delete account |
-| Introducción | Elimina tu cuenta de Foloo y los datos asociados. Esta acción no es lo mismo que cerrar sesión. | Delete your Foloo account and associated data. This is different from signing out. |
-| Consecuencia | Tus Leads, eventos, archivos, notas de voz, plantillas y conexión de correo dejarán de estar disponibles. | Your leads, events, files, voice notes, templates, and email connection will no longer be available. |
-| Datos externos | Los correos ya enviados y las copias exportadas pueden permanecer con sus destinatarios o en otras aplicaciones. | Emails already sent and exported copies may remain with their recipients or in other apps. |
-| Offline | Conéctate a Internet para enviar la solicitud de eliminación. No hemos eliminado tu cuenta todavía. | Connect to the Internet to submit your deletion request. Your account has not been deleted yet. |
-| Outbox | Tienes {count} cambios pendientes. Si continúas, se eliminarán de este dispositivo y podrían no sincronizarse. | You have {count} pending changes. If you continue, they will be removed from this device and may never sync. |
-| Reautenticación | Por seguridad, vuelve a autenticarte para continuar. | For security, authenticate again to continue. |
-| Confirmación | Entiendo que esta acción elimina mi cuenta y no podré recuperar los datos borrados. | I understand that this action deletes my account and I cannot recover deleted data. |
-| PRO activo | Tienes una suscripción activa. Revisaremos la cancelación de futuras renovaciones y te confirmaremos el resultado; eliminar la cuenta no implica automáticamente un reembolso. | You have an active subscription. We will process cancellation of future renewals and confirm the result; deleting your account does not automatically mean a refund. |
-| CTA final | Solicitar eliminación | Request deletion |
-| Aceptada | Recibimos tu solicitud. Foloo bloqueó nuevas operaciones y está eliminando tus datos. | We received your request. Foloo has blocked new activity and is deleting your data. |
-| En proceso | Eliminación en proceso | Deletion in progress |
-| Bloqueada | No pudimos completar una etapa. Tu cuenta permanece bloqueada y la solicitud conserva su lugar. | We could not complete one step. Your account remains locked and your request is still active. |
-| Final | La eliminación finalizó. Conserva este comprobante: {receipt}. | Deletion is complete. Keep this receipt: {receipt}. |
-| Error previo | No pudimos enviar la solicitud. Tu cuenta no fue bloqueada. Intenta de nuevo. | We could not submit the request. Your account was not locked. Try again. |
+| Momento         | Español propuesto                                                                                                                                                              | Inglés propuesto                                                                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Acción          | Eliminar cuenta                                                                                                                                                                | Delete account                                                                                                                                                       |
+| Introducción    | Elimina tu cuenta de Foloo y los datos asociados. Esta acción no es lo mismo que cerrar sesión.                                                                                | Delete your Foloo account and associated data. This is different from signing out.                                                                                   |
+| Consecuencia    | Tus Leads, eventos, archivos, notas de voz, plantillas y conexión de correo dejarán de estar disponibles.                                                                      | Your leads, events, files, voice notes, templates, and email connection will no longer be available.                                                                 |
+| Datos externos  | Los correos ya enviados y las copias exportadas pueden permanecer con sus destinatarios o en otras aplicaciones.                                                               | Emails already sent and exported copies may remain with their recipients or in other apps.                                                                           |
+| Offline         | Conéctate a Internet para enviar la solicitud de eliminación. No hemos eliminado tu cuenta todavía.                                                                            | Connect to the Internet to submit your deletion request. Your account has not been deleted yet.                                                                      |
+| Outbox          | Tienes {count} cambios pendientes. Si continúas, se eliminarán de este dispositivo y podrían no sincronizarse.                                                                 | You have {count} pending changes. If you continue, they will be removed from this device and may never sync.                                                         |
+| Reautenticación | Por seguridad, vuelve a autenticarte para continuar.                                                                                                                           | For security, authenticate again to continue.                                                                                                                        |
+| Confirmación    | Entiendo que esta acción elimina mi cuenta y no podré recuperar los datos borrados.                                                                                            | I understand that this action deletes my account and I cannot recover deleted data.                                                                                  |
+| PRO activo      | Tienes una suscripción activa. Revisaremos la cancelación de futuras renovaciones y te confirmaremos el resultado; eliminar la cuenta no implica automáticamente un reembolso. | You have an active subscription. We will process cancellation of future renewals and confirm the result; deleting your account does not automatically mean a refund. |
+| CTA final       | Solicitar eliminación                                                                                                                                                          | Request deletion                                                                                                                                                     |
+| Aceptada        | Recibimos tu solicitud. Foloo bloqueó nuevas operaciones y está eliminando tus datos.                                                                                          | We received your request. Foloo has blocked new activity and is deleting your data.                                                                                  |
+| En proceso      | Eliminación en proceso                                                                                                                                                         | Deletion in progress                                                                                                                                                 |
+| Bloqueada       | No pudimos completar una etapa. Tu cuenta permanece bloqueada y la solicitud conserva su lugar.                                                                                | We could not complete one step. Your account remains locked and your request is still active.                                                                        |
+| Final           | La eliminación finalizó. Conserva este comprobante: {receipt}.                                                                                                                 | Deletion is complete. Keep this receipt: {receipt}.                                                                                                                  |
+| Error previo    | No pudimos enviar la solicitud. Tu cuenta no fue bloqueada. Intenta de nuevo.                                                                                                  | We could not submit the request. Your account was not locked. Try again.                                                                                             |
 
 Producto definió un máximo operativo de 15 días desde aceptación backend hasta
 `completed|blocked`; no obliga a esperar, no retrasa una eliminación que pueda
@@ -474,14 +474,14 @@ Los códigos HTTP definitivos se validan con el contrato de errores existente;
 
 ### Infraestructura e IAM mínimo
 
-| Principal | Permisos nuevos mínimos |
-|---|---|
-| ApiFunction | `states:StartExecution` solo sobre state machine deletion; acceso DB actual. Sin delete S3/Cognito |
-| State machine role | `lambda:InvokeFunction` solo sobre workers de deletion |
-| S3 cleanup worker | `s3:DeleteObject` sobre el bucket Foloo; `s3:ListBucket` solo si se aprueba auditoría por prefijo y con condición de prefix |
-| Provider worker | Reutilizar secret/KMS actuales; contrato de revocación sin acceso a RDS |
+| Principal          | Permisos nuevos mínimos                                                                                                                                                                      |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ApiFunction        | `states:StartExecution` solo sobre state machine deletion; acceso DB actual. Sin delete S3/Cognito                                                                                           |
+| State machine role | `lambda:InvokeFunction` solo sobre workers de deletion                                                                                                                                       |
+| S3 cleanup worker  | `s3:DeleteObject` sobre el bucket Foloo; `s3:ListBucket` solo si se aprueba auditoría por prefijo y con condición de prefix                                                                  |
+| Provider worker    | Reutilizar secret/KMS actuales; contrato de revocación sin acceso a RDS                                                                                                                      |
 | Identity finalizer | `cognito-idp:AdminUserGlobalSignOut` y `cognito-idp:AdminDeleteUser` solo sobre el User Pool Foloo; permiso de lookup por `sub` solo si el username no puede congelarse de claims confiables |
-| DB worker | Secrets RDS y conexión VPC actuales; sin Cognito ni secretos OAuth |
+| DB worker          | Secrets RDS y conexión VPC actuales; sin Cognito ni secretos OAuth                                                                                                                           |
 
 Agregar endpoint privado de Step Functions si ApiFunction en subred aislada lo
 requiere; no añadir NAT solo para este flujo. Logs usan requestId/deletionId,
@@ -506,26 +506,26 @@ en E-14 y trazabilidad detallada en
 [`account-deletion-requirements-traceability.md`](account-deletion-requirements-traceability.md).
 Los parámetros sujetos a aprobación permanecen bloqueados.
 
-| ID | Criterio verificable |
-|---|---|
-| `AD-01` | Cuenta muestra una ruta localizable ES/EN distinta de logout; web permite iniciar sin reinstalar |
-| `AD-02` | Sesión fuera de la ventana que apruebe Seguridad —cinco minutos como propuesta— o identidad no reautenticada no puede crear la solicitud; no se usa email como owner |
-| `AD-03` | Una aceptación confirma request+barrera atómicamente y repetirla no duplica job |
-| `AD-04` | Después de la barrera, ningún endpoint, callback, outbox, pull o token antiguo crea/modifica datos |
-| `AD-05` | Cuenta con datos en todos los dominios termina sin filas activas ni objetos S3 del workspace, salvo retención aprobada |
-| `AD-06` | Revocación sender y eliminación de ciphertext/state/PKCE son reintentables y verificables por proveedor |
-| `AD-07` | Cognito se elimina solo después del cleanup; sesiones de todos los dispositivos dejan de operar |
-| `AD-08` | Un segundo dispositivo observa la barrera, detiene sync, limpia solo su owner y no resucita datos |
-| `AD-09` | Sin red no se anuncia recepción; outbox pendiente se explica y sigue la decisión aprobada |
+| ID      | Criterio verificable                                                                                                                                                             |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AD-01` | Cuenta muestra una ruta localizable ES/EN distinta de logout; web permite iniciar sin reinstalar                                                                                 |
+| `AD-02` | Sesión fuera de la ventana que apruebe Seguridad —cinco minutos como propuesta— o identidad no reautenticada no puede crear la solicitud; no se usa email como owner             |
+| `AD-03` | Una aceptación confirma request+barrera atómicamente y repetirla no duplica job                                                                                                  |
+| `AD-04` | Después de la barrera, ningún endpoint, callback, outbox, pull o token antiguo crea/modifica datos                                                                               |
+| `AD-05` | Cuenta con datos en todos los dominios termina sin filas activas ni objetos S3 del workspace, salvo retención aprobada                                                           |
+| `AD-06` | Revocación sender y eliminación de ciphertext/state/PKCE son reintentables y verificables por proveedor                                                                          |
+| `AD-07` | Cognito se elimina solo después del cleanup; sesiones de todos los dispositivos dejan de operar                                                                                  |
+| `AD-08` | Un segundo dispositivo observa la barrera, detiene sync, limpia solo su owner y no resucita datos                                                                                |
+| `AD-09` | Sin red no se anuncia recepción; outbox pendiente se explica y sigue la decisión aprobada                                                                                        |
 | `AD-10` | Fallo S3/provider/DB/Cognito reanuda desde su stage sin repetir efectos ni presentar éxito; una solicitud no supera el máximo operativo aprobado sin quedar `blocked` y escalada |
-| `AD-11` | Purga local elimina filas/archivos del owner y conserva intacta otra cuenta del mismo dispositivo |
-| `AD-12` | Restore de backup reaplica ledger y no reabre una cuenta eliminada |
-| `AD-13` | Logs/receipt omiten PII, tokens, payloads, paths y object keys; acceso administrativo queda auditado |
-| `AD-14` | Retención aprobada está aislada, minimizada, no accesible por producto y descrita al usuario |
-| `AD-15` | Copias externas y datos fuera de control se explican sin prometer eliminación imposible |
-| `AD-16` | Trial/Unlimited y datos de otras cuentas mantienen su comportamiento; deletion no concede ni consume entitlement |
-| `AD-17` | Durante 30 días no puede reprovisionarse el mismo correo verificado, incluso con IdP externo; después crea una cuenta nueva sin datos ni beneficios anteriores |
-| `AD-18` | Con PRO activo no se afirma cancelación hasta confirmarla; fallos quedan reintentables/escalados y no bloquean la resolución posterior del incidente |
+| `AD-11` | Purga local elimina filas/archivos del owner y conserva intacta otra cuenta del mismo dispositivo                                                                                |
+| `AD-12` | Restore de backup reaplica ledger y no reabre una cuenta eliminada                                                                                                               |
+| `AD-13` | Logs/receipt omiten PII, tokens, payloads, paths y object keys; acceso administrativo queda auditado                                                                             |
+| `AD-14` | Retención aprobada está aislada, minimizada, no accesible por producto y descrita al usuario                                                                                     |
+| `AD-15` | Copias externas y datos fuera de control se explican sin prometer eliminación imposible                                                                                          |
+| `AD-16` | Trial/Unlimited y datos de otras cuentas mantienen su comportamiento; deletion no concede ni consume entitlement                                                                 |
+| `AD-17` | Durante 30 días no puede reprovisionarse el mismo correo verificado, incluso con IdP externo; después crea una cuenta nueva sin datos ni beneficios anteriores                   |
+| `AD-18` | Con PRO activo no se afirma cancelación hasta confirmarla; fallos quedan reintentables/escalados y no bloquean la resolución posterior del incidente                             |
 
 ## 12. Matriz mínima de pruebas STORE-02E
 
@@ -589,22 +589,22 @@ Estados usados:
   validaciones aplicables. No se registra una autorización integral de
   STORE-02E al corte de este documento.
 
-| ID | Acuerdo o propuesta registrada | Estado | Validaciones todavía requeridas |
-|---|---|---|---|
-| `DEC-AD-01` | Borrar datos personales/operativos; retener solo información administrativa, contable o legal realmente exigida, nunca indefinidamente por defecto | Acuerdo Producto/CBQA comunicado; autorización de implementación pendiente | Legal/Contabilidad definen categorías, base, región y plazos |
-| `DEC-AD-02` | Backups ordinarios: **15 días propuestos** y ledger obligatorio para impedir resurrección | Propuesta pendiente, no política aprobada | Infra/Seguridad validan periodo, accesos y runbook; Legal separa legal hold |
-| `DEC-AD-03` | Registro mínimo seudonimizado solo con propósito, justificación y plazo definidos | Acuerdo Producto/CBQA comunicado; diseño pendiente | Legal/Seguridad definen campos, HMAC, plazo y acceso |
-| `DEC-AD-04` | Máximo operativo de **15 días** desde aceptación hasta `completed|blocked`; iniciar y completar cuanto antes | Regla de Producto comunicada; promesa operativa/legal aún no validada | Operación/Legal validan viabilidad por región, escalamiento y confirmación |
-| `DEC-AD-05` | Irreversible tras aceptación. El mismo correo puede registrarse después de **30 días** como cuenta nueva, sin datos/beneficios anteriores | Regla de Producto/CBQA comunicada; mecanismo pendiente | Seguridad/Legal validan enforcement mínimo, IdP externos, PII y excepciones |
-| `DEC-AD-06` | Ofrecer sync; permitir continuar con advertencia irreversible y confirmación explícita | Acuerdo Producto/CBQA comunicado; copy/implementación pendientes | Producto/Legal validan copy/consentimiento; QA cubre outbox |
-| `DEC-AD-07` | Reintentos automáticos, registro de fallos y escalamiento | Acuerdo comunicado; **owner operativo no designado** | Operación/Seguridad fijan responsable, límites, alertas, runbook y `blocked` |
-| `DEC-AD-08` | Purga local selectiva por owner; cifrado local se evalúa por separado | Acuerdo Producto/CBQA comunicado | Seguridad/Legal revisan protección; QA valida dispositivo multi-owner |
-| `DEC-AD-09` | Reautenticación máxima propuesta de **5 minutos**, obligatoriamente verificada por backend | Propuesta pendiente | Seguridad valida señal Cognito, reloj, federación y fallback |
-| `DEC-AD-10` | Pagos/suscripciones previstos en `foloo.io`; advertir PRO, cancelar renovaciones, confirmar resultado, notificar por email y conservar resolución de fallos | Dirección Producto/CBQA comunicada; FL-021/implementación pendientes | Payments/Legal validan proveedor/API, pagos, reembolsos, periodos y políticas Apple/Google |
-| `DEC-AD-11` | Exportación previa voluntaria; nunca requisito para eliminar | Acuerdo Producto/CBQA comunicado | Legal confirma portabilidad y Producto el copy |
-| `DEC-AD-12` | `foloo.io` como punto principal; ruta candidata `foloo.io/delete-account`; app/web comparten pipeline | Dirección Producto/CBQA comunicada; ruta no publicada | TI valida hosting, TLS, owner, monitoreo y soporte; Legal contenido |
-| `DEC-AD-13` | Mantener abierta la definición de roles y atención de derechos sobre datos de terceros en Leads | Responsable no designado; decisión Legal pendiente | Legal define controlador/encargado por mercado, proceso y owner operativo |
-| `DEC-AD-14` | Foloo es multirregión; no asumir lanzamiento exclusivo en México | Dirección comunicada; alcance de lanzamiento pendiente | Dirección/Producto/Legal confirman países, idiomas, edad mínima y controles |
+| ID          | Acuerdo o propuesta registrada                                                                                                                                                        | Estado                                                                      | Validaciones todavía requeridas                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `DEC-AD-01` | Borrar datos personales/operativos; retener solo información administrativa, contable o legal realmente exigida, nunca indefinidamente por defecto                                    | Acuerdo Producto/CBQA comunicado; autorización de implementación pendiente  | Legal/Contabilidad definen categorías, base, región y plazos                                |
+| `DEC-AD-02` | Backups ordinarios: **15 días** y ledger obligatorio para impedir resurrección                                                                                                        | Política operativa aprobada para STORE-02D; validación productiva pendiente | Infra/Seguridad verifican aplicación efectiva, accesos y runbook; Legal separa legal hold   |
+| `DEC-AD-03` | Registro mínimo seudonimizado solo con propósito, justificación y plazo definidos                                                                                                     | Acuerdo Producto/CBQA comunicado; diseño pendiente                          | Legal/Seguridad definen campos, HMAC, plazo y acceso                                        |
+| `DEC-AD-04` | Máximo operativo de **15 días naturales** desde aceptación hasta eliminación verificada; iniciar y completar cuanto antes                                                             | Regla operativa aprobada para STORE-02D                                     | TI de CBQA opera alertas y escalamiento; Legal valida su comunicación por región            |
+| `DEC-AD-05` | Irreversible tras aceptación. El mismo correo puede registrarse después de **30 días** como cuenta nueva, sin datos/beneficios anteriores                                             | Regla de Producto/CBQA comunicada; mecanismo pendiente                      | Seguridad/Legal validan enforcement mínimo, IdP externos, PII y excepciones                 |
+| `DEC-AD-06` | Ofrecer sync; permitir continuar con advertencia irreversible y confirmación explícita                                                                                                | Acuerdo Producto/CBQA comunicado; copy/implementación pendientes            | Producto/Legal validan copy/consentimiento; QA cubre outbox                                 |
+| `DEC-AD-07` | Reintentos automáticos, registro de fallos y escalamiento                                                                                                                             | Owner de equipo aprobado: TI de CBQA Solutions                              | `PEND-OPS-01` asigna responsables individuales y destinos de alertas antes del lanzamiento  |
+| `DEC-AD-08` | Purga local selectiva por owner; cifrado local se evalúa por separado                                                                                                                 | Acuerdo Producto/CBQA comunicado                                            | Seguridad/Legal revisan protección; QA valida dispositivo multi-owner                       |
+| `DEC-AD-09` | Reautenticación reciente máxima de **5 minutos**, obligatoriamente verificada por backend                                                                                             | Aprobada para STORE-02D                                                     | Seguridad mantiene pruebas por proveedor y fallback asistido                                |
+| `DEC-AD-10` | Para PRO, cancelar la renovación mediante Stripe y verificarla antes de la eliminación final; no emitir reembolsos automáticos sin perjuicio de derechos legales; notificar por email | Implementada para STORE-02D                                                 | Legal/Payments validan categorías contables, excepciones legales y configuración productiva |
+| `DEC-AD-11` | Exportación previa voluntaria; nunca requisito para eliminar                                                                                                                          | Acuerdo Producto/CBQA comunicado                                            | Legal confirma portabilidad y Producto el copy                                              |
+| `DEC-AD-12` | `foloo.io` como punto principal; ruta candidata `foloo.io/delete-account`; app/web comparten pipeline                                                                                 | Dirección Producto/CBQA comunicada; ruta no publicada                       | TI valida hosting, TLS, owner, monitoreo y soporte; Legal contenido                         |
+| `DEC-AD-13` | Mantener abierta la definición de roles y atención de derechos sobre datos de terceros en Leads                                                                                       | Responsable no designado; decisión Legal pendiente                          | Legal define controlador/encargado por mercado, proceso y owner operativo                   |
+| `DEC-AD-14` | Foloo es multirregión; no asumir lanzamiento exclusivo en México                                                                                                                      | Dirección comunicada; alcance de lanzamiento pendiente                      | Dirección/Producto/Legal confirman países, idiomas, edad mínima y controles                 |
 
 La agenda y espacio de minuta están en
 [`account-deletion-cbqa-approval-agenda.md`](account-deletion-cbqa-approval-agenda.md).
@@ -618,16 +618,16 @@ seguridad, operación, pagos o cumplimiento regional.
 Preparar diagramas, threat model, casos de prueba y spikes que no creen recursos
 ni DDL puede continuar. La implementación funcional se desbloquea así:
 
-| Subtarea STORE-02E | Bloqueos mínimos antes de implementar | Puede comenzar después de |
-|---|---|---|
-| `02E-01` Aprobaciones/trazas | Requisitos/E-14/trazas formalizados; validaciones, owners y autorización explícita siguen pendientes | **Completada documentalmente**; no habilita código ni resuelve aprobaciones externas |
-| `02E-02` DDL/barrera | DEC-AD-01/02/03/05/09, enforcement de 30 días y restore | Solo diseño/spike ahora; implementación tras Legal + Seguridad + Infra |
-| `02E-03` API/request | DEC-AD-04/05/06/09/11; errores/receipt y reautenticación | Borrador OpenAPI/tests ahora; implementación tras Seguridad + Producto/Legal |
-| `02E-04` Orquestación/workers | DEC-AD-01/02/03/07/10/13/14; IAM, owner y runbooks | Diagramas/provider research ahora; implementación tras Legal + Seguridad + Infra/Operación; Payments para PRO |
-| `02E-05` Flutter | DEC-AD-04/05/06/08/09/10/11; copy ES/EN | Prototipo/copy ahora; código tras Seguridad/Legal y autorización funcional |
-| `02E-06` Recurso web | DEC-AD-04/05/09/12/14 | Arquitectura ahora; implementación/publicación tras TI + Legal/Seguridad |
-| `02E-07` QA/security | Datos sintéticos y plan pueden prepararse ahora; pruebas destructivas esperan 02E-02–06 | Cada componente implementado en DEV y autorización de ejecución |
-| `02E-08` Compliance final | Todas las decisiones y evidencia E2E; D-21 cuando corresponda iOS | Cierre técnico/legal y revisión de formularios |
+| Subtarea STORE-02E            | Bloqueos mínimos antes de implementar                                                                | Puede comenzar después de                                                                                     |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `02E-01` Aprobaciones/trazas  | Requisitos/E-14/trazas formalizados; validaciones, owners y autorización explícita siguen pendientes | **Completada documentalmente**; no habilita código ni resuelve aprobaciones externas                          |
+| `02E-02` DDL/barrera          | DEC-AD-01/02/03/05/09, enforcement de 30 días y restore                                              | Solo diseño/spike ahora; implementación tras Legal + Seguridad + Infra                                        |
+| `02E-03` API/request          | DEC-AD-04/05/06/09/11; errores/receipt y reautenticación                                             | Borrador OpenAPI/tests ahora; implementación tras Seguridad + Producto/Legal                                  |
+| `02E-04` Orquestación/workers | DEC-AD-01/02/03/07/10/13/14; IAM, owner y runbooks                                                   | Diagramas/provider research ahora; implementación tras Legal + Seguridad + Infra/Operación; Payments para PRO |
+| `02E-05` Flutter              | DEC-AD-04/05/06/08/09/10/11; copy ES/EN                                                              | Prototipo/copy ahora; código tras Seguridad/Legal y autorización funcional                                    |
+| `02E-06` Recurso web          | DEC-AD-04/05/09/12/14                                                                                | Arquitectura ahora; implementación/publicación tras TI + Legal/Seguridad                                      |
+| `02E-07` QA/security          | Datos sintéticos y plan pueden prepararse ahora; pruebas destructivas esperan 02E-02–06              | Cada componente implementado en DEV y autorización de ejecución                                               |
+| `02E-08` Compliance final     | Todas las decisiones y evidencia E2E; D-21 cuando corresponda iOS                                    | Cierre técnico/legal y revisión de formularios                                                                |
 
 No hay un camino seguro para iniciar DDL, endpoints, pantallas o AWS solo con
 los acuerdos comunicados. FL-020, FL-021 y FL-022 conservan sus IDs y alcances
@@ -635,18 +635,18 @@ canónicos.
 
 ## 16. Riesgos principales
 
-| Riesgo | Severidad | Mitigación contractual |
-|---|:---:|---|
-| Reprovisión automática tras borrar | Crítica | Barrier HMAC atómica antes de `ensure_personal_workspace` |
-| Eliminar Cognito demasiado pronto | Crítica | Cognito último; receipt externo seguro |
-| Borrado parcial S3/DB/provider | Alta | Orquestador, inventory congelado, stages idempotentes y `blocked` |
-| JWT revocado aún aceptado por validación local | Alta | Barrera consultada en cada principal/request |
-| Restore de backup resucita datos | Crítica | Ledger externo y runbook de restore obligatorio |
-| Borrar datos de otro owner/dispositivo | Crítica | IDs backend, queries owner-scoped y tests multi-account |
-| Perder outbox sin consentimiento | Alta | Conteo, copy y decisión explícita antes de solicitud |
-| Retener PII en receipt/logs | Alta | Receipt opaco, hashes, redacción y tests |
-| Prometer borrado de correos/exportaciones externos | Media | Disclosure ES/EN y política de alcance |
-| Interacción futura con pagos | Alta | DEC-AD-10 y D-01–D-04 antes de FL-021 |
+| Riesgo                                             | Severidad | Mitigación contractual                                            |
+| -------------------------------------------------- | :-------: | ----------------------------------------------------------------- |
+| Reprovisión automática tras borrar                 |  Crítica  | Barrier HMAC atómica antes de `ensure_personal_workspace`         |
+| Eliminar Cognito demasiado pronto                  |  Crítica  | Cognito último; receipt externo seguro                            |
+| Borrado parcial S3/DB/provider                     |   Alta    | Orquestador, inventory congelado, stages idempotentes y `blocked` |
+| JWT revocado aún aceptado por validación local     |   Alta    | Barrera consultada en cada principal/request                      |
+| Restore de backup resucita datos                   |  Crítica  | Ledger externo y runbook de restore obligatorio                   |
+| Borrar datos de otro owner/dispositivo             |  Crítica  | IDs backend, queries owner-scoped y tests multi-account           |
+| Perder outbox sin consentimiento                   |   Alta    | Conteo, copy y decisión explícita antes de solicitud              |
+| Retener PII en receipt/logs                        |   Alta    | Receipt opaco, hashes, redacción y tests                          |
+| Prometer borrado de correos/exportaciones externos |   Media   | Disclosure ES/EN y política de alcance                            |
+| Interacción futura con pagos                       |   Alta    | DEC-AD-10 y D-01–D-04 antes de FL-021                             |
 
 ## 17. Fuentes oficiales
 

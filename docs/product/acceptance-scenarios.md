@@ -431,10 +431,10 @@ backend que Android/iOS.
   opcional, límites externos y estado PRO disponible. **Sincronizar primero**
   conserva el flujo normal; continuar sin sincronizar exige consentimiento
   explícito y no presenta la exportación como requisito.
-- Sin evidencia Cognito reciente el backend rechaza la confirmación y solicita
+- Sin evidencia Cognito de los últimos cinco minutos el backend rechaza la confirmación y solicita
   reautenticación. Credenciales o un booleano enviados por el cliente nunca
   sustituyen esa verificación. El valor productivo de frescura se prueba solo
-  después de la aprobación de Seguridad.
+  mediante reautenticación interactiva; un refresh silencioso no basta.
 - Confirmar crea atómicamente una única solicitud y su barrera. Dos taps, dos
   dispositivos o la misma idempotency key devuelven esa solicitud, sin doble
   cancelación, revocación, borrado o receipt. Abandonar el preflight no bloquea
@@ -455,17 +455,19 @@ backend que Android/iOS.
   OAuth inutilizable y Cognito no encontrado, salvo categorías retenidas bajo
   política aprobada y aislada. El receipt permite consultar estado sin exponer
   email, `sub`, tokens, paths, object keys o IDs internos.
-- El proceso comienza cuanto antes y, a más tardar al día 15, termina en
-  `completed` o `blocked` con incidente escalado. Publicar ese máximo como SLA
-  espera validación regional de Operación/Legal.
+- El proceso comienza cuanto antes, persiste el deadline desde `acceptedAt`,
+  alerta a TI de CBQA Solutions en los días 10 y 13 y escala un incidente
+  crítico al día 15 si no está `completed`; `blocked` conserva la barrera y no
+  se comunica como éxito.
 - Durante 30 días, email/password y Google con una identidad equivalente son
   rechazados sin revelar historial. Después se crea `sub`, account y workspace
   nuevos, sin datos, PRO, conexiones o beneficios anteriores; la elegibilidad
   de trial usa la política que Producto/Legal aprueben.
 - Restaurar un snapshot PostgreSQL anterior no reabre cuenta, workspace,
   callbacks ni sesiones: antes de tráfico se reaplica el ledger vigente. La
-  expiración ordinaria de backups se comprueba contra el plazo aprobado; la
-  propuesta de 15 días no se prueba como política mientras `D-13` siga abierta.
+  expiración ordinaria de backups se comprueba contra 15 días. Snapshots
+  manuales, exportaciones y legal holds permanecen cerrados al tráfico hasta
+  reaplicar tombstones y completar la reconciliación.
 - Los avisos ES/EN distinguen solicitud, trabajo en curso, bloqueo y
   finalización; explican copias externas y retenciones aprobadas sin prometer
   eliminar datos fuera del control de Foloo.

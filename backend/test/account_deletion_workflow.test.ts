@@ -646,6 +646,7 @@ test("workflow store never exposes another owner's current request", async () =>
     createdAt: now,
     expiresAt: now,
     acceptedAt: null,
+    operationalDeadline: null,
     updatedAt: now,
     completedAt: null,
     receiptHash: null,

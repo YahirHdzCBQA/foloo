@@ -162,6 +162,7 @@ export class WorkflowAccountDeletionHttpController<
           requestId: result.record.requestId,
           status: result.record.status,
           acceptedAt: result.record.acceptedAt?.toISOString(),
+          operationalDeadline: result.record.operationalDeadline?.toISOString(),
           receipt: result.receipt,
           receiptExpiresAt: result.record.receiptExpiresAt?.toISOString(),
         },
@@ -258,6 +259,8 @@ function publicStatus(record: AccountDeletionRecord) {
   return {
     requestId: record.requestId,
     status: record.status,
+    acceptedAt: record.acceptedAt?.toISOString() ?? null,
+    operationalDeadline: record.operationalDeadline?.toISOString() ?? null,
     updatedAt: record.updatedAt.toISOString(),
     completedAt: record.completedAt?.toISOString() ?? null,
     supportCode: record.supportCode,
