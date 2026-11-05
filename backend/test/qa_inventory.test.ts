@@ -31,6 +31,18 @@ const counts = [
   "livePersonalWorkspaces",
   "memberships",
   "ownerMemberships",
+  "workspaceMembers",
+  "otherWorkspaceMembers",
+  "writtenNotes",
+  "businessCardMedia",
+  "referenceImageMedia",
+  "voiceNoteMedia",
+  "mediaObjectReferences",
+  "contentObjectReferences",
+  "accountsWithStripeCustomerReference",
+  "accountsWithStripeSubscriptionReference",
+  "accountsWithBillingEventTimestamp",
+  "accountsWithCurrentPeriodEnd",
   "seller_profiles",
   "events",
   "leads",
@@ -107,44 +119,19 @@ test("server binds the configured exact subject and DEV execution ARN", () => {
   ])
     assert.throws(() => inventorySubject(env, bad), /not_authorized/);
 });
-test("CDK inventory is opt-in and requires exactly the already-authorized synthetic subject", () => {
-  assert.deepEqual(qaInventoryEnvironment("dev", undefined, false, [], []), {});
+test("CDK inventory is an independent DEV-only operator opt-in", () => {
+  assert.deepEqual(qaInventoryEnvironment("dev", undefined), {});
+  assert.equal(qaInventoryEnvironment("dev", sub).QA_INVENTORY_SUBJECT, sub);
   assert.equal(
-    qaInventoryEnvironment(
-      "dev",
-      sub,
-      true,
-      [hash("foloo-account-deletion-qa")],
-      [hash("foloo-web-session")],
-    ).QA_INVENTORY_SUBJECT,
-    sub,
+    qaInventoryEnvironment("dev", sub).QA_INVENTORY_SUBJECT_HASH,
+    hash("foloo-account-deletion-qa"),
   );
-  for (const [stage, enabled, hashes, web] of [
-    [
-      "prod",
-      true,
-      [hash("foloo-account-deletion-qa")],
-      [hash("foloo-web-session")],
-    ],
-    [
-      "dev",
-      false,
-      [hash("foloo-account-deletion-qa")],
-      [hash("foloo-web-session")],
-    ],
-    ["dev", true, [], []],
-    ["dev", true, [hash("foloo-web-session")], [hash("foloo-web-session")]],
-    [
-      "dev",
-      true,
-      [hash("foloo-account-deletion-qa"), hash("foloo-account-deletion-qa")],
-      [hash("foloo-web-session")],
-    ],
-    ["dev", true, [hash("foloo-account-deletion-qa")], []],
+  for (const [stage, subject] of [
+    ["prod", sub],
+    ["dev", "person@example.invalid"],
+    ["dev", ""],
   ] as const)
-    assert.throws(() =>
-      qaInventoryEnvironment(stage, sub, enabled, hashes, web),
-    );
+    assert.throws(() => qaInventoryEnvironment(stage, subject));
 });
 test("snapshot uses READ ONLY, timeout, one parameterized SELECT and rollback without provisioning", async () => {
   const f = fake({
@@ -153,10 +140,23 @@ test("snapshot uses READ ONLY, timeout, one parameterized SELECT and rollback wi
     internalAccountExists: true,
     subscriptionStates: ["trial"],
     leads: "2",
+    workspaceMembers: "1",
+    otherWorkspaceMembers: "0",
+    writtenNotes: "2",
+    businessCardMedia: "1",
+    referenceImageMedia: "3",
+    voiceNoteMedia: "1",
+    mediaObjectReferences: "5",
+    contentObjectReferences: "1",
     sensitive: "must not escape",
   });
   const out = await inspectSyntheticInventory(f.pool as never, sub);
   assert.equal(out.leads, 2);
+  assert.equal(out.workspaceMembers, 1);
+  assert.equal(out.otherWorkspaceMembers, 0);
+  assert.equal(out.writtenNotes, 2);
+  assert.equal(out.voiceNoteMedia, 1);
+  assert.equal(out.mediaObjectReferences, 5);
   assert.equal(out.internalAccountExists, true);
   assert.deepEqual(out.subscriptionStates, ["trial"]);
   assert.equal(
@@ -170,6 +170,12 @@ test("snapshot uses READ ONLY, timeout, one parameterized SELECT and rollback wi
   assert.ok(!select.sql.includes(sub));
   assert.match(select.sql, /cognito_sub=\$1/);
   assert.match(select.sql, /a.kind='personal'/);
+  assert.match(select.sql, /otherWorkspaceMembers/);
+  assert.match(select.sql, /NULLIF\(btrim\(d\.written_note\),''\)/);
+  assert.match(select.sql, /d\.kind='business_card'/);
+  assert.match(select.sql, /d\.kind='reference_image'/);
+  assert.match(select.sql, /d\.kind='voice_note'/);
+  assert.match(select.sql, /accountsWithStripeSubscriptionReference/);
   for (const call of f.calls)
     assert.doesNotMatch(
       call.sql,

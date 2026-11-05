@@ -21,6 +21,7 @@ enum AuthFailureCode {
   rateLimited,
   invalidInput,
   unexpected,
+  socialLoginCancelled,
   socialLoginUnavailable,
 }
 

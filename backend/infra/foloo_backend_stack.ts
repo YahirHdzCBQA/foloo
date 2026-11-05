@@ -38,6 +38,16 @@ type FolooBackendStackProps = cdk.StackProps & {
     enabled: boolean;
     subjectHashes: readonly string[];
   };
+  cognitoAllowedFederatedProviders?: readonly (
+    "Google" | "SignInWithApple" | "Microsoft"
+  )[];
+  cognitoAppleIdentityProvider?: {
+    enabled: boolean;
+    servicesId: string;
+    teamId: string;
+    keyId: string;
+    privateKeySecretArn?: string;
+  };
   accountDeletionQa?: {
     enabled: boolean;
     runtimeEnabled?: boolean;
@@ -52,6 +62,7 @@ type FolooBackendStackProps = cdk.StackProps & {
     finalizerEnabled: boolean;
     subjectHashes: readonly string[];
   };
+  accountDeletionSesNotificationsEnabled?: boolean;
   accountDeletionKeyArns: {
     identityHmacKeyArn: string;
     notificationRecipientKeyArn: string;
@@ -85,12 +96,59 @@ export class FolooBackendStack extends cdk.Stack {
       props.accountDeletionQa?.workerEventSourceEnabled === true;
     const accountDeletionFinalizerEnabled =
       props.accountDeletionQa?.finalizerEnabled === true;
+    const accountDeletionSesNotificationsEnabled =
+      props.accountDeletionSesNotificationsEnabled === true;
+    const cognitoAllowedFederatedProviders =
+      props.cognitoAllowedFederatedProviders ?? (["Google"] as const);
+    if (
+      cognitoAllowedFederatedProviders.length === 0 ||
+      new Set(cognitoAllowedFederatedProviders).size !==
+        cognitoAllowedFederatedProviders.length
+    ) {
+      throw new Error("Cognito federated provider allowlist is invalid.");
+    }
 
     const userPool = cognito.UserPool.fromUserPoolId(
       this,
       "ExistingUserPool",
       config.userPoolId,
     );
+    if (props.cognitoAppleIdentityProvider?.enabled) {
+      const applePrivateKeySecretArn =
+        props.cognitoAppleIdentityProvider.privateKeySecretArn;
+      if (!applePrivateKeySecretArn) {
+        throw new Error("Apple IdP secret ARN is required when enabled.");
+      }
+      const appleSecretArn = cdk.Arn.split(
+        applePrivateKeySecretArn,
+        cdk.ArnFormat.COLON_RESOURCE_NAME,
+      );
+      if (
+        appleSecretArn.region !== config.region ||
+        (!cdk.Token.isUnresolved(this.account) &&
+          appleSecretArn.account !== this.account)
+      ) {
+        throw new Error("Apple IdP secret must belong to the DEV stack.");
+      }
+      const applePrivateKeySecret = secretsmanager.Secret.fromSecretCompleteArn(
+        this,
+        "ApplePrivateKeySecret",
+        applePrivateKeySecretArn,
+      );
+      new cognito.UserPoolIdentityProviderApple(this, "AppleIdentityProvider", {
+        userPool,
+        clientId: props.cognitoAppleIdentityProvider.servicesId,
+        teamId: props.cognitoAppleIdentityProvider.teamId,
+        keyId: props.cognitoAppleIdentityProvider.keyId,
+        privateKeyValue:
+          applePrivateKeySecret.secretValueFromJson("privateKey"),
+        scopes: ["email", "name"],
+        attributeMapping: {
+          email: cognito.ProviderAttribute.APPLE_EMAIL,
+          emailVerified: cognito.ProviderAttribute.APPLE_EMAIL_VERIFIED,
+        },
+      });
+    }
     const webUserPoolClient = new cognito.UserPoolClient(
       this,
       "WebUserPoolClient",
@@ -353,7 +411,8 @@ export class FolooBackendStack extends cdk.Stack {
         ACCOUNT_DELETION_QA_SUBJECT_HASHES: (
           props.accountDeletionQa?.subjectHashes ?? []
         ).join(","),
-        ACCOUNT_DELETION_NOTIFICATION_MODE: "disabled",
+        ACCOUNT_DELETION_NOTIFICATION_MODE:
+          accountDeletionSesNotificationsEnabled ? "ses" : "disabled",
       },
       bundling: { minify: true, sourceMap: true },
     });
@@ -489,7 +548,8 @@ export class FolooBackendStack extends cdk.Stack {
             accountDeletion.recipientKey.keyArn,
           ACCOUNT_DELETION_FROM_ADDRESS: "hello@foloo.io",
           ACCOUNT_DELETION_SUPPORT_ADDRESS: "hello@foloo.io",
-          ACCOUNT_DELETION_SES_IDENTITY_VERIFIED: "false",
+          ACCOUNT_DELETION_SES_IDENTITY_VERIFIED:
+            accountDeletionSesNotificationsEnabled ? "true" : "false",
           FOLOO_ACCOUNT_DELETION_ENABLED: accountDeletionEnabled
             ? "true"
             : "false",
@@ -528,7 +588,8 @@ export class FolooBackendStack extends cdk.Stack {
             config.appClientId,
             webClientId,
           ].join(","),
-          COGNITO_ALLOWED_FEDERATED_PROVIDERS: "Google",
+          COGNITO_ALLOWED_FEDERATED_PROVIDERS:
+            cognitoAllowedFederatedProviders.join(","),
         },
         bundling: { minify: true, sourceMap: true },
       },
@@ -562,7 +623,8 @@ export class FolooBackendStack extends cdk.Stack {
             config.appClientId,
             webClientId,
           ].join(","),
-          COGNITO_ALLOWED_FEDERATED_PROVIDERS: "Google",
+          COGNITO_ALLOWED_FEDERATED_PROVIDERS:
+            cognitoAllowedFederatedProviders.join(","),
         },
         bundling: { minify: true, sourceMap: true },
       },
@@ -642,7 +704,8 @@ export class FolooBackendStack extends cdk.Stack {
           ACCOUNT_DELETION_QUEUE_URL: accountDeletion.queue.queueUrl,
           ACCOUNT_DELETION_NOTIFICATION_FUNCTION_NAME:
             accountDeletionEmail.functionName,
-          ACCOUNT_DELETION_NOTIFICATION_MODE: "disabled",
+          ACCOUNT_DELETION_NOTIFICATION_MODE:
+            accountDeletionSesNotificationsEnabled ? "ses" : "disabled",
           FOLOO_ENVIRONMENT: config.name,
           FOLOO_ACCOUNT_DELETION_NORMAL_ACCESS_ENABLED:
             accountDeletionNormalAccessEnabled ? "true" : "false",
@@ -971,9 +1034,6 @@ export class FolooBackendStack extends cdk.Stack {
           ...qaInventoryEnvironment(
             config.name,
             this.node.tryGetContext("qaInventorySubject"),
-            props.accountDeletionQa?.enabled === true,
-            props.accountDeletionQa?.subjectHashes ?? [],
-            props.webSessionQa?.subjectHashes ?? [],
           ),
         },
         bundling: {

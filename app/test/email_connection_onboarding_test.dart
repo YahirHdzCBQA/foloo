@@ -160,6 +160,42 @@ void main() {
     );
   });
 
+  testWidgets('AUT-14 Apple auth never implies an Apple sender provider', (
+    tester,
+  ) async {
+    final api = _ConnectionApi();
+    await tester.pumpWidget(
+      _localized(
+        EmailOnboardingScreen(
+          ownerSub: 'seller-apple',
+          accountEmail: 'relay@example.com',
+          authProvider: AuthProvider.apple,
+          connectionService: EmailConnectionService(api, const _Session()),
+          onComplete: (_) async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('emailOnboardingSameAccountButton')),
+      findsNothing,
+    );
+    expect(find.text('relay@example.com'), findsNothing);
+    expect(
+      find.byKey(const Key('emailOnboardingGoogleButton')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('emailOnboardingMicrosoftButton')),
+      findsOneWidget,
+    );
+    expect(
+      api.requests.where((request) => request.path.endsWith('/apple')),
+      isEmpty,
+    );
+  });
+
   testWidgets('Microsoft sender limitation is localized before OAuth', (
     tester,
   ) async {
@@ -345,7 +381,7 @@ void main() {
     );
   });
 
-  testWidgets('EmailScreen renders safe Google and Microsoft backend states', (
+  testWidgets('EmailScreen no longer duplicates sender account controls', (
     tester,
   ) async {
     final persistence = LocalPersistence.inMemory();
@@ -381,11 +417,11 @@ void main() {
 
     await tester.pumpWidget(screen(true));
     await tester.pumpAndSettle();
-    expect(find.text('Google · go***@gmail.com'), findsOneWidget);
-    expect(find.text('Conectada'), findsOneWidget);
+    expect(find.byKey(const Key('emailConnectionCard')), findsNothing);
+    expect(find.textContaining('go***@gmail.com'), findsNothing);
     expect(
-      find.byKey(const Key('emailMicrosoftConnectionNotice')),
-      findsNothing,
+      api.requests.where((request) => request.method == 'GET'),
+      isNotEmpty,
     );
 
     await tester.pumpWidget(screen(false));
@@ -398,12 +434,7 @@ void main() {
     };
     await tester.pumpWidget(screen(true));
     await tester.pumpAndSettle();
-    expect(find.text('Microsoft · mi***@company.com'), findsOneWidget);
-    expect(find.text('Google · go***@gmail.com'), findsNothing);
-    expect(
-      find.byKey(const Key('emailMicrosoftConnectionNotice')),
-      findsOneWidget,
-    );
+    expect(find.textContaining('mi***@company.com'), findsNothing);
 
     await tester.pumpWidget(screen(false));
     await tester.pump();
@@ -415,13 +446,8 @@ void main() {
     };
     await tester.pumpWidget(screen(true));
     await tester.pumpAndSettle();
-    expect(find.text('Necesita reconexión'), findsOneWidget);
-    expect(find.text('Google'), findsOneWidget);
-    expect(find.text('Microsoft'), findsWidgets);
-    expect(
-      find.byKey(const Key('emailMicrosoftConnectionNotice')),
-      findsOneWidget,
-    );
+    expect(find.text('Necesita reconexión'), findsNothing);
+    expect(find.byKey(const Key('emailConnectionCard')), findsNothing);
   });
 
   testWidgets('Correo no longer duplicates follow-up history', (tester) async {

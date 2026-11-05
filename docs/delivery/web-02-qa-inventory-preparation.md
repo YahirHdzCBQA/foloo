@@ -100,29 +100,27 @@ trazabilidad CloudFormation y no introducen cambios directos fuera del stack.
 
 Dictamen vigente del inventario: PASS de ejecución autorizada y comprobación PostgreSQL. No se recuperaron ni publicaron credenciales. Los resultados son agregados: no certifican por sí solos el contenido de cada registro ni recursos externos. No hay nuevas invocaciones autorizadas por este documento.
 
-## Propuesta pendiente del helper CDK
+## Selector operativo independiente y extensión STORE-02D
 
 El runtime de inventario valida su propio subject/hash privado, ambiente y ARN;
-no depende de las allowlists actuales de admisión. El helper de síntesis sí exige
-QA destructivo activo, una entrada destructiva y pertenencia a QA web. Por eso no
-puede reproducir la configuración operativa conservada después de la limpieza:
-con subject falla; sin subject propone retirar QA_INVENTORY_* del template.
+no depende de las allowlists de admisión. La implementación local del 2026-11-04
+alinea el helper CDK con esa frontera: `qaInventorySubject` continúa siendo un
+opt-in exclusivo de DEV, deriva el hash de forma determinista y ya no exige
+activar QA destructivo ni pertenecer a Web Sessions. Valores ausentes cierran el
+diagnóstico y valores inválidos o PROD fallan la síntesis.
 
-Corrección mínima propuesta, NO implementada: separar la vinculación operativa
-opcional del inventario de accountDeletionQa y webSessionQa. Usar un input privado
-explícito de inventario, limitado a DEV y a una identidad previamente autorizada,
-con subject y hash coincidentes, preservando exactamente las tres variables ya
-desplegadas. Mantener rechazo de valores incompletos/inválidos y PROD, derivación
-segura del hash y las validaciones runtime existentes. No introducir identidades
-ni hashes de reemplazo, no reactivar QA ni ampliar destinos del inventario.
+La misma extensión añade únicamente agregados: miembros totales y ajenos del
+workspace personal, notas escritas no vacías, medios por tipo, referencias de
+objetos y conteos locales de referencias/estado Billing. Conserva la consulta
+estática parametrizada, transacción READ ONLY, timeouts, ROLLBACK, conexión
+destruida y respuesta sin filas, IDs ni contenido.
 
-Esto cambia la validación de infraestructura y requiere autorización antes de
-editar el helper, su llamada en el stack y sus tests. La autorización propuesta
-es solo para implementación local y pruebas: QA off/listas vacías válido con la
-misma vinculación operativa; mismatch/PROD inválidos; diff de plantilla cero frente
-al estado conservado y ninguna modificación de las allowlists. Cualquier cambio
-AWS posterior requerirá otra autorización. No eliminar el helper/import para
-ocultar la dependencia y no desplegar el synth completo mientras siga pendiente.
+El Change Set temporal debe construirse desde la plantilla efectiva y cambiar
+solo código, `QA_INVENTORY_SUBJECT` y `QA_INVENTORY_SUBJECT_HASH` de
+MigrationFunction. Tras una única invocación autorizada se restaura el código y
+selector previos o se retiran las tres variables mediante otro Change Set
+auditado. No desplegar el synth completo ni usar el diagnóstico para activar
+admisión, Web Sessions o Account Deletion.
 
 D-13, publicación pública/tiendas y presentación del recibo/logout no se resuelven
 mediante el inventario y permanecen pendientes independientes.

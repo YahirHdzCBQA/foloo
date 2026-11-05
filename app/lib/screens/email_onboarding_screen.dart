@@ -46,6 +46,12 @@ class _EmailOnboardingScreenState extends State<EmailOnboardingScreen>
 
   bool get _connected => _connection?.status == 'connected';
 
+  String? get _sameAccountSenderProvider => switch (widget.authProvider) {
+    AuthProvider.google => 'google',
+    AuthProvider.microsoft => 'microsoft',
+    AuthProvider.apple || null => null,
+  };
+
   @override
   void initState() {
     super.initState();
@@ -160,13 +166,13 @@ class _EmailOnboardingScreenState extends State<EmailOnboardingScreen>
                     if (_connected)
                       _ConnectedAccountCard(connection: _connection!)
                     else ...[
-                      if (widget.authProvider != null &&
+                      if (_sameAccountSenderProvider != null &&
                           widget.accountEmail.trim().isNotEmpty) ...[
                         OutlinedButton(
                           key: const Key('emailOnboardingSameAccountButton'),
                           onPressed: _busy
                               ? null
-                              : () => _connect(widget.authProvider!.name),
+                              : () => _connect(_sameAccountSenderProvider!),
                           style: OutlinedButton.styleFrom(
                             alignment: Alignment.centerLeft,
                             backgroundColor: FolooColors.lime.withValues(

@@ -5,6 +5,9 @@ import * as cdk from "aws-cdk-lib";
 import {
   environmentConfig,
   accountDeletionQaConfigForEnvironment,
+  accountDeletionSesNotificationsForEnvironment,
+  cognitoAppleIdentityProviderConfigForEnvironment,
+  cognitoFederatedProviderConfigForEnvironment,
   unlimitedQaModeForEnvironment,
   webSessionQaConfigForEnvironment,
 } from "./config.js";
@@ -24,6 +27,17 @@ const webSessionQa = webSessionQaConfigForEnvironment(
   app.node.tryGetContext("webSessionQaEnabled"),
   app.node.tryGetContext("webSessionQaSubjectHashes"),
 );
+const cognitoFederatedProviders = cognitoFederatedProviderConfigForEnvironment(
+  config.name,
+  app.node.tryGetContext("cognitoAppleSignInEnabled"),
+  app.node.tryGetContext("cognitoMicrosoftSignInEnabled"),
+);
+const cognitoAppleIdentityProvider =
+  cognitoAppleIdentityProviderConfigForEnvironment(
+    config.name,
+    app.node.tryGetContext("cognitoAppleIdentityProviderEnabled"),
+    app.node.tryGetContext("cognitoApplePrivateKeySecretArn"),
+  );
 const accountDeletionQa = accountDeletionQaConfigForEnvironment(
   config.name,
   app.node.tryGetContext("accountDeletionQaEnabled"),
@@ -39,6 +53,11 @@ const accountDeletionQa = accountDeletionQaConfigForEnvironment(
   app.node.tryGetContext("accountDeletionRuntimeEnabled"),
   app.node.tryGetContext("accountDeletionNormalAccessEnabled"),
 );
+const accountDeletionSesNotificationsEnabled =
+  accountDeletionSesNotificationsForEnvironment(
+    config.name,
+    app.node.tryGetContext("accountDeletionSesNotificationsEnabled"),
+  );
 const requiredKeyArn = (contextName: string): string => {
   const value = app.node.tryGetContext(contextName);
   if (typeof value !== "string" || value.trim().length === 0) {
@@ -53,7 +72,11 @@ new FolooBackendStack(app, `FolooBackend-${config.name}`, {
   config,
   unlimitedQaMode,
   webSessionQa,
+  cognitoAllowedFederatedProviders:
+    cognitoFederatedProviders.allowedProviderNames,
+  cognitoAppleIdentityProvider,
   accountDeletionQa,
+  accountDeletionSesNotificationsEnabled,
   accountDeletionKeyArns: {
     identityHmacKeyArn: requiredKeyArn("accountDeletionIdentityHmacKeyArn"),
     notificationRecipientKeyArn: requiredKeyArn(

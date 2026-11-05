@@ -3,6 +3,8 @@ library;
 
 import 'dart:convert';
 
+import '../config/qa_runtime_flags.dart';
+
 enum FolooEnvironment { dev, prod }
 
 class CognitoEnvironmentConfiguration {
@@ -14,6 +16,7 @@ class CognitoEnvironmentConfiguration {
     this.signInRedirectUri = '',
     this.signOutRedirectUri = '',
     this.oauthRequired = false,
+    this.hostedUiIdentityProviders = const [CognitoHostedUiProvider.google],
   });
 
   final String region;
@@ -23,6 +26,7 @@ class CognitoEnvironmentConfiguration {
   final String signInRedirectUri;
   final String signOutRedirectUri;
   final bool oauthRequired;
+  final List<CognitoHostedUiProvider> hostedUiIdentityProviders;
 
   bool get hasHostedUi =>
       hostedUiDomain.isNotEmpty &&
@@ -56,7 +60,9 @@ class CognitoEnvironmentConfiguration {
     if (hasHostedUi) {
       auth['oauth'] = {
         'domain': hostedUiDomain,
-        'identity_providers': ['GOOGLE'],
+        'identity_providers': hostedUiIdentityProviders
+            .map((provider) => provider.amplifyName)
+            .toList(growable: false),
         'redirect_sign_in_uri': [signInRedirectUri],
         'redirect_sign_out_uri': [signOutRedirectUri],
         'response_type': 'code',
@@ -85,6 +91,10 @@ abstract final class CognitoConfigurations {
       defaultValue: 'foloo://signout/',
     ),
     oauthRequired: true,
+    hostedUiIdentityProviders: [
+      CognitoHostedUiProvider.google,
+      if (folooAppleSignInEnabled) CognitoHostedUiProvider.apple,
+    ],
   );
 
   static CognitoEnvironmentConfiguration forEnvironment(
@@ -95,4 +105,17 @@ abstract final class CognitoConfigurations {
       'Cognito PROD configuration has not been supplied.',
     ),
   };
+}
+
+/// Built-in providers represented by the Amplify Outputs OAuth schema.
+///
+/// Microsoft is a named custom Cognito OIDC provider and is selected directly
+/// by Amplify's custom provider API, so it is deliberately absent here.
+enum CognitoHostedUiProvider {
+  google('GOOGLE'),
+  apple('SIGN_IN_WITH_APPLE');
+
+  const CognitoHostedUiProvider(this.amplifyName);
+
+  final String amplifyName;
 }

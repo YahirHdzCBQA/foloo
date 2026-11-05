@@ -94,6 +94,46 @@ test("AUT-18 accepts Google and rejects unsupported or ambiguous providers", () 
   }
 });
 
+test("AUT-22/AUT-23 accepts Apple and Microsoft only when allowlisted", () => {
+  const enabledEnvironment = {
+    ...environment,
+    COGNITO_ALLOWED_FEDERATED_PROVIDERS: "Google,SignInWithApple,Microsoft",
+  };
+  for (const provider of ["SignInWithApple", "Microsoft"] as const) {
+    assert.deepEqual(
+      validateCognitoGuardTriggerContext(
+        event({
+          userName: `${provider}_fixture`,
+          request: {
+            userAttributes: {
+              identities: JSON.stringify([{ providerName: provider }]),
+            },
+          },
+        }),
+        "post-authentication",
+        enabledEnvironment,
+      ),
+      { provider },
+    );
+    assert.throws(
+      () =>
+        validateCognitoGuardTriggerContext(
+          event({
+            userName: `${provider}_fixture`,
+            request: {
+              userAttributes: {
+                identities: JSON.stringify([{ providerName: provider }]),
+              },
+            },
+          }),
+          "post-authentication",
+          environment,
+        ),
+      /not permitted/u,
+    );
+  }
+});
+
 test("AUT-18 validates native and Google PreSignUp trigger sources", () => {
   assert.deepEqual(
     validateCognitoGuardTriggerContext(

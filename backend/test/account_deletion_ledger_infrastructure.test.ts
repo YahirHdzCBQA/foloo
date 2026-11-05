@@ -145,6 +145,7 @@ test("STORE-02 infrastructure is deployable but every runtime boundary stays dis
   });
 
   template.resourceCountIs("AWS::Cognito::UserPoolClient", 1);
+  template.resourceCountIs("AWS::Cognito::UserPoolIdentityProvider", 0);
   template.hasResourceProperties("AWS::Cognito::UserPoolClient", {
     UserPoolId: environmentConfig("dev").userPoolId,
     ClientName: "foloo-web-dev",
@@ -381,6 +382,73 @@ test("AUT-18 Registration Guards can deploy in pass-through independently", () =
   template.hasResourceProperties("AWS::Lambda::EventSourceMapping", {
     Enabled: false,
   });
+});
+
+test("AUT-22/AUT-23 Registration Guards accept only explicitly enabled IdPs", () => {
+  const app = new cdk.App();
+  const stack = new FolooBackendStack(app, "FederatedGuardProvidersTest", {
+    config: environmentConfig("dev"),
+    env: { account: "111111111111", region: "us-east-1" },
+    unlimitedQaMode: true,
+    cognitoAllowedFederatedProviders: [
+      "Google",
+      "SignInWithApple",
+      "Microsoft",
+    ],
+    accountDeletionKeyArns: importedKeyArns,
+  });
+  const template = Template.fromStack(stack);
+  const json = JSON.stringify(template.toJSON());
+
+  assert.match(
+    json,
+    /COGNITO_ALLOWED_FEDERATED_PROVIDERS[^}]*Google,SignInWithApple,Microsoft/u,
+  );
+});
+
+test("AUT-22 Apple IdP keeps the private key in Secrets Manager", () => {
+  const app = new cdk.App();
+  const stack = new FolooBackendStack(app, "AppleIdentityProviderTest", {
+    config: environmentConfig("dev"),
+    env: { account: "111111111111", region: "us-east-1" },
+    unlimitedQaMode: true,
+    cognitoAppleIdentityProvider: {
+      enabled: true,
+      servicesId: "com.foloo.signin",
+      teamId: "PU238KF2F9",
+      keyId: "6LK763G44F",
+      privateKeySecretArn:
+        "arn:aws:secretsmanager:us-east-1:111111111111:secret:foloo/dev/cognito/apple-private-key-AbCdEf",
+    },
+    accountDeletionKeyArns: importedKeyArns,
+  });
+  const template = Template.fromStack(stack);
+
+  template.resourceCountIs("AWS::Cognito::UserPoolIdentityProvider", 1);
+  template.hasResourceProperties("AWS::Cognito::UserPoolIdentityProvider", {
+    UserPoolId: environmentConfig("dev").userPoolId,
+    ProviderName: "SignInWithApple",
+    ProviderType: "SignInWithApple",
+    ProviderDetails: {
+      client_id: "com.foloo.signin",
+      team_id: "PU238KF2F9",
+      key_id: "6LK763G44F",
+      private_key:
+        "{{resolve:secretsmanager:arn:aws:secretsmanager:us-east-1:111111111111:secret:foloo/dev/cognito/apple-private-key-AbCdEf:SecretString:privateKey::}}",
+      authorize_scopes: "email name",
+    },
+    AttributeMapping: {
+      email: "email",
+      email_verified: "email_verified",
+    },
+  });
+  const json = JSON.stringify(template.toJSON());
+  assert.doesNotMatch(json, /BEGIN (?:EC )?PRIVATE KEY/u);
+  assert.doesNotMatch(
+    JSON.stringify(template.findResources("AWS::SecretsManager::Secret")),
+    /apple(?:-sign-in|private-key)/iu,
+  );
+  template.resourceCountIs("AWS::Cognito::UserPoolClient", 1);
 });
 
 test("RNF-09 Account Deletion Lambdas receive only their required ledger actions", () => {
@@ -670,5 +738,46 @@ test("AUT-18 QA cleanup changes only admission variables and keeps STORE-02 infr
   assert.ok(
     changed.some((id) => id.startsWith("AccountDeletionWorkerFunction")),
   );
+  assert.deepEqual(Object.keys(before.Resources), Object.keys(after.Resources));
+});
+
+test("INF-19 SES opt-in changes only the three delivery controls", () => {
+  const synth = (enabled: boolean) =>
+    Template.fromStack(
+      new FolooBackendStack(new cdk.App(), "DeletionSesTest", {
+        config: environmentConfig("dev"),
+        accountDeletionKeyArns: importedKeyArns,
+        accountDeletionSesNotificationsEnabled: enabled,
+      }),
+    ).toJSON();
+  const before = synth(false),
+    after = synth(true);
+  const changed: string[] = [];
+  for (const [id, resource] of Object.entries(after.Resources) as [
+    string,
+    { Properties?: { Environment?: { Variables?: Record<string, string> } } },
+  ][]) {
+    if (JSON.stringify(resource) === JSON.stringify(before.Resources[id]))
+      continue;
+    changed.push(id);
+    const env = resource.Properties!.Environment!.Variables!;
+    const restored = structuredClone(resource);
+    const restoredEnv = restored.Properties!.Environment!.Variables!;
+    if (id.startsWith("AccountDeletionEmailFunction")) {
+      assert.equal(env.ACCOUNT_DELETION_SES_IDENTITY_VERIFIED, "true");
+      restoredEnv.ACCOUNT_DELETION_SES_IDENTITY_VERIFIED = "false";
+    } else {
+      assert.equal(env.ACCOUNT_DELETION_NOTIFICATION_MODE, "ses");
+      assert.equal(env.FOLOO_ACCOUNT_DELETION_QA_ENABLED, "false");
+      assert.equal(env.FOLOO_ACCOUNT_DELETION_NORMAL_ACCESS_ENABLED, "false");
+      restoredEnv.ACCOUNT_DELETION_NOTIFICATION_MODE = "disabled";
+    }
+    assert.deepEqual(restored, before.Resources[id]);
+  }
+  assert.deepEqual(changed.sort(), [
+    "AccountDeletionEmailFunctionC795A4C2",
+    "AccountDeletionWorkerFunction1D6CBDD8",
+    "ApiFunctionCE271BD4",
+  ]);
   assert.deepEqual(Object.keys(before.Resources), Object.keys(after.Resources));
 });

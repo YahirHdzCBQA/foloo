@@ -104,10 +104,12 @@ idempotentes y reconciliación local-first.
 - Feedback adicional: Mis eventos reutiliza swipe accesible, su override usa el
   editor compartido de variables y Registros exporta también Leads directos con
   el mismo contrato XLSX/CSV.
-- Google usa federación Cognito ya configurada. Microsoft Sign-In/OIDC queda
-  temporalmente fuera de esta versión por el conflicto de issuer observado con
-  Entra; Login y Crear cuenta no muestran esa opción, aunque conservan el código
-  reutilizable. Cognito continúa siendo el único issuer de Foloo y nunca se
+- Google usa federación Cognito ya configurada. Apple y Microsoft Sign-In
+  permanecen fuera de la versión publicada y ocultos por flags, aunque
+  conservan código reutilizable. La auditoría FL-022 del 2026-11-02 confirmó
+  que Apple aún no existe en Cognito y Microsoft OIDC aún no está habilitado en
+  el App Client móvil ni en los Registration Guards. Cognito continúa siendo
+  el único issuer de Foloo y nunca se
   reutiliza OAuth de sender. La conexión Microsoft para envío permanece activa
   para cuentas personales compatibles; la UI advierte antes de OAuth que cuentas
   empresariales, educativas u organizacionales no están soportadas en esta

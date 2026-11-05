@@ -62,6 +62,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get continueWithMicrosoft => 'Continue with Microsoft';
 
   @override
+  String get authSocialCancelled =>
+      'Sign-in was cancelled. You can try again whenever you\'re ready.';
+
+  @override
   String get authSocialUnavailable =>
       'Social sign-in still requires Cognito configuration. You can use email and password.';
 
@@ -268,6 +272,91 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileFullName => 'Full name';
 
   @override
+  String get profileEditTitle => 'My profile';
+
+  @override
+  String get profileEditPhotoHelp =>
+      'Take a photo or choose one from your gallery.';
+
+  @override
+  String get profileAccountEmail => 'Account email';
+
+  @override
+  String get profileAccountEmailHelp =>
+      'This is your sign-in address. It cannot be changed here.';
+
+  @override
+  String get profileFollowUpEmail => 'Follow-up email';
+
+  @override
+  String get profileFollowUpConnected => 'Connected';
+
+  @override
+  String get profileFollowUpDisconnected => 'Account disconnected';
+
+  @override
+  String get profileFollowUpDisconnectedHelp =>
+      'Connect an email account to send follow-ups to your leads.';
+
+  @override
+  String get profileFollowUpUnconfigured => 'No email configured';
+
+  @override
+  String get profileFollowUpUnconfiguredHelp =>
+      'You have not connected an email account for follow-ups yet.';
+
+  @override
+  String get profileFollowUpConnect => 'Connect account';
+
+  @override
+  String get profileFollowUpChooseProvider => 'Choose an email provider';
+
+  @override
+  String get profileFollowUpDisconnectTitle => 'Disconnect this email?';
+
+  @override
+  String get profileFollowUpDisconnectHelp =>
+      'You will not be able to send follow-ups until you connect an account again.';
+
+  @override
+  String get profileSaveChanges => 'Save changes';
+
+  @override
+  String get profileSaved => 'Your changes were saved.';
+
+  @override
+  String get profileUnsavedTitle => 'You have unsaved changes';
+
+  @override
+  String get profileSaveAndExit => 'Save and exit';
+
+  @override
+  String get profileDiscardChanges => 'Discard changes';
+
+  @override
+  String get profileKeepEditing => 'Keep editing';
+
+  @override
+  String get profileDeleteHelp =>
+      'Deletes your account, leads, events, and content. This cannot be undone.';
+
+  @override
+  String get profileDeletePrompt => 'Type DELETE to continue';
+
+  @override
+  String get profileDeleteToken => 'DELETE';
+
+  @override
+  String get profileDeleteDialogTitle => 'Delete your account?';
+
+  @override
+  String get profileDeleteDialogHelp =>
+      'Before continuing, Foloo will check synchronization, reauthentication, and the data that will be deleted.';
+
+  @override
+  String get profileEditPhoto => 'Change profile photo';
+
+  @override
   String get emailOnboardingTitle => 'Send follow-ups\nfrom your email';
 
   @override
@@ -404,6 +493,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cardSection => 'The card';
+
+  @override
+  String get cardScanTitle => 'Scan card';
+
+  @override
+  String get cardScanSubtitle => 'Camera or gallery';
+
+  @override
+  String get cardAddTitle => 'Add card';
+
+  @override
+  String get cardTakePhotoHelp => 'Open the camera and frame the card';
+
+  @override
+  String get cardGalleryHelp => 'Use a photo you already took';
 
   @override
   String get noCardPhoto => 'No photo yet';

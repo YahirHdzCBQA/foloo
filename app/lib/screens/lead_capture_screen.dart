@@ -372,6 +372,55 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     }
   }
 
+  Future<void> _showCardImageSource() async {
+    if (_isReadingCard) return;
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                context.l10n.cardAddTitle,
+                style: Theme.of(context).textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 12),
+              _CardSourceTile(
+                key: const Key('cameraButton'),
+                icon: Icons.photo_camera_outlined,
+                title: context.l10n.takePhoto,
+                subtitle: context.l10n.cardTakePhotoHelp,
+                onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
+              ),
+              const SizedBox(height: 10),
+              _CardSourceTile(
+                key: const Key('galleryButton'),
+                icon: Icons.photo_outlined,
+                title: context.l10n.chooseGallery,
+                subtitle: context.l10n.cardGalleryHelp,
+                onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                key: const Key('cardSourceCancelButton'),
+                onPressed: () => Navigator.pop(sheetContext),
+                child: Text(
+                  MaterialLocalizations.of(context).cancelButtonLabel,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (source != null && mounted) await _pickImage(source);
+  }
+
   Future<void> _recoverLostCardImage() async {
     try {
       final image = await _imageCapture.retrieveLostImage();
@@ -1359,79 +1408,72 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: Semantics(
-                  label: hasCard
-                      ? context.l10n.selectedCardPreview
-                      : context.l10n.noCardPhotoSemantics,
-                  image: hasCard,
-                  child: Container(
-                    height: 64,
-                    clipBehavior: Clip.antiAlias,
-                    decoration: BoxDecoration(
-                      color: hasCard ? palette.ink : palette.paper,
-                      borderRadius: BorderRadius.circular(FolooRadii.sm),
+          InkWell(
+            key: const Key('cardSourceButton'),
+            onTap: _isReadingCard ? null : _showCardImageSource,
+            borderRadius: BorderRadius.circular(FolooRadii.md),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: palette.paper,
+                borderRadius: BorderRadius.circular(FolooRadii.md),
+              ),
+              child: Row(
+                children: [
+                  Semantics(
+                    label: hasCard
+                        ? context.l10n.selectedCardPreview
+                        : context.l10n.noCardPhotoSemantics,
+                    image: hasCard,
+                    child: Container(
+                      width: 96,
+                      height: 82,
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(
+                        color: palette.card,
+                        borderRadius: BorderRadius.circular(FolooRadii.sm),
+                      ),
+                      child: hasCard
+                          ? Image.memory(
+                              _cardBytes!,
+                              fit: BoxFit.cover,
+                              gaplessPlayback: true,
+                            )
+                          : Icon(
+                              Icons.center_focus_weak_outlined,
+                              color: palette.ink,
+                              size: 32,
+                            ),
                     ),
-                    child: hasCard
-                        ? Image.memory(
-                            _cardBytes!,
-                            fit: BoxFit.cover,
-                            gaplessPlayback: true,
-                          )
-                        : Icon(
-                            Icons.center_focus_weak_outlined,
-                            color: palette.inkSecondary,
-                            size: 24,
+                  ),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.l10n.cardScanTitle,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
                           ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          context.l10n.cardScanSubtitle,
+                          style: TextStyle(color: palette.inkSecondary),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  if (_isReadingCard)
+                    const SizedBox.square(
+                      dimension: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 4,
-                child: Text(
-                  hasCard ? context.l10n.reprocess : context.l10n.noCardPhoto,
-                  style: TextStyle(
-                    color: palette.inkSecondary,
-                    fontSize: 12,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filled(
-                key: const Key('galleryButton'),
-                tooltip: context.l10n.chooseGallery,
-                onPressed: _isReadingCard
-                    ? null
-                    : () => _pickImage(ImageSource.gallery),
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(48, 48),
-                  backgroundColor: palette.paper,
-                  foregroundColor: palette.inkSecondary,
-                ),
-                icon: const Icon(Icons.photo_outlined, size: 20),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filled(
-                key: const Key('cameraButton'),
-                tooltip: hasCard
-                    ? context.l10n.changePhoto
-                    : context.l10n.takePhoto,
-                onPressed: _isReadingCard
-                    ? null
-                    : () => _pickImage(ImageSource.camera),
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(48, 48),
-                  backgroundColor: palette.ink,
-                  foregroundColor: palette.card,
-                ),
-                icon: const Icon(Icons.photo_camera_outlined, size: 20),
-              ),
-            ],
+            ),
           ),
           if (hasCard) ...[
             const SizedBox(height: 6),
@@ -2329,6 +2371,70 @@ class _LabeledField extends StatelessWidget {
         const SizedBox(height: 8),
         field,
       ],
+    );
+  }
+}
+
+class _CardSourceTile extends StatelessWidget {
+  const _CardSourceTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    super.key,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = FolooPalette.of(context);
+    return Material(
+      color: palette.paper,
+      borderRadius: BorderRadius.circular(FolooRadii.md),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(FolooRadii.md),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: palette.card,
+                  borderRadius: BorderRadius.circular(FolooRadii.sm),
+                ),
+                child: Icon(icon),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: TextStyle(color: palette.inkSecondary),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

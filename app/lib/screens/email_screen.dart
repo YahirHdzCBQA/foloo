@@ -20,7 +20,6 @@ import '../models/email_delivery_error.dart';
 import '../data/repositories/local_repositories.dart';
 import '../theme/foloo_theme.dart';
 import '../widgets/app_drawer.dart';
-import '../widgets/microsoft_account_notice.dart';
 import '../l10n/l10n.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/module_header.dart';
@@ -88,8 +87,6 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
   EmailConnectionView? _connection;
   List<StoredEmailFollowUp> _followUps = const [];
   List<StoredEmailSendIntent> _intents = const [];
-  bool _connectionBusy = false;
-  bool _connectionUnavailable = false;
   int _deliveryRequestGeneration = 0;
   int _templateEditorRevision = 0;
   StreamSubscription<List<StoredEmailFollowUp>>? _followUpsSubscription;
@@ -161,11 +158,9 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
     final owner = widget.ownerSub;
     if (owner == null) return;
     final generation = ++_deliveryRequestGeneration;
-    if (mounted) setState(() => _connectionBusy = true);
     final followUps = await widget.deliveryRepository?.list(owner) ?? const [];
     final intents = await widget.deliveryRepository?.intents(owner) ?? const [];
     EmailConnectionView? connection;
-    var unavailable = false;
     try {
       connection = await widget.connectionService?.status(owner);
       if (connection != null) {
@@ -179,7 +174,6 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
       }
     } on Object {
       connection = null;
-      unavailable = widget.connectionService != null;
     }
     if (!mounted ||
         owner != widget.ownerSub ||
@@ -192,8 +186,6 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
         _intents = intents;
       }
       _connection = connection;
-      _connectionUnavailable = unavailable;
-      _connectionBusy = false;
     });
   }
 
@@ -216,36 +208,6 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
   }
 
   bool get _english => (_languageCode ?? 'es') == 'en';
-
-  Future<void> _connect(String provider) async {
-    final owner = widget.ownerSub;
-    final service = widget.connectionService;
-    if (owner == null || service == null) return;
-    setState(() => _connectionBusy = true);
-    try {
-      await service.connect(owner, provider);
-    } finally {
-      if (mounted) setState(() => _connectionBusy = false);
-    }
-  }
-
-  Future<void> _disconnect() async {
-    final owner = widget.ownerSub;
-    if (owner == null) return;
-    setState(() => _connectionBusy = true);
-    await widget.connectionService?.disconnect(owner);
-    final connection = _connection;
-    if (connection != null) {
-      await widget.deliveryRepository?.saveConnection(
-        owner: owner,
-        connectionId: connection.id,
-        provider: connection.provider,
-        senderAddress: connection.senderAddress,
-        status: 'disconnected',
-      );
-    }
-    await _loadDelivery();
-  }
 
   Future<void> _queueSend(StoredEmailFollowUp followUp) async {
     final owner = widget.ownerSub;
@@ -427,112 +389,6 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
           );
         },
       );
-
-  Widget _connectionCard() {
-    final palette = FolooPalette.of(context);
-    final connected = _connection?.status == 'connected';
-    return Container(
-      key: const Key('emailConnectionCard'),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: palette.paper,
-        borderRadius: BorderRadius.circular(FolooRadii.md),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            context.l10n.emailSendingAccount,
-            style: const TextStyle(fontWeight: FontWeight.w900),
-          ),
-          if (_connection == null) ...[
-            const SizedBox(height: 4),
-            Text(context.l10n.emailNoSendingAccount),
-          ] else ...[
-            const SizedBox(height: 4),
-            Text(
-              '${_connection!.provider == 'microsoft' ? 'Microsoft' : 'Google'} · ${_connection!.senderAddress}',
-            ),
-            const SizedBox(height: 2),
-            Row(
-              children: [
-                Icon(
-                  connected ? Icons.check_circle_outline : Icons.sync_problem,
-                  size: 15,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  connected
-                      ? context.l10n.emailConnectionConnected
-                      : context.l10n.emailConnectionReconnect,
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-          ],
-          if (_connectionUnavailable) ...[
-            const SizedBox(height: 6),
-            Text(
-              context.l10n.emailConnectionUnavailable,
-              style: TextStyle(color: palette.inkSecondary, fontSize: 12),
-            ),
-          ],
-          const SizedBox(height: 10),
-          if (!connected || _connection?.provider == 'microsoft') ...[
-            MicrosoftAccountNotice(
-              key: const Key('emailMicrosoftConnectionNotice'),
-              message: context.l10n.emailMicrosoftPersonalAccountNotice,
-            ),
-            const SizedBox(height: 10),
-          ],
-          if (connected)
-            Row(
-              children: [
-                TextButton(
-                  onPressed: _connectionBusy ? null : _disconnect,
-                  child: Text(context.l10n.emailConnectionDisconnect),
-                ),
-                TextButton(
-                  key: const Key('emailChangeAccountButton'),
-                  onPressed: _connectionBusy
-                      ? null
-                      : () => _connect(_connection!.provider),
-                  child: Text(context.l10n.emailChangeAccount),
-                ),
-                const Spacer(),
-                IconButton(
-                  tooltip: context.l10n.emailConnectionRefresh,
-                  onPressed: _connectionBusy ? null : _loadDelivery,
-                  icon: const Icon(Icons.refresh),
-                ),
-              ],
-            )
-          else
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _connectionBusy
-                        ? null
-                        : () => _connect('google'),
-                    child: const Text('Google'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _connectionBusy
-                        ? null
-                        : () => _connect('microsoft'),
-                    child: const Text('Microsoft'),
-                  ),
-                ),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
 
   // Historical renderer retained temporarily for migration evidence; the
   // active UX now renders this source in Records (REG-16).
@@ -979,8 +835,6 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    _connectionCard(),
-                    const SizedBox(height: 18),
                     Text(
                       context.l10n.sellerTemplateHelp,
                       style: TextStyle(

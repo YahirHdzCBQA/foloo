@@ -256,6 +256,10 @@ class AmplifyCognitoAuthClient
           ),
         );
 
+  @visibleForTesting
+  static AuthFailureCode socialAuthFailureCode(Object error) =>
+      _mapAmplifyError(error, _AuthOperation.socialSignIn).code;
+
   Future<CognitoIdentity> _currentIdentity({AuthProvider? provider}) async {
     final user = await amplify.Amplify.Auth.getCurrentUser();
     String? accountEmail;
@@ -419,6 +423,7 @@ FolooAuthException _mapAmplifyError(Object error, _AuthOperation operation) {
     'TooManyRequestsException' ||
     'TooManyFailedAttemptsException' => AuthFailureCode.rateLimited,
     'InvalidParameterException' => AuthFailureCode.invalidInput,
+    'UserCancelledException' => AuthFailureCode.socialLoginCancelled,
     'NotAuthorizedException' || 'NotAuthorizedServiceException'
         when operation == _AuthOperation.confirmSignUp =>
       AuthFailureCode.alreadyConfirmed,

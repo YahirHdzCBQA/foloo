@@ -6,9 +6,97 @@ import test from "node:test";
 import { loadEnvironment } from "../src/config/environment.js";
 import {
   accountDeletionQaConfigForEnvironment,
+  accountDeletionSesNotificationsForEnvironment,
+  cognitoAppleIdentityProviderConfigForEnvironment,
   unlimitedQaModeForEnvironment,
+  cognitoFederatedProviderConfigForEnvironment,
   webSessionQaConfigForEnvironment,
 } from "../infra/config.js";
+
+test("INF-19 SES notifications require an explicit DEV-only opt-in", () => {
+  assert.equal(
+    accountDeletionSesNotificationsForEnvironment("dev", undefined),
+    false,
+  );
+  assert.equal(
+    accountDeletionSesNotificationsForEnvironment("dev", true),
+    true,
+  );
+  assert.throws(
+    () => accountDeletionSesNotificationsForEnvironment("prod", true),
+    /restricted to DEV/u,
+  );
+});
+
+test("AUT-22 Apple IdP is explicit, DEV-only, and accepts only a secret ARN", () => {
+  assert.deepEqual(
+    cognitoAppleIdentityProviderConfigForEnvironment(
+      "dev",
+      undefined,
+      undefined,
+    ),
+    {
+      enabled: false,
+      servicesId: "com.foloo.signin",
+      teamId: "PU238KF2F9",
+      keyId: "6LK763G44F",
+    },
+  );
+  const secretArn =
+    "arn:aws:secretsmanager:us-east-1:111111111111:secret:foloo/dev/cognito/apple-private-key-AbCdEf";
+  assert.deepEqual(
+    cognitoAppleIdentityProviderConfigForEnvironment("dev", true, secretArn),
+    {
+      enabled: true,
+      servicesId: "com.foloo.signin",
+      teamId: "PU238KF2F9",
+      keyId: "6LK763G44F",
+      privateKeySecretArn: secretArn,
+    },
+  );
+  assert.throws(
+    () =>
+      cognitoAppleIdentityProviderConfigForEnvironment("prod", true, secretArn),
+    /DEV-only/u,
+  );
+  assert.throws(
+    () =>
+      cognitoAppleIdentityProviderConfigForEnvironment("dev", true, "raw-p8"),
+    /dedicated complete DEV secret ARN/u,
+  );
+  assert.throws(
+    () =>
+      cognitoAppleIdentityProviderConfigForEnvironment("dev", false, secretArn),
+    /must not be configured/u,
+  );
+});
+
+test("AUT-22/AUT-23 federated providers are explicit and DEV-only", () => {
+  assert.deepEqual(
+    cognitoFederatedProviderConfigForEnvironment("dev", undefined, undefined),
+    { allowedProviderNames: ["Google"] },
+  );
+  assert.deepEqual(
+    cognitoFederatedProviderConfigForEnvironment("dev", true, false),
+    { allowedProviderNames: ["Google", "SignInWithApple"] },
+  );
+  assert.deepEqual(
+    cognitoFederatedProviderConfigForEnvironment("dev", false, true),
+    { allowedProviderNames: ["Google", "Microsoft"] },
+  );
+  assert.deepEqual(
+    cognitoFederatedProviderConfigForEnvironment("dev", "true", true),
+    { allowedProviderNames: ["Google", "SignInWithApple", "Microsoft"] },
+  );
+  assert.throws(
+    () => cognitoFederatedProviderConfigForEnvironment("prod", true, false),
+    /DEV-only/u,
+  );
+  assert.throws(
+    () => cognitoFederatedProviderConfigForEnvironment("dev", "yes", false),
+    /must be true or false/u,
+  );
+});
 
 const requiredEnvironment = {
   AWS_REGION: "us-east-1",

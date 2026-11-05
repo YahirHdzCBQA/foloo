@@ -36,6 +36,7 @@ import 'screens/login_screen.dart';
 import 'screens/origin_selection_screen.dart';
 import 'screens/paywall_screen.dart';
 import 'screens/profile_setup_screen.dart';
+import 'screens/profile_screen.dart';
 import 'screens/records_screen.dart';
 import 'services/connectivity_service.dart';
 import 'services/account_deletion_service.dart';
@@ -53,6 +54,7 @@ import 'sync/sync_models.dart';
 import 'theme/foloo_theme.dart';
 import 'widgets/auth_account_scope.dart';
 import 'widgets/account_deletion_scope.dart';
+import 'widgets/profile_scope.dart';
 import 'widgets/entitlement_scope.dart';
 
 enum _AuthenticatedStage { profile, email, origin, shell }
@@ -681,6 +683,63 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     unawaited(_synchronize(trigger: SyncTrigger.postSave));
   }
 
+  Future<DemoProfile?> _saveEditedProfile(DemoProfile profile) async {
+    var durableProfile = profile;
+    try {
+      final selectedPhoto = profile.photoLocalPath;
+      if (selectedPhoto != null && selectedPhoto != _profile.photoLocalPath) {
+        final durablePath = await _persistence.mediaStorage.persistProfileImage(
+          sourcePath: selectedPhoto,
+          ownerSub: _userId,
+        );
+        durableProfile = DemoProfile(
+          name: profile.name,
+          company: profile.company,
+          photoLocalPath: durablePath,
+        );
+      }
+      await _persistence.profiles.save(_userId, durableProfile);
+    } catch (_) {
+      if (mounted) _showPersistenceError();
+      return null;
+    }
+    if (!mounted) return null;
+    setState(() => _profile = durableProfile);
+    unawaited(_synchronize(trigger: SyncTrigger.postSave));
+    return durableProfile;
+  }
+
+  void _openProfile() {
+    final user = _authRepository.state.user;
+    if (user == null) return;
+    _navigatorKey.currentState?.push(
+      MaterialPageRoute<void>(
+        builder: (_) => ProfileScreen(
+          profile: _profile,
+          accountEmail: user.email ?? '',
+          ownerSub: user.id,
+          onSave: _saveEditedProfile,
+          connectionService: _emailConnectionService,
+          deliveryRepository: _persistence.emailDelivery,
+          cameraAccessCoordinator: widget.cameraAccessCoordinator,
+          accountDeletionEnabled:
+              widget.accountDeletionEnabled &&
+              widget.accountDeletionService != null,
+          onLogout: () {
+            _navigatorKey.currentState?.pop();
+            unawaited(_logout());
+          },
+          onDeleteAccount: () {
+            _navigatorKey.currentState?.pop();
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _openAccountDeletion();
+            });
+          },
+        ),
+      ),
+    );
+  }
+
   Future<void> _completeEmailOnboarding(bool skipped) async {
     try {
       await _persistence.preferences.write(
@@ -1239,33 +1298,36 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       theme: FolooTheme.light,
       darkTheme: FolooTheme.dark,
       themeMode: _themeMode,
-      builder: (context, child) => AccountDeletionScope(
-        enabled:
-            widget.accountDeletionEnabled &&
-            widget.accountDeletionService != null &&
-            authenticatedUser != null,
-        onOpen: _openAccountDeletion,
-        child: AuthAccountScope(
-          email: authenticatedUser?.email ?? '',
-          provider: authenticatedUser?.provider,
-          child: EntitlementScope(
-            entitlement: _entitlement,
-            child: AppLanguageScope(
-              locale: _locale,
-              onLocaleChanged: (locale) {
-                final user = _authRepository.state.user;
-                if (user != null) {
-                  unawaited(
-                    _persistence.preferences.write(
-                      user.id,
-                      'locale',
-                      locale.languageCode,
-                    ),
-                  );
-                }
-                setState(() => _locale = locale);
-              },
-              child: child ?? const SizedBox.shrink(),
+      builder: (context, child) => ProfileScope(
+        onOpen: _openProfile,
+        child: AccountDeletionScope(
+          enabled:
+              widget.accountDeletionEnabled &&
+              widget.accountDeletionService != null &&
+              authenticatedUser != null,
+          onOpen: _openAccountDeletion,
+          child: AuthAccountScope(
+            email: authenticatedUser?.email ?? '',
+            provider: authenticatedUser?.provider,
+            child: EntitlementScope(
+              entitlement: _entitlement,
+              child: AppLanguageScope(
+                locale: _locale,
+                onLocaleChanged: (locale) {
+                  final user = _authRepository.state.user;
+                  if (user != null) {
+                    unawaited(
+                      _persistence.preferences.write(
+                        user.id,
+                        'locale',
+                        locale.languageCode,
+                      ),
+                    );
+                  }
+                  setState(() => _locale = locale);
+                },
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
         ),

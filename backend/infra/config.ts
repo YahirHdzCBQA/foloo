@@ -104,10 +104,114 @@ export function unlimitedQaModeForEnvironment(
   return enabled;
 }
 
+/** Enables STORE-02D transactional email only through an explicit DEV opt-in. */
+export function accountDeletionSesNotificationsForEnvironment(
+  environment: string,
+  rawValue: unknown,
+): boolean {
+  const enabled = rawValue === true || rawValue === "true";
+  if (enabled && environment !== "dev") {
+    throw new Error(
+      "Account Deletion SES notifications are restricted to DEV.",
+    );
+  }
+  return enabled;
+}
+
 export type WebSessionQaConfig = Readonly<{
   enabled: boolean;
   subjectHashes: readonly string[];
 }>;
+
+export type CognitoFederatedProviderConfig = Readonly<{
+  allowedProviderNames: readonly ("Google" | "SignInWithApple" | "Microsoft")[];
+}>;
+
+export type CognitoAppleIdentityProviderConfig = Readonly<{
+  enabled: boolean;
+  servicesId: "com.foloo.signin";
+  teamId: "PU238KF2F9";
+  keyId: "6LK763G44F";
+  privateKeySecretArn?: string;
+}>;
+
+/**
+ * Keeps the Apple IdP absent by default and requires a DEV-local secret ARN.
+ * The secret value itself must never be passed through CDK context or env.
+ */
+export function cognitoAppleIdentityProviderConfigForEnvironment(
+  environment: string,
+  rawEnabled: unknown,
+  rawPrivateKeySecretArn: unknown,
+): CognitoAppleIdentityProviderConfig {
+  const enabled = activationFlag(
+    "cognitoAppleIdentityProviderEnabled",
+    rawEnabled,
+  );
+  if (enabled && environment !== "dev") {
+    throw new Error("Apple identity provider deployment is DEV-only.");
+  }
+  if (!enabled) {
+    if (rawPrivateKeySecretArn !== undefined) {
+      throw new Error(
+        "Apple private-key secret must not be configured while the IdP is disabled.",
+      );
+    }
+    return {
+      enabled: false,
+      servicesId: "com.foloo.signin",
+      teamId: "PU238KF2F9",
+      keyId: "6LK763G44F",
+    };
+  }
+  if (
+    typeof rawPrivateKeySecretArn !== "string" ||
+    !/^arn:aws:secretsmanager:us-east-1:\d{12}:secret:foloo\/dev\/cognito\/apple-private-key-[A-Za-z0-9]{6}$/u.test(
+      rawPrivateKeySecretArn,
+    )
+  ) {
+    throw new Error(
+      "Apple identity provider requires the dedicated complete DEV secret ARN.",
+    );
+  }
+  return {
+    enabled: true,
+    servicesId: "com.foloo.signin",
+    teamId: "PU238KF2F9",
+    keyId: "6LK763G44F",
+    privateKeySecretArn: rawPrivateKeySecretArn,
+  };
+}
+
+/**
+ * Keeps Registration Guards aligned with externally verified Cognito IdPs.
+ * Google is the current baseline; Apple and Microsoft require explicit DEV
+ * opt-in after their provider and App Client configuration is validated.
+ */
+export function cognitoFederatedProviderConfigForEnvironment(
+  environment: string,
+  rawAppleEnabled: unknown,
+  rawMicrosoftEnabled: unknown,
+): CognitoFederatedProviderConfig {
+  const appleEnabled = activationFlag(
+    "cognitoAppleSignInEnabled",
+    rawAppleEnabled,
+  );
+  const microsoftEnabled = activationFlag(
+    "cognitoMicrosoftSignInEnabled",
+    rawMicrosoftEnabled,
+  );
+  if ((appleEnabled || microsoftEnabled) && environment !== "dev") {
+    throw new Error("Federated sign-in provider activation is DEV-only.");
+  }
+  return {
+    allowedProviderNames: [
+      "Google",
+      ...(appleEnabled ? (["SignInWithApple"] as const) : []),
+      ...(microsoftEnabled ? (["Microsoft"] as const) : []),
+    ],
+  };
+}
 
 export type AccountDeletionQaConfig = Readonly<{
   /** Legacy field: QA exception only; no implicit normal admission. */

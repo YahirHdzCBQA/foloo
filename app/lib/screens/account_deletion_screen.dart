@@ -40,7 +40,7 @@ class AccountDeletionScreen extends StatefulWidget {
 class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
   AccountDeletionPreflight? _preflight;
   bool _busy = false;
-  bool _irreversible = false;
+  String _confirmationText = '';
   bool _discardUnsynced = false;
   bool _cancelRenewal = false;
   String? _error;
@@ -101,7 +101,7 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
   Future<void> _confirm() async {
     final preflight = _preflight;
     final idempotencyKey = _confirmationIdempotencyKey;
-    if (preflight == null || idempotencyKey == null || !_irreversible) return;
+    if (preflight == null || idempotencyKey == null || !_confirmed) return;
     if (preflight.pendingSyncCount > 0 && !_discardUnsynced) return;
     if (preflight.subscriptionCancellationRequired && !_cancelRenewal) return;
     setState(() {
@@ -199,16 +199,22 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
                   title: Text(l10n.accountDeletionCancelRenewal),
                   contentPadding: EdgeInsets.zero,
                 ),
-              CheckboxListTile(
-                key: const Key('accountDeletionIrreversible'),
-                value: _irreversible,
-                onChanged: _busy
-                    ? null
-                    : (value) => setState(() => _irreversible = value ?? false),
-                title: Text(l10n.accountDeletionIrreversible),
-                contentPadding: EdgeInsets.zero,
+              const SizedBox(height: 16),
+              Text(
+                l10n.profileDeletePrompt,
+                key: const Key('accountDeletionConfirmationInstruction'),
+                style: const TextStyle(fontWeight: FontWeight.w800),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+              TextField(
+                key: const Key('accountDeletionConfirmationField'),
+                enabled: !_busy,
+                textCapitalization: TextCapitalization.characters,
+                scrollPadding: const EdgeInsets.only(bottom: 120),
+                onChanged: (value) => setState(() => _confirmationText = value),
+                decoration: InputDecoration(hintText: l10n.profileDeleteToken),
+              ),
+              const SizedBox(height: 18),
               FilledButton(
                 key: const Key('accountDeletionConfirm'),
                 onPressed: _canConfirm && !_busy ? _confirm : null,
@@ -248,13 +254,16 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
 
   bool get _canConfirm {
     final preflight = _preflight;
-    if (preflight == null || !_irreversible) return false;
+    if (preflight == null || !_confirmed) return false;
     if (preflight.pendingSyncCount > 0 && !_discardUnsynced) return false;
     if (preflight.subscriptionCancellationRequired && !_cancelRenewal) {
       return false;
     }
     return true;
   }
+
+  bool get _confirmed =>
+      _confirmationText.trim() == context.l10n.profileDeleteToken;
 
   bool get _requiresReauthentication =>
       _error == 'reauthentication_required' ||

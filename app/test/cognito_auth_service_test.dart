@@ -92,6 +92,15 @@ void main() {
     expect(options.pluginOptions, isNull);
   });
 
+  test('AUT-24 provider cancellation remains recoverable and explicit', () {
+    expect(
+      AmplifyCognitoAuthClient.socialAuthFailureCode(
+        const UserCancelledException('synthetic cancellation'),
+      ),
+      AuthFailureCode.socialLoginCancelled,
+    );
+  });
+
   test('AUT-22 federated usernames resolve to their provider', () {
     expect(
       AmplifyCognitoAuthClient.providerFromUsername('SignInWithApple_001'),
@@ -132,12 +141,41 @@ void main() {
       expect(outputs.auth?.oauth?.redirectSignOutUri, ['foloo://signout/']);
       expect(outputs.auth?.oauth?.responseType.name, 'code');
       expect(
+        outputs.auth?.oauth?.identityProviders.map((provider) => provider.name),
+        ['google'],
+      );
+      expect(
         outputs.auth?.oauth?.scopes,
         containsAll(['openid', 'email', 'profile']),
       );
       expect(decoded['auth'], isNot(contains('app_client_secret')));
     },
   );
+
+  test('AUT-22 configured Apple provider is emitted for Amplify Hosted UI', () {
+    const configuration = CognitoEnvironmentConfiguration(
+      region: 'us-east-1',
+      userPoolId: 'pool',
+      appClientId: 'client',
+      hostedUiDomain: 'example.auth.us-east-1.amazoncognito.com',
+      signInRedirectUri: 'foloo://callback/',
+      signOutRedirectUri: 'foloo://signout/',
+      oauthRequired: true,
+      hostedUiIdentityProviders: [
+        CognitoHostedUiProvider.google,
+        CognitoHostedUiProvider.apple,
+      ],
+    );
+
+    final outputs = AmplifyOutputs.fromJson(
+      jsonDecode(configuration.toAmplifyConfiguration())
+          as Map<String, Object?>,
+    );
+    expect(
+      outputs.auth?.oauth?.identityProviders.map((provider) => provider.name),
+      ['google', 'apple'],
+    );
+  });
 
   test('AUT-01 incomplete required OAuth configuration fails clearly', () {
     const configuration = CognitoEnvironmentConfiguration(

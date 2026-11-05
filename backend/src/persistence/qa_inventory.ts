@@ -58,6 +58,18 @@ const countFields = [
   "livePersonalWorkspaces",
   "memberships",
   "ownerMemberships",
+  "workspaceMembers",
+  "otherWorkspaceMembers",
+  "writtenNotes",
+  "businessCardMedia",
+  "referenceImageMedia",
+  "voiceNoteMedia",
+  "mediaObjectReferences",
+  "contentObjectReferences",
+  "accountsWithStripeCustomerReference",
+  "accountsWithStripeSubscriptionReference",
+  "accountsWithBillingEventTimestamp",
+  "accountsWithCurrentPeriodEnd",
   ...tables,
 ] as const;
 const boolFields = [
@@ -100,6 +112,27 @@ const sql = `WITH target_user AS (SELECT id FROM app_users WHERE cognito_sub=$1)
  (SELECT count(*) FROM workspace_members m JOIN target_user u ON m.user_id=u.id) AS "memberships",
  (SELECT count(*) FROM workspace_members m JOIN target_user u ON m.user_id=u.id
    JOIN owned_workspaces w ON m.workspace_id=w.id WHERE m.role='owner') AS "ownerMemberships",
+ (SELECT count(*) FROM workspace_members m
+   JOIN owned_workspaces w ON m.workspace_id=w.id) AS "workspaceMembers",
+ (SELECT count(*) FROM workspace_members m
+   JOIN owned_workspaces w ON m.workspace_id=w.id
+   WHERE NOT EXISTS (SELECT 1 FROM target_user u WHERE u.id=m.user_id)) AS "otherWorkspaceMembers",
+ (SELECT count(*) FROM leads d JOIN owned_workspaces w ON d.workspace_id=w.id
+   WHERE NULLIF(btrim(d.written_note),'') IS NOT NULL) AS "writtenNotes",
+ (SELECT count(*) FROM lead_media d JOIN owned_workspaces w ON d.workspace_id=w.id
+   WHERE d.kind='business_card') AS "businessCardMedia",
+ (SELECT count(*) FROM lead_media d JOIN owned_workspaces w ON d.workspace_id=w.id
+   WHERE d.kind='reference_image') AS "referenceImageMedia",
+ (SELECT count(*) FROM lead_media d JOIN owned_workspaces w ON d.workspace_id=w.id
+   WHERE d.kind='voice_note') AS "voiceNoteMedia",
+ (SELECT count(*) FROM lead_media d JOIN owned_workspaces w ON d.workspace_id=w.id
+   WHERE d.storage_object_key IS NOT NULL) AS "mediaObjectReferences",
+ (SELECT count(*) FROM content_files d JOIN owned_workspaces w ON d.workspace_id=w.id
+   WHERE d.storage_object_key IS NOT NULL) AS "contentObjectReferences",
+ (SELECT count(*) FROM owned_accounts WHERE stripe_customer_id IS NOT NULL) AS "accountsWithStripeCustomerReference",
+ (SELECT count(*) FROM owned_accounts WHERE stripe_subscription_id IS NOT NULL) AS "accountsWithStripeSubscriptionReference",
+ (SELECT count(*) FROM owned_accounts WHERE billing_event_at IS NOT NULL) AS "accountsWithBillingEventTimestamp",
+ (SELECT count(*) FROM owned_accounts WHERE current_period_end IS NOT NULL) AS "accountsWithCurrentPeriodEnd",
  ${tables.map((t) => `(SELECT count(*) FROM ${t} d JOIN owned_workspaces w ON d.workspace_id=w.id) AS "${t}"`).join(",\n")}`;
 
 function redact(row: Record<string, unknown> | undefined): QaInventory {

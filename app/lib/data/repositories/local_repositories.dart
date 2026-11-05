@@ -335,6 +335,11 @@ class EmailDeliveryRepository {
     ),
   );
 
+  /// Returns the last owner-scoped connection state persisted after a
+  /// successful backend check or an explicit disconnect (SAL-04/SAL-08).
+  Future<StoredEmailConnection?> connection(String owner) =>
+      _database.emailDeliveryDao.connectionForOwner(owner);
+
   Future<StoredEmailFollowUp?> prepareForLead({
     required String owner,
     required String leadId,

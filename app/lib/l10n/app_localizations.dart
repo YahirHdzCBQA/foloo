@@ -200,6 +200,12 @@ abstract class AppLocalizations {
   /// **'Continuar con Microsoft'**
   String get continueWithMicrosoft;
 
+  /// No description provided for @authSocialCancelled.
+  ///
+  /// In es, this message translates to:
+  /// **'Cancelaste el inicio de sesión. Puedes intentarlo de nuevo cuando quieras.'**
+  String get authSocialCancelled;
+
   /// No description provided for @authSocialUnavailable.
   ///
   /// In es, this message translates to:
@@ -572,6 +578,162 @@ abstract class AppLocalizations {
   /// **'Nombre completo'**
   String get profileFullName;
 
+  /// No description provided for @profileEditTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Mi perfil'**
+  String get profileEditTitle;
+
+  /// No description provided for @profileEditPhotoHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Toma una foto o elige una de tu galería.'**
+  String get profileEditPhotoHelp;
+
+  /// No description provided for @profileAccountEmail.
+  ///
+  /// In es, this message translates to:
+  /// **'Correo de la cuenta'**
+  String get profileAccountEmail;
+
+  /// No description provided for @profileAccountEmailHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Es tu usuario para entrar. No se cambia aquí.'**
+  String get profileAccountEmailHelp;
+
+  /// No description provided for @profileFollowUpEmail.
+  ///
+  /// In es, this message translates to:
+  /// **'Correo para seguimientos'**
+  String get profileFollowUpEmail;
+
+  /// No description provided for @profileFollowUpConnected.
+  ///
+  /// In es, this message translates to:
+  /// **'Conectado'**
+  String get profileFollowUpConnected;
+
+  /// No description provided for @profileFollowUpDisconnected.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta desconectada'**
+  String get profileFollowUpDisconnected;
+
+  /// No description provided for @profileFollowUpDisconnectedHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Conecta un correo para poder enviar seguimientos a tus leads.'**
+  String get profileFollowUpDisconnectedHelp;
+
+  /// No description provided for @profileFollowUpUnconfigured.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin correo configurado'**
+  String get profileFollowUpUnconfigured;
+
+  /// No description provided for @profileFollowUpUnconfiguredHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Todavía no has conectado un correo para enviar seguimientos.'**
+  String get profileFollowUpUnconfiguredHelp;
+
+  /// No description provided for @profileFollowUpConnect.
+  ///
+  /// In es, this message translates to:
+  /// **'Conectar cuenta'**
+  String get profileFollowUpConnect;
+
+  /// No description provided for @profileFollowUpChooseProvider.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige el proveedor de correo'**
+  String get profileFollowUpChooseProvider;
+
+  /// No description provided for @profileFollowUpDisconnectTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Desconectar este correo?'**
+  String get profileFollowUpDisconnectTitle;
+
+  /// No description provided for @profileFollowUpDisconnectHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'No podrás enviar seguimientos hasta que conectes una cuenta nuevamente.'**
+  String get profileFollowUpDisconnectHelp;
+
+  /// No description provided for @profileSaveChanges.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar cambios'**
+  String get profileSaveChanges;
+
+  /// No description provided for @profileSaved.
+  ///
+  /// In es, this message translates to:
+  /// **'Tus cambios se guardaron.'**
+  String get profileSaved;
+
+  /// No description provided for @profileUnsavedTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tienes cambios sin guardar'**
+  String get profileUnsavedTitle;
+
+  /// No description provided for @profileSaveAndExit.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar y salir'**
+  String get profileSaveAndExit;
+
+  /// No description provided for @profileDiscardChanges.
+  ///
+  /// In es, this message translates to:
+  /// **'Descartar cambios'**
+  String get profileDiscardChanges;
+
+  /// No description provided for @profileKeepEditing.
+  ///
+  /// In es, this message translates to:
+  /// **'Seguir editando'**
+  String get profileKeepEditing;
+
+  /// No description provided for @profileDeleteHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Borra tu cuenta, tus leads, eventos y contenidos. No se puede deshacer.'**
+  String get profileDeleteHelp;
+
+  /// No description provided for @profileDeletePrompt.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribe ELIMINAR para continuar'**
+  String get profileDeletePrompt;
+
+  /// No description provided for @profileDeleteToken.
+  ///
+  /// In es, this message translates to:
+  /// **'ELIMINAR'**
+  String get profileDeleteToken;
+
+  /// No description provided for @profileDeleteDialogTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar tu cuenta?'**
+  String get profileDeleteDialogTitle;
+
+  /// No description provided for @profileDeleteDialogHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Antes de continuar, Foloo comprobará la sincronización, la reautenticación y los datos que se eliminarán.'**
+  String get profileDeleteDialogHelp;
+
+  /// No description provided for @profileEditPhoto.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar foto de perfil'**
+  String get profileEditPhoto;
+
   /// No description provided for @emailOnboardingTitle.
   ///
   /// In es, this message translates to:
@@ -829,6 +991,36 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'La tarjeta'**
   String get cardSection;
+
+  /// No description provided for @cardScanTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Escanear tarjeta'**
+  String get cardScanTitle;
+
+  /// No description provided for @cardScanSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Cámara o galería'**
+  String get cardScanSubtitle;
+
+  /// No description provided for @cardAddTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Agregar tarjeta'**
+  String get cardAddTitle;
+
+  /// No description provided for @cardTakePhotoHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Abre la cámara y encuadra la tarjeta'**
+  String get cardTakePhotoHelp;
+
+  /// No description provided for @cardGalleryHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Usa una foto que ya tomaste'**
+  String get cardGalleryHelp;
 
   /// No description provided for @noCardPhoto.
   ///

@@ -16,9 +16,9 @@ import '../theme/brand_theme.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 import 'auth_account_scope.dart';
-import 'account_deletion_scope.dart';
 import 'language_selector.dart';
 import 'entitlement_scope.dart';
+import 'profile_scope.dart';
 
 /// Resolves only an existing owner-scoped photo; callers retain initials as
 /// the fallback when the local file is unavailable.
@@ -72,7 +72,7 @@ class AppDrawer extends StatelessWidget {
     final accountEmail = AuthAccountScope.maybeOf(context)?.email ?? '';
     final profileImage = drawerProfileImageFor(profile);
     final entitlement = EntitlementScope.maybeOf(context);
-    final deletion = AccountDeletionScope.maybeOf(context);
+    final profileScope = ProfileScope.maybeOf(context);
     return Drawer(
       key: const Key('appDrawer'),
       width: MediaQuery.sizeOf(context).width.clamp(300, 360).toDouble(),
@@ -121,67 +121,81 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(22, 10, 22, 22),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    key: const Key('drawerProfileAvatar'),
-                    radius: 28,
-                    backgroundColor: ink,
-                    backgroundImage: profileImage,
-                    child: profileImage != null
-                        ? null
-                        : Text(
-                            _initials,
-                            key: const Key('drawerProfileInitials'),
-                            style: const TextStyle(
-                              color: FolooColors.lime,
-                              fontWeight: FontWeight.w900,
+              padding: const EdgeInsets.fromLTRB(14, 2, 14, 10),
+              child: InkWell(
+                key: const Key('drawerProfileButton'),
+                onTap: profileScope == null
+                    ? null
+                    : () => _afterClose(context, profileScope.onOpen),
+                borderRadius: BorderRadius.circular(FolooRadii.md),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        key: const Key('drawerProfileAvatar'),
+                        radius: 28,
+                        backgroundColor: ink,
+                        backgroundImage: profileImage,
+                        child: profileImage != null
+                            ? null
+                            : Text(
+                                _initials,
+                                key: const Key('drawerProfileInitials'),
+                                style: const TextStyle(
+                                  color: FolooColors.lime,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              profile.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
-                          ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          profile.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        if (accountEmail.isNotEmpty) ...[
-                          const SizedBox(height: 3),
-                          Text(
-                            accountEmail,
-                            key: const Key('drawerAccountEmail'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: ink.withValues(alpha: 0.72),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
+                            if (accountEmail.isNotEmpty) ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                accountEmail,
+                                key: const Key('drawerAccountEmail'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: ink.withValues(alpha: 0.72),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 5),
+                            Text(
+                              '${profile.company.toUpperCase()} · ${context.l10n.drawerSales}',
+                              style: TextStyle(
+                                color: ink.withValues(alpha: 0.55),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.1,
+                              ),
                             ),
-                          ),
-                        ],
-                        const SizedBox(height: 5),
-                        Text(
-                          '${profile.company.toUpperCase()} · ${context.l10n.drawerSales}',
-                          style: TextStyle(
-                            color: ink.withValues(alpha: 0.55),
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.1,
-                          ),
+                          ],
                         ),
+                      ),
+                      if (profileScope != null) ...[
+                        const SizedBox(width: 8),
+                        const Icon(Icons.chevron_right),
                       ],
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
             Divider(height: 1, color: ink.withValues(alpha: 0.35)),
@@ -328,26 +342,6 @@ class AppDrawer extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (deletion?.enabled == true)
-                      ListTile(
-                        key: const Key('accountDeletionMenu'),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                        ),
-                        leading: Icon(
-                          Icons.delete_forever_outlined,
-                          color: FolooPalette.of(context).error,
-                        ),
-                        title: Text(
-                          context.l10n.accountDeletionMenu,
-                          style: TextStyle(
-                            color: FolooPalette.of(context).error,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        onTap: () => _afterClose(context, deletion!.onOpen),
-                      ),
                   ],
                 ),
               ),

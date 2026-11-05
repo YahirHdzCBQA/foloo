@@ -15,10 +15,10 @@
 para tests/desarrollo controlado. Cognito DEV usa región `us-east-1`, User Pool
 `us-east-1_QVm3dWe4O` y App Client público
 `6jong3atp2crqcsde6g215ant8` sin Client Secret. Self sign-up es email/password,
-con código por email, y Google usa federación Cognito. Microsoft Sign-In/OIDC
-queda temporalmente fuera de esta versión después de presentar conflictos de
-issuer en la federación con Entra; su código reutilizable permanece fuera de la
-UI. El App Client móvil continúa sin secret.
+con código por email, y Google usa federación Cognito. Apple y Microsoft tienen
+adaptadores móviles reutilizables, pero permanecen fuera de la UI publicada y
+apagados por defecto hasta validar sus proveedores externos, el App Client y
+los Registration Guards según ADR-009. El App Client móvil continúa sin secret.
 MFA de usuario y passwordless están fuera. El `sub` Cognito es ownership
 estable. Perfil Foloo no es un atributo Cognito. Auth social y OAuth sender son
 boundaries independientes.

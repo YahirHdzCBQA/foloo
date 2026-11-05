@@ -38,7 +38,8 @@ void main() {
   ) async {
     await tester.pumpWidget(captureApp());
 
-    expect(find.text('Sin foto aún'), findsOneWidget);
+    expect(find.text('Escanear tarjeta'), findsOneWidget);
+    expect(find.text('Cámara o galería'), findsOneWidget);
     expect(find.text('Tipo de Lead'), findsOneWidget);
     expect(find.byKey(const Key('interestBubble')), findsOneWidget);
 

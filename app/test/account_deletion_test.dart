@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foloo/app.dart';
 import 'package:foloo/data/repositories/local_repositories.dart';
 import 'package:foloo/l10n/app_localizations.dart';
 import 'package:foloo/screens/account_deletion_screen.dart';
@@ -146,6 +147,105 @@ Widget harness(
 }
 
 void main() {
+  testWidgets('AUT-18 enabled runtime exposes the account deletion flow', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      FolooApp(
+        accountDeletionEnabled: true,
+        accountDeletionService: FakeDeletionService(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('loginEmailField')),
+      'synthetic@example.test',
+    );
+    await tester.enterText(
+      find.byKey(const Key('loginPasswordField')),
+      'synthetic-password',
+    );
+    await tester.tap(find.byKey(const Key('loginButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('profileContinueButton')));
+    await tester.pumpAndSettle();
+    final skipEmail = find.byKey(const Key('emailOnboardingSkipButton'));
+    await tester.ensureVisible(skipEmail);
+    await tester.tap(skipEmail);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('originContinueButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('hamburgerMenuButton')).first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('drawerProfileButton')));
+    await tester.pumpAndSettle();
+    final deletionEntry = find.byKey(const Key('profileDeleteAccountButton'));
+    await tester.ensureVisible(deletionEntry);
+    await tester.tap(deletionEntry);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('accountDeletionPrepare')), findsOneWidget);
+  });
+
+  testWidgets('AUT-18 disabled runtime hides the account deletion entry', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      FolooApp(
+        accountDeletionEnabled: false,
+        accountDeletionService: FakeDeletionService(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('loginEmailField')),
+      'synthetic@example.test',
+    );
+    await tester.enterText(
+      find.byKey(const Key('loginPasswordField')),
+      'synthetic-password',
+    );
+    await tester.tap(find.byKey(const Key('loginButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('profileContinueButton')));
+    await tester.pumpAndSettle();
+    final skipEmail = find.byKey(const Key('emailOnboardingSkipButton'));
+    await tester.ensureVisible(skipEmail);
+    await tester.tap(skipEmail);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('originContinueButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('hamburgerMenuButton')).first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('drawerProfileButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('profileDeleteAccountButton')), findsNothing);
+  });
+
+  testWidgets(
+    'AUT-18 irreversible instruction stays separate and visible with keyboard',
+    (tester) async {
+      await tester.pumpWidget(harness(FakeDeletionService()));
+      await tester.tap(find.byKey(const Key('accountDeletionPrepare')));
+      await tester.pumpAndSettle();
+
+      final instruction = find.byKey(
+        const Key('accountDeletionConfirmationInstruction'),
+      );
+      final field = find.byKey(const Key('accountDeletionConfirmationField'));
+      await tester.ensureVisible(instruction);
+      await tester.showKeyboard(field);
+      await tester.pumpAndSettle();
+
+      expect(instruction, findsOneWidget);
+      final textField = tester.widget<TextField>(field);
+      expect(textField.decoration?.labelText, isNull);
+      expect(textField.decoration?.hintText, 'ELIMINAR');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test(
     'AUT-21 receipt status remains available after Cognito logout',
     () async {
@@ -195,7 +295,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView), const Offset(0, -500));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('accountDeletionIrreversible')));
+    await tester.enterText(
+      find.byKey(const Key('accountDeletionConfirmationField')),
+      'ELIMINAR',
+    );
     await tester.pump();
     final confirm = find.byKey(const Key('accountDeletionConfirm'));
     expect(tester.widget<FilledButton>(confirm).onPressed, isNotNull);
@@ -219,6 +322,8 @@ void main() {
     await tester.pumpWidget(harness(service, prepareImmediately: true));
     await tester.pumpAndSettle();
     expect(service.preflights, 1);
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('accountDeletionConfirm')), findsOneWidget);
   });
 
@@ -266,7 +371,10 @@ void main() {
       final confirm = find.byKey(const Key('accountDeletionConfirm'));
       expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
       await tester.tap(find.byKey(const Key('accountDeletionDiscardUnsynced')));
-      await tester.tap(find.byKey(const Key('accountDeletionIrreversible')));
+      await tester.enterText(
+        find.byKey(const Key('accountDeletionConfirmationField')),
+        'ELIMINAR',
+      );
       await tester.pump();
       expect(tester.widget<FilledButton>(confirm).onPressed, isNotNull);
       await tester.tap(confirm);
@@ -285,7 +393,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView), const Offset(0, -500));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('accountDeletionIrreversible')));
+    await tester.enterText(
+      find.byKey(const Key('accountDeletionConfirmationField')),
+      'ELIMINAR',
+    );
     await tester.pump();
     final confirm = find.byKey(const Key('accountDeletionConfirm'));
     await tester.tap(confirm);

@@ -87,6 +87,45 @@ Future<void> completeRequiredLead(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('drawer profile row opens profile and returns to capture', (
+    tester,
+  ) async {
+    usePhoneViewport(tester);
+    await tester.pumpWidget(const FolooApp());
+    await enterCapture(tester);
+    await openDrawer(tester);
+    await tester.tap(find.byKey(const Key('drawerProfileButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('profileEditScreen')), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('profileEditCompanyField')),
+      'Unsaved Company',
+    );
+    await tester.tap(find.byKey(const Key('profileBackButton')));
+    await tester.pumpAndSettle();
+    expect(find.text('Tienes cambios sin guardar'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('profileDiscardButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('cardSection')), findsOneWidget);
+  });
+
+  testWidgets('card block opens camera and gallery source sheet', (
+    tester,
+  ) async {
+    usePhoneViewport(tester);
+    await tester.pumpWidget(const FolooApp());
+    await enterCapture(tester);
+    final source = find.byKey(const Key('cardSourceButton'));
+    await tester.ensureVisible(source);
+    await tester.tap(source);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('cameraButton')), findsOneWidget);
+    expect(find.byKey(const Key('galleryButton')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('cardSourceCancelButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('cardSection')), findsOneWidget);
+  });
+
   testWidgets('primary modules share a left title and the global Drawer', (
     tester,
   ) async {
