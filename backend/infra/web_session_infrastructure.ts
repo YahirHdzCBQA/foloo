@@ -28,6 +28,7 @@ export type WebSessionInfrastructureProps = Readonly<{
   absoluteDurationSeconds: number;
   idleDurationSeconds: number;
   enabled?: boolean;
+  normalAccessEnabled?: boolean;
   qaSubjectHashes?: readonly string[];
 }>;
 
@@ -80,6 +81,8 @@ export class WebSessionInfrastructure extends Construct {
       environment: {
         // Activation remains DEV-only and fail-closed to pseudonymous QA subjects.
         FOLOO_WEB_SESSION_ENABLED: props.enabled === true ? "true" : "false",
+        WEB_SESSION_NORMAL_ACCESS_ENABLED:
+          props.normalAccessEnabled === true ? "true" : "false",
         WEB_SESSION_QA_SUBJECT_HASHES: (props.qaSubjectHashes ?? []).join(","),
         WEB_SESSION_TABLE_NAME: this.table.tableName,
         WEB_SESSION_KEY_ARN: this.encryptionKey.keyArn,

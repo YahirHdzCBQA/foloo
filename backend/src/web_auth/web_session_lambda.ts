@@ -25,6 +25,10 @@ const schema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  WEB_SESSION_NORMAL_ACCESS_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   WEB_SESSION_QA_SUBJECT_HASHES: z.string().default(""),
   WEB_SESSION_TABLE_NAME: z.string().min(1),
   WEB_SESSION_KEY_ARN: z.string().min(1),
@@ -54,7 +58,9 @@ function initialize(): ReturnType<typeof createWebSessionHandler> {
     [...allowedSubjectHashes].some(
       (value) => !/^[A-Za-z0-9_-]{43}$/u.test(value),
     ) ||
-    (environment.FOLOO_WEB_SESSION_ENABLED && allowedSubjectHashes.size === 0)
+    (environment.FOLOO_WEB_SESSION_ENABLED &&
+      !environment.WEB_SESSION_NORMAL_ACCESS_ENABLED &&
+      allowedSubjectHashes.size === 0)
   ) {
     throw new Error("Web-session QA access configuration is invalid.");
   }
@@ -87,7 +93,10 @@ function initialize(): ReturnType<typeof createWebSessionHandler> {
         environment.WEB_SESSION_OAUTH_TRANSACTION_SECONDS * 1000,
     },
     undefined,
-    { allowedSubjectHashes },
+    {
+      allowedSubjectHashes,
+      normalAccessEnabled: environment.WEB_SESSION_NORMAL_ACCESS_ENABLED,
+    },
   );
   return createWebSessionHandler(
     { sessions },

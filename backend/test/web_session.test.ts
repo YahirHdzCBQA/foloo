@@ -674,3 +674,19 @@ test("AUT-18 a later refresh cannot retain step-up freshness from native reauthe
   });
   assert.equal(restored.authenticationTime.getTime(), originalAuth);
 });
+
+test("AUT-18 normal web admission accepts a valid identity outside QA and restores it", async () => {
+  const service = new WebSessionService(
+    new MemoryStore(),
+    new TestCipher(),
+    new TestCognito(),
+    policy,
+    now,
+    { allowedSubjectHashes: new Set(), normalAccessEnabled: true },
+  );
+  const created = await service.bootstrapWithRefreshToken(
+    "refresh-token-synthetic",
+  );
+  const restored = await service.restore(created.sessionId);
+  assert.equal(restored.identity.sub, "synthetic-subject-a");
+});

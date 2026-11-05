@@ -16,6 +16,7 @@ import {
   WebSessionCsrfError,
   WebSessionService,
   WebSessionUnauthorizedError,
+  WebSessionAccessDeniedError,
 } from "./web_session.js";
 
 const sessionCookieName = "__Host-foloo_session";
@@ -244,6 +245,9 @@ export function createWebSessionHandler(
           headers: { location: "/settings/account?reauth=failed#peligro" },
           cookies: [clearCookie(oauthCookieName)],
         });
+      if (error instanceof WebSessionAccessDeniedError) {
+        return problem(403, "web_session_access_denied");
+      }
       if (error instanceof WebSessionUnauthorizedError) {
         return problem(401, "web_session_unauthorized", clearLogoutCookie);
       }

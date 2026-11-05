@@ -46,6 +46,7 @@ async function initialize() {
     ),
     webSessionsEnabled: process.env.FOLOO_WEB_SESSION_ENABLED === "true",
     allowedWebSubjectHashes,
+    normalWebAccessEnabled: environment.WEB_SESSION_NORMAL_ACCESS_ENABLED,
   });
   const repository = new PostgresFolooRepository(pool, {
     unlimitedQaMode: environment.FOLOO_UNLIMITED_QA_MODE,

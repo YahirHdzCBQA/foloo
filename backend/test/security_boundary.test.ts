@@ -42,6 +42,7 @@ function guardedEvent(input: {
 function clientGuard(
   options: {
     enabled?: boolean;
+    normal?: boolean;
     allowedSubjects?: readonly string[];
   } = {},
 ) {
@@ -51,6 +52,7 @@ function clientGuard(
       mobileClientId: "mobile-client",
       webClientId: "web-client",
       webSessionsEnabled: options.enabled ?? false,
+      normalWebAccessEnabled: options.normal ?? false,
       allowedWebSubjectHashes: new Set(
         (options.allowedSubjects ?? []).map(webQaSubjectHash),
       ),
@@ -335,4 +337,24 @@ test("INF-18 an old JWT from a second device cannot sync leads, media or content
   }
   assert.equal(guarded.length, 4);
   assert.deepEqual(repository.seenSubjects, []);
+});
+
+test("AUT-18 normal web admission preserves issuer, expiry, client and token-use checks", () => {
+  const guard = clientGuard({ enabled: true, normal: true });
+  assert.doesNotThrow(() =>
+    guard.assertAllowed(guardedEvent({ clientId: "web-client" })),
+  );
+  for (const event of [
+    guardedEvent({ clientId: "unknown" }),
+    guardedEvent({ tokenUse: "id" }),
+    guardedEvent({ tokenIssuer: "https://issuer.invalid" }),
+    guardedEvent({ expiresAt: Math.floor(fixedNow.getTime() / 1000) }),
+    guardedEvent({ subject: "" }),
+  ])
+    assert.throws(() => guard.assertAllowed(event));
+  assert.throws(() =>
+    clientGuard({ normal: true }).assertAllowed(
+      guardedEvent({ clientId: "web-client" }),
+    ),
+  );
 });

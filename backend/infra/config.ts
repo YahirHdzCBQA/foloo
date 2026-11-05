@@ -119,6 +119,7 @@ export function accountDeletionSesNotificationsForEnvironment(
 }
 
 export type WebSessionQaConfig = Readonly<{
+  normalAccessEnabled?: boolean;
   enabled: boolean;
   subjectHashes: readonly string[];
 }>;
@@ -397,7 +398,14 @@ export function webSessionQaConfigForEnvironment(
   environment: string,
   rawEnabled: unknown,
   rawSubjectHashes: unknown,
+  rawNormalAccessEnabled: unknown = false,
 ): WebSessionQaConfig {
+  const normalAccessEnabled = activationFlag(
+    "webSessionNormalAccessEnabled",
+    rawNormalAccessEnabled,
+  );
+  if (normalAccessEnabled && environment !== "dev")
+    throw new Error("Normal web access activation is currently DEV-only.");
   const enabled = rawEnabled === true || rawEnabled === "true";
   if (enabled && environment !== "dev") {
     throw new Error("Web-session QA is restricted to DEV.");
@@ -415,5 +423,11 @@ export function webSessionQaConfigForEnvironment(
   if (enabled && subjectHashes.length === 0) {
     throw new Error("Web-session QA requires at least one subject hash.");
   }
-  return { enabled, subjectHashes };
+  if (normalAccessEnabled && enabled)
+    throw new Error("Choose normal or QA web admission, not both.");
+  return {
+    enabled: enabled || normalAccessEnabled,
+    subjectHashes,
+    ...(normalAccessEnabled ? { normalAccessEnabled: true } : {}),
+  };
 }

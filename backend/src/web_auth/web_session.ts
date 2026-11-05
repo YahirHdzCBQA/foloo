@@ -110,6 +110,7 @@ export type WebSessionPolicy = Readonly<{
 }>;
 
 export type WebSessionAccessPolicy = Readonly<{
+  normalAccessEnabled?: boolean;
   allowedSubjectHashes: ReadonlySet<string>;
 }>;
 
@@ -149,6 +150,8 @@ export class WebSessionUnauthorizedError extends Error {
     this.name = "WebSessionUnauthorizedError";
   }
 }
+
+export class WebSessionAccessDeniedError extends WebSessionUnauthorizedError {}
 
 export class WebSessionCsrfError extends Error {
   constructor() {
@@ -611,9 +614,10 @@ export class WebSessionService {
   private assertSubjectAllowed(value: string): void {
     if (
       this.accessPolicy &&
+      this.accessPolicy.normalAccessEnabled !== true &&
       !this.accessPolicy.allowedSubjectHashes.has(value)
     ) {
-      throw new WebSessionUnauthorizedError();
+      throw new WebSessionAccessDeniedError();
     }
   }
 

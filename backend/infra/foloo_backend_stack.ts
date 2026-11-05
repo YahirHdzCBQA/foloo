@@ -35,6 +35,7 @@ type FolooBackendStackProps = cdk.StackProps & {
   config: EnvironmentConfig;
   unlimitedQaMode?: boolean;
   webSessionQa?: {
+    normalAccessEnabled?: boolean;
     enabled: boolean;
     subjectHashes: readonly string[];
   };
@@ -390,6 +391,8 @@ export class FolooBackendStack extends cdk.Stack {
         WEB_COGNITO_CLIENT_ID: webClientId,
         FOLOO_WEB_SESSION_ENABLED:
           props.webSessionQa?.enabled === true ? "true" : "false",
+        WEB_SESSION_NORMAL_ACCESS_ENABLED:
+          props.webSessionQa?.normalAccessEnabled === true ? "true" : "false",
         WEB_SESSION_QA_SUBJECT_HASHES: (
           props.webSessionQa?.subjectHashes ?? []
         ).join(","),
@@ -1085,6 +1088,7 @@ export class FolooBackendStack extends cdk.Stack {
         config.webAuth.sessionPolicy.absoluteDurationSeconds,
       idleDurationSeconds: config.webAuth.sessionPolicy.idleDurationSeconds,
       enabled: props.webSessionQa?.enabled ?? false,
+      normalAccessEnabled: props.webSessionQa?.normalAccessEnabled ?? false,
       qaSubjectHashes: props.webSessionQa?.subjectHashes ?? [],
     });
     apiFunction.addEnvironment("PUBLIC_API_BASE_URL", api.apiEndpoint);

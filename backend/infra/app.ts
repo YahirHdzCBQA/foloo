@@ -26,6 +26,7 @@ const webSessionQa = webSessionQaConfigForEnvironment(
   config.name,
   app.node.tryGetContext("webSessionQaEnabled"),
   app.node.tryGetContext("webSessionQaSubjectHashes"),
+  app.node.tryGetContext("webSessionNormalAccessEnabled"),
 );
 const cognitoFederatedProviders = cognitoFederatedProviderConfigForEnvironment(
   config.name,

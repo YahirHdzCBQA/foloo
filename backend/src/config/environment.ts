@@ -40,6 +40,10 @@ const environmentSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  WEB_SESSION_NORMAL_ACCESS_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   ACCOUNT_DELETION_QA_SUBJECT_HASHES: z.string().default(""),
   ACCOUNT_DELETION_TABLE_NAME: z.string().min(1).optional(),
   ACCOUNT_DELETION_HMAC_KEY_ARN: z.string().min(1).optional(),

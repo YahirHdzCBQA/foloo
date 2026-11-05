@@ -14,6 +14,7 @@ export type ApiClientAccessPolicy = Readonly<{
   mobileClientId: string;
   webClientId: string;
   webSessionsEnabled: boolean;
+  normalWebAccessEnabled?: boolean;
   allowedWebSubjectHashes: ReadonlySet<string>;
 }>;
 
@@ -33,7 +34,9 @@ export function createApiClientAccessGuard(
     [...policy.allowedWebSubjectHashes].some(
       (value) => !/^[A-Za-z0-9_-]{43}$/u.test(value),
     ) ||
-    (policy.webSessionsEnabled && policy.allowedWebSubjectHashes.size === 0)
+    (policy.webSessionsEnabled &&
+      !policy.normalWebAccessEnabled &&
+      policy.allowedWebSubjectHashes.size === 0)
   ) {
     throw new Error("API client access policy is invalid.");
   }
@@ -69,7 +72,8 @@ export function createApiClientAccessGuard(
       if (
         clientId !== policy.webClientId ||
         !policy.webSessionsEnabled ||
-        !policy.allowedWebSubjectHashes.has(webQaSubjectHash(subject))
+        (policy.normalWebAccessEnabled !== true &&
+          !policy.allowedWebSubjectHashes.has(webQaSubjectHash(subject)))
       ) {
         throw unauthorized();
       }
