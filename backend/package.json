@@ -14,6 +14,7 @@
     "format:check": "prettier --check \"{src,test,infra,scripts}/**/*.{ts,json}\" \"*.{json,md}\" \"openapi/*.yaml\"",
     "test": "node --import tsx --test test/**/*.test.ts",
     "migrate": "tsx scripts/migrate.ts",
+    "entitlement:admin": "tsx scripts/admin-entitlement.ts",
     "smoke:account-deletion": "tsx scripts/account-deletion-smoke.ts",
     "status:account-deletion-ses": "tsx scripts/account-deletion-ses-status.ts",
     "cdk": "cdk"
@@ -27,6 +28,7 @@
     "@aws-sdk/client-secrets-manager": "^3.0.0",
     "@aws-sdk/client-sesv2": "^3.1136.0",
     "@aws-sdk/client-sqs": "^3.1136.0",
+    "@aws-sdk/client-sts": "^3.1136.0",
     "@aws-sdk/s3-request-presigner": "^3.1131.0",
     "pg": "^8.0.0",
     "stripe": "^23.0.0",

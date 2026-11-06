@@ -225,10 +225,19 @@ test("FL-021 MON-16/MON-18 billing has public egress, scoped secrets and signed 
   assert.match(apiPolicy, /lambda:InvokeFunction/);
   assert.match(providerPolicy, /dev\/stripe-api-key/);
   assert.doesNotMatch(providerPolicy, /stripe-webhook-signing|rds:/);
-  assert.equal(
-    Object.keys(template.findResources("AWS::SecretsManager::Secret")).length,
-    2,
+  const generatedSecrets = template.findResources(
+    "AWS::SecretsManager::Secret",
   );
+  assert.equal(Object.keys(generatedSecrets).length, 3);
+  const entitlementSecretId = Object.entries(generatedSecrets).find(
+    ([, value]) => JSON.stringify(value).includes("foloo_entitlement_operator"),
+  )?.[0];
+  assert.ok(entitlementSecretId);
+  const entitlementSecretPolicies = Object.entries(policies)
+    .filter(([, value]) => JSON.stringify(value).includes(entitlementSecretId))
+    .map(([id]) => id);
+  assert.equal(entitlementSecretPolicies.length, 1);
+  assert.match(entitlementSecretPolicies[0]!, /^MigrationFunction/);
   template.resourceCountIs("AWS::EC2::NatGateway", 0);
 });
 

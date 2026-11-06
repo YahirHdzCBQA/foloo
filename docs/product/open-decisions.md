@@ -24,8 +24,8 @@ build aprobado debe habilitarlo explícitamente.
 **Pregunta:** compra in-app, pago externo en navegador o external purchase link
 permitido por región/tienda.
 
-**Bloquea:** compra/checkout de FL-021, confirmación y revisión de tiendas. No
-bloquea el enforcement ni el paywall informativo sin precio de FL-020.
+**Bloquea:** compra/checkout de FL-022, confirmación y revisión de tiendas. No
+bloquea el enforcement, los grants administrativos ni el evento 5/5 de FL-021.
 
 ### `D-02` · Precio, moneda y regiones
 

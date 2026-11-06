@@ -94,7 +94,9 @@ export class PostgresBillingRepository implements BillingRepository {
         : null;
       await db.query(
         `UPDATE accounts SET stripe_customer_id=$2, stripe_subscription_id=$3,
-        subscription_status=COALESCE($4, subscription_status), billing_event_at=to_timestamp($5),
+        subscription_status=COALESCE($4, subscription_status),
+        entitlement_source=CASE WHEN $4='active' THEN 'stripe' ELSE entitlement_source END,
+        billing_event_at=to_timestamp($5),
         entitlement_updated_at=now(), updated_at=now()
         WHERE id=$1 AND deleted_at IS NULL
           AND (stripe_customer_id IS NULL OR stripe_customer_id=$2)
@@ -155,6 +157,7 @@ export class PostgresBillingRepository implements BillingRepository {
         (ends.length ? Math.min(...ends) : null);
       await db.query(
         `UPDATE accounts SET subscription_status=COALESCE($3, subscription_status),
+        entitlement_source=CASE WHEN $3 IS NOT NULL THEN 'stripe' ELSE entitlement_source END,
         current_period_end=COALESCE(to_timestamp($4), current_period_end), billing_event_at=to_timestamp($5),
         entitlement_updated_at=now(), updated_at=now()
         WHERE stripe_subscription_id=$1 AND stripe_customer_id=$2 AND deleted_at IS NULL

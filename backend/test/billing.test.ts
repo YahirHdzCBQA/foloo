@@ -57,6 +57,7 @@ class BillingDatabase {
       {
         id,
         subscriptionStatus: "trial_exhausted",
+        entitlementSource: "trial",
         customerId: null as string | null,
         subscriptionId: null as string | null,
         periodEnd: null as number | null,
@@ -166,6 +167,7 @@ class BillingDatabase {
             } else if (values[3] !== null)
               account.periodEnd = Number(values[3]);
             account.subscriptionStatus = status ?? account.subscriptionStatus;
+            if (status !== null) account.entitlementSource = "stripe";
             account.billingEventAt = created;
             writes++;
             matched++;

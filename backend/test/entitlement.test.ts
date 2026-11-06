@@ -34,6 +34,7 @@ class EntitlementClient {
   status = "trial";
   stored?: { request_hash: string; response_body: unknown };
   calls: string[] = [];
+  milestoneInserts = 0;
 
   async query<Row extends Record<string, unknown> = Record<string, unknown>>(
     sql: string,
@@ -62,6 +63,9 @@ class EntitlementClient {
         rows: [{ id: lead.id, revision: 1 } as unknown as Row],
         rowCount: 1,
       };
+    }
+    if (sql.includes("INSERT INTO trial_milestone_events")) {
+      this.milestoneInserts += 1;
     }
     if (sql.includes("UPDATE accounts SET")) {
       this.used += 1;
@@ -138,6 +142,31 @@ test("active subscription bypasses the trial counter", async () => {
     requestHash(lead),
   );
   assert.equal(client.used, 5);
+});
+
+test("the backend-confirmed fifth Lead creates one durable milestone", async () => {
+  const client = new EntitlementClient();
+  client.used = 4;
+  const adapter = repository(client);
+  const response = await adapter.createLead(
+    principal,
+    lead,
+    "fifth-key",
+    requestHash(lead),
+  );
+  assert.equal(client.used, 5);
+  assert.equal(client.milestoneInserts, 1);
+  assert.deepEqual(response, {
+    replayed: false,
+    value: {
+      id: lead.id,
+      revision: 1,
+      trialMilestoneReached: true,
+      trialMilestoneDeliveryStatus: "pending",
+    },
+  });
+  await adapter.createLead(principal, lead, "fifth-key", requestHash(lead));
+  assert.equal(client.milestoneInserts, 1);
 });
 
 test("Unlimited QA accepts exhausted and additional Leads without consumption", async () => {

@@ -10,11 +10,13 @@ import 'package:foloo/data/repositories/local_repositories.dart';
 import 'package:foloo/l10n/app_localizations.dart';
 import 'package:foloo/l10n/l10n.dart';
 import 'package:foloo/models/app_event.dart';
+import 'package:foloo/models/entitlement.dart';
 import 'package:foloo/screens/profile_screen.dart';
 import 'package:foloo/services/email_connection_service.dart';
 import 'package:foloo/services/image_capture_service.dart';
 import 'package:foloo/sync/sync_models.dart';
 import 'package:foloo/theme/foloo_theme.dart';
+import 'package:foloo/widgets/entitlement_scope.dart';
 import 'package:image_picker/image_picker.dart';
 
 class _Session implements SyncSessionProvider {
@@ -84,6 +86,7 @@ Widget _app({
   ImageCaptureService? imageCapture,
   EmailConnectionService? connectionService,
   EmailDeliveryRepository? deliveryRepository,
+  EntitlementSnapshot? entitlement,
 }) => MaterialApp(
   locale: const Locale('es'),
   supportedLocales: AppLocalizations.supportedLocales,
@@ -94,27 +97,54 @@ Widget _app({
     GlobalWidgetsLocalizations.delegate,
   ],
   theme: FolooTheme.light,
-  home: AppLanguageScope(
-    locale: const Locale('es'),
-    onLocaleChanged: (_) {},
-    child: ProfileScreen(
-      profile: const DemoProfile(name: 'Seller Name', company: 'Foloo'),
-      accountEmail: 'account@example.test',
-      ownerSub: 'owner-a',
-      onSave: onSave,
-      onLogout: onLogout ?? () {},
-      onDeleteAccount: onDelete ?? () {},
-      accountDeletionEnabled: true,
-      connectionService:
-          connectionService ??
-          EmailConnectionService(_ConnectionApi(), _Session()),
-      deliveryRepository: deliveryRepository,
-      imageCaptureService: imageCapture,
+  home: EntitlementScope(
+    entitlement: entitlement ?? EntitlementSnapshot.newTrial(verified: true),
+    child: AppLanguageScope(
+      locale: const Locale('es'),
+      onLocaleChanged: (_) {},
+      child: ProfileScreen(
+        profile: const DemoProfile(name: 'Seller Name', company: 'Foloo'),
+        accountEmail: 'account@example.test',
+        ownerSub: 'owner-a',
+        onSave: onSave,
+        onLogout: onLogout ?? () {},
+        onDeleteAccount: onDelete ?? () {},
+        accountDeletionEnabled: true,
+        connectionService:
+            connectionService ??
+            EmailConnectionService(_ConnectionApi(), _Session()),
+        deliveryRepository: deliveryRepository,
+        imageCaptureService: imageCapture,
+      ),
     ),
   ),
 );
 
 void main() {
+  testWidgets(
+    'MON-21 profile distinguishes FREE and PRO without feature gates',
+    (tester) async {
+      await tester.pumpWidget(
+        _app(
+          onSave: (profile) async => profile,
+          entitlement: const EntitlementSnapshot(
+            status: SubscriptionStatus.active,
+            serverTrialLeadsUsed: 5,
+            pendingLocalLeads: 0,
+            verified: true,
+          ),
+        ),
+      );
+      expect(find.byKey(const Key('profileEntitlement')), findsOneWidget);
+      expect(find.text('Plan PRO'), findsOneWidget);
+      expect(find.byKey(const Key('profileLogoutButton')), findsOneWidget);
+      expect(
+        find.byKey(const Key('profileDeleteAccountButton')),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets(
     'AUT-05 edits real profile fields and previews a selected photo',
     (tester) async {

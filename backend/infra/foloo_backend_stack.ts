@@ -357,6 +357,22 @@ export class FolooBackendStack extends cdk.Stack {
         },
       },
     );
+    // MON-21: private entitlement operations use a dedicated login and never
+    // receive the RDS administrator or ordinary API credentials.
+    const entitlementOperatorSecret = new secretsmanager.Secret(
+      this,
+      "EntitlementOperatorDatabaseSecret",
+      {
+        generateSecretString: {
+          secretStringTemplate: JSON.stringify({
+            username: "foloo_entitlement_operator",
+          }),
+          generateStringKey: "password",
+          excludePunctuation: true,
+          passwordLength: 32,
+        },
+      },
+    );
 
     const commonEnvironment = {
       DB_HOST: database.dbInstanceEndpointAddress,
@@ -1033,6 +1049,8 @@ export class FolooBackendStack extends cdk.Stack {
         environment: {
           ...commonEnvironment,
           DB_ADMIN_SECRET_ARN: database.secret!.secretArn,
+          DB_ENTITLEMENT_OPERATOR_SECRET_ARN:
+            entitlementOperatorSecret.secretArn,
           MIGRATIONS_DIR: "/var/task/migrations",
           ...qaInventoryEnvironment(
             config.name,
@@ -1054,6 +1072,7 @@ export class FolooBackendStack extends cdk.Stack {
     );
     appSecret.grantRead(migrationFunction);
     database.secret!.grantRead(migrationFunction);
+    entitlementOperatorSecret.grantRead(migrationFunction);
 
     const authorizer = new authorizers.HttpJwtAuthorizer(
       "CognitoJwt",

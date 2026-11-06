@@ -1645,4 +1645,39 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get accountDeletionStatusError =>
       'The deletion status could not be retrieved. Try again later.';
+
+  @override
+  String get planFree => 'FREE plan';
+
+  @override
+  String get planPro => 'PRO plan';
+
+  @override
+  String historicalLeadUsage(Object count) {
+    return '$count of 5 historical leads used';
+  }
+
+  @override
+  String get trialMilestonePlan => 'FREE PLAN';
+
+  @override
+  String get trialMilestoneTitle => '5 of 5 leads captured';
+
+  @override
+  String get trialMilestoneHeading => 'Keep going with unlimited Foloo';
+
+  @override
+  String get trialMilestoneSaved =>
+      'Your fifth lead was saved and your five leads remain available.';
+
+  @override
+  String get trialMilestoneOffline =>
+      'This status was confirmed after synchronization with Foloo.';
+
+  @override
+  String get trialMilestoneEmailDisabled =>
+      'The follow-up email is not enabled yet.';
+
+  @override
+  String get trialMilestoneUnderstood => 'Got it';
 }

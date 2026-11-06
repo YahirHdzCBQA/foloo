@@ -107,9 +107,17 @@ export async function handler(
   const region = process.env.AWS_REGION;
   const adminArn = process.env.DB_ADMIN_SECRET_ARN;
   const appArn = process.env.DB_SECRET_ARN;
+  const entitlementOperatorArn = process.env.DB_ENTITLEMENT_OPERATOR_SECRET_ARN;
   const host = process.env.DB_HOST;
   const database = process.env.DB_NAME;
-  if (!region || !adminArn || !appArn || !host || !database)
+  if (
+    !region ||
+    !adminArn ||
+    !appArn ||
+    !entitlementOperatorArn ||
+    !host ||
+    !database
+  )
     throw new Error("Migration configuration is incomplete");
 
   const secrets = new SecretsManagerClient({ region });
@@ -127,14 +135,28 @@ export async function handler(
   try {
     if (action === "status") return await inspectAccountDeletionBarrier(pool);
     const app = await readSecret(secrets, appArn);
+    const entitlementOperator = await readSecret(
+      secrets,
+      entitlementOperatorArn,
+    );
     if (app.username !== "foloo_app") {
       throw new Error(
         "Application database role does not match the migration contract",
       );
     }
+    if (entitlementOperator.username !== "foloo_entitlement_operator") {
+      throw new Error(
+        "Entitlement operator database role does not match the migration contract",
+      );
+    }
     const client = await pool.connect();
     try {
       await ensureApplicationRole(client, "foloo_app", app.password);
+      await ensureApplicationRole(
+        client,
+        "foloo_entitlement_operator",
+        entitlementOperator.password,
+      );
     } finally {
       client.release();
     }

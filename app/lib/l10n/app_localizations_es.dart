@@ -1651,4 +1651,39 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get accountDeletionStatusError =>
       'No se pudo consultar el estado de eliminación. Inténtalo más tarde.';
+
+  @override
+  String get planFree => 'Plan FREE';
+
+  @override
+  String get planPro => 'Plan PRO';
+
+  @override
+  String historicalLeadUsage(Object count) {
+    return '$count de 5 leads históricos utilizados';
+  }
+
+  @override
+  String get trialMilestonePlan => 'PLAN GRATIS';
+
+  @override
+  String get trialMilestoneTitle => '5 de 5 leads capturados';
+
+  @override
+  String get trialMilestoneHeading => 'Sigue con Foloo ilimitado';
+
+  @override
+  String get trialMilestoneSaved =>
+      'Tu quinto lead quedó guardado y tus cinco leads siguen disponibles.';
+
+  @override
+  String get trialMilestoneOffline =>
+      'Este estado fue confirmado después de sincronizar con Foloo.';
+
+  @override
+  String get trialMilestoneEmailDisabled =>
+      'El correo de seguimiento todavía no está habilitado.';
+
+  @override
+  String get trialMilestoneUnderstood => 'Entendido';
 }

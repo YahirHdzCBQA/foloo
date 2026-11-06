@@ -90,6 +90,8 @@ test("MigrationFunction closes the pool only after status inspection completes",
   const environment = {
     AWS_REGION: process.env.AWS_REGION,
     DB_ADMIN_SECRET_ARN: process.env.DB_ADMIN_SECRET_ARN,
+    DB_ENTITLEMENT_OPERATOR_SECRET_ARN:
+      process.env.DB_ENTITLEMENT_OPERATOR_SECRET_ARN,
     DB_SECRET_ARN: process.env.DB_SECRET_ARN,
     DB_HOST: process.env.DB_HOST,
     DB_NAME: process.env.DB_NAME,
@@ -135,6 +137,8 @@ test("MigrationFunction closes the pool only after status inspection completes",
     });
     process.env.AWS_REGION = "us-east-1";
     process.env.DB_ADMIN_SECRET_ARN = "synthetic-admin-secret";
+    process.env.DB_ENTITLEMENT_OPERATOR_SECRET_ARN =
+      "synthetic-entitlement-operator-secret";
     process.env.DB_SECRET_ARN = "synthetic-app-secret";
     process.env.DB_HOST = "synthetic.invalid";
     process.env.DB_NAME = "synthetic_database";

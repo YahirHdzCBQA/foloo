@@ -17,6 +17,10 @@ const entitlementMigrationUrl = new URL(
   "../migrations/007_trial_entitlements.sql",
   import.meta.url,
 );
+const trialFoundationMigrationUrl = new URL(
+  "../migrations/012_trial_subscription_foundation.sql",
+  import.meta.url,
+);
 
 test("migration scopes resource foreign keys by workspace and excludes blobs", async () => {
   const sql = await readFile(migrationUrl, "utf8");
@@ -86,5 +90,46 @@ test("FL-021 MON-16 migration provides atomic deduplication without deleting dat
   assert.match(sql, /current_period_end timestamptz/);
   assert.match(sql, /event_id text PRIMARY KEY/);
   assert.match(sql, /GRANT SELECT, INSERT ON billing_events TO foloo_app/);
+  assert.doesNotMatch(sql, /DELETE FROM|DROP TABLE|DROP COLUMN/i);
+});
+
+test("FL-021 adds auditable grants and one durable fifth-lead event", async () => {
+  const sql = await readFile(trialFoundationMigrationUrl, "utf8");
+  assert.match(sql, /CREATE TABLE entitlement_grants/);
+  assert.match(sql, /migration 012 requires migrations 010 and 011/);
+  assert.match(sql, /one_active_administrative_grant_per_account/);
+  assert.match(sql, /CREATE TABLE entitlement_grant_audit/);
+  assert.match(sql, /previous_subscription_status text NOT NULL/);
+  assert.match(sql, /previous_entitlement_source text NOT NULL/);
+  assert.match(sql, /UNIQUE \(account_id, event_type\)/);
+  assert.match(sql, /trial\.fifth_lead_reached\.v1/);
+  assert.match(sql, /delivery_status IN \('pending', 'failed'\)/);
+  assert.doesNotMatch(sql, /^\s*(BEGIN|COMMIT);/gim);
+  assert.match(
+    sql,
+    /REVOKE ALL PRIVILEGES ON entitlement_grants FROM foloo_app/,
+  );
+  assert.match(
+    sql,
+    /ALTER DEFAULT PRIVILEGES IN SCHEMA public\s+REVOKE ALL PRIVILEGES ON TABLES FROM foloo_app/,
+  );
+  assert.match(sql, /CREATE ROLE foloo_entitlement_admin NOLOGIN/);
+  assert.match(
+    sql,
+    /migration 012 requires the dedicated foloo_entitlement_operator login/,
+  );
+  assert.match(
+    sql,
+    /GRANT foloo_entitlement_admin TO foloo_entitlement_operator/,
+  );
+  assert.doesNotMatch(sql, /GRANT foloo_entitlement_admin TO CURRENT_USER/);
+  assert.match(
+    sql,
+    /GRANT SELECT, INSERT ON entitlement_grant_audit TO foloo_entitlement_admin/,
+  );
+  assert.doesNotMatch(
+    sql,
+    /GRANT[^;]*(INSERT|UPDATE|DELETE)[^;]*ON entitlement_grants TO foloo_app/i,
+  );
   assert.doesNotMatch(sql, /DELETE FROM|DROP TABLE|DROP COLUMN/i);
 });

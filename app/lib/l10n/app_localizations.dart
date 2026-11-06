@@ -2868,6 +2868,66 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No se pudo consultar el estado de eliminación. Inténtalo más tarde.'**
   String get accountDeletionStatusError;
+
+  /// No description provided for @planFree.
+  ///
+  /// In es, this message translates to:
+  /// **'Plan FREE'**
+  String get planFree;
+
+  /// No description provided for @planPro.
+  ///
+  /// In es, this message translates to:
+  /// **'Plan PRO'**
+  String get planPro;
+
+  /// No description provided for @historicalLeadUsage.
+  ///
+  /// In es, this message translates to:
+  /// **'{count} de 5 leads históricos utilizados'**
+  String historicalLeadUsage(Object count);
+
+  /// No description provided for @trialMilestonePlan.
+  ///
+  /// In es, this message translates to:
+  /// **'PLAN GRATIS'**
+  String get trialMilestonePlan;
+
+  /// No description provided for @trialMilestoneTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'5 de 5 leads capturados'**
+  String get trialMilestoneTitle;
+
+  /// No description provided for @trialMilestoneHeading.
+  ///
+  /// In es, this message translates to:
+  /// **'Sigue con Foloo ilimitado'**
+  String get trialMilestoneHeading;
+
+  /// No description provided for @trialMilestoneSaved.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu quinto lead quedó guardado y tus cinco leads siguen disponibles.'**
+  String get trialMilestoneSaved;
+
+  /// No description provided for @trialMilestoneOffline.
+  ///
+  /// In es, this message translates to:
+  /// **'Este estado fue confirmado después de sincronizar con Foloo.'**
+  String get trialMilestoneOffline;
+
+  /// No description provided for @trialMilestoneEmailDisabled.
+  ///
+  /// In es, this message translates to:
+  /// **'El correo de seguimiento todavía no está habilitado.'**
+  String get trialMilestoneEmailDisabled;
+
+  /// No description provided for @trialMilestoneUnderstood.
+  ///
+  /// In es, this message translates to:
+  /// **'Entendido'**
+  String get trialMilestoneUnderstood;
 }
 
 class _AppLocalizationsDelegate

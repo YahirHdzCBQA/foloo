@@ -56,6 +56,7 @@ import 'widgets/auth_account_scope.dart';
 import 'widgets/account_deletion_scope.dart';
 import 'widgets/profile_scope.dart';
 import 'widgets/entitlement_scope.dart';
+import 'widgets/trial_milestone_dialog.dart';
 
 enum _AuthenticatedStage { profile, email, origin, shell }
 
@@ -158,6 +159,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   Future<void>? _accountDeletionCleanup;
   bool _showAccountDeletionPendingMessage = false;
   bool _accountDeletionAcceptedLocally = false;
+  bool _trialMilestoneDialogOpening = false;
 
   DateTime get _now => widget.nowProvider?.call() ?? DateTime.now();
 
@@ -418,6 +420,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           : sessionLocale;
       _resolvedOwnerSub = userId;
     });
+    unawaited(_showPendingTrialMilestone(userId));
   }
 
   /// Stores the submitted draft before navigating to confirmation.
@@ -1194,6 +1197,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       if (content != null) _contentFiles = content;
       _entitlement = entitlement;
     });
+    unawaited(_showPendingTrialMilestone(userId));
   }
 
   Future<void> _synchronize({
@@ -1231,6 +1235,35 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
         }
       }
     });
+    unawaited(_showPendingTrialMilestone(user.id));
+  }
+
+  Future<void> _showPendingTrialMilestone(String ownerSub) async {
+    if (_trialMilestoneDialogOpening || !mounted) return;
+    final state = await _persistence.preferences.read(
+      ownerSub,
+      'trialMilestone5State',
+    );
+    if (state != 'pending' ||
+        !mounted ||
+        _authRepository.state.user?.id != ownerSub) {
+      return;
+    }
+    _trialMilestoneDialogOpening = true;
+    try {
+      await showDialog<void>(
+        context: _navigatorKey.currentContext ?? context,
+        barrierDismissible: false,
+        builder: (_) => const TrialMilestoneDialog(),
+      );
+      await _persistence.preferences.write(
+        ownerSub,
+        'trialMilestone5State',
+        'shown',
+      );
+    } finally {
+      _trialMilestoneDialogOpening = false;
+    }
   }
 
   void _scheduleSyncRetry(String ownerSub, DateTime nextAttemptAt) {

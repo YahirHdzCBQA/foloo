@@ -199,7 +199,7 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
             Divider(height: 1, color: ink.withValues(alpha: 0.35)),
-            if (entitlement != null && !entitlement.unlimitedQaMode)
+            if (entitlement != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 12, 22, 4),
                 child: Row(
@@ -209,15 +209,11 @@ class AppDrawer extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(switch (entitlement.effectiveStatus) {
-                        SubscriptionStatus.active =>
-                          context.l10n.subscriptionActive,
-                        SubscriptionStatus.expired =>
-                          context.l10n.subscriptionExpired,
+                        SubscriptionStatus.active => context.l10n.planPro,
+                        SubscriptionStatus.expired ||
                         SubscriptionStatus.trial ||
                         SubscriptionStatus.trialExhausted =>
-                          context.l10n.trialBalance(
-                            entitlement.trialLeadsRemaining,
-                          ),
+                          '${context.l10n.planFree} · ${context.l10n.historicalLeadUsage(entitlement.trialLeadsUsed)}',
                       }, style: const TextStyle(fontWeight: FontWeight.w700)),
                     ),
                   ],

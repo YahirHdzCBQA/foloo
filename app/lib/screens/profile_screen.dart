@@ -20,6 +20,8 @@ import '../services/email_connection_service.dart';
 import '../services/image_capture_service.dart';
 import '../theme/foloo_theme.dart';
 import '../widgets/camera_access_dialog.dart';
+import '../widgets/entitlement_scope.dart';
+import '../models/entitlement.dart';
 
 /// Edits the current owner's profile without conflating authentication and
 /// follow-up sender identities.
@@ -434,6 +436,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   Widget build(BuildContext context) {
     final palette = FolooPalette.of(context);
     final image = _profileImage;
+    final entitlement = EntitlementScope.maybeOf(context);
     return PopScope(
       canPop: _allowPop || !_dirty,
       onPopInvokedWithResult: (didPop, _) {
@@ -471,6 +474,36 @@ class _ProfileScreenState extends State<ProfileScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (entitlement != null) ...[
+                  DecoratedBox(
+                    key: const Key('profileEntitlement'),
+                    decoration: BoxDecoration(
+                      color: palette.paper,
+                      borderRadius: BorderRadius.circular(FolooRadii.sm),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.bolt_outlined),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              entitlement.effectiveStatus ==
+                                      SubscriptionStatus.active
+                                  ? context.l10n.planPro
+                                  : '${context.l10n.planFree} · ${context.l10n.historicalLeadUsage(entitlement.trialLeadsUsed)}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 InkWell(
                   key: const Key('profilePhotoButton'),
                   onTap: _showPhotoSource,

@@ -196,11 +196,17 @@ export class PostgresFolooRepository implements FolooRepository {
     const result = await this.pool.query(
       `SELECT a.id AS "accountId", a.kind, w.id AS "workspaceId", w.name,
               a.subscription_status AS "subscriptionStatus",
+              a.entitlement_source AS "entitlementSource",
               a.trial_leads_used AS "trialLeadsUsed",
-              a.entitlement_updated_at AS "entitlementUpdatedAt"
+              a.entitlement_updated_at AS "entitlementUpdatedAt",
+              milestone.delivery_status AS "trialMilestoneDeliveryStatus",
+              milestone.created_at AS "trialMilestoneCreatedAt"
        FROM workspace_members m
        JOIN workspaces w ON w.id = m.workspace_id AND w.deleted_at IS NULL
        JOIN accounts a ON a.id = w.account_id AND a.deleted_at IS NULL
+       LEFT JOIN trial_milestone_events milestone
+         ON milestone.account_id=a.id
+        AND milestone.event_type='trial.fifth_lead_reached.v1'
        WHERE m.user_id = $1 AND w.id = $2`,
       [principal.userId, principal.workspaceId],
     );
@@ -630,6 +636,7 @@ export class PostgresFolooRepository implements FolooRepository {
           ],
         );
         if (consumesTrial) {
+          const reachedFifthLead = account.trial_leads_used === 4;
           await db.query(
             `UPDATE accounts SET
                trial_leads_used = trial_leads_used + 1,
@@ -639,8 +646,26 @@ export class PostgresFolooRepository implements FolooRepository {
              WHERE id = $1`,
             [principal.accountId],
           );
+          if (reachedFifthLead) {
+            await db.query(
+              `INSERT INTO trial_milestone_events
+                 (account_id,event_type,lead_id,delivery_status)
+               VALUES ($1,'trial.fifth_lead_reached.v1',$2,'pending')
+               ON CONFLICT (account_id,event_type) DO NOTHING`,
+              [principal.accountId, input.id],
+            );
+          }
+          return {
+            ...result.rows[0],
+            trialMilestoneReached: reachedFifthLead,
+            trialMilestoneDeliveryStatus: reachedFifthLead ? "pending" : null,
+          };
         }
-        return result.rows[0];
+        return {
+          ...result.rows[0],
+          trialMilestoneReached: false,
+          trialMilestoneDeliveryStatus: null,
+        };
       },
     );
   }

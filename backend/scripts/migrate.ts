@@ -11,10 +11,12 @@ import {
 
 const databaseUrl = process.env.DATABASE_URL;
 const appPassword = process.env.APP_DATABASE_PASSWORD;
+const entitlementOperatorPassword =
+  process.env.ENTITLEMENT_OPERATOR_DATABASE_PASSWORD;
 
-if (!databaseUrl || !appPassword) {
+if (!databaseUrl || !appPassword || !entitlementOperatorPassword) {
   throw new Error(
-    "DATABASE_URL and APP_DATABASE_PASSWORD must be supplied outside the repository.",
+    "DATABASE_URL, APP_DATABASE_PASSWORD and ENTITLEMENT_OPERATOR_DATABASE_PASSWORD must be supplied outside the repository.",
   );
 }
 
@@ -23,6 +25,11 @@ try {
   const client = await pool.connect();
   try {
     await ensureApplicationRole(client, "foloo_app", appPassword);
+    await ensureApplicationRole(
+      client,
+      "foloo_entitlement_operator",
+      entitlementOperatorPassword,
+    );
   } finally {
     client.release();
   }

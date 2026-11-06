@@ -686,6 +686,13 @@ class SyncStore {
           operation.entityId,
           incrementCachedUsage: true,
         );
+        if (remoteData?['trialMilestoneReached'] == true) {
+          await database.profilePreferencesDao.saveUserPreference(
+            operation.ownerUserId,
+            'trialMilestone5State',
+            'pending',
+          );
+        }
       } else if (operation.entityType == SyncEntityType.event.name &&
           leadRevision != null) {
         await database.eventDao.markRemoteRevision(

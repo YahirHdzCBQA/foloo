@@ -12,6 +12,7 @@ import type { SubscriptionCancellationPort } from "./account_deletion_workflow.j
 
 type SubscriptionBinding = Readonly<{
   status: "none" | "trial" | "trial_exhausted" | "active" | "expired";
+  entitlementSource: "trial" | "administrative" | "stripe" | "legacy_active";
   customerId: string | null;
   subscriptionId: string | null;
 }>;
@@ -29,6 +30,12 @@ export class StripeSubscriptionCancellation implements SubscriptionCancellationP
   }): Promise<"not_applicable" | "confirmed" | "pending"> {
     const binding = await this.binding(input.ownerSubject);
     if (!binding || binding.status !== "active") return "not_applicable";
+    if (binding.entitlementSource === "administrative") {
+      return "not_applicable";
+    }
+    if (binding.entitlementSource !== "stripe") {
+      throw new AccountDeletionDependencyUnavailableError("payments");
+    }
     if (!binding.customerId || !binding.subscriptionId) {
       throw new AccountDeletionDependencyUnavailableError("payments");
     }
@@ -56,6 +63,7 @@ export class StripeSubscriptionCancellation implements SubscriptionCancellationP
   ): Promise<SubscriptionBinding | null> {
     const result = await this.pool.query<SubscriptionBinding>(
       `SELECT a.subscription_status AS status,
+              a.entitlement_source AS "entitlementSource",
               a.stripe_customer_id AS "customerId",
               a.stripe_subscription_id AS "subscriptionId"
        FROM accounts a

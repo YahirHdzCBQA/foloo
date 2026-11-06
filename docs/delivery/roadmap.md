@@ -192,18 +192,22 @@ El cierre no resuelve el límite de Voice Note `D-05`, la edición postguardado
 de medios `D-06` ni los mockups finales `D-11`. Tampoco implementa FL-021,
 FL-022, pagos, PROD o publicación en tiendas.
 
-## FL-021 — Paywall & Payments
+## FL-021 — Trial & Subscription Foundation
 
-**Objetivo:** compra aprobada y transiciones comerciales confiables sobre la
-autoridad de FL-020.
+**Objetivo:** cerrar el límite histórico FREE, grants PRO administrativos
+auditables, etiquetas FREE/PRO y el evento durable 5/5 sobre la autoridad de
+FL-020. FREE y PRO difieren solo en nuevas capturas.
 
-- Bloqueos: D-01–D-04 y mockups D-11.
-- Plan de pago (D-02, 2026-10-28): "Foloo", anual, 89 USD / 1,780 MXN
-  impuesto incluido. Regiones siguen abiertas.
+- La entrega real del correo 5/5 permanece apagada hasta aprobar contenido,
+  CTA/destino y requisitos de comunicación. El evento y retry sí se preparan.
+- No concede grants reales ni depende de Unlimited QA.
+- Checkout, Stripe, pagos y activación PRO por compra se difieren a FL-022;
+  código comercial previo es evidencia histórica y no se activa en FL-021.
 
-## FL-022 — Infra/Production Hardening
+## FL-022 — Payments & Production Hardening
 
-**Objetivo:** entornos, CI/CD, crashes/logs, backups, retención y costos.
+**Objetivo:** checkout/Stripe, activación PRO por pago, lifecycle comercial y
+entornos, CI/CD, crashes/logs, backups, retención y costos.
 
 - Trazas: `INF-04`, `RC-*`, `RNF-*`.
 - Bloqueo: D-13.

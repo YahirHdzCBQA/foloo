@@ -41,7 +41,14 @@ test("MON-13 Free, trial and inactive PRO do not call Stripe", async () => {
   for (const status of ["none", "trial", "trial_exhausted", "expired"]) {
     const provider = new Provider();
     const cancellation = new StripeSubscriptionCancellation(
-      pool([{ status, customerId: null, subscriptionId: null }]),
+      pool([
+        {
+          status,
+          entitlementSource: "trial",
+          customerId: null,
+          subscriptionId: null,
+        },
+      ]),
       provider,
     );
     assert.equal(
@@ -58,6 +65,7 @@ test("MON-13 active PRO uses one server-owned binding and stable idempotency", a
     pool([
       {
         status: "active",
+        entitlementSource: "stripe",
         customerId: "cus_synthetic",
         subscriptionId: "sub_synthetic",
       },
@@ -85,6 +93,7 @@ test("MON-13 uncertain timeout fails closed and retry keeps the same key", async
     pool([
       {
         status: "active",
+        entitlementSource: "stripe",
         customerId: "cus_synthetic",
         subscriptionId: "sub_synthetic",
       },
@@ -107,15 +116,24 @@ test("MON-13 uncertain timeout fails closed and retry keeps the same key", async
 test("RNF-09 missing or ambiguous provider binding fails closed", async () => {
   const provider = new Provider();
   for (const rows of [
-    [{ status: "active", customerId: null, subscriptionId: null }],
     [
       {
         status: "active",
+        entitlementSource: "stripe",
+        customerId: null,
+        subscriptionId: null,
+      },
+    ],
+    [
+      {
+        status: "active",
+        entitlementSource: "stripe",
         customerId: "cus_a",
         subscriptionId: "sub_a",
       },
       {
         status: "active",
+        entitlementSource: "stripe",
         customerId: "cus_b",
         subscriptionId: "sub_b",
       },
@@ -130,5 +148,45 @@ test("RNF-09 missing or ambiguous provider binding fails closed", async () => {
       AccountDeletionDependencyUnavailableError,
     );
   }
+  assert.equal(provider.commands.length, 0);
+});
+
+test("MON-21 administrative PRO never calls Stripe during deletion", async () => {
+  const provider = new Provider();
+  const cancellation = new StripeSubscriptionCancellation(
+    pool([
+      {
+        status: "active",
+        entitlementSource: "administrative",
+        customerId: null,
+        subscriptionId: null,
+      },
+    ]),
+    provider,
+  );
+  assert.equal(
+    await cancellation.cancelRenewal({ requestId, ownerSubject }),
+    "not_applicable",
+  );
+  assert.equal(provider.commands.length, 0);
+});
+
+test("an unresolved legacy active entitlement fails closed", async () => {
+  const provider = new Provider();
+  const cancellation = new StripeSubscriptionCancellation(
+    pool([
+      {
+        status: "active",
+        entitlementSource: "legacy_active",
+        customerId: null,
+        subscriptionId: null,
+      },
+    ]),
+    provider,
+  );
+  await assert.rejects(
+    cancellation.cancelRenewal({ requestId, ownerSubject }),
+    AccountDeletionDependencyUnavailableError,
+  );
   assert.equal(provider.commands.length, 0);
 });

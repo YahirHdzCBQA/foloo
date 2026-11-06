@@ -464,5 +464,15 @@
   "accountDeletionStatusInProgress": "Your account deletion is in progress.",
   "accountDeletionStatusBlocked": "The process needs support attention. Your deletion barrier remains active.",
   "accountDeletionStatusCompleted": "Your account and deletable data were removed.",
-  "accountDeletionStatusError": "The deletion status could not be retrieved. Try again later."
+  "accountDeletionStatusError": "The deletion status could not be retrieved. Try again later.",
+  "planFree": "FREE plan",
+  "planPro": "PRO plan",
+  "historicalLeadUsage": "{count} of 5 historical leads used",
+  "trialMilestonePlan": "FREE PLAN",
+  "trialMilestoneTitle": "5 of 5 leads captured",
+  "trialMilestoneHeading": "Keep going with unlimited Foloo",
+  "trialMilestoneSaved": "Your fifth lead was saved and your five leads remain available.",
+  "trialMilestoneOffline": "This status was confirmed after synchronization with Foloo.",
+  "trialMilestoneEmailDisabled": "The follow-up email is not enabled yet.",
+  "trialMilestoneUnderstood": "Got it"
 }

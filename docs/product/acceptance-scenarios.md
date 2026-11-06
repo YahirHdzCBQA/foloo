@@ -314,7 +314,7 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 ## E-11 · Trial y suscripción
 
-**Trazas:** `MON-01`–`MON-12`, `MON-14`–`MON-20`, Constitución Art. 9.
+**Trazas:** `MON-01`–`MON-12`, `MON-14`–`MON-22`, Constitución Art. 9.
 
 - Leads 1–5 se guardan; el sexto conserva borrador y abre paywall.
 - Evento y Directo consumen un uso histórico; borrar, tombstonear, reiniciar o
@@ -366,6 +366,16 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   estado local esté atrasado, recibe 409 con indicación de Portal en vez de
   otro Checkout.
 - (`MON-20`) No existe compra nativa en la app; la variante queda Proposed.
+- (`MON-21`) Una operación administrativa resuelve un correo verificado a su
+  `Cognito sub`, concede PRO una sola vez y deja actor/motivo/auditoría. La
+  revocación restaura FREE con el contador histórico intacto. Una identidad
+  no verificada, ambigua o con entitlement comercial falla cerrada.
+- (`MON-22`) La transacción que acepta el quinto Lead inserta exactamente un
+  evento durable. Un retry idempotente no duplica evento, modal ni correo. Si
+  se capturó offline, el modal aparece solo después de la sincronización
+  confirmada. La caída del proveedor de email no revierte el Lead y deja el
+  evento reintentable. Con entrega deshabilitada no hay llamada al proveedor,
+  CTA ni mensaje que afirme envío.
 
 ## E-12 · Shell, idioma, seguridad y salida
 

@@ -127,7 +127,7 @@ void main() {
     expect(find.byKey(const ValueKey('paywallScreen')), findsNothing);
   });
 
-  testWidgets('Unlimited QA bypasses Paywall and hides trial balance', (
+  testWidgets('Unlimited QA bypasses Paywall without masquerading as PRO', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -159,6 +159,8 @@ void main() {
 
     await tester.tap(find.byKey(const Key('hamburgerMenuButton')).first);
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('drawerEntitlement')), findsNothing);
+    expect(find.byKey(const Key('drawerEntitlement')), findsOneWidget);
+    expect(find.textContaining('Plan FREE'), findsOneWidget);
+    expect(find.textContaining('5 de 5 leads históricos'), findsOneWidget);
   });
 }

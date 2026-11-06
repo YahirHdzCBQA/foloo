@@ -3,6 +3,7 @@
 import type { Pool } from "pg";
 
 import { ApplicationError } from "../application/errors.js";
+import { AccountDeletionDependencyUnavailableError } from "./account_deletion_workflow.js";
 import type {
   AccountDeletionInventory,
   AccountDeletionOperationalBarrier,
@@ -30,16 +31,35 @@ export class PostgresAccountDeletionRuntime
   async summary(ownerSubject: string): Promise<SubscriptionSummary> {
     const result = await this.pool.query<{
       subscription_status: SubscriptionSummary["status"];
+      entitlement_source: string;
+      stripe_customer_id: string | null;
+      stripe_subscription_id: string | null;
     }>(
-      `SELECT a.subscription_status
+      `SELECT a.subscription_status,a.entitlement_source,
+              a.stripe_customer_id,a.stripe_subscription_id
        FROM accounts a JOIN app_users u ON u.id=a.owner_user_id
        WHERE u.cognito_sub=$1 AND a.kind='personal' AND a.deleted_at IS NULL`,
       [ownerSubject],
     );
-    const status = result.rows[0]?.subscription_status ?? "none";
+    const account = result.rows[0];
+    const status = account?.subscription_status ?? "none";
+    const stripeActive =
+      status === "active" && account?.entitlement_source === "stripe";
+    if (
+      status === "active" &&
+      account?.entitlement_source !== "administrative" &&
+      (!stripeActive ||
+        !account.stripe_customer_id ||
+        !account.stripe_subscription_id)
+    ) {
+      throw new AccountDeletionDependencyUnavailableError("payments");
+    }
     return {
       status,
-      cancellationRequired: status === "active",
+      cancellationRequired:
+        stripeActive &&
+        Boolean(account.stripe_customer_id) &&
+        Boolean(account.stripe_subscription_id),
       planDisplayName: null,
       currentPeriodEnd: null,
     };
