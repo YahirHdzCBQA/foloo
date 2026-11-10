@@ -67,6 +67,11 @@ void main() {
     );
     expect(find.text('5 de 5 leads capturados'), findsOneWidget);
     expect(find.textContaining('todavía no está habilitado'), findsOneWidget);
+    expect(
+      find.text('Tus 5 leads siguen disponibles en Registros.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Reenviar'), findsNothing);
     expect(find.textContaining('Stripe'), findsNothing);
     expect(find.byType(Uri), findsNothing);
   });

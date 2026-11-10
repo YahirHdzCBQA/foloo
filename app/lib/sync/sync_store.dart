@@ -1362,7 +1362,7 @@ class SyncStore {
           name: lead['firstName'] as String,
           lastName: (lead['lastName'] as String?) ?? '',
           role: (lead['position'] as String?) ?? '',
-          company: lead['company'] as String,
+          company: (lead['company'] as String?) ?? '',
           email: (lead['email'] as String?) ?? '',
           phone: (lead['phone'] as String?) ?? '',
           leadType: _leadTypeFromApi(lead['leadType'] as String),
@@ -1635,7 +1635,7 @@ class SyncStore {
         (origin == 'direct' &&
             (place is! String || place.trim().isEmpty || place.length > 240)) ||
         !_requiredText(payload['firstName'], 160) ||
-        !_requiredText(payload['company'], 160) ||
+        !_nullableText(payload['company'], 160) ||
         !_nullableText(payload['lastName'], 160) ||
         !_nullableText(payload['position'], 160) ||
         !_nullableText(place, 240) ||

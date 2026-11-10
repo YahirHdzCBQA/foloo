@@ -5,9 +5,23 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("operator identity and database credentials come from authenticated AWS boundaries", async () => {
-  const [source, router] = await Promise.all([
+  const [source, lambdaSource, identitySource, router] = await Promise.all([
     readFile(
       new URL("../scripts/admin-entitlement.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../src/entitlements/administrative_entitlement_lambda.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../src/entitlements/administrative_entitlement_identity_lambda.ts",
+        import.meta.url,
+      ),
       "utf8",
     ),
     readFile(new URL("../src/transport/router.ts", import.meta.url), "utf8"),
@@ -28,4 +42,8 @@ test("operator identity and database credentials come from authenticated AWS bou
     router,
     /AdministrativeEntitlementService|entitlement_grants|entitlement:admin/,
   );
+  assert.match(lambdaSource, /DB_ENTITLEMENT_OPERATOR_SECRET_ARN/);
+  assert.match(lambdaSource, /ENTITLEMENT_OPERATOR_ACTOR_ARN/);
+  assert.doesNotMatch(lambdaSource, /DB_ADMIN_SECRET_ARN|DATABASE_URL/);
+  assert.doesNotMatch(identitySource, /DB_|pg|SecretsManager/);
 });

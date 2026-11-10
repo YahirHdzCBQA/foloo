@@ -143,4 +143,9 @@ void main() {
     expect(en.eventCount(1), '1 event');
     expect(en.eventCount(2), '2 events');
   });
+
+  test('QA-05 event prompt matches approved ES and EN copy', () {
+    expect(AppLocalizationsEs().originTitle, '¿Cuál es tu evento?');
+    expect(AppLocalizationsEn().originTitle, "What's your event today?");
+  });
 }

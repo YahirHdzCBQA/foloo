@@ -4,6 +4,8 @@ import * as cdk from "aws-cdk-lib";
 
 import {
   environmentConfig,
+  administrativeEntitlementForEnvironment,
+  automaticEntitlementConfigForEnvironment,
   accountDeletionQaConfigForEnvironment,
   accountDeletionSesNotificationsForEnvironment,
   cognitoAppleIdentityProviderConfigForEnvironment,
@@ -21,6 +23,17 @@ const config = environmentConfig(
 const unlimitedQaMode = unlimitedQaModeForEnvironment(
   config.name,
   app.node.tryGetContext("unlimitedQaMode"),
+);
+const administrativeEntitlementEnabled =
+  administrativeEntitlementForEnvironment(
+    config.name,
+    app.node.tryGetContext("administrativeEntitlementEnabled"),
+  );
+const automaticEntitlement = automaticEntitlementConfigForEnvironment(
+  config.name,
+  app.node.tryGetContext("automaticEntitlementEnabled"),
+  app.node.tryGetContext("automaticEntitlementEnqueueEnabled"),
+  app.node.tryGetContext("automaticEntitlementWorkerEnabled"),
 );
 const webSessionQa = webSessionQaConfigForEnvironment(
   config.name,
@@ -59,6 +72,27 @@ const accountDeletionSesNotificationsEnabled =
     config.name,
     app.node.tryGetContext("accountDeletionSesNotificationsEnabled"),
   );
+const entitlementPreauthorizationPreviousHmacKeys = (() => {
+  const value = app.node.tryGetContext(
+    "entitlementPreauthorizationPreviousHmacKeys",
+  ) as unknown;
+  if (value === undefined) return [];
+  if (
+    !Array.isArray(value) ||
+    value.some(
+      (entry) =>
+        typeof entry !== "object" ||
+        entry === null ||
+        typeof (entry as { keyArn?: unknown }).keyArn !== "string" ||
+        typeof (entry as { keyVersion?: unknown }).keyVersion !== "string",
+    )
+  ) {
+    throw new Error(
+      "entitlementPreauthorizationPreviousHmacKeys must contain keyArn/keyVersion pairs.",
+    );
+  }
+  return value as { keyArn: string; keyVersion: string }[];
+})();
 const requiredKeyArn = (contextName: string): string => {
   const value = app.node.tryGetContext(contextName);
   if (typeof value !== "string" || value.trim().length === 0) {
@@ -72,6 +106,9 @@ const requiredKeyArn = (contextName: string): string => {
 new FolooBackendStack(app, `FolooBackend-${config.name}`, {
   config,
   unlimitedQaMode,
+  administrativeEntitlementEnabled,
+  automaticEntitlement,
+  entitlementPreauthorizationPreviousHmacKeys,
   webSessionQa,
   cognitoAllowedFederatedProviders:
     cognitoFederatedProviders.allowedProviderNames,

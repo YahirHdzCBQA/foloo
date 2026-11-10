@@ -26,6 +26,18 @@ import { S3OwnerObjectErasure } from "../src/account_deletion/s3_owner_object_er
 
 type Item = Record<string, AttributeValue>;
 
+const deletionIdentity = {
+  async selectorsForOwner() {
+    return [
+      {
+        keyVersion: "v1",
+        canonicalizationPolicy: "foloo-email-v1-provisional" as const,
+        digest: "A".repeat(43),
+      },
+    ];
+  },
+};
+
 class MemoryInventory implements DurableErasureInventoryStore {
   readonly objects = new Map<string, readonly string[]>();
   readonly scopes = new Map<string, PostgresOwnerScope>();
@@ -249,6 +261,7 @@ test("INF-19 PostgreSQL verification covers the full frozen owner graph", async 
   ]);
   const deletedWorkspaceIds: string[] = [];
   const deletionParameters: unknown[][] = [];
+  const preauthorizationParameters: unknown[][] = [];
   let verificationSql = "";
   const pool = {
     async query(sql: string, values: unknown[]) {
@@ -288,13 +301,20 @@ test("INF-19 PostgreSQL verification covers the full frozen owner graph", async 
             deletedWorkspaceIds.push(values[0] as string);
           }
           if (sql.startsWith("DELETE FROM")) deletionParameters.push(values);
+          if (sql.includes("revoke_account_entitlement_preauthorizations")) {
+            preauthorizationParameters.push(values);
+          }
           return { rows: [], rowCount: 1 };
         },
         release() {},
       };
     },
   };
-  const erasure = new PostgresOwnerErasure(pool as never, inventory);
+  const erasure = new PostgresOwnerErasure(
+    pool as never,
+    inventory,
+    deletionIdentity,
+  );
   await erasure.freezeScope(requestA, "owner-a");
   await erasure.deleteOwnerData(requestA, "owner-a");
   assert.equal(await erasure.hasOwnerData(requestA, "owner-a"), false);
@@ -308,6 +328,9 @@ test("INF-19 PostgreSQL verification covers the full frozen owner graph", async 
     false,
   );
   assert.deepEqual(await erasure.ownerScope("owner-b"), scopeB);
+  assert.deepEqual(preauthorizationParameters, [
+    [scopeA.accountId, ["v1"], ["A".repeat(43)]],
+  ]);
   for (const table of [
     "app_users",
     "accounts",
@@ -331,6 +354,33 @@ test("INF-19 PostgreSQL verification covers the full frozen owner graph", async 
   ]) {
     assert.match(verificationSql, new RegExp(`FROM ${table}\\b`, "u"));
   }
+});
+
+test("MON-21 identity resolution failure leaves the frozen owner graph untouched", async () => {
+  const inventory = new MemoryInventory();
+  const requestId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  await inventory.capturePostgresScope(requestId, {
+    userId: "user-safe",
+    accountId: "account-safe",
+    workspaceId: "workspace-safe",
+  });
+  let connected = false;
+  const pool = {
+    async connect() {
+      connected = true;
+      throw new Error("must not connect");
+    },
+  };
+  const erasure = new PostgresOwnerErasure(pool as never, inventory, {
+    async selectorsForOwner() {
+      throw new Error("Account deletion identity verification failed.");
+    },
+  });
+  await assert.rejects(
+    erasure.deleteOwnerData(requestId, "owner-safe"),
+    /identity verification failed/u,
+  );
+  assert.equal(connected, false);
 });
 
 test("RNF-09 PostgreSQL partial failure rolls back and retries the frozen scope", async () => {
@@ -382,7 +432,11 @@ test("RNF-09 PostgreSQL partial failure rolls back and retries the frozen scope"
       };
     },
   };
-  const erasure = new PostgresOwnerErasure(pool as never, inventory);
+  const erasure = new PostgresOwnerErasure(
+    pool as never,
+    inventory,
+    deletionIdentity,
+  );
   await erasure.freezeScope(requestId, "owner-retry");
   await assert.rejects(
     erasure.deleteOwnerData(requestId, "owner-retry"),

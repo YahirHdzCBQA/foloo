@@ -38,6 +38,7 @@ class ProfileScreen extends StatefulWidget {
     this.deliveryRepository,
     this.cameraAccessCoordinator,
     this.imageCaptureService,
+    this.focusFollowUpEmail = false,
     super.key,
   });
 
@@ -52,6 +53,7 @@ class ProfileScreen extends StatefulWidget {
   final EmailDeliveryRepository? deliveryRepository;
   final CameraAccessCoordinator? cameraAccessCoordinator;
   final ImageCaptureService? imageCaptureService;
+  final bool focusFollowUpEmail;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -60,6 +62,8 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen>
     with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
+  final _scrollController = ScrollController();
+  final _followUpEmailKey = GlobalKey();
   late final TextEditingController _name;
   late final TextEditingController _company;
   late final CameraAccessCoordinator _cameraAccess;
@@ -91,7 +95,21 @@ class _ProfileScreenState extends State<ProfileScreen>
     _cameraAccess = widget.cameraAccessCoordinator ?? CameraAccessCoordinator();
     _imageCapture = widget.imageCaptureService ?? DeviceImageCaptureService();
     unawaited(_loadConnection());
-    WidgetsBinding.instance.addPostFrameCallback((_) => _recoverLostImage());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_recoverLostImage());
+      if (widget.focusFollowUpEmail) unawaited(_revealFollowUpEmail());
+    });
+  }
+
+  Future<void> _revealFollowUpEmail() async {
+    final target = _followUpEmailKey.currentContext;
+    if (target == null || !target.mounted) return;
+    await Scrollable.ensureVisible(
+      target,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+      alignment: .2,
+    );
   }
 
   void _refreshDirtyState() {
@@ -429,6 +447,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     WidgetsBinding.instance.removeObserver(this);
     _name.dispose();
     _company.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -469,6 +488,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         body: Form(
           key: _formKey,
           child: SingleChildScrollView(
+            controller: _scrollController,
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 140),
             child: Column(
@@ -611,6 +631,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 const SizedBox(height: 22),
                 Text(
                   context.l10n.profileFollowUpEmail,
+                  key: _followUpEmailKey,
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 9),

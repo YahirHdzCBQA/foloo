@@ -596,7 +596,7 @@ components:
     LeadInput:
       type: object
       additionalProperties: false
-      required: [id, capturedAt, origin, firstName, company, leadType, interest]
+      required: [id, capturedAt, origin, firstName, leadType, interest]
       properties:
         id:
           {
@@ -611,7 +611,7 @@ components:
         firstName: { type: string, minLength: 1, maxLength: 160 }
         lastName: { type: string, nullable: true, maxLength: 160 }
         position: { type: string, nullable: true, maxLength: 160 }
-        company: { type: string, minLength: 1, maxLength: 160 }
+        company: { type: string, nullable: true, minLength: 1, maxLength: 160 }
         email: { type: string, format: email, nullable: true }
         phone: { type: string, nullable: true, maxLength: 40 }
         leadType: { type: string, enum: [customer, partner, supplier] }
@@ -625,13 +625,13 @@ components:
     LeadUpdateInput:
       type: object
       additionalProperties: false
-      required: [revision, firstName, company, leadType, interest]
+      required: [revision, firstName, leadType, interest]
       properties:
         revision: { type: integer, minimum: 1 }
         firstName: { type: string, minLength: 1, maxLength: 160 }
         lastName: { type: string, nullable: true, maxLength: 160 }
         position: { type: string, nullable: true, maxLength: 160 }
-        company: { type: string, minLength: 1, maxLength: 160 }
+        company: { type: string, nullable: true, minLength: 1, maxLength: 160 }
         email: { type: string, format: email, nullable: true }
         phone: { type: string, nullable: true, maxLength: 40 }
         leadType: { type: string, enum: [customer, partner, supplier] }

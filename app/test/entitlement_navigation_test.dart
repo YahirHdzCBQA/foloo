@@ -163,4 +163,61 @@ void main() {
     expect(find.textContaining('Plan FREE'), findsOneWidget);
     expect(find.textContaining('5 de 5 leads históricos'), findsOneWidget);
   });
+
+  testWidgets(
+    'MON-22 shows 5/5 only after summary returns to blocked capture',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      const owner = 'fifth-lead-owner';
+      final persistence = await persistenceFor(owner, 'trial', 4);
+      addTearDown(persistence.close);
+
+      await tester.pumpWidget(
+        FolooApp(
+          persistence: persistence,
+          authRepository: AuthRepository(const _RestoredAuthService(owner)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('originContinueButton')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('nameField')), 'Quinto');
+      await tester.enterText(find.byKey(const Key('phoneField')), '4770000000');
+      final customer = find.byKey(const Key('leadType-customer'));
+      await tester.scrollUntilVisible(
+        customer,
+        260,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(customer);
+      await tester.tap(find.byKey(const Key('saveLeadButton')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('confirmationStatusCard')), findsOneWidget);
+
+      await persistence.preferences.write(
+        owner,
+        'trialMilestone5State',
+        'pending',
+      );
+      await tester.pump();
+      expect(find.byKey(const Key('trialMilestoneDialog')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('captureAnotherButton')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('trialMilestoneDialog')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('trialMilestoneUnderstood')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('paywallScreen')), findsOneWidget);
+      expect(find.byKey(const Key('trialMilestoneDialog')), findsNothing);
+
+      await tester.pump();
+      expect(find.byKey(const Key('trialMilestoneDialog')), findsNothing);
+      await tester.tap(find.byKey(const Key('paywallViewRecords')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('recordsScreen')), findsOneWidget);
+    },
+  );
 }

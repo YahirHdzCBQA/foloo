@@ -5,7 +5,11 @@ import test from "node:test";
 
 import type { UserType } from "@aws-sdk/client-cognito-identity-provider";
 
-import { verifiedAdministrativeIdentity } from "../src/entitlements/cognito_administrative_identity.js";
+import {
+  lookupVerifiedAdministrativeIdentity,
+  lookupVerifiedAdministrativeIdentityBySubject,
+  verifiedAdministrativeIdentity,
+} from "../src/entitlements/cognito_administrative_identity.js";
 
 function identity(input?: {
   status?: UserType["UserStatus"];
@@ -34,8 +38,41 @@ function identity(input?: {
 test("accepts an exact verified native identity", () => {
   assert.deepEqual(
     verifiedAdministrativeIdentity(identity(), "SYNTHETIC@example.test"),
-    { subject: "subject-synthetic", emailVerified: true },
+    {
+      subject: "subject-synthetic",
+      email: "synthetic@example.test",
+      emailVerified: true,
+    },
   );
+});
+
+test("automatic lookup filters by exact sub and returns verified email", async () => {
+  let input: unknown;
+  const client = {
+    send: async (command: { input: unknown }) => {
+      input = command.input;
+      return { Users: [identity()] };
+    },
+  } as unknown as Parameters<
+    typeof lookupVerifiedAdministrativeIdentityBySubject
+  >[0];
+  assert.deepEqual(
+    await lookupVerifiedAdministrativeIdentityBySubject(
+      client,
+      "us-east-1_synthetic",
+      "subject-synthetic",
+    ),
+    {
+      subject: "subject-synthetic",
+      email: "synthetic@example.test",
+      emailVerified: true,
+    },
+  );
+  assert.deepEqual(input, {
+    UserPoolId: "us-east-1_synthetic",
+    Filter: 'sub = "subject-synthetic"',
+    Limit: 2,
+  });
 });
 
 test("accepts only approved verified federated parents", () => {
@@ -65,4 +102,27 @@ test("rejects mismatched, disabled or unverified identities", () => {
     assert.throws(() =>
       verifiedAdministrativeIdentity(user, "synthetic@example.test"),
     );
+});
+
+test("lookup requests at most two exact matches and rejects ambiguity", async () => {
+  let input: unknown;
+  const client = {
+    send: async (command: { input: unknown }) => {
+      input = command.input;
+      return { Users: [identity(), identity()] };
+    },
+  } as unknown as Parameters<typeof lookupVerifiedAdministrativeIdentity>[0];
+  await assert.rejects(
+    lookupVerifiedAdministrativeIdentity(
+      client,
+      "us-east-1_synthetic",
+      "SYNTHETIC@example.test",
+    ),
+    /missing or ambiguous/u,
+  );
+  assert.deepEqual(input, {
+    UserPoolId: "us-east-1_synthetic",
+    Filter: 'email = "synthetic@example.test"',
+    Limit: 2,
+  });
 });

@@ -7,11 +7,27 @@ las mismas capacidades; el único cambio es si una cuenta puede crear más de
 cinco Leads históricos. Stripe, checkout y activación por pago pertenecen a
 FL-022 y no se activan con esta entrega.
 
+La preautorización aprobada puede existir antes de Cognito como selector HMAC
+KMS del correo canónico. `PostAuthentication` encola únicamente el `sub`; un
+worker privado vuelve a resolver en Cognito la identidad habilitada y el correo
+verificado antes de consumir el selector y conceder PRO transaccionalmente. No
+se persisten correos en claro, no se vinculan identidades y un relay Apple
+distinto no coincide.
+
 ## Componentes
 
 - La migración `012_trial_subscription_foundation.sql` añade fuentes de
   entitlement, grants administrativos auditables y un evento durable único
   para el quinto Lead.
+- La migración aditiva `013_fl021_entitlement_preauthorizations.sql` añade
+  preautorizaciones, origen `manual|preauthorization`, auditoría de
+  consumo/excepción e invalidación restringida por la barrera STORE-02D.
+- La migración aditiva
+  `014_fl021_account_deletion_preauthorization_invalidation.sql` amplía esa
+  invalidación a selectores activos y consumidos. STORE-02D resuelve primero
+  el mismo `sub` en Cognito, exige correo verificado y deriva con KMS cada
+  versión vigente/retenida; Cognito, KMS o PostgreSQL indisponibles bloquean el
+  checkpoint de borrado de forma reintentable y sin registrar correo o HMAC.
 - `AdministrativeEntitlementService` resuelve primero una identidad Cognito
   verificada. Grant y revocación serializan la cuenta, son idempotentes y
   preservan `trial_leads_used` y el estado FREE exacto anterior. Solo
@@ -33,32 +49,35 @@ FL-022 y no se activan con esta entrega.
 - Flutter muestra FREE/PRO en Mi perfil y Drawer. El modal 5/5 aparece solo
   cuando el backend confirma el hito; una captura offline espera al sync.
 
-La lista de siete identidades aprobadas no se guarda en código. La octava no se
-crea ni se presupone. Un operador futuro suministra una identidad por operación
-y `npm run entitlement:admin` la vincula a un `sub` habilitado, confirmado y
-verificado. El comando no imprime correo ni `sub`.
+El inventario aprobado de direcciones no se guarda en código. Un operador
+suministra una dirección por operación privada; `preauthorize` persiste solo su
+HMAC aun si Cognito todavía no contiene la cuenta. `grant` continúa exigiendo
+un `sub` habilitado, confirmado y verificado. Ninguna operación imprime correo,
+`sub` o selector.
 
-El comando privado recibe `DB_ADMIN_SECRET_ARN`, `DB_HOST`, `DB_NAME`,
-`COGNITO_USER_POOL_ID`, `AWS_REGION`, `FOLOO_ENTITLEMENT_EMAIL`,
+El comando privado recibe `DB_ENTITLEMENT_OPERATOR_SECRET_ARN`, `DB_HOST`,
+`DB_NAME`, `COGNITO_USER_POOL_ID`, `AWS_REGION`,
+`ENTITLEMENT_PREAUTHORIZATION_HMAC_KEY_ARN`, `FOLOO_ENTITLEMENT_EMAIL`,
 `FOLOO_ADMIN_REASON` y `FOLOO_ENTITLEMENT_ACTION`. No acepta actor libre ni
 `DATABASE_URL`: requiere `sts:GetCallerIdentity`, lectura del secreto
-administrativo y `cognito-idp:ListUsers` limitado al pool aprobado. Identidades
+operativo y `cognito-idp:ListUsers` limitado al pool aprobado. Identidades
 nativas confirmadas y padres federados verificados de Google/Apple son válidos;
 Microsoft y proveedores desconocidos fallan cerrados.
 
 ## Despliegue pendiente de autorización
 
-1. Probar 012 en PostgreSQL 16 descartable, respaldar y verificar PostgreSQL y
-   ejecutar primero la migración 012 en el entorno aprobado. El runner mantiene
+1. Probar 013 y 014 en PostgreSQL 16 descartable, respaldar y verificar
+   PostgreSQL y ejecutarlas en orden después de 012. El runner mantiene
    un advisory lock, `lock_timeout=5s` y registra DDL+migración en una única
    transacción. No hay downgrade destructivo automático.
 2. Desplegar API/backend manteniendo la notificación promocional en
    `disabled` y sin cambiar Unlimited QA.
 3. Desplegar Flutter y comprobar etiquetas, captura 1–5, bloqueo del sexto,
    conservación del borrador y aparición 5/5 tras sync.
-4. Ejecutar la superficie administrativa solo desde el entorno operativo
-   privado con permisos mínimos Cognito y acceso PostgreSQL. Auditar actor,
-   motivo, cuenta y resultado. No se precargan las siete cuentas.
+4. Desplegar primero la superficie administrativa con rol dedicado, MFA y
+   CloudTrail; cargar las preautorizaciones una por una y comprobar que no se
+   creen grants. Después desplegar SQS/KMS/worker pasivos y activar por separado
+   enqueue y consumo.
 5. Solo en una entrega posterior, integrar el mailer y cambiar el modo después
    de aprobar plantilla y destino. El evento pendiente permite procesar hitos
    existentes sin repetirlos.
@@ -68,6 +87,9 @@ Microsoft y proveedores desconocidos fallan cerrados.
 - App/backend pueden volver a la versión anterior sin borrar las tablas
   aditivas. La migración no se revierte con `DROP`; se hace rollback de código
   y reconciliación forward-only.
+- Desplegar 014 antes que el worker actualizado. Mientras el runtime anterior
+  siga activo, 014 conserva la función de 013; el runtime nuevo utiliza solo la
+  función versionada que invalida activos y consumidos.
 - Deshabilitar el worker detiene entregas sin afectar Leads ni eventos.
 - Revocar un grant administrativo restaura FREE usando el contador histórico;
   restaura exactamente `trial` o `trial_exhausted`, no borra datos ni devuelve

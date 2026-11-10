@@ -1254,7 +1254,7 @@ class LeadRepository {
             'firstName': draft.name,
             'lastName': draft.lastName.isEmpty ? null : draft.lastName,
             'position': draft.role.isEmpty ? null : draft.role,
-            'company': draft.company,
+            'company': draft.company.isEmpty ? null : draft.company,
             'email': draft.email.isEmpty ? null : draft.email,
             'phone': draft.phone.isEmpty ? null : draft.phone,
             'leadType': draft.type.name,
@@ -1424,11 +1424,10 @@ class LeadRepository {
     LeadDraft draft,
   ) async {
     final name = draft.name.trim();
-    final company = draft.company.trim();
     final email = draft.email.trim();
     final phone = draft.phone.trim();
-    if (name.isEmpty || company.isEmpty || (email.isEmpty && phone.isEmpty)) {
-      throw ArgumentError('Lead name, company and contact are required.');
+    if (name.isEmpty || (email.isEmpty && phone.isEmpty)) {
+      throw ArgumentError('Lead name and email or phone are required.');
     }
     if (email.isNotEmpty &&
         !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
@@ -1452,7 +1451,7 @@ class LeadRepository {
       'firstName': draft.name,
       'lastName': draft.lastName.isEmpty ? null : draft.lastName,
       'position': draft.role.isEmpty ? null : draft.role,
-      'company': draft.company,
+      'company': draft.company.isEmpty ? null : draft.company,
       'email': draft.email.isEmpty ? null : draft.email,
       'phone': draft.phone.isEmpty ? null : draft.phone,
       'leadType': draft.type.name,

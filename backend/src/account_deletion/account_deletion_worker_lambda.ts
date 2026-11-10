@@ -5,6 +5,7 @@ import type { SQSHandler } from "aws-lambda";
 import { databasePool } from "../persistence/database.js";
 import { createAccountDeletionWorker } from "./account_deletion_worker.js";
 import { composeAccountDeletionWorker } from "./account_deletion_composition.js";
+import { entitlementHmacKeysFromEnvironment } from "./preauthorization_erasure_identity.js";
 
 let workerPromise:
   Promise<ReturnType<typeof createAccountDeletionWorker>> | undefined;
@@ -30,6 +31,14 @@ async function initialize() {
     billingProviderFunctionName: required("BILLING_PROVIDER_FUNCTION_NAME"),
     cognitoFinalizerFunctionName: required("COGNITO_FINALIZER_FUNCTION_NAME"),
     mediaBucketName: required("MEDIA_BUCKET_NAME"),
+    entitlementIdentityResolverFunctionName: required(
+      "ENTITLEMENT_IDENTITY_RESOLVER_FUNCTION_NAME",
+    ),
+    entitlementHmacKeys: entitlementHmacKeysFromEnvironment(
+      required("ENTITLEMENT_PREAUTHORIZATION_HMAC_KEY_ARN"),
+      required("ENTITLEMENT_PREAUTHORIZATION_HMAC_KEY_VERSION"),
+      process.env.ENTITLEMENT_PREAUTHORIZATION_PREVIOUS_KEYS_JSON,
+    ),
     maximumAuthenticationAgeMs: 300_000,
     environment: required("FOLOO_ENVIRONMENT"),
     normalAccessEnabled:

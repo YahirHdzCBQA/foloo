@@ -24,6 +24,7 @@ import * as ses from "aws-cdk-lib/aws-ses";
 import * as events from "aws-cdk-lib/aws-events";
 import * as eventTargets from "aws-cdk-lib/aws-events-targets";
 import * as sns from "aws-cdk-lib/aws-sns";
+import * as cloudtrail from "aws-cdk-lib/aws-cloudtrail";
 import type { Construct } from "constructs";
 
 import { validateBillingConfig, type EnvironmentConfig } from "./config.js";
@@ -34,6 +35,16 @@ import { WebSessionInfrastructure } from "./web_session_infrastructure.js";
 type FolooBackendStackProps = cdk.StackProps & {
   config: EnvironmentConfig;
   unlimitedQaMode?: boolean;
+  administrativeEntitlementEnabled?: boolean;
+  automaticEntitlement?: {
+    enabled: boolean;
+    enqueueEnabled: boolean;
+    workerEnabled: boolean;
+  };
+  entitlementPreauthorizationPreviousHmacKeys?: readonly {
+    keyArn: string;
+    keyVersion: string;
+  }[];
   webSessionQa?: {
     normalAccessEnabled?: boolean;
     enabled: boolean;
@@ -99,6 +110,25 @@ export class FolooBackendStack extends cdk.Stack {
       props.accountDeletionQa?.finalizerEnabled === true;
     const accountDeletionSesNotificationsEnabled =
       props.accountDeletionSesNotificationsEnabled === true;
+    const automaticEntitlementEnabled =
+      props.automaticEntitlement?.enabled === true;
+    const entitlementInfrastructureEnabled =
+      props.administrativeEntitlementEnabled === true ||
+      automaticEntitlementEnabled;
+    const previousEntitlementKeys =
+      props.entitlementPreauthorizationPreviousHmacKeys ?? [];
+    if (
+      previousEntitlementKeys.some(
+        ({ keyArn, keyVersion }) =>
+          !keyArn.trim() ||
+          !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/u.test(keyVersion),
+      ) ||
+      new Set(["v1", ...previousEntitlementKeys.map((key) => key.keyVersion)])
+        .size !==
+        previousEntitlementKeys.length + 1
+    ) {
+      throw new Error("Previous entitlement HMAC keys are invalid.");
+    }
     const cognitoAllowedFederatedProviders =
       props.cognitoAllowedFederatedProviders ?? (["Google"] as const);
     if (
@@ -488,6 +518,43 @@ export class FolooBackendStack extends cdk.Stack {
           props.accountDeletionKeyArns.notificationRecipientKeyArn,
       },
     );
+    const entitlementPreauthorizationKey = entitlementInfrastructureEnabled
+      ? new kms.Key(this, "EntitlementPreauthorizationHmacKey", {
+          description: "HMAC selectors for private FL-021 preauthorizations",
+          keySpec: kms.KeySpec.HMAC_256,
+          keyUsage: kms.KeyUsage.GENERATE_VERIFY_MAC,
+          removalPolicy: cdk.RemovalPolicy.RETAIN,
+          pendingWindow: cdk.Duration.days(30),
+        })
+      : undefined;
+    const automaticEntitlementDlq = automaticEntitlementEnabled
+      ? new sqs.Queue(this, "AutomaticEntitlementDeadLetterQueue", {
+          encryption: sqs.QueueEncryption.KMS_MANAGED,
+          retentionPeriod: cdk.Duration.days(14),
+          enforceSSL: true,
+        })
+      : undefined;
+    const automaticEntitlementQueue = automaticEntitlementEnabled
+      ? new sqs.Queue(this, "AutomaticEntitlementQueue", {
+          encryption: sqs.QueueEncryption.KMS_MANAGED,
+          visibilityTimeout: cdk.Duration.minutes(2),
+          retentionPeriod: cdk.Duration.days(14),
+          deadLetterQueue: {
+            queue: automaticEntitlementDlq!,
+            maxReceiveCount: 5,
+          },
+          enforceSSL: true,
+        })
+      : undefined;
+    if (automaticEntitlementDlq) {
+      new cloudwatch.Alarm(this, "AutomaticEntitlementDlqAlarm", {
+        metric:
+          automaticEntitlementDlq.metricApproximateNumberOfMessagesVisible(),
+        threshold: 1,
+        evaluationPeriods: 1,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      });
+    }
     const accountDeletionOperationsTopic = new sns.Topic(
       this,
       "AccountDeletionOperationsTopic",
@@ -644,12 +711,21 @@ export class FolooBackendStack extends cdk.Stack {
           ].join(","),
           COGNITO_ALLOWED_FEDERATED_PROVIDERS:
             cognitoAllowedFederatedProviders.join(","),
+          FOLOO_ENTITLEMENT_AUTOMATIC_ENQUEUE_ENABLED:
+            props.automaticEntitlement?.enqueueEnabled === true
+              ? "true"
+              : "false",
+          FOLOO_ENTITLEMENT_AUTOMATIC_QUEUE_URL:
+            automaticEntitlementQueue?.queueUrl ?? "disabled",
         },
         bundling: { minify: true, sourceMap: true },
       },
     );
     accountDeletion.grantGuardReadAccess(accountDeletionPostAuthentication);
     accountDeletion.grantHmac(accountDeletionPostAuthentication);
+    automaticEntitlementQueue?.grantSendMessages(
+      accountDeletionPostAuthentication,
+    );
     // The User Pool predates and is not owned by this stack. CDK therefore
     // prepares scoped invoke permissions and outputs, but deliberately does
     // not mutate its LambdaConfig. Trigger attachment remains an activation
@@ -1024,6 +1100,276 @@ export class FolooBackendStack extends cdk.Stack {
         resources: [`${mediaBucket.bucketArn}/*`],
       }),
     );
+
+    let identityResolver: lambdaNode.NodejsFunction | undefined;
+    if (entitlementInfrastructureEnabled) {
+      const identityLogGroup = new logs.LogGroup(
+        this,
+        "AdministrativeEntitlementIdentityLogGroup",
+        {
+          retention: logs.RetentionDays.ONE_WEEK,
+          removalPolicy: cdk.RemovalPolicy.DESTROY,
+        },
+      );
+      identityResolver = new lambdaNode.NodejsFunction(
+        this,
+        "AdministrativeEntitlementIdentityFunction",
+        {
+          entry: join(
+            import.meta.dirname,
+            "../src/entitlements/administrative_entitlement_identity_lambda.ts",
+          ),
+          handler: "handler",
+          runtime: lambda.Runtime.NODEJS_22_X,
+          architecture: lambda.Architecture.ARM_64,
+          memorySize: 256,
+          timeout: cdk.Duration.seconds(10),
+          logGroup: identityLogGroup,
+          environment: { COGNITO_USER_POOL_ID: config.userPoolId },
+          bundling: { minify: true, sourceMap: true },
+        },
+      );
+      identityResolver.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["cognito-idp:ListUsers"],
+          resources: [
+            cdk.Stack.of(this).formatArn({
+              service: "cognito-idp",
+              resource: "userpool",
+              resourceName: config.userPoolId,
+            }),
+          ],
+        }),
+      );
+      deletionWorker.addEnvironment(
+        "ENTITLEMENT_IDENTITY_RESOLVER_FUNCTION_NAME",
+        identityResolver.functionName,
+      );
+      deletionWorker.addEnvironment(
+        "ENTITLEMENT_PREAUTHORIZATION_HMAC_KEY_ARN",
+        entitlementPreauthorizationKey!.keyArn,
+      );
+      deletionWorker.addEnvironment(
+        "ENTITLEMENT_PREAUTHORIZATION_HMAC_KEY_VERSION",
+        "v1",
+      );
+      deletionWorker.addEnvironment(
+        "ENTITLEMENT_PREAUTHORIZATION_PREVIOUS_KEYS_JSON",
+        JSON.stringify(previousEntitlementKeys),
+      );
+      entitlementPreauthorizationKey!.grant(deletionWorker, "kms:GenerateMac");
+      if (previousEntitlementKeys.length > 0) {
+        deletionWorker.addToRolePolicy(
+          new iam.PolicyStatement({
+            actions: ["kms:GenerateMac"],
+            resources: previousEntitlementKeys.map((key) => key.keyArn),
+          }),
+        );
+      }
+      deletionWorker.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["lambda:InvokeFunction"],
+          resources: [identityResolver.functionArn],
+        }),
+      );
+    }
+
+    if (props.administrativeEntitlementEnabled === true) {
+      if (
+        config.name !== "dev" ||
+        !identityResolver ||
+        !entitlementPreauthorizationKey
+      ) {
+        throw new Error("Administrative entitlements are DEV-only.");
+      }
+      const operatorUserName = "foloo-entitlement-operator";
+      const operatorUser = new iam.User(
+        this,
+        "AdministrativeEntitlementOperatorUser",
+        {
+          userName: operatorUserName,
+        },
+      );
+      const operatorSessionConditions = {
+        Bool: { "aws:MultiFactorAuthPresent": "true" },
+        StringEquals: { "sts:SourceIdentity": operatorUserName },
+        StringLike: { "sts:RoleSessionName": "fl021-*" },
+      };
+      const operatorPrincipal = new iam.ArnPrincipal(
+        operatorUser.userArn,
+      ).withConditions(operatorSessionConditions);
+      const operatorSourceIdentityPrincipal = new iam.ArnPrincipal(
+        operatorUser.userArn,
+      ).withConditions({
+        StringEquals: { "sts:SourceIdentity": operatorUserName },
+      });
+      const operatorRole = new iam.Role(
+        this,
+        "AdministrativeEntitlementOperatorRole",
+        {
+          roleName: `foloo-${config.name}-fl021-entitlement-operator`,
+          assumedBy: operatorPrincipal,
+          maxSessionDuration: cdk.Duration.hours(1),
+          description:
+            "MFA-protected IAM-only operator for FL-021 entitlement administration",
+        },
+      );
+      operatorRole.assumeRolePolicy?.addStatements(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          principals: [operatorSourceIdentityPrincipal],
+          actions: ["sts:SetSourceIdentity"],
+        }),
+      );
+      operatorUser.addToPolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ["sts:AssumeRole", "sts:SetSourceIdentity"],
+          resources: [operatorRole.roleArn],
+        }),
+      );
+      const functionLogGroup = new logs.LogGroup(
+        this,
+        "AdministrativeEntitlementFunctionLogGroup",
+        {
+          retention: logs.RetentionDays.ONE_WEEK,
+          removalPolicy: cdk.RemovalPolicy.DESTROY,
+        },
+      );
+      const entitlementFunction = new lambdaNode.NodejsFunction(
+        this,
+        "AdministrativeEntitlementFunction",
+        {
+          entry: join(
+            import.meta.dirname,
+            "../src/entitlements/administrative_entitlement_lambda.ts",
+          ),
+          handler: "handler",
+          runtime: lambda.Runtime.NODEJS_22_X,
+          architecture: lambda.Architecture.ARM_64,
+          memorySize: 256,
+          timeout: cdk.Duration.seconds(30),
+          logGroup: functionLogGroup,
+          vpc,
+          vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+          securityGroups: [lambdaSg],
+          environment: {
+            DB_HOST: database.dbInstanceEndpointAddress,
+            DB_PORT: database.dbInstanceEndpointPort,
+            DB_NAME: config.databaseName,
+            DB_ENTITLEMENT_OPERATOR_SECRET_ARN:
+              entitlementOperatorSecret.secretArn,
+            COGNITO_IDENTITY_RESOLVER_FUNCTION_NAME:
+              identityResolver.functionName,
+            ENTITLEMENT_OPERATOR_ACTOR_ARN: operatorRole.roleArn,
+            ENTITLEMENT_PREAUTHORIZATION_HMAC_KEY_ARN:
+              entitlementPreauthorizationKey.keyArn,
+            ENTITLEMENT_PREAUTHORIZATION_HMAC_KEY_VERSION: "v1",
+            NODE_EXTRA_CA_CERTS: "/var/runtime/ca-cert.pem",
+          },
+          bundling: { minify: true, sourceMap: true },
+        },
+      );
+      entitlementOperatorSecret.grantRead(entitlementFunction);
+      entitlementPreauthorizationKey.grant(
+        entitlementFunction,
+        "kms:GenerateMac",
+      );
+      entitlementFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["lambda:InvokeFunction"],
+          resources: [identityResolver.functionArn],
+        }),
+      );
+      entitlementFunction.grantInvoke(operatorRole);
+      const entitlementAuditTrail = new cloudtrail.Trail(
+        this,
+        "AdministrativeEntitlementAuditTrail",
+        {
+          trailName: `foloo-${config.name}-fl021-entitlement-audit`,
+          includeGlobalServiceEvents: true,
+          isMultiRegionTrail: false,
+          sendToCloudWatchLogs: true,
+        },
+      );
+      entitlementAuditTrail.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN);
+      entitlementAuditTrail.addLambdaEventSelector([entitlementFunction], {
+        readWriteType: cloudtrail.ReadWriteType.WRITE_ONLY,
+      });
+      new cdk.CfnOutput(this, "AdministrativeEntitlementFunctionName", {
+        value: entitlementFunction.functionName,
+        description:
+          "Private IAM-only FL-021 administrative entitlement function",
+      });
+    }
+
+    if (automaticEntitlementEnabled) {
+      if (
+        config.name !== "dev" ||
+        !identityResolver ||
+        !entitlementPreauthorizationKey ||
+        !automaticEntitlementQueue
+      ) {
+        throw new Error("Automatic entitlement infrastructure is incomplete.");
+      }
+      const automaticWorkerLogGroup = new logs.LogGroup(
+        this,
+        "AutomaticEntitlementWorkerLogGroup",
+        {
+          retention: logs.RetentionDays.ONE_WEEK,
+          removalPolicy: cdk.RemovalPolicy.DESTROY,
+        },
+      );
+      const automaticWorker = new lambdaNode.NodejsFunction(
+        this,
+        "AutomaticEntitlementWorkerFunction",
+        {
+          entry: join(
+            import.meta.dirname,
+            "../src/entitlements/automatic_entitlement_worker_lambda.ts",
+          ),
+          handler: "handler",
+          runtime: lambda.Runtime.NODEJS_22_X,
+          architecture: lambda.Architecture.ARM_64,
+          memorySize: 256,
+          timeout: cdk.Duration.seconds(60),
+          logGroup: automaticWorkerLogGroup,
+          vpc,
+          vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+          securityGroups: [lambdaSg],
+          environment: {
+            DB_HOST: database.dbInstanceEndpointAddress,
+            DB_PORT: database.dbInstanceEndpointPort,
+            DB_NAME: config.databaseName,
+            DB_ENTITLEMENT_OPERATOR_SECRET_ARN:
+              entitlementOperatorSecret.secretArn,
+            COGNITO_IDENTITY_RESOLVER_FUNCTION_NAME:
+              identityResolver.functionName,
+            ENTITLEMENT_PREAUTHORIZATION_HMAC_KEY_ARN:
+              entitlementPreauthorizationKey.keyArn,
+            ENTITLEMENT_PREAUTHORIZATION_HMAC_KEY_VERSION: "v1",
+            NODE_EXTRA_CA_CERTS: "/var/runtime/ca-cert.pem",
+          },
+          bundling: { minify: true, sourceMap: true },
+        },
+      );
+      entitlementOperatorSecret.grantRead(automaticWorker);
+      entitlementPreauthorizationKey.grant(automaticWorker, "kms:GenerateMac");
+      automaticWorker.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["lambda:InvokeFunction"],
+          resources: [identityResolver.functionArn],
+        }),
+      );
+      automaticWorker.addEventSource(
+        new lambdaEventSources.SqsEventSource(automaticEntitlementQueue, {
+          batchSize: 1,
+          reportBatchItemFailures: true,
+          enabled: props.automaticEntitlement?.workerEnabled === true,
+          maxConcurrency: 2,
+        }),
+      );
+    }
 
     const migrationLogGroup = new logs.LogGroup(this, "MigrationLogGroup", {
       retention: logs.RetentionDays.ONE_WEEK,

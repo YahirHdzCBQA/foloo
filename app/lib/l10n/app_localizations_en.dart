@@ -464,7 +464,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get continueAction => 'Continue';
 
   @override
-  String get originTitle => 'Where are you\nconnecting today?';
+  String get originTitle => 'What\'s your event today?';
 
   @override
   String get leadSource => 'Lead source';
@@ -1661,6 +1661,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get trialMilestonePlan => 'FREE PLAN';
 
   @override
+  String get trialMilestoneCount => '5 of 5';
+
+  @override
+  String get trialMilestoneCapturedLabel => 'leads captured';
+
+  @override
   String get trialMilestoneTitle => '5 of 5 leads captured';
 
   @override
@@ -1668,7 +1674,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get trialMilestoneSaved =>
-      'Your fifth lead was saved and your five leads remain available.';
+      'Your fifth lead was saved. Unlimited access is required to keep capturing.';
 
   @override
   String get trialMilestoneOffline =>
@@ -1680,4 +1686,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get trialMilestoneUnderstood => 'Got it';
+
+  @override
+  String get trialMilestoneRecordsRemain =>
+      'Your 5 leads remain available in Records.';
 }

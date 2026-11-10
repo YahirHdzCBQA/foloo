@@ -140,7 +140,7 @@
   "emailConnectionUnavailable": "No se pudo comprobar la cuenta. Intenta actualizar cuando tengas conexión.",
   "company": "Empresa",
   "continueAction": "Continuar",
-  "originTitle": "¿Dónde estás\nconectando hoy?",
+  "originTitle": "¿Cuál es tu evento?",
   "leadSource": "Origen del lead",
   "event": "Evento",
   "directLead": "Lead directo",
@@ -468,10 +468,13 @@
   "planPro": "Plan PRO",
   "historicalLeadUsage": "{count} de 5 leads históricos utilizados",
   "trialMilestonePlan": "PLAN GRATIS",
+  "trialMilestoneCount": "5 de 5",
+  "trialMilestoneCapturedLabel": "leads capturados",
   "trialMilestoneTitle": "5 de 5 leads capturados",
   "trialMilestoneHeading": "Sigue con Foloo ilimitado",
-  "trialMilestoneSaved": "Tu quinto lead quedó guardado y tus cinco leads siguen disponibles.",
+  "trialMilestoneSaved": "Tu quinto lead quedó guardado. Para seguir capturando necesitas acceso ilimitado.",
   "trialMilestoneOffline": "Este estado fue confirmado después de sincronizar con Foloo.",
   "trialMilestoneEmailDisabled": "El correo de seguimiento todavía no está habilitado.",
-  "trialMilestoneUnderstood": "Entendido"
+  "trialMilestoneUnderstood": "Entendido",
+  "trialMilestoneRecordsRemain": "Tus 5 leads siguen disponibles en Registros."
 }

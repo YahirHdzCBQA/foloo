@@ -21,6 +21,18 @@ const trialFoundationMigrationUrl = new URL(
   "../migrations/012_trial_subscription_foundation.sql",
   import.meta.url,
 );
+const preauthorizationMigrationUrl = new URL(
+  "../migrations/013_fl021_entitlement_preauthorizations.sql",
+  import.meta.url,
+);
+const deletionPreauthorizationMigrationUrl = new URL(
+  "../migrations/014_fl021_account_deletion_preauthorization_invalidation.sql",
+  import.meta.url,
+);
+const optionalLeadCompanyMigrationUrl = new URL(
+  "../migrations/015_optional_lead_company.sql",
+  import.meta.url,
+);
 
 test("migration scopes resource foreign keys by workspace and excludes blobs", async () => {
   const sql = await readFile(migrationUrl, "utf8");
@@ -43,6 +55,17 @@ test("migration defines idempotency and subject provisioning constraints", async
   assert.match(sql, /one_personal_account_per_user/);
   assert.match(sql, /PRIMARY KEY \(workspace_id, operation, idempotency_key\)/);
   assert.match(sql, /pg_advisory_xact_lock\(hashtext\(p_subject\)\)/);
+});
+
+test("CAP-03 migration makes only Lead company optional with bounded locking", async () => {
+  const sql = await readFile(optionalLeadCompanyMigrationUrl, "utf8");
+  assert.match(sql, /SET LOCAL lock_timeout = '5s'/);
+  assert.match(sql, /ALTER COLUMN company DROP NOT NULL/);
+  assert.match(
+    sql,
+    /CHECK \(company IS NULL OR length\(company\) BETWEEN 1 AND 160\)/,
+  );
+  assert.doesNotMatch(sql, /DELETE FROM|DROP TABLE|DROP COLUMN/i);
 });
 
 test("FL-016 migration adds explicit pending/available media state without blobs", async () => {
@@ -132,4 +155,48 @@ test("FL-021 adds auditable grants and one durable fifth-lead event", async () =
     /GRANT[^;]*(INSERT|UPDATE|DELETE)[^;]*ON entitlement_grants TO foloo_app/i,
   );
   assert.doesNotMatch(sql, /DELETE FROM|DROP TABLE|DROP COLUMN/i);
+});
+
+test("FL-021 preauthorizations are pseudonymous, private, and deletion-aware", async () => {
+  const sql = await readFile(preauthorizationMigrationUrl, "utf8");
+  assert.match(sql, /migration 013 requires migration 012/u);
+  assert.match(sql, /CREATE TABLE entitlement_preauthorizations/u);
+  assert.match(sql, /email_digest text NOT NULL/u);
+  assert.match(sql, /UNIQUE \(key_version, email_digest\)/u);
+  assert.match(sql, /grant_origin IN \('manual', 'preauthorization'\)/u);
+  assert.match(sql, /CREATE TABLE entitlement_preauthorization_audit/u);
+  assert.match(sql, /invalidate_consumed_entitlement_preauthorization/u);
+  assert.match(sql, /deletion_pending_at IS NOT NULL/u);
+  assert.match(
+    sql,
+    /REVOKE ALL PRIVILEGES ON entitlement_preauthorizations FROM PUBLIC, foloo_app/u,
+  );
+  assert.match(
+    sql,
+    /GRANT SELECT, INSERT, UPDATE ON entitlement_preauthorizations\s+TO foloo_entitlement_admin/u,
+  );
+  assert.doesNotMatch(sql, /^\s*email\s+text\b/gimu);
+  assert.doesNotMatch(
+    sql,
+    /GRANT[^;]*(INSERT|UPDATE|DELETE)[^;]*entitlement_preauthorizations[^;]*foloo_app/iu,
+  );
+  assert.doesNotMatch(sql, /^\s*(BEGIN|COMMIT);/gimu);
+});
+
+test("STORE-02D revokes active and consumed FL-021 preauthorizations safely", async () => {
+  const sql = await readFile(deletionPreauthorizationMigrationUrl, "utf8");
+  assert.match(sql, /migration 014 requires migration 013/u);
+  assert.match(sql, /SECURITY DEFINER/u);
+  assert.match(sql, /SET search_path = pg_catalog, public/u);
+  assert.match(sql, /deletion_pending_at IS NOT NULL/u);
+  assert.match(sql, /status = 'consumed'/u);
+  assert.match(sql, /status = 'active'/u);
+  assert.match(sql, /unnest\(p_key_versions, p_email_digests\)/u);
+  assert.match(sql, /INSERT INTO public\.entitlement_preauthorization_audit/u);
+  assert.match(
+    sql,
+    /GRANT EXECUTE ON FUNCTION revoke_account_entitlement_preauthorizations\([\s\S]*TO foloo_app/u,
+  );
+  assert.doesNotMatch(sql, /^\s*email\s+text\b/gimu);
+  assert.doesNotMatch(sql, /^\s*(BEGIN|COMMIT);/gimu);
 });

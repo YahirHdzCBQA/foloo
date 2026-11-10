@@ -47,7 +47,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('El nombre es obligatorio'), findsOneWidget);
-    expect(find.text('La empresa es obligatoria'), findsOneWidget);
+    expect(find.text('Escribe correo o teléfono'), findsOneWidget);
     expect(find.text('Elige Proveedor, Partner o Cliente'), findsOneWidget);
   });
 
@@ -122,10 +122,6 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('nameField')), 'Ana López');
     await tester.enterText(
-      find.byKey(const Key('companyField')),
-      'Estudio Uno',
-    );
-    await tester.enterText(
       find.byKey(const Key('emailField')),
       'ana@example.com',
     );
@@ -158,11 +154,12 @@ void main() {
     expect(find.text('Ana López'), findsNothing);
   });
 
-  testWidgets('validates email and accepts a phone-only lead', (tester) async {
+  testWidgets('validates email and accepts a phone-only lead without company', (
+    tester,
+  ) async {
     await tester.pumpWidget(captureApp());
 
     await tester.enterText(find.byKey(const Key('nameField')), 'Luis Pérez');
-    await tester.enterText(find.byKey(const Key('companyField')), 'Taller Sur');
     await tester.enterText(
       find.byKey(const Key('emailField')),
       'correo-invalido',
@@ -179,6 +176,25 @@ void main() {
 
     expect(find.text('Escribe correo o teléfono'), findsNothing);
     expect(find.text('Escribe teléfono o correo'), findsNothing);
+  });
+
+  testWidgets('rejects a lead when email and phone are both empty', (
+    tester,
+  ) async {
+    await tester.pumpWidget(captureApp());
+    await tester.enterText(find.byKey(const Key('nameField')), 'Sin contacto');
+    final customer = find.byKey(const Key('leadType-customer'));
+    await tester.scrollUntilVisible(
+      customer,
+      280,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(customer);
+    await tester.tap(find.byKey(const Key('saveLeadButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Escribe correo o teléfono'), findsOneWidget);
+    expect(find.text('Lead guardado'), findsNothing);
   });
 
   testWidgets('local write failure never opens success confirmation', (
@@ -272,6 +288,11 @@ void main() {
       );
 
       expect(initialWidget.focusNode.hasFocus, isTrue);
+      await tester.tap(editable);
+      await tester.tap(editable);
+      await tester.longPress(editable);
+      await tester.pump();
+      expect(tester.takeException(), isNull);
       initialWidget.controller.selection = const TextSelection(
         baseOffset: 0,
         extentOffset: 6,

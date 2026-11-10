@@ -29,6 +29,13 @@ const leadEmailSchema = z
   .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)
   .nullable()
   .optional();
+const leadCompanySchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(160)
+  .nullable()
+  .optional();
 
 export const profileSchema = z.object({
   name: z.string().trim().min(1).max(160),
@@ -99,7 +106,7 @@ export const leadSchema = z
     firstName: z.string().trim().min(1).max(160),
     lastName: nullableText(160),
     position: nullableText(160),
-    company: z.string().trim().min(1).max(160),
+    company: leadCompanySchema,
     email: leadEmailSchema,
     phone: nullableText(40),
     leadType: z.enum(["customer", "partner", "supplier"]),
@@ -138,7 +145,7 @@ export const leadUpdateSchema = z
     firstName: z.string().trim().min(1).max(160),
     lastName: nullableText(160),
     position: nullableText(160),
-    company: z.string().trim().min(1).max(160),
+    company: leadCompanySchema,
     email: leadEmailSchema,
     phone: nullableText(40),
     leadType: z.enum(["customer", "partner", "supplier"]),

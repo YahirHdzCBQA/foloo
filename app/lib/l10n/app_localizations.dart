@@ -935,7 +935,7 @@ abstract class AppLocalizations {
   /// No description provided for @originTitle.
   ///
   /// In es, this message translates to:
-  /// **'¿Dónde estás\nconectando hoy?'**
+  /// **'¿Cuál es tu evento?'**
   String get originTitle;
 
   /// No description provided for @leadSource.
@@ -2893,6 +2893,18 @@ abstract class AppLocalizations {
   /// **'PLAN GRATIS'**
   String get trialMilestonePlan;
 
+  /// No description provided for @trialMilestoneCount.
+  ///
+  /// In es, this message translates to:
+  /// **'5 de 5'**
+  String get trialMilestoneCount;
+
+  /// No description provided for @trialMilestoneCapturedLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'leads capturados'**
+  String get trialMilestoneCapturedLabel;
+
   /// No description provided for @trialMilestoneTitle.
   ///
   /// In es, this message translates to:
@@ -2908,7 +2920,7 @@ abstract class AppLocalizations {
   /// No description provided for @trialMilestoneSaved.
   ///
   /// In es, this message translates to:
-  /// **'Tu quinto lead quedó guardado y tus cinco leads siguen disponibles.'**
+  /// **'Tu quinto lead quedó guardado. Para seguir capturando necesitas acceso ilimitado.'**
   String get trialMilestoneSaved;
 
   /// No description provided for @trialMilestoneOffline.
@@ -2928,6 +2940,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Entendido'**
   String get trialMilestoneUnderstood;
+
+  /// No description provided for @trialMilestoneRecordsRemain.
+  ///
+  /// In es, this message translates to:
+  /// **'Tus 5 leads siguen disponibles en Registros.'**
+  String get trialMilestoneRecordsRemain;
 }
 
 class _AppLocalizationsDelegate

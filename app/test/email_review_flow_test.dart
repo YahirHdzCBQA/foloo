@@ -201,13 +201,21 @@ void main() {
   testWidgets('missing provider asks for connection without losing review', (
     tester,
   ) async {
+    var profileRequested = false;
     await tester.pumpWidget(
-      harness(onConfirm: (_) async => EmailReviewOutcome.connectionRequired),
+      harness(
+        onConfirm: (_) async => EmailReviewOutcome.connectionRequired,
+        onConnectionRequired: () => profileRequested = true,
+      ),
     );
     await tester.tap(find.byKey(const Key('confirmFollowUpButton')));
     await tester.pumpAndSettle();
 
     expect(find.text('Conecta tu correo'), findsOneWidget);
+    expect(find.byKey(const Key('emailReviewMessage')), findsOneWidget);
+    await tester.tap(find.text('Conectar'));
+    await tester.pumpAndSettle();
+    expect(profileRequested, isTrue);
     expect(find.byKey(const Key('emailReviewMessage')), findsOneWidget);
   });
 

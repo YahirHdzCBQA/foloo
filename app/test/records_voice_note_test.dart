@@ -12,6 +12,7 @@ import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/screens/records_screen.dart';
 import 'package:foloo/services/records_export_service.dart';
 import 'package:foloo/theme/foloo_theme.dart';
+import 'package:foloo/widgets/voice_playback_waveform.dart';
 import 'package:image/image.dart' as image_codec;
 
 import 'support/fake_voice_note_service.dart';
@@ -206,6 +207,60 @@ void main() {
       expect(chip.showCheckmark, isFalse);
     }
   });
+
+  testWidgets(
+    'record detail mirrors play pause and disposes playback on exit',
+    (tester) async {
+      final service = FakeVoiceNoteService();
+      final record = SessionLead(
+        localId: 'voice-detail',
+        folio: null,
+        capturedAt: DateTime(2026, 11, 9),
+        lead: lead(audioPath: '/tmp/detail.m4a', audioSeconds: 18),
+      );
+      await tester.pumpWidget(recordsApp(service, records: [record]));
+
+      await tester.tap(find.byKey(const Key('record-voice-detail')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('detailAudioWaveform')), findsOneWidget);
+      expect(
+        tester
+            .widget<VoicePlaybackWaveform>(
+              find.byKey(const Key('detailAudioWaveform')),
+            )
+            .active,
+        isFalse,
+      );
+
+      await tester.tap(find.byKey(const Key('detailAudioButton')));
+      await tester.pump();
+      expect(service.playCount, 1);
+      expect(
+        tester
+            .widget<VoicePlaybackWaveform>(
+              find.byKey(const Key('detailAudioWaveform')),
+            )
+            .active,
+        isTrue,
+      );
+
+      await tester.tap(find.byKey(const Key('detailAudioButton')));
+      await tester.pump();
+      expect(service.pauseCount, 1);
+      expect(
+        tester
+            .widget<VoicePlaybackWaveform>(
+              find.byKey(const Key('detailAudioWaveform')),
+            )
+            .active,
+        isFalse,
+      );
+
+      await tester.tap(find.byKey(const Key('detailBackButton')));
+      await tester.pumpAndSettle();
+      expect(service.stopPlaybackCount, greaterThanOrEqualTo(1));
+    },
+  );
 
   testWidgets('REG-17 uses global header and delete swipe confirms', (
     tester,

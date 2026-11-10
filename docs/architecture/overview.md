@@ -114,6 +114,16 @@ conserva. La retención/borrado definitivo continúa abierta en D-13.
 - Estado de conectividad separado de AuthState y disponibilidad del backend.
 - Caché owner-scoped del entitlement y reservas offline sin conceder autoridad
   de pago al cliente.
+- Preautorizaciones PRO privadas identifican correos verificados únicamente
+  mediante HMAC KMS versionado. `PostAuthentication` encola el `sub`; un worker
+  VPC revalida Cognito y concede idempotentemente con el rol PostgreSQL
+  administrativo. La API pública y Flutter no reciben acceso a la lista ni a
+  las tablas administrativas (`MON-21`).
+- STORE-02D revalida el mismo `sub` antes de borrar Cognito y deriva con KMS
+  todos los selectores HMAC configurados. La transacción owner-scoped revoca
+  tanto el selector consumido por esa cuenta como el selector activo del correo
+  verificado; errores de Cognito/KMS/SQL impiden completar el checkpoint
+  (`MON-21`, `INF-17`, `RNF-09`).
 
 ## Responsabilidades del backend desde FL-014
 

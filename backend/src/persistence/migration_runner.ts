@@ -6,7 +6,8 @@ import { join } from "node:path";
 import type pg from "pg";
 
 const rolePattern = /^[a-z_][a-z0-9_]{0,62}$/;
-const migrationLockName = "foloo-schema-migrations-v1";
+/** Shared lock identity for migration writes and their read-only preflight. */
+export const MIGRATION_ADVISORY_LOCK_NAME = "foloo-schema-migrations-v1";
 
 function sqlLiteral(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
@@ -42,7 +43,7 @@ export async function applyMigrations(
   try {
     const lock = await client.query<{ acquired: boolean }>(
       "SELECT pg_try_advisory_lock(hashtext($1)) AS acquired",
-      [migrationLockName],
+      [MIGRATION_ADVISORY_LOCK_NAME],
     );
     if (lock.rows[0]?.acquired !== true)
       throw new Error("Another migration operation is already running");
@@ -91,7 +92,9 @@ export async function applyMigrations(
   } finally {
     if (lockHeld) {
       await client
-        .query("SELECT pg_advisory_unlock(hashtext($1))", [migrationLockName])
+        .query("SELECT pg_advisory_unlock(hashtext($1))", [
+          MIGRATION_ADVISORY_LOCK_NAME,
+        ])
         .catch(() => {});
     }
     client.release();

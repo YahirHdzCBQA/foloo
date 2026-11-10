@@ -200,7 +200,14 @@ FL-020. FREE y PRO difieren solo en nuevas capturas.
 
 - La entrega real del correo 5/5 permanece apagada hasta aprobar contenido,
   CTA/destino y requisitos de comunicación. El evento y retry sí se preparan.
+- El aviso 5/5 se presenta después del resumen al volver a Captura y no ofrece
+  reenvío mientras la entrega promocional siga deshabilitada.
 - No concede grants reales ni depende de Unlimited QA.
+- Preautorización privada: selector HMAC KMS, carga IAM/MFA auditable, cola y
+  worker separados del login, revalidación Cognito para nativo/Google/Apple e
+  invalidación transaccional de selectores activos/consumidos al revocar o
+  eliminar, incluida rotación de claves retenidas. La lista operativa no se
+  distribuye.
 - Checkout, Stripe, pagos y activación PRO por compra se difieren a FL-022;
   código comercial previo es evidencia histórica y no se activa en FL-021.
 

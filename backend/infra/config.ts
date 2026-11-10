@@ -104,6 +104,47 @@ export function unlimitedQaModeForEnvironment(
   return enabled;
 }
 
+/** Enables the private administrative entitlement boundary only in DEV. */
+export function administrativeEntitlementForEnvironment(
+  environment: string,
+  rawValue: unknown,
+): boolean {
+  const enabled = rawValue === true || rawValue === "true";
+  if (enabled && environment !== "dev") {
+    throw new Error("Administrative entitlements are restricted to DEV.");
+  }
+  return enabled;
+}
+
+export type AutomaticEntitlementConfig = Readonly<{
+  enabled: boolean;
+  enqueueEnabled: boolean;
+  workerEnabled: boolean;
+}>;
+
+/** Separates passive resources, login enqueueing, and queue consumption. */
+export function automaticEntitlementConfigForEnvironment(
+  environment: string,
+  rawEnabled: unknown,
+  rawEnqueueEnabled: unknown,
+  rawWorkerEnabled: unknown,
+): AutomaticEntitlementConfig {
+  const enabled = rawEnabled === true || rawEnabled === "true";
+  const enqueueEnabled =
+    rawEnqueueEnabled === true || rawEnqueueEnabled === "true";
+  const workerEnabled =
+    rawWorkerEnabled === true || rawWorkerEnabled === "true";
+  if ((enabled || enqueueEnabled || workerEnabled) && environment !== "dev") {
+    throw new Error("Automatic entitlements are restricted to DEV.");
+  }
+  if ((enqueueEnabled || workerEnabled) && !enabled) {
+    throw new Error(
+      "Automatic entitlement processing requires its passive boundary.",
+    );
+  }
+  return { enabled, enqueueEnabled, workerEnabled };
+}
+
 /** Enables STORE-02D transactional email only through an explicit DEV opt-in. */
 export function accountDeletionSesNotificationsForEnvironment(
   environment: string,

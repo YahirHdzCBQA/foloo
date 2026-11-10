@@ -54,7 +54,7 @@ export type LeadInput = {
   firstName: string;
   lastName?: string | null;
   position?: string | null;
-  company: string;
+  company?: string | null;
   email?: string | null;
   phone?: string | null;
   leadType: "customer" | "partner" | "supplier";
@@ -70,7 +70,7 @@ export type LeadUpdateInput = {
   firstName: string;
   lastName?: string | null;
   position?: string | null;
-  company: string;
+  company?: string | null;
   email?: string | null;
   phone?: string | null;
   leadType: "customer" | "partner" | "supplier";

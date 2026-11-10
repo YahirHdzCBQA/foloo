@@ -140,7 +140,7 @@
   "emailConnectionUnavailable": "The account could not be checked. Try refreshing when you are online.",
   "company": "Company",
   "continueAction": "Continue",
-  "originTitle": "Where are you\nconnecting today?",
+  "originTitle": "What's your event today?",
   "leadSource": "Lead source",
   "event": "Event",
   "directLead": "Direct lead",
@@ -469,10 +469,13 @@
   "planPro": "PRO plan",
   "historicalLeadUsage": "{count} of 5 historical leads used",
   "trialMilestonePlan": "FREE PLAN",
+  "trialMilestoneCount": "5 of 5",
+  "trialMilestoneCapturedLabel": "leads captured",
   "trialMilestoneTitle": "5 of 5 leads captured",
   "trialMilestoneHeading": "Keep going with unlimited Foloo",
-  "trialMilestoneSaved": "Your fifth lead was saved and your five leads remain available.",
+  "trialMilestoneSaved": "Your fifth lead was saved. Unlimited access is required to keep capturing.",
   "trialMilestoneOffline": "This status was confirmed after synchronization with Foloo.",
   "trialMilestoneEmailDisabled": "The follow-up email is not enabled yet.",
-  "trialMilestoneUnderstood": "Got it"
+  "trialMilestoneUnderstood": "Got it",
+  "trialMilestoneRecordsRemain": "Your 5 leads remain available in Records."
 }

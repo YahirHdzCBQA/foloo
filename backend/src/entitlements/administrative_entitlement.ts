@@ -16,16 +16,21 @@ export interface VerifiedCognitoIdentityResolver {
   resolveVerifiedEmail(email: string): Promise<VerifiedCognitoIdentity>;
 }
 
-export type AdministrativeGrantCommand = {
-  action: "grant" | "revoke";
-  email: string;
-  actor: string;
-  reason: string;
-};
+export type AdministrativeEntitlementCommand =
+  | { action: "status"; email: string }
+  | {
+      action: "grant" | "revoke";
+      email: string;
+      actor: string;
+      reason: string;
+    };
 
-export type AdministrativeGrantResult = {
-  action: "granted" | "revoked" | "unchanged";
+export type AdministrativeEntitlementResult = {
+  action: "status" | "granted" | "revoked" | "unchanged";
   entitlement: "PRO" | "FREE";
+  subscriptionStatus?: string;
+  entitlementSource?: string;
+  trialLeadsUsed?: number;
 };
 
 export class AdministrativeEntitlementService {
@@ -35,10 +40,8 @@ export class AdministrativeEntitlementService {
   ) {}
 
   async execute(
-    command: AdministrativeGrantCommand,
-  ): Promise<AdministrativeGrantResult> {
-    const actor = requiredText(command.actor, "actor", 160);
-    const reason = requiredText(command.reason, "reason", 500);
+    command: AdministrativeEntitlementCommand,
+  ): Promise<AdministrativeEntitlementResult> {
     const email = command.email.trim().toLowerCase();
     if (!email || !email.includes("@")) {
       throw new Error("A valid administrative entitlement email is required.");
@@ -47,6 +50,9 @@ export class AdministrativeEntitlementService {
     if (!identity.emailVerified || !identity.subject.trim()) {
       throw new Error("Administrative entitlement identity is not verified.");
     }
+    if (command.action === "status") return this.status(identity.subject);
+    const actor = requiredText(command.actor, "actor", 160);
+    const reason = requiredText(command.reason, "reason", 500);
     return command.action === "grant"
       ? this.grant(identity.subject, actor, reason)
       : this.revoke(identity.subject, actor, reason);
@@ -56,12 +62,12 @@ export class AdministrativeEntitlementService {
     subject: string,
     actor: string,
     reason: string,
-  ): Promise<AdministrativeGrantResult> {
+  ): Promise<AdministrativeEntitlementResult> {
     const db = await this.pool.connect();
     try {
       await db.query("BEGIN");
       await db.query("SET LOCAL ROLE foloo_entitlement_admin");
-      const account = await accountForSubject(db, subject);
+      const account = await accountForSubject(db, subject, true);
       const existing = await db.query<{ id: string }>(
         `SELECT id FROM entitlement_grants
          WHERE account_id=$1 AND source='administrative' AND status='active'
@@ -89,9 +95,9 @@ export class AdministrativeEntitlementService {
         throw new Error("Administrative entitlement state is inconsistent.");
       const inserted = await db.query<{ id: string }>(
         `INSERT INTO entitlement_grants
-           (account_id,source,status,granted_by,reason,
+           (account_id,source,status,grant_origin,granted_by,reason,
             previous_subscription_status,previous_entitlement_source)
-         VALUES ($1,'administrative','active',$2,$3,$4,$5)
+         VALUES ($1,'administrative','active','manual',$2,$3,$4,$5)
          RETURNING id`,
         [
           account.id,
@@ -105,8 +111,8 @@ export class AdministrativeEntitlementService {
       if (!grantId) throw new Error("Administrative grant was not persisted.");
       await db.query(
         `INSERT INTO entitlement_grant_audit
-           (grant_id,account_id,action,actor,reason)
-         VALUES ($1,$2,'granted',$3,$4)`,
+           (grant_id,account_id,action,actor,reason,grant_origin)
+         VALUES ($1,$2,'granted',$3,$4,'manual')`,
         [grantId, account.id, actor, reason],
       );
       const updated = await db.query(
@@ -135,18 +141,21 @@ export class AdministrativeEntitlementService {
     subject: string,
     actor: string,
     reason: string,
-  ): Promise<AdministrativeGrantResult> {
+  ): Promise<AdministrativeEntitlementResult> {
     const db = await this.pool.connect();
     try {
       await db.query("BEGIN");
       await db.query("SET LOCAL ROLE foloo_entitlement_admin");
-      const account = await accountForSubject(db, subject);
+      const account = await accountForSubject(db, subject, true);
       const active = await db.query<{
         id: string;
         previous_subscription_status: "trial" | "trial_exhausted";
         previous_entitlement_source: "trial";
+        grant_origin: "manual" | "preauthorization";
+        preauthorization_id: string | null;
       }>(
-        `SELECT id,previous_subscription_status,previous_entitlement_source
+        `SELECT id,previous_subscription_status,previous_entitlement_source,
+                grant_origin,preauthorization_id
          FROM entitlement_grants
          WHERE account_id=$1 AND source='administrative' AND status='active'
          FOR UPDATE`,
@@ -165,6 +174,12 @@ export class AdministrativeEntitlementService {
       }
       if (account.entitlement_source !== "administrative")
         throw new Error("Administrative entitlement state is inconsistent.");
+      if (
+        active.rows[0]!.grant_origin === "preauthorization" &&
+        !active.rows[0]!.preauthorization_id
+      ) {
+        throw new Error("Administrative entitlement state is inconsistent.");
+      }
       const revoked = await db.query(
         `UPDATE entitlement_grants SET status='revoked', revoked_by=$2,
            revoked_reason=$3, revoked_at=now()
@@ -175,9 +190,9 @@ export class AdministrativeEntitlementService {
         throw new Error("Administrative grant changed concurrently.");
       await db.query(
         `INSERT INTO entitlement_grant_audit
-           (grant_id,account_id,action,actor,reason)
-         VALUES ($1,$2,'revoked',$3,$4)`,
-        [grantId, account.id, actor, reason],
+           (grant_id,account_id,action,actor,reason,grant_origin)
+         VALUES ($1,$2,'revoked',$3,$4,$5)`,
+        [grantId, account.id, actor, reason, active.rows[0]!.grant_origin],
       );
       const restored = await db.query(
         `UPDATE accounts SET
@@ -193,8 +208,51 @@ export class AdministrativeEntitlementService {
       );
       if (restored.rowCount !== 1)
         throw new Error("Administrative entitlement changed concurrently.");
+      if (active.rows[0]!.preauthorization_id) {
+        const invalidated = await db.query(
+          `UPDATE entitlement_preauthorizations
+           SET status='revoked',bound_account_id=NULL,revoked_by=$2,
+               revoked_reason=$3,revoked_at=now()
+           WHERE id=$1 AND status='consumed' RETURNING id`,
+          [active.rows[0]!.preauthorization_id, actor, reason],
+        );
+        if (invalidated.rowCount !== 1) {
+          throw new Error("Entitlement preauthorization changed concurrently.");
+        }
+        await db.query(
+          `INSERT INTO entitlement_preauthorization_audit
+             (preauthorization_id,account_id,action,actor,reason)
+           VALUES ($1,$2,'revoked',$3,$4)`,
+          [active.rows[0]!.preauthorization_id, account.id, actor, reason],
+        );
+      }
       await db.query("COMMIT");
       return { action: "revoked", entitlement: "FREE" };
+    } catch (error) {
+      await db.query("ROLLBACK");
+      throw error;
+    } finally {
+      db.release();
+    }
+  }
+
+  private async status(
+    subject: string,
+  ): Promise<AdministrativeEntitlementResult> {
+    const db = await this.pool.connect();
+    try {
+      await db.query("BEGIN READ ONLY");
+      await db.query("SET LOCAL ROLE foloo_entitlement_admin");
+      const account = await accountForSubject(db, subject, false);
+      assertCoherentEntitlement(account);
+      await db.query("COMMIT");
+      return {
+        action: "status",
+        entitlement: account.subscription_status === "active" ? "PRO" : "FREE",
+        subscriptionStatus: account.subscription_status,
+        entitlementSource: account.entitlement_source,
+        trialLeadsUsed: account.trial_leads_used,
+      };
     } catch (error) {
       await db.query("ROLLBACK");
       throw error;
@@ -207,10 +265,12 @@ export class AdministrativeEntitlementService {
 async function accountForSubject(
   db: pg.PoolClient,
   subject: string,
+  lock: boolean,
 ): Promise<{
   id: string;
   subscription_status: string;
   entitlement_source: string;
+  trial_leads_used: number;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
 }> {
@@ -218,13 +278,14 @@ async function accountForSubject(
     id: string;
     subscription_status: string;
     entitlement_source: string;
+    trial_leads_used: number;
     stripe_customer_id: string | null;
     stripe_subscription_id: string | null;
   }>(
-    `SELECT a.id,a.subscription_status,a.entitlement_source,
+    `SELECT a.id,a.subscription_status,a.entitlement_source,a.trial_leads_used,
             a.stripe_customer_id,a.stripe_subscription_id FROM app_users u
      JOIN accounts a ON a.owner_user_id=u.id AND a.deleted_at IS NULL
-     WHERE u.cognito_sub=$1 FOR UPDATE OF a`,
+     WHERE u.cognito_sub=$1${lock ? " FOR UPDATE OF a" : ""}`,
     [subject],
   );
   const account = result.rows[0];
@@ -232,6 +293,30 @@ async function accountForSubject(
     throw new Error("Verified Cognito identity has no unique Foloo account.");
   }
   return account;
+}
+
+function assertCoherentEntitlement(account: {
+  subscription_status: string;
+  entitlement_source: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+}): void {
+  const allowed = new Set([
+    "trial:trial",
+    "trial_exhausted:trial",
+    "active:administrative",
+    "active:stripe",
+    "active:legacy_active",
+  ]);
+  if (
+    !allowed.has(
+      `${account.subscription_status}:${account.entitlement_source}`,
+    ) ||
+    (account.entitlement_source === "stripe") !==
+      Boolean(account.stripe_customer_id && account.stripe_subscription_id)
+  ) {
+    throw new Error("Administrative entitlement state is inconsistent.");
+  }
 }
 
 function requiredText(value: string, name: string, maximum: number): string {

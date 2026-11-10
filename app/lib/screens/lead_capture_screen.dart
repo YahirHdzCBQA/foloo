@@ -5,7 +5,6 @@
 library;
 
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -35,6 +34,7 @@ import '../widgets/camera_access_dialog.dart';
 import '../widgets/create_event_dialog.dart';
 import '../widgets/entitlement_scope.dart';
 import '../widgets/microphone_access_dialog.dart';
+import '../widgets/voice_playback_waveform.dart';
 import '../widgets/progress_header.dart';
 import '../widgets/section_card.dart';
 import '../widgets/segmented_bubble.dart';
@@ -75,6 +75,7 @@ class LeadCaptureScreen extends StatefulWidget {
     this.onEmailReviewRequested,
     this.onEmailReviewConfirmed,
     this.onEmailReviewUpdated,
+    this.onProfileRequested,
     this.onCaptureAnotherRequested,
     super.key,
   });
@@ -95,6 +96,7 @@ class LeadCaptureScreen extends StatefulWidget {
   onEmailReviewConfirmed;
   final Future<void> Function(EmailReviewDraft draft, LeadDraft lead)?
   onEmailReviewUpdated;
+  final VoidCallback? onProfileRequested;
   final ValueChanged<AppDestination> onDestinationSelected;
   final ValueChanged<bool> onAppearanceChanged;
   final VoidCallback onLogout;
@@ -883,8 +885,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       target = _placeFocus;
     } else if (_name.text.trim().isEmpty) {
       target = _nameFocus;
-    } else if (_company.text.trim().isEmpty) {
-      target = _companyFocus;
     } else {
       final email = _email.text.trim();
       final phone = _phone.text.trim();
@@ -1017,7 +1017,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               await widget.onEmailReviewUpdated?.call(draft, record.lead);
             },
             onConnectionRequired: () {
-              widget.onDestinationSelected(AppDestination.email);
+              widget.onProfileRequested?.call();
             },
             onCaptureAnother: () {
               Navigator.of(context).pop();
@@ -1083,7 +1083,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   List<bool> get _progress => [
     _cardBytes != null,
     _name.text.trim().isNotEmpty &&
-        _company.text.trim().isNotEmpty &&
         (_email.text.trim().isNotEmpty || _phone.text.trim().isNotEmpty),
     _leadType != null,
     _note.text.trim().isNotEmpty ||
@@ -1606,8 +1605,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                 focusNode: _companyFocus,
                 textInputAction: TextInputAction.next,
                 onChanged: (_) => _companyEdited = true,
-                validator: (value) =>
-                    _required(value, context.l10n.leadCompanyRequired),
               ),
             ),
             const SizedBox(height: 16),
@@ -1621,6 +1618,10 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                 textCapitalization: TextCapitalization.none,
                 textInputAction: TextInputAction.next,
                 autofillHints: const [AutofillHints.email],
+                contextMenuBuilder: (context, editableTextState) =>
+                    AdaptiveTextSelectionToolbar.editableText(
+                      editableTextState: editableTextState,
+                    ),
                 onChanged: (_) => _emailEdited = true,
                 validator: _validateEmail,
               ),
@@ -1850,10 +1851,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                   child: Row(
                     children: [
                       Expanded(
-                        child: _Waveform(
+                        child: VoicePlaybackWaveform(
                           active:
                               _voiceNote.isRecording || _voiceNote.isPlaying,
-                          tick: _voiceNote.elapsed.inMilliseconds,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -2450,58 +2450,4 @@ class _InterestDot extends StatelessWidget {
     height: 8,
     decoration: BoxDecoration(color: color, shape: BoxShape.circle),
   );
-}
-
-class _Waveform extends StatelessWidget {
-  const _Waveform({required this.active, required this.tick});
-
-  final bool active;
-  final int tick;
-  static const heights = <double>[
-    10,
-    20,
-    14,
-    28,
-    18,
-    34,
-    12,
-    24,
-    16,
-    30,
-    13,
-    22,
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.onSurface
-        .withValues(alpha: active ? 0.68 : 0.18);
-    return SizedBox(
-      height: 34,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: heights.indexed
-            .map(
-              (entry) => AnimatedContainer(
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 220),
-                width: 3,
-                height: active
-                    ? entry.$2 *
-                          (.58 +
-                              .42 *
-                                  math.sin((tick / 190) + entry.$1 * .82).abs())
-                    : entry.$2 * 0.48,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            )
-            .toList(),
-      ),
-    );
-  }
 }

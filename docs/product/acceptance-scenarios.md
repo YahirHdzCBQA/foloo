@@ -69,6 +69,9 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Tarjeta ilegible deja todos los campos manuales disponibles.
 - Foto puede reprocesarse, reemplazarse o quitarse antes de guardar.
 - La captura conserva cuatro pasos en un scroll, progreso superior y CTA fijo.
+- Nombre y al menos correo válido o teléfono identifican el Lead; Empresa es
+  opcional. Correo solo y teléfono solo guardan/sincronizan; ambos vacíos
+  bloquean sin insertar valores ficticios.
 - Guardar con faltantes desplaza al primero y lo identifica sin perder datos.
 - Cámara de tarjeta pide permiso solo al tocar cámara. Denegación temporal puede
   reintentarse; bloqueo/restricción ofrece Ajustes. Al volver se revalida sin
@@ -370,12 +373,24 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   `Cognito sub`, concede PRO una sola vez y deja actor/motivo/auditoría. La
   revocación restaura FREE con el contador histórico intacto. Una identidad
   no verificada, ambigua o con entitlement comercial falla cerrada.
+- (`MON-21`) Producto puede preautorizar de forma privada una dirección antes
+  de que exista en Cognito. Solo persiste su selector HMAC versionado. Tras un
+  login válido, un worker vuelve a consultar Cognito por el `sub`, exige
+  dirección verificada y consume la preautorización en la misma transacción que
+  concede PRO. Fallas de RDS no bloquean el login y quedan reintentables.
+- (`MON-21`) Dos evaluaciones concurrentes consumen como máximo una vez la
+  preautorización. Un correo Apple Private Relay distinto, una identidad no
+  verificada o una cuenta Stripe/`legacy_active` no reciben el grant. Revocar
+  o eliminar integralmente la cuenta invalida la preautorización, de modo que
+  un registro posterior requiere autorización nueva.
 - (`MON-22`) La transacción que acepta el quinto Lead inserta exactamente un
   evento durable. Un retry idempotente no duplica evento, modal ni correo. Si
   se capturó offline, el modal aparece solo después de la sincronización
-  confirmada. La caída del proveedor de email no revierte el Lead y deja el
-  evento reintentable. Con entrega deshabilitada no hay llamada al proveedor,
-  CTA ni mensaje que afirme envío.
+  confirmada y después de cerrar el resumen al regresar a Inicio/Captura. La
+  caída del proveedor de email no revierte el Lead y deja el evento
+  reintentable. Con entrega deshabilitada no hay llamada al proveedor, CTA,
+  reenvío ni mensaje que afirme envío. Cerrar el aviso conserva el bloqueo de
+  nuevas capturas y el acceso a Registros y navegación.
 
 ## E-12 · Shell, idioma, seguridad y salida
 

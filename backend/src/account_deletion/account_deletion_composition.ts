@@ -40,6 +40,10 @@ import { StagedAccountDeletionExecutor } from "./staged_account_deletion_executo
 import { StripeSubscriptionCancellation } from "./stripe_subscription_cancellation.js";
 import { RestoredOwnerErasureRecovery } from "./restored_owner_erasure_recovery.js";
 import { createAccountDeletionAdmissionGuard } from "./account_deletion_admission.js";
+import {
+  LambdaKmsDeletionPreauthorizationIdentity,
+  type EntitlementHmacKey,
+} from "./preauthorization_erasure_identity.js";
 
 export type AccountDeletionAwsConfiguration = Readonly<{
   tableName: string;
@@ -60,6 +64,8 @@ export type AccountDeletionAwsConfiguration = Readonly<{
   qaAllowedSubjectHashes: ReadonlySet<string>;
   intakeEnabled: boolean;
   verifiedEmailFunctionName?: string;
+  entitlementIdentityResolverFunctionName?: string;
+  entitlementHmacKeys?: readonly EntitlementHmacKey[];
 }>;
 
 export function composeAccountDeletionRuntime(
@@ -98,7 +104,27 @@ export function composeAccountDeletionRuntime(
     dynamo,
     config.tableName,
   );
-  const postgres = new PostgresOwnerErasure(pool, erasureInventory);
+  const preauthorizationIdentity =
+    config.entitlementIdentityResolverFunctionName &&
+    config.entitlementHmacKeys?.length
+      ? new LambdaKmsDeletionPreauthorizationIdentity(
+          lambda,
+          config.entitlementIdentityResolverFunctionName,
+          kms,
+          config.entitlementHmacKeys,
+        )
+      : {
+          async selectorsForOwner(): Promise<never> {
+            throw new Error(
+              "Account deletion preauthorization invalidation is not configured.",
+            );
+          },
+        };
+  const postgres = new PostgresOwnerErasure(
+    pool,
+    erasureInventory,
+    preauthorizationIdentity,
+  );
   const executor = new StagedAccountDeletionExecutor(
     new DynamoErasureCheckpointStore(dynamo, config.tableName),
     subscriptionCancellation,

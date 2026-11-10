@@ -24,6 +24,8 @@ List<int> testPng() =>
 LeadDraft draft({
   String name = 'Mariana',
   String company = 'Grupo Lácteo',
+  String email = 'mariana@example.com',
+  String phone = '+52 81 0000 0000',
   String? eventId = 'event-1',
   String? cardPath,
   String? audioPath,
@@ -38,8 +40,8 @@ LeadDraft draft({
   lastName: 'Sandoval',
   role: 'Compras',
   company: company,
-  email: 'mariana@example.com',
-  phone: '+52 81 0000 0000',
+  email: email,
+  phone: phone,
   type: LeadType.customer,
   interest: InterestLevel.high,
   note: 'Solicita seguimiento.',
@@ -130,6 +132,31 @@ void main() {
       '+52 81 1111 1111',
     );
     await database.close();
+  });
+
+  test('CAP-03 persists optional company and serializes it as null', () async {
+    final database = openDatabase();
+    addTearDown(database.close);
+    await EventRepository(database).save(userId, event(), makeActive: true);
+    final leads = LeadRepository(
+      database,
+      PrivateMediaStorage(mediaRoot),
+      idFactory: () => 'lead-without-company',
+    );
+    final saved = await leads.saveDraft(
+      userId,
+      draft(company: '', phone: ''),
+      capturedBy: const DemoProfile(name: 'Yahir', company: 'CBQA'),
+    );
+
+    expect(saved.lead.company, isEmpty);
+    final operation = (await database.syncDao.forEntity(
+      userId,
+      SyncEntityType.lead.name,
+      saved.localId,
+    )).single;
+    expect(jsonDecode(operation.payloadJson)['company'], isNull);
+    expect((await leads.listAll(userId)).single.lead.company, isEmpty);
   });
 
   test(

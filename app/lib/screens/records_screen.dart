@@ -9,6 +9,7 @@ import 'dart:io';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
 import '../models/app_destination.dart';
@@ -27,6 +28,7 @@ import '../l10n/l10n.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/module_header.dart';
 import '../widgets/swipe_action_card.dart';
+import '../widgets/voice_playback_waveform.dart';
 import 'email_review_screen.dart';
 
 const _allRecordsFilterId = '__all_records__';
@@ -141,6 +143,7 @@ class _RecordsScreenState extends State<RecordsScreen>
   String? _activeAudioPath;
   String? _busyAudioPath;
   bool _audioPlaying = false;
+  final ValueNotifier<bool> _detailAudioPlaying = ValueNotifier(false);
   String _eventId = _allRecordsFilterId;
   String? _openSwipeLeadId;
   List<StoredEmailFollowUp> _followUps = const [];
@@ -162,6 +165,7 @@ class _RecordsScreenState extends State<RecordsScreen>
         setState(() {
           _activeAudioPath = null;
           _audioPlaying = false;
+          _detailAudioPlaying.value = false;
         });
       }
     });
@@ -236,6 +240,7 @@ class _RecordsScreenState extends State<RecordsScreen>
     unawaited(_followUpsSubscription?.cancel());
     unawaited(_intentsSubscription?.cancel());
     unawaited(_disposeAudio());
+    _detailAudioPlaying.dispose();
     super.dispose();
   }
 
@@ -322,7 +327,10 @@ class _RecordsScreenState extends State<RecordsScreen>
     try {
       await _voice.pausePlayback();
     } finally {
-      if (mounted) setState(() => _audioPlaying = false);
+      if (mounted) {
+        setState(() => _audioPlaying = false);
+        _detailAudioPlaying.value = false;
+      }
     }
   }
 
@@ -334,6 +342,7 @@ class _RecordsScreenState extends State<RecordsScreen>
         setState(() {
           _activeAudioPath = null;
           _audioPlaying = false;
+          _detailAudioPlaying.value = false;
         });
       }
     }
@@ -353,11 +362,13 @@ class _RecordsScreenState extends State<RecordsScreen>
           await _voice.pausePlayback();
           if (mounted) {
             setState(() => _audioPlaying = false);
+            _detailAudioPlaying.value = false;
           }
         } else {
           await _voice.resumePlayback();
           if (mounted) {
             setState(() => _audioPlaying = true);
+            _detailAudioPlaying.value = true;
           }
         }
       } else {
@@ -367,6 +378,7 @@ class _RecordsScreenState extends State<RecordsScreen>
           setState(() {
             _activeAudioPath = path;
             _audioPlaying = true;
+            _detailAudioPlaying.value = true;
           });
         }
       }
@@ -409,13 +421,14 @@ class _RecordsScreenState extends State<RecordsScreen>
           ?.name;
     }
     if (!mounted) return;
+    _detailAudioPlaying.value =
+        _activeAudioPath == record.lead.audioLocalPath && _audioPlaying;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ConnectionDetailScreen(
           record: record,
           currentEventName: currentEventName,
-          audioPlaying:
-              _activeAudioPath == record.lead.audioLocalPath && _audioPlaying,
+          audioPlayingListenable: _detailAudioPlaying,
           onToggleAudio: () => _toggleAudio(record),
           onEdit: widget.onLeadUpdated == null
               ? null
@@ -431,6 +444,7 @@ class _RecordsScreenState extends State<RecordsScreen>
         ),
       ),
     );
+    await _stopAudio();
     if (mounted) setState(() {});
   }
 
@@ -1408,7 +1422,7 @@ class _RecordRow extends StatelessWidget {
 class ConnectionDetailScreen extends StatelessWidget {
   const ConnectionDetailScreen({
     required this.record,
-    required this.audioPlaying,
+    required this.audioPlayingListenable,
     required this.onToggleAudio,
     this.currentEventName,
     this.onEdit,
@@ -1423,7 +1437,7 @@ class ConnectionDetailScreen extends StatelessWidget {
     super.key,
   });
   final SessionLead record;
-  final bool audioPlaying;
+  final ValueListenable<bool> audioPlayingListenable;
   final VoidCallback onToggleAudio;
   final String? currentEventName;
   final Future<void> Function(LeadDraft updated)? onEdit;
@@ -1476,10 +1490,11 @@ class ConnectionDetailScreen extends StatelessWidget {
               lead.fullName,
               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
             ),
-            Text(
-              lead.company,
-              style: TextStyle(color: palette.inkSecondary, fontSize: 12),
-            ),
+            if (lead.company.isNotEmpty)
+              Text(
+                lead.company,
+                style: TextStyle(color: palette.inkSecondary, fontSize: 12),
+              ),
           ],
         ),
         actions: [
@@ -1618,41 +1633,59 @@ class ConnectionDetailScreen extends StatelessWidget {
             ),
             if (lead.hasVoiceNote) ...[
               const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: palette.paper,
-                  borderRadius: BorderRadius.circular(FolooRadii.md),
-                ),
-                child: Row(
-                  children: [
-                    IconButton.filled(
-                      key: const Key('detailAudioButton'),
-                      onPressed: onToggleAudio,
-                      style: IconButton.styleFrom(
-                        backgroundColor: FolooColors.lime,
-                        foregroundColor: FolooColors.ink,
+              ValueListenableBuilder<bool>(
+                valueListenable: audioPlayingListenable,
+                builder: (context, playing, _) => Container(
+                  key: const Key('detailVoiceNoteCard'),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: palette.paper,
+                    borderRadius: BorderRadius.circular(FolooRadii.md),
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton.filled(
+                        key: const Key('detailAudioButton'),
+                        tooltip: playing
+                            ? context.l10n.pauseVoiceNote
+                            : context.l10n.playVoiceNote,
+                        onPressed: onToggleAudio,
+                        style: IconButton.styleFrom(
+                          backgroundColor: FolooColors.lime,
+                          foregroundColor: FolooColors.ink,
+                        ),
+                        icon: Icon(
+                          playing
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                        ),
                       ),
-                      icon: Icon(audioPlaying ? Icons.pause : Icons.play_arrow),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            context.l10n.voiceNote,
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          Text(
-                            _duration(lead.audioSeconds),
-                            style: TextStyle(color: palette.inkSecondary),
-                          ),
-                        ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              context.l10n.voiceNote,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            VoicePlaybackWaveform(
+                              key: const Key('detailAudioWaveform'),
+                              active: playing,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const Icon(Icons.graphic_eq),
-                  ],
+                      const SizedBox(width: 12),
+                      Text(
+                        _duration(lead.audioSeconds),
+                        style: TextStyle(color: palette.inkSecondary),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1973,7 +2006,7 @@ class _LeadEditScreenState extends State<_LeadEditScreen> {
           _field(_name, context.l10n.exportFirstName, isRequired: true),
           _field(_lastName, context.l10n.exportLastName),
           _field(_role, context.l10n.exportPosition),
-          _field(_company, context.l10n.company, isRequired: true),
+          _field(_company, context.l10n.company),
           _field(_email, context.l10n.contactEmail, email: true),
           _field(_phone, context.l10n.contactPhone),
           DropdownButtonFormField<LeadType>(

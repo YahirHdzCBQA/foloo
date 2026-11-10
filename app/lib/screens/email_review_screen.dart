@@ -110,7 +110,7 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
         ),
       );
       if (connect == true && mounted) {
-        Navigator.of(context).pop();
+        FocusManager.instance.primaryFocus?.unfocus();
         widget.onConnectionRequired();
       }
       return;

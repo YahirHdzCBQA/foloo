@@ -13,11 +13,15 @@ import {
 } from "./qa_inventory.js";
 
 import { applyMigrations, ensureApplicationRole } from "./migration_runner.js";
+import {
+  runFl021MigrationPreflight,
+  type Fl021MigrationPreflight,
+} from "./fl021_migration_preflight.js";
 
 type Secret = { username: string; password: string };
 // `only` applies one named pending migration, leaving earlier pending ones untouched.
 type MigrationEvent = {
-  action?: "apply" | "status" | "qa-inventory";
+  action?: "apply" | "status" | "qa-inventory" | "fl021-preflight";
   only?: string;
 };
 
@@ -51,7 +55,10 @@ export async function handler(
   event: MigrationEvent = {},
   context?: Pick<Context, "invokedFunctionArn">,
 ): Promise<
-  { applied: string[] } | AccountDeletionMigrationStatus | QaInventory
+  | { applied: string[] }
+  | AccountDeletionMigrationStatus
+  | QaInventory
+  | Fl021MigrationPreflight
 > {
   // Fail closed for misspelled inventory actions/extra fields before touching secrets.
   if (
@@ -60,7 +67,14 @@ export async function handler(
     Array.isArray(event) ||
     Object.keys(event).some((k) => !["action", "only"].includes(k)) ||
     (event.action !== undefined &&
-      !["apply", "status", "qa-inventory"].includes(event.action))
+      !["apply", "status", "qa-inventory", "fl021-preflight"].includes(
+        event.action,
+      ))
+  )
+    throw new Error("invalid_operator_action");
+  if (
+    event.action === "fl021-preflight" &&
+    Object.keys(event).some((key) => key !== "action")
   )
     throw new Error("invalid_operator_action");
   if (event.action === "qa-inventory") {
@@ -134,6 +148,9 @@ export async function handler(
   });
   try {
     if (action === "status") return await inspectAccountDeletionBarrier(pool);
+    if (action === "fl021-preflight") {
+      return await runFl021MigrationPreflight(pool);
+    }
     const app = await readSecret(secrets, appArn);
     const entitlementOperator = await readSecret(
       secrets,

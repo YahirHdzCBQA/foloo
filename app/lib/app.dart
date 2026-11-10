@@ -712,7 +712,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     return durableProfile;
   }
 
-  void _openProfile() {
+  void _openProfile({bool focusFollowUpEmail = false}) {
     final user = _authRepository.state.user;
     if (user == null) return;
     _navigatorKey.currentState?.push(
@@ -725,6 +725,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           connectionService: _emailConnectionService,
           deliveryRepository: _persistence.emailDelivery,
           cameraAccessCoordinator: widget.cameraAccessCoordinator,
+          focusFollowUpEmail: focusFollowUpEmail,
           accountDeletionEnabled:
               widget.accountDeletionEnabled &&
               widget.accountDeletionService != null,
@@ -1240,6 +1241,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
 
   Future<void> _showPendingTrialMilestone(String ownerSub) async {
     if (_trialMilestoneDialogOpening || !mounted) return;
+    // The milestone belongs after Review/confirmation has returned to the
+    // capture shell; never cover an in-progress lead route (MON-22).
+    if (_navigatorKey.currentState?.canPop() ?? false) return;
     final state = await _persistence.preferences.read(
       ownerSub,
       'trialMilestone5State',
@@ -1251,10 +1255,16 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     }
     _trialMilestoneDialogOpening = true;
     try {
-      await showDialog<void>(
+      await showModalBottomSheet<void>(
         context: _navigatorKey.currentContext ?? context,
-        barrierDismissible: false,
-        builder: (_) => const TrialMilestoneDialog(),
+        isDismissible: false,
+        enableDrag: false,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (_) => TrialMilestoneDialog(
+          accountEmail: _authRepository.state.user?.email ?? '',
+        ),
       );
       await _persistence.preferences.write(
         ownerSub,
@@ -1528,6 +1538,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
             onEmailReviewRequested: _emailReviewForLead,
             onEmailReviewConfirmed: _confirmEmailReview,
             onEmailReviewUpdated: _saveEmailReviewDraft,
+            onProfileRequested: () => _openProfile(focusFollowUpEmail: true),
             onOriginChanged: _changeCaptureOrigin,
             onCreateEvent: _createEvent,
             onContentAdded: _addContentFile,
@@ -1542,6 +1553,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
             microphoneAccessCoordinator: widget.microphoneAccessCoordinator,
             onCaptureAnotherRequested: () {
               setState(() => _paywallVisible = !_entitlement.canCreateLead);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) unawaited(_showPendingTrialMilestone(_userId));
+              });
               return _entitlement.canCreateLead;
             },
           ),

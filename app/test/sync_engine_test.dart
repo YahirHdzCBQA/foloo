@@ -317,6 +317,7 @@ LeadDraft _draft({
 Map<String, Object?> _remoteLead(
   String id, {
   String name = 'Remote',
+  String? company = 'Company',
   int revision = 1,
 }) => {
   'id': id,
@@ -327,7 +328,7 @@ Map<String, Object?> _remoteLead(
   'firstName': name,
   'lastName': 'Lead',
   'position': 'Buyer',
-  'company': 'Company',
+  'company': company,
   'email': 'lead@example.com',
   'phone': null,
   'leadType': 'customer',
@@ -1524,7 +1525,10 @@ void main() {
       final remoteId = '66666666-6666-4666-8666-666666666666';
       final api = _Api()
         ..failures.add(const SyncTransportException())
-        ..remoteLeads = [_remoteLead(localId), _remoteLead(remoteId)];
+        ..remoteLeads = [
+          _remoteLead(localId),
+          _remoteLead(remoteId, company: null),
+        ];
 
       await SyncEngine(store, api, _Session('token')).synchronize(owner);
 
@@ -1536,6 +1540,10 @@ void main() {
       expect(
         rows.singleWhere((row) => row.localId == remoteId).lead.name,
         'Remote',
+      );
+      expect(
+        rows.singleWhere((row) => row.localId == remoteId).lead.company,
+        isEmpty,
       );
     },
   );

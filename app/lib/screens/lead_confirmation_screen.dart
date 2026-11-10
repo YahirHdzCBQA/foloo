@@ -95,7 +95,9 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                '${record.lead.fullName} · ${record.lead.company}',
+                record.lead.company.isEmpty
+                    ? record.lead.fullName
+                    : '${record.lead.fullName} · ${record.lead.company}',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: palette.inkSecondary, fontSize: 15),
               ),

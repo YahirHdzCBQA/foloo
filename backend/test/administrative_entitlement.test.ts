@@ -29,6 +29,7 @@ class GrantDatabase {
             id: "account-a",
             subscription_status: this.status,
             entitlement_source: this.source,
+            trial_leads_used: this.trialLeadsUsed,
             stripe_customer_id: this.stripeCustomerId,
             stripe_subscription_id: this.stripeSubscriptionId,
           } as unknown as Row,
@@ -117,6 +118,39 @@ test("verified grant is idempotent, auditable, and preserves historical use", as
   });
   assert.equal(database.trialLeadsUsed, 5);
   assert.deepEqual(database.auditActions, ["granted"]);
+});
+
+test("status is read-only and reports the verified account entitlement", async () => {
+  const database = new GrantDatabase();
+  const service = new AdministrativeEntitlementService(
+    database as unknown as pg.Pool,
+    verifiedIdentity,
+  );
+  assert.deepEqual(
+    await service.execute({ action: "status", email: "qa@example.test" }),
+    {
+      action: "status",
+      entitlement: "FREE",
+      subscriptionStatus: "trial_exhausted",
+      entitlementSource: "trial",
+      trialLeadsUsed: 5,
+    },
+  );
+  assert.deepEqual(database.auditActions, []);
+});
+
+test("status fails closed for incoherent commercial state", async () => {
+  const database = new GrantDatabase();
+  database.status = "active";
+  database.source = "stripe";
+  const service = new AdministrativeEntitlementService(
+    database as unknown as pg.Pool,
+    verifiedIdentity,
+  );
+  await assert.rejects(
+    service.execute({ action: "status", email: "qa@example.test" }),
+    /state is inconsistent/u,
+  );
 });
 
 test("grant preserves the exact FREE state for trial and exhausted accounts", async () => {

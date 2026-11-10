@@ -213,7 +213,7 @@ export class PostgresEmailRepository implements EmailRepository {
       recipient_address: string | null;
       first_name: string;
       last_name: string | null;
-      company: string;
+      company: string | null;
       position: string | null;
       event_name: string | null;
       place: string | null;
@@ -261,7 +261,7 @@ export class PostgresEmailRepository implements EmailRepository {
       values: {
         nombre: row.first_name,
         apellido: row.last_name ?? "",
-        empresa: row.company,
+        empresa: row.company ?? "",
         puesto: row.position ?? "",
         evento: row.event_name ?? "",
         lugar: row.place ?? "",

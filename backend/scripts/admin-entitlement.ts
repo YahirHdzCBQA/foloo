@@ -4,22 +4,22 @@
  * action and resulting plan; it never logs email, Cognito subject, or secrets.
  */
 
-import {
-  CognitoIdentityProviderClient,
-  ListUsersCommand,
-} from "@aws-sdk/client-cognito-identity-provider";
+import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
 import {
   GetSecretValueCommand,
   SecretsManagerClient,
 } from "@aws-sdk/client-secrets-manager";
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
+import { KMSClient } from "@aws-sdk/client-kms";
 import pg from "pg";
 
 import {
   AdministrativeEntitlementService,
   type VerifiedCognitoIdentityResolver,
 } from "../src/entitlements/administrative_entitlement.js";
-import { verifiedAdministrativeIdentity } from "../src/entitlements/cognito_administrative_identity.js";
+import { lookupVerifiedAdministrativeIdentity } from "../src/entitlements/cognito_administrative_identity.js";
+import { EntitlementPreauthorizationService } from "../src/entitlements/entitlement_preauthorization.js";
+import { KmsVerifiedEmailSelector } from "../src/entitlements/preauthorization_selector.js";
 
 const databaseSecretArn = required("DB_ENTITLEMENT_OPERATOR_SECRET_ARN");
 const databaseHost = required("DB_HOST");
@@ -30,8 +30,13 @@ const region = required("AWS_REGION");
 const email = required("FOLOO_ENTITLEMENT_EMAIL");
 const reason = required("FOLOO_ADMIN_REASON");
 const rawAction = required("FOLOO_ENTITLEMENT_ACTION");
-if (rawAction !== "grant" && rawAction !== "revoke") {
-  throw new Error("FOLOO_ENTITLEMENT_ACTION must be grant or revoke.");
+if (
+  rawAction !== "grant" &&
+  rawAction !== "revoke" &&
+  rawAction !== "preauthorize" &&
+  rawAction !== "revoke-preauthorization"
+) {
+  throw new Error("FOLOO_ENTITLEMENT_ACTION is invalid.");
 }
 
 const cognito = new CognitoIdentityProviderClient({ region });
@@ -43,17 +48,7 @@ if (!actor || actor.length > 160)
   throw new Error("Authenticated operator identity is unavailable.");
 const identities: VerifiedCognitoIdentityResolver = {
   async resolveVerifiedEmail(candidate) {
-    const users = await cognito.send(
-      new ListUsersCommand({
-        UserPoolId: userPoolId,
-        Filter: `email = "${cognitoFilterValue(candidate)}"`,
-        Limit: 2,
-      }),
-    );
-    if (users.Users?.length !== 1) {
-      throw new Error("Administrative identity is missing or ambiguous.");
-    }
-    return verifiedAdministrativeIdentity(users.Users[0]!, candidate);
+    return lookupVerifiedAdministrativeIdentity(cognito, userPoolId, candidate);
   },
 };
 
@@ -81,21 +76,25 @@ const pool = new pg.Pool({
   connectionTimeoutMillis: 5_000,
 });
 try {
-  const result = await new AdministrativeEntitlementService(
-    pool,
-    identities,
-  ).execute({ action: rawAction, email, actor, reason });
+  const result =
+    rawAction === "preauthorize" || rawAction === "revoke-preauthorization"
+      ? await new EntitlementPreauthorizationService(
+          pool,
+          new KmsVerifiedEmailSelector(
+            new KMSClient({ region }),
+            required("ENTITLEMENT_PREAUTHORIZATION_HMAC_KEY_ARN"),
+            required("ENTITLEMENT_PREAUTHORIZATION_HMAC_KEY_VERSION"),
+          ),
+        ).execute({ action: rawAction, email, actor, reason })
+      : await new AdministrativeEntitlementService(pool, identities).execute({
+          action: rawAction,
+          email,
+          actor,
+          reason,
+        });
   console.info(JSON.stringify(result));
 } finally {
   await pool.end();
-}
-
-function cognitoFilterValue(value: string): string {
-  const normalized = value.trim().toLowerCase();
-  if (!/^[^\s@"]+@[^\s@"]+$/u.test(normalized)) {
-    throw new Error("FOLOO_ENTITLEMENT_EMAIL is invalid.");
-  }
-  return normalized.replaceAll("\\", "\\\\");
 }
 
 function required(name: string): string {

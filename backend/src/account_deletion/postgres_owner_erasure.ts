@@ -11,11 +11,13 @@ import type {
   PostgresOwnerScope,
 } from "./dynamodb_erasure_inventory_store.js";
 import type { PostgresErasurePort } from "./staged_account_deletion_executor.js";
+import type { DeletionPreauthorizationIdentity } from "./preauthorization_erasure_identity.js";
 
 export class PostgresOwnerErasure implements PostgresErasurePort {
   constructor(
     private readonly pool: Pool,
     private readonly inventory: DurableErasureInventoryStore,
+    private readonly preauthorizationIdentity: DeletionPreauthorizationIdentity,
   ) {}
 
   async ownerScope(ownerSubject: string): Promise<PostgresOwnerScope | null> {
@@ -77,6 +79,8 @@ export class PostgresOwnerErasure implements PostgresErasurePort {
     if (!durableScope) {
       throw new Error("Account deletion PostgreSQL scope was not frozen.");
     }
+    const selectors =
+      await this.preauthorizationIdentity.selectorsForOwner(ownerSubject);
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
@@ -131,6 +135,16 @@ export class PostgresOwnerErasure implements PostgresErasurePort {
           owner.workspace_id,
         ]);
       }
+      await client.query(
+        `SELECT revoke_account_entitlement_preauthorizations(
+           $1,$2::text[],$3::text[]
+         )`,
+        [
+          owner.account_id,
+          selectors.map((selector) => selector.keyVersion),
+          selectors.map((selector) => selector.digest),
+        ],
+      );
       await client.query("DELETE FROM workspace_members WHERE user_id=$1", [
         owner.user_id,
       ]);

@@ -82,6 +82,39 @@ test("enforces lead origin and contact invariants", () => {
   );
 });
 
+test("CAP-03 accepts optional company with either contact but rejects neither", () => {
+  const base = {
+    id: "f6575114-2952-4f7b-a383-1219121f0d41",
+    capturedAt: "2026-11-09T10:00:00Z",
+    origin: "event",
+    eventId: "41af18b2-6357-4fa4-8104-d27768d9d563",
+    firstName: "QA",
+    company: null,
+    leadType: "customer",
+    interest: "medium",
+  };
+  assert.equal(
+    leadSchema.safeParse({ ...base, email: "qa@example.test" }).success,
+    true,
+  );
+  assert.equal(
+    leadSchema.safeParse({ ...base, phone: "+52 477 000 0000" }).success,
+    true,
+  );
+  assert.equal(leadSchema.safeParse(base).success, false);
+  assert.equal(
+    leadUpdateSchema.safeParse({
+      revision: 1,
+      firstName: "QA",
+      company: null,
+      phone: "+52 477 000 0000",
+      leadType: "customer",
+      interest: "medium",
+    }).success,
+    true,
+  );
+});
+
 test("accepts the mobile email syntax used by the physical FL-016 case", () => {
   const base = {
     id: "d3da86ba-3eab-4496-b4ef-15a1caa236e1",
