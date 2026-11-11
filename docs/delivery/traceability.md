@@ -137,7 +137,7 @@ interna sea reutilizable.
 | f4-04 |   I    | frontera de proveedor Google/Microsoft, OAuth, Gmail/Graph y estados remotos; opt-out superseded | FL-019 CLOSED + FL-019.5; ADR-006/007                      |
 | f4-05 |   I    | confirmación distingue guardado local, pendiente offline, aceptación remota y estado ambiguo     | FL-019 CLOSED; Google Sheets sigue fuera de V1             |
 | f4-06 |   F    | no hay modelo org/teams aprobado                                                                 | bloqueado D-10                                             |
-| f4-07 |   P    | config Cognito DEV/PROD centralizada                                                             | FL-013B; sin staging/secret ops                            |
+| f4-07 |   P    | selección Flutter/CDK DEV/PROD fail-closed; `FolooIdentity-prod` y `FolooBackend-prod` aislados, VPC 10.43, claves/secretos retenidos y SES existente importado; template DEV sin cambios | `prod-environment-readiness.md`; faltan prefijo/secret ops, triggers Cognito, Change Sets y despliegue |
 | f4-08 |   F    | sin CI/CD/distribución documentada                                                               | FL plataforma                                              |
 | f4-09 |   F    | sin observabilidad/alerta sync                                                                   | FL plataforma                                              |
 | f4-10 |   F    | sin backup/retención/borrado                                                                     | bloqueado D-13                                             |

@@ -64,19 +64,31 @@ void _expectNoCommercialCopy(WidgetTester tester) {
 }
 
 void main() {
-  testWidgets('Paywall is localized and renders in light and dark', (
+  testWidgets('MON-14 shows the approved copy in light and dark', (
     tester,
   ) async {
     await tester.pumpWidget(paywall(const Locale('es'), ThemeMode.light));
     expect(find.text('Tus 5 leads gratuitos ya fueron utilizados'), findsOne);
     expect(find.byKey(const Key('paywallViewRecords')), findsOne);
-    expect(find.textContaining('web de Foloo'), findsOne);
+    expect(
+      find.text(
+        'Si ya usaste tus leads gratuitos o tu plan terminó, no puedes agregar más leads. '
+        'Todo lo que ya guardaste permanece disponible.',
+      ),
+      findsOne,
+    );
     _expectNoCommercialCopy(tester);
 
     await tester.pumpWidget(paywall(const Locale('en'), ThemeMode.dark));
     await tester.pump();
     expect(find.text('Your 5 free leads have been used'), findsOne);
-    expect(find.textContaining('Foloo website'), findsOne);
+    expect(
+      find.text(
+        'If you’ve used all your free leads or your plan has ended, you can’t add more leads. '
+        'Everything you’ve already saved remains available.',
+      ),
+      findsOne,
+    );
     _expectNoCommercialCopy(tester);
     expect(tester.takeException(), isNull);
   });

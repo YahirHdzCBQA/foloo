@@ -15,14 +15,19 @@ export function createAccountDeletionAdmissionGuard(config: {
   qaEnabled: boolean;
   qaAllowedSubjectHashes: ReadonlySet<string>;
 }): AccountDeletionAdmissionGuard {
-  // Production policy remains blocked by D-13; a flag is not legal approval.
-  if (
-    (config.normalAccessEnabled || config.qaEnabled) &&
-    config.environment !== "dev"
-  ) {
+  // QA is never portable. Normal admission remains an explicit deployment
+  // decision and does not replace the D-13 operational/legal gate.
+  if (config.qaEnabled && config.environment !== "dev") {
     throw new Error(
-      "Account deletion admission is restricted to approved DEV preparation.",
+      "Account deletion QA is restricted to approved DEV preparation.",
     );
+  }
+  if (
+    config.normalAccessEnabled &&
+    config.environment !== "dev" &&
+    config.environment !== "prod"
+  ) {
+    throw new Error("Normal account deletion requires DEV or PROD.");
   }
   if (config.normalAccessEnabled && config.qaEnabled) {
     throw new Error(

@@ -1,4 +1,4 @@
-/** Defines low-cost DEV API/Lambda/private-RDS infrastructure without Cognito mutation. */
+/** Defines environment-isolated API/Lambda/private-RDS infrastructure. */
 
 import { join } from "node:path";
 
@@ -132,9 +132,8 @@ export class FolooBackendStack extends cdk.Stack {
     const cognitoAllowedFederatedProviders =
       props.cognitoAllowedFederatedProviders ?? (["Google"] as const);
     if (
-      cognitoAllowedFederatedProviders.length === 0 ||
       new Set(cognitoAllowedFederatedProviders).size !==
-        cognitoAllowedFederatedProviders.length
+      cognitoAllowedFederatedProviders.length
     ) {
       throw new Error("Cognito federated provider allowlist is invalid.");
     }
@@ -159,7 +158,7 @@ export class FolooBackendStack extends cdk.Stack {
         (!cdk.Token.isUnresolved(this.account) &&
           appleSecretArn.account !== this.account)
       ) {
-        throw new Error("Apple IdP secret must belong to the DEV stack.");
+        throw new Error("Apple IdP secret must belong to the selected stack.");
       }
       const applePrivateKeySecret = secretsmanager.Secret.fromSecretCompleteArn(
         this,
@@ -194,7 +193,13 @@ export class FolooBackendStack extends cdk.Stack {
         },
         supportedIdentityProviders: [
           cognito.UserPoolClientIdentityProvider.COGNITO,
-          cognito.UserPoolClientIdentityProvider.GOOGLE,
+          ...cognitoAllowedFederatedProviders.map((provider) => {
+            if (provider === "Google")
+              return cognito.UserPoolClientIdentityProvider.GOOGLE;
+            if (provider === "SignInWithApple")
+              return cognito.UserPoolClientIdentityProvider.APPLE;
+            return cognito.UserPoolClientIdentityProvider.custom("Microsoft");
+          }),
         ],
         oAuth: {
           flows: {
@@ -229,7 +234,7 @@ export class FolooBackendStack extends cdk.Stack {
     });
 
     const vpc = new ec2.Vpc(this, "Vpc", {
-      ipAddresses: ec2.IpAddresses.cidr("10.42.0.0/16"),
+      ipAddresses: ec2.IpAddresses.cidr(config.vpcCidr),
       maxAzs: 2,
       natGateways: 0,
       subnetConfiguration: [
@@ -364,10 +369,10 @@ export class FolooBackendStack extends cdk.Stack {
       storageEncrypted: true,
       multiAz: false,
       publiclyAccessible: false,
-      deletionProtection: false,
-      // RC-07: ordinary automated backups expire after the approved 15 days.
-      // Manual snapshots/legal holds remain governed by the restore runbook.
-      backupRetention: cdk.Duration.days(15),
+      deletionProtection: config.databaseDeletionProtection,
+      // RC-07: environment policy is explicit; DEV retains its current
+      // Free Tier-compatible day while PROD fails into the 15-day policy.
+      backupRetention: cdk.Duration.days(config.databaseBackupRetentionDays),
       cloudwatchLogsExports: ["postgresql"],
       cloudwatchLogsRetention: logs.RetentionDays.ONE_WEEK,
       vpc,
@@ -578,11 +583,20 @@ export class FolooBackendStack extends cdk.Stack {
         enforceSSL: true,
       },
     );
-    const accountDeletionEmailIdentity = new ses.EmailIdentity(
-      this,
-      "AccountDeletionEmailIdentity",
-      { identity: ses.Identity.domain("foloo.io") },
-    );
+    const managedAccountDeletionEmailIdentity = config.manageSesIdentity
+      ? new ses.EmailIdentity(this, "AccountDeletionEmailIdentity", {
+          identity: ses.Identity.domain(config.sesIdentityName),
+        })
+      : undefined;
+    // PROD consumes the account-level verified identity without claiming its
+    // lifecycle or emitting duplicate DKIM resources into FolooBackend-prod.
+    const accountDeletionEmailIdentity =
+      managedAccountDeletionEmailIdentity ??
+      ses.EmailIdentity.fromEmailIdentityName(
+        this,
+        "ImportedAccountDeletionEmailIdentity",
+        config.sesIdentityName,
+      );
     new cloudwatch.Alarm(this, "AccountDeletionEmailDlqAlarm", {
       metric:
         accountDeletionEmailDlq.metricApproximateNumberOfMessagesVisible(),
@@ -1175,14 +1189,15 @@ export class FolooBackendStack extends cdk.Stack {
     }
 
     if (props.administrativeEntitlementEnabled === true) {
-      if (
-        config.name !== "dev" ||
-        !identityResolver ||
-        !entitlementPreauthorizationKey
-      ) {
-        throw new Error("Administrative entitlements are DEV-only.");
+      if (!identityResolver || !entitlementPreauthorizationKey) {
+        throw new Error(
+          "Administrative entitlement infrastructure is incomplete.",
+        );
       }
-      const operatorUserName = "foloo-entitlement-operator";
+      const operatorUserName =
+        config.name === "dev"
+          ? "foloo-entitlement-operator"
+          : `foloo-${config.name}-entitlement-operator`;
       const operatorUser = new iam.User(
         this,
         "AdministrativeEntitlementOperatorUser",
@@ -1305,7 +1320,6 @@ export class FolooBackendStack extends cdk.Stack {
 
     if (automaticEntitlementEnabled) {
       if (
-        config.name !== "dev" ||
         !identityResolver ||
         !entitlementPreauthorizationKey ||
         !automaticEntitlementQueue
@@ -1667,29 +1681,31 @@ export class FolooBackendStack extends cdk.Stack {
     new cdk.CfnOutput(this, "AccountDeletionEmailFunctionName", {
       value: accountDeletionEmail.functionName,
     });
-    for (const [index, name, value] of [
-      [
-        1,
-        accountDeletionEmailIdentity.dkimDnsTokenName1,
-        accountDeletionEmailIdentity.dkimDnsTokenValue1,
-      ],
-      [
-        2,
-        accountDeletionEmailIdentity.dkimDnsTokenName2,
-        accountDeletionEmailIdentity.dkimDnsTokenValue2,
-      ],
-      [
-        3,
-        accountDeletionEmailIdentity.dkimDnsTokenName3,
-        accountDeletionEmailIdentity.dkimDnsTokenValue3,
-      ],
-    ] as const) {
-      new cdk.CfnOutput(this, `AccountDeletionSesDkimName${index}`, {
-        value: name,
-      });
-      new cdk.CfnOutput(this, `AccountDeletionSesDkimValue${index}`, {
-        value,
-      });
+    if (managedAccountDeletionEmailIdentity) {
+      for (const [index, name, value] of [
+        [
+          1,
+          managedAccountDeletionEmailIdentity.dkimDnsTokenName1,
+          managedAccountDeletionEmailIdentity.dkimDnsTokenValue1,
+        ],
+        [
+          2,
+          managedAccountDeletionEmailIdentity.dkimDnsTokenName2,
+          managedAccountDeletionEmailIdentity.dkimDnsTokenValue2,
+        ],
+        [
+          3,
+          managedAccountDeletionEmailIdentity.dkimDnsTokenName3,
+          managedAccountDeletionEmailIdentity.dkimDnsTokenValue3,
+        ],
+      ] as const) {
+        new cdk.CfnOutput(this, `AccountDeletionSesDkimName${index}`, {
+          value: name,
+        });
+        new cdk.CfnOutput(this, `AccountDeletionSesDkimValue${index}`, {
+          value,
+        });
+      }
     }
     new cdk.CfnOutput(this, "AccountDeletionRestoreReconcilerFunctionName", {
       value: restoreReconciler.functionName,

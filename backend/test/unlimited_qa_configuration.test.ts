@@ -13,7 +13,7 @@ import {
   webSessionQaConfigForEnvironment,
 } from "../infra/config.js";
 
-test("INF-19 SES notifications require an explicit DEV-only opt-in", () => {
+test("INF-19 SES notifications require an explicit environment opt-in", () => {
   assert.equal(
     accountDeletionSesNotificationsForEnvironment("dev", undefined),
     false,
@@ -22,13 +22,13 @@ test("INF-19 SES notifications require an explicit DEV-only opt-in", () => {
     accountDeletionSesNotificationsForEnvironment("dev", true),
     true,
   );
-  assert.throws(
-    () => accountDeletionSesNotificationsForEnvironment("prod", true),
-    /restricted to DEV/u,
+  assert.equal(
+    accountDeletionSesNotificationsForEnvironment("prod", true),
+    true,
   );
 });
 
-test("AUT-22 Apple IdP is explicit, DEV-only, and accepts only a secret ARN", () => {
+test("AUT-22 Apple IdP accepts only a secret ARN from its environment", () => {
   assert.deepEqual(
     cognitoAppleIdentityProviderConfigForEnvironment(
       "dev",
@@ -54,10 +54,20 @@ test("AUT-22 Apple IdP is explicit, DEV-only, and accepts only a secret ARN", ()
       privateKeySecretArn: secretArn,
     },
   );
+  const prodSecretArn =
+    "arn:aws:secretsmanager:us-east-1:111111111111:secret:foloo/prod/cognito/apple-private-key-ZyXwVu";
+  assert.equal(
+    cognitoAppleIdentityProviderConfigForEnvironment(
+      "prod",
+      true,
+      prodSecretArn,
+    ).privateKeySecretArn,
+    prodSecretArn,
+  );
   assert.throws(
     () =>
       cognitoAppleIdentityProviderConfigForEnvironment("prod", true, secretArn),
-    /DEV-only/u,
+    /complete PROD secret ARN/u,
   );
   assert.throws(
     () =>
@@ -71,7 +81,7 @@ test("AUT-22 Apple IdP is explicit, DEV-only, and accepts only a secret ARN", ()
   );
 });
 
-test("AUT-22/AUT-23 federated providers are explicit and DEV-only", () => {
+test("AUT-22/AUT-23 providers keep Microsoft outside published PROD", () => {
   assert.deepEqual(
     cognitoFederatedProviderConfigForEnvironment("dev", undefined, undefined),
     { allowedProviderNames: ["Google"] },
@@ -88,9 +98,13 @@ test("AUT-22/AUT-23 federated providers are explicit and DEV-only", () => {
     cognitoFederatedProviderConfigForEnvironment("dev", "true", true),
     { allowedProviderNames: ["Google", "SignInWithApple", "Microsoft"] },
   );
+  assert.deepEqual(
+    cognitoFederatedProviderConfigForEnvironment("prod", true, false),
+    { allowedProviderNames: ["Google", "SignInWithApple"] },
+  );
   assert.throws(
-    () => cognitoFederatedProviderConfigForEnvironment("prod", true, false),
-    /DEV-only/u,
+    () => cognitoFederatedProviderConfigForEnvironment("prod", false, true),
+    /outside the published V1/u,
   );
   assert.throws(
     () => cognitoFederatedProviderConfigForEnvironment("dev", "yes", false),
@@ -434,15 +448,13 @@ test("AUT-18 Account Deletion activation controls are independent and fail close
       ),
     /worker requires finalizer/u,
   );
-  assert.throws(
-    () =>
-      accountDeletionQaConfigForEnvironment(
-        "prod",
-        false,
-        false,
-        undefined,
-        true,
-      ),
-    /restricted to DEV/u,
+  const productionGuard = accountDeletionQaConfigForEnvironment(
+    "prod",
+    false,
+    false,
+    undefined,
+    true,
   );
+  assert.equal(productionGuard.registrationGuardEnabled, true);
+  assert.equal(productionGuard.enabled, false);
 });

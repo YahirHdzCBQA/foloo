@@ -2788,7 +2788,7 @@ abstract class AppLocalizations {
   /// No description provided for @paywallBody.
   ///
   /// In es, this message translates to:
-  /// **'Si ya usaste tus leads gratuitos o tu plan terminó, puedes agregar más desde tu cuenta en la web de Foloo. Todo lo que ya guardaste permanece disponible.'**
+  /// **'Si ya usaste tus leads gratuitos o tu plan terminó, no puedes agregar más leads. Todo lo que ya guardaste permanece disponible.'**
   String get paywallBody;
 
   /// No description provided for @paywallOpenWeb.

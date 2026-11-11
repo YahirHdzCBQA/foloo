@@ -450,7 +450,7 @@
   "subscriptionExpired": "Suscripción vencida",
   "paywallTitle": "Tus 5 leads gratuitos ya fueron utilizados",
   "paywallExpiredTitle": "Tu plan de Foloo terminó",
-  "paywallBody": "Si ya usaste tus leads gratuitos o tu plan terminó, puedes agregar más desde tu cuenta en la web de Foloo. Todo lo que ya guardaste permanece disponible.",
+  "paywallBody": "Si ya usaste tus leads gratuitos o tu plan terminó, no puedes agregar más leads. Todo lo que ya guardaste permanece disponible.",
   "paywallOpenWeb": "Agregar más leads en la web",
   "paywallOpenWebError": "No se pudo abrir la web de Foloo. Inténtalo de nuevo.",
   "paywallFutureAction": "Aquí puedes consultar y exportar tus registros.",

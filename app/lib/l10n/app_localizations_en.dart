@@ -1596,7 +1596,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paywallBody =>
-      'If you used your free leads or your plan ended, you can add more from your account on the Foloo website. Everything you already saved remains available.';
+      'If you’ve used all your free leads or your plan has ended, you can’t add more leads. Everything you’ve already saved remains available.';
 
   @override
   String get paywallOpenWeb => 'Add more leads on the web';

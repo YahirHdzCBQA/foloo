@@ -1,6 +1,7 @@
 {
   "app": "npx tsx infra/app.ts",
   "context": {
-    "environment": "dev"
+    "environment": "dev",
+    "@aws-cdk/core:defaultCrossStackReferences": "strong"
   }
 }

@@ -61,7 +61,7 @@ test("AUT-18 QA mode retains exact subject authorization", () => {
   gate.assertAllowed("synthetic-owner");
   assert.throws(() => gate.assertAllowed("another-owner"));
 });
-test("RNF-09 invalid or production admission configuration fails closed", () => {
+test("RNF-09 invalid or production QA configuration fails closed", () => {
   for (const config of [
     { ...base, qaEnabled: true },
     {
@@ -71,10 +71,17 @@ test("RNF-09 invalid or production admission configuration fails closed", () => 
       ]),
     },
     { ...base, qaEnabled: true, normalAccessEnabled: true },
-    { ...base, environment: "prod", normalAccessEnabled: true },
     { ...base, qaEnabled: true, qaAllowedSubjectHashes: new Set(["invalid"]) },
   ])
     assert.throws(() => createAccountDeletionAdmissionGuard(config));
+});
+test("AUT-18 production normal admission stays explicit and owner-bound", () => {
+  const gate = createAccountDeletionAdmissionGuard({
+    ...base,
+    environment: "prod",
+    normalAccessEnabled: true,
+  });
+  gate.assertAllowed("synthetic-owner");
 });
 function configuration(
   runtime: unknown,

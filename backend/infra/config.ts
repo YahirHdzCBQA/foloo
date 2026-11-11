@@ -1,12 +1,19 @@
-/** Central AWS environment configuration; PROD stays undefined until approved. */
+/** Central AWS environment configuration for isolated DEV and PROD stacks. */
+
+export type EnvironmentName = "dev" | "prod";
 
 export type EnvironmentConfig = {
-  name: "dev";
+  name: EnvironmentName;
   billingEnabled: boolean;
   region: "us-east-1";
   userPoolId: string;
   appClientId: string;
   databaseName: string;
+  databaseBackupRetentionDays: number;
+  databaseDeletionProtection: boolean;
+  vpcCidr: string;
+  sesIdentityName: string;
+  manageSesIdentity: boolean;
   webAuth: {
     callbackUrls: readonly string[];
     bffCallbackUrl: string;
@@ -31,16 +38,23 @@ export function environmentConfig(
   name: string,
   env: NodeJS.ProcessEnv = process.env,
 ): EnvironmentConfig {
-  if (name !== "dev")
+  if (name !== "dev" && name !== "prod")
     throw new Error(`Environment ${name} has no approved configuration.`);
   if (env.BILLING_ENABLED && !["true", "false"].includes(env.BILLING_ENABLED))
     throw new Error("BILLING_ENABLED must be true or false.");
+  if (name === "prod") return productionEnvironmentConfig(env);
   const config: EnvironmentConfig = {
     name: "dev",
     region: "us-east-1",
     userPoolId: "us-east-1_QVm3dWe4O",
     appClientId: "6jong3atp2crqcsde6g215ant8",
     databaseName: "foloo",
+    // DEV remains aligned with its deployed Free Tier-compatible setting.
+    databaseBackupRetentionDays: 1,
+    databaseDeletionProtection: false,
+    vpcCidr: "10.42.0.0/16",
+    sesIdentityName: "foloo.io",
+    manageSesIdentity: true,
     webAuth: {
       callbackUrls: [
         "https://foloo.io/auth/callback",
@@ -71,6 +85,101 @@ export function environmentConfig(
   };
   validateBillingConfig(config);
   return config;
+}
+
+function productionEnvironmentConfig(
+  env: NodeJS.ProcessEnv,
+): EnvironmentConfig {
+  const required = {
+    FOLOO_PROD_COGNITO_USER_POOL_ID: env.FOLOO_PROD_COGNITO_USER_POOL_ID,
+    FOLOO_PROD_COGNITO_APP_CLIENT_ID: env.FOLOO_PROD_COGNITO_APP_CLIENT_ID,
+    FOLOO_PROD_COGNITO_DOMAIN: env.FOLOO_PROD_COGNITO_DOMAIN,
+  };
+  const missing = Object.entries(required)
+    .filter(([, value]) => !value?.trim())
+    .map(([key]) => key);
+  if (missing.length > 0) {
+    throw new Error(
+      `PROD requires explicit public Cognito configuration: ${missing.join(", ")}.`,
+    );
+  }
+  const userPoolId = required.FOLOO_PROD_COGNITO_USER_POOL_ID!.trim();
+  const appClientId = required.FOLOO_PROD_COGNITO_APP_CLIENT_ID!.trim();
+  const cognitoDomain = required.FOLOO_PROD_COGNITO_DOMAIN!.trim();
+  if (!/^us-east-1_[A-Za-z0-9]+$/u.test(userPoolId)) {
+    throw new Error("FOLOO_PROD_COGNITO_USER_POOL_ID is invalid.");
+  }
+  if (!/^[a-z0-9]{20,128}$/u.test(appClientId)) {
+    throw new Error("FOLOO_PROD_COGNITO_APP_CLIENT_ID is invalid.");
+  }
+  if (
+    cognitoDomain.includes("://") ||
+    cognitoDomain.includes("/") ||
+    !cognitoDomain.endsWith(".auth.us-east-1.amazoncognito.com")
+  ) {
+    throw new Error("FOLOO_PROD_COGNITO_DOMAIN is invalid.");
+  }
+  if (
+    userPoolId === "us-east-1_QVm3dWe4O" ||
+    appClientId === "6jong3atp2crqcsde6g215ant8" ||
+    cognitoDomain === "us-east-1qvm3dwe4o.auth.us-east-1.amazoncognito.com"
+  ) {
+    throw new Error("PROD must not reuse known DEV Cognito identifiers.");
+  }
+  if (env.BILLING_ENABLED === "true") {
+    throw new Error(
+      "Billing and public payments are outside the PROD V1 scope.",
+    );
+  }
+  return {
+    name: "prod",
+    region: "us-east-1",
+    userPoolId,
+    appClientId,
+    databaseName: "foloo",
+    databaseBackupRetentionDays: 15,
+    databaseDeletionProtection: true,
+    vpcCidr: "10.43.0.0/16",
+    sesIdentityName: "foloo.io",
+    manageSesIdentity: false,
+    webAuth: {
+      callbackUrls: [
+        "https://foloo.io/auth/callback",
+        "https://foloo.io/api/auth/google/callback",
+      ],
+      bffCallbackUrl: "https://foloo.io/api/auth/google/callback",
+      logoutUrls: ["https://foloo.io/login"],
+      allowedOrigins: ["https://foloo.io"],
+      cognitoDomain,
+      successRedirectPath: "/dashboard",
+      sessionPolicy: {
+        absoluteDurationSeconds: 12 * 60 * 60,
+        idleDurationSeconds: 30 * 60,
+      },
+    },
+    billingEnabled: false,
+  };
+}
+
+/** Builds the backend configuration from Cognito resources owned by FolooIdentity-prod. */
+export function managedProductionEnvironmentConfig(identity: {
+  userPoolId: string;
+  appClientId: string;
+  cognitoDomain: string;
+}): EnvironmentConfig {
+  const baseline = productionEnvironmentConfig({
+    BILLING_ENABLED: "false",
+    FOLOO_PROD_COGNITO_USER_POOL_ID: "us-east-1_ProdManaged",
+    FOLOO_PROD_COGNITO_APP_CLIENT_ID: "abcdefghijklmnopqrstuvwx",
+    FOLOO_PROD_COGNITO_DOMAIN:
+      "foloo-prod-managed.auth.us-east-1.amazoncognito.com",
+  });
+  return {
+    ...baseline,
+    userPoolId: identity.userPoolId,
+    appClientId: identity.appClientId,
+    webAuth: { ...baseline.webAuth, cognitoDomain: identity.cognitoDomain },
+  };
 }
 
 export function validateBillingConfig(config: EnvironmentConfig) {
@@ -104,14 +213,14 @@ export function unlimitedQaModeForEnvironment(
   return enabled;
 }
 
-/** Enables the private administrative entitlement boundary only in DEV. */
+/** Enables the private administrative entitlement boundary when selected. */
 export function administrativeEntitlementForEnvironment(
   environment: string,
   rawValue: unknown,
 ): boolean {
   const enabled = rawValue === true || rawValue === "true";
-  if (enabled && environment !== "dev") {
-    throw new Error("Administrative entitlements are restricted to DEV.");
+  if (enabled && environment !== "dev" && environment !== "prod") {
+    throw new Error("Administrative entitlements require DEV or PROD.");
   }
   return enabled;
 }
@@ -134,8 +243,12 @@ export function automaticEntitlementConfigForEnvironment(
     rawEnqueueEnabled === true || rawEnqueueEnabled === "true";
   const workerEnabled =
     rawWorkerEnabled === true || rawWorkerEnabled === "true";
-  if ((enabled || enqueueEnabled || workerEnabled) && environment !== "dev") {
-    throw new Error("Automatic entitlements are restricted to DEV.");
+  if (
+    (enabled || enqueueEnabled || workerEnabled) &&
+    environment !== "dev" &&
+    environment !== "prod"
+  ) {
+    throw new Error("Automatic entitlements require DEV or PROD.");
   }
   if ((enqueueEnabled || workerEnabled) && !enabled) {
     throw new Error(
@@ -145,16 +258,14 @@ export function automaticEntitlementConfigForEnvironment(
   return { enabled, enqueueEnabled, workerEnabled };
 }
 
-/** Enables STORE-02D transactional email only through an explicit DEV opt-in. */
+/** Enables STORE-02D transactional email only through an explicit opt-in. */
 export function accountDeletionSesNotificationsForEnvironment(
   environment: string,
   rawValue: unknown,
 ): boolean {
   const enabled = rawValue === true || rawValue === "true";
-  if (enabled && environment !== "dev") {
-    throw new Error(
-      "Account Deletion SES notifications are restricted to DEV.",
-    );
+  if (enabled && environment !== "dev" && environment !== "prod") {
+    throw new Error("Account Deletion SES requires DEV or PROD.");
   }
   return enabled;
 }
@@ -178,7 +289,7 @@ export type CognitoAppleIdentityProviderConfig = Readonly<{
 }>;
 
 /**
- * Keeps the Apple IdP absent by default and requires a DEV-local secret ARN.
+ * Keeps the Apple IdP absent by default and requires an environment-local ARN.
  * The secret value itself must never be passed through CDK context or env.
  */
 export function cognitoAppleIdentityProviderConfigForEnvironment(
@@ -190,8 +301,8 @@ export function cognitoAppleIdentityProviderConfigForEnvironment(
     "cognitoAppleIdentityProviderEnabled",
     rawEnabled,
   );
-  if (enabled && environment !== "dev") {
-    throw new Error("Apple identity provider deployment is DEV-only.");
+  if (enabled && environment !== "dev" && environment !== "prod") {
+    throw new Error("Apple identity provider requires DEV or PROD.");
   }
   if (!enabled) {
     if (rawPrivateKeySecretArn !== undefined) {
@@ -208,12 +319,13 @@ export function cognitoAppleIdentityProviderConfigForEnvironment(
   }
   if (
     typeof rawPrivateKeySecretArn !== "string" ||
-    !/^arn:aws:secretsmanager:us-east-1:\d{12}:secret:foloo\/dev\/cognito\/apple-private-key-[A-Za-z0-9]{6}$/u.test(
-      rawPrivateKeySecretArn,
-    )
+    !new RegExp(
+      `^arn:aws:secretsmanager:us-east-1:\\d{12}:secret:foloo/${environment}/cognito/apple-private-key-[A-Za-z0-9]{6}$`,
+      "u",
+    ).test(rawPrivateKeySecretArn)
   ) {
     throw new Error(
-      "Apple identity provider requires the dedicated complete DEV secret ARN.",
+      `Apple identity provider requires the dedicated complete ${environment.toUpperCase()} secret ARN.`,
     );
   }
   return {
@@ -227,8 +339,8 @@ export function cognitoAppleIdentityProviderConfigForEnvironment(
 
 /**
  * Keeps Registration Guards aligned with externally verified Cognito IdPs.
- * Google is the current baseline; Apple and Microsoft require explicit DEV
- * opt-in after their provider and App Client configuration is validated.
+ * Google is the baseline; Apple requires explicit validated configuration.
+ * Microsoft remains outside the published V1 in PROD (AUT-17).
  */
 export function cognitoFederatedProviderConfigForEnvironment(
   environment: string,
@@ -243,8 +355,15 @@ export function cognitoFederatedProviderConfigForEnvironment(
     "cognitoMicrosoftSignInEnabled",
     rawMicrosoftEnabled,
   );
-  if ((appleEnabled || microsoftEnabled) && environment !== "dev") {
-    throw new Error("Federated sign-in provider activation is DEV-only.");
+  if (microsoftEnabled && environment === "prod") {
+    throw new Error("Microsoft sign-in is outside the published V1.");
+  }
+  if (
+    (appleEnabled || microsoftEnabled) &&
+    environment !== "dev" &&
+    environment !== "prod"
+  ) {
+    throw new Error("Federated providers require DEV or PROD.");
   }
   return {
     allowedProviderNames: [
@@ -350,7 +469,7 @@ export function accountDeletionQaConfigForEnvironment(
     typeof rawSubjectHashes === "string" && rawSubjectHashes.trim().length > 0
       ? rawSubjectHashes.split(",").map((value) => value.trim())
       : [];
-  if (Object.values(controls).some(Boolean) && environment !== "dev") {
+  if (enabled && environment !== "dev") {
     throw new Error("Account Deletion destructive QA is restricted to DEV.");
   }
   if (subjectHashes.some((value) => !/^[A-Za-z0-9_-]{43}$/u.test(value))) {
@@ -434,7 +553,7 @@ function activationFlag(name: string, rawValue: unknown): boolean {
   throw new Error(`${name} must be true or false.`);
 }
 
-/** Keeps real web-session activation DEV-only and restricted to pseudonymous QA subjects. */
+/** Keeps QA pseudonymous while allowing explicitly selected normal access. */
 export function webSessionQaConfigForEnvironment(
   environment: string,
   rawEnabled: unknown,
@@ -445,8 +564,8 @@ export function webSessionQaConfigForEnvironment(
     "webSessionNormalAccessEnabled",
     rawNormalAccessEnabled,
   );
-  if (normalAccessEnabled && environment !== "dev")
-    throw new Error("Normal web access activation is currently DEV-only.");
+  if (normalAccessEnabled && environment !== "dev" && environment !== "prod")
+    throw new Error("Normal web access requires DEV or PROD.");
   const enabled = rawEnabled === true || rawEnabled === "true";
   if (enabled && environment !== "dev") {
     throw new Error("Web-session QA is restricted to DEV.");

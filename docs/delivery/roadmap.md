@@ -580,3 +580,14 @@ R8 en solución permanente.
 
 No existen fases Basic E2E, capability Basic/Pro, Pro E2E, transcripción Pro ni
 Google Sheets. Backlog no se introduce en estas FL.
+
+## Preparación AWS PROD para publicación
+
+La selección Flutter/CDK de PROD queda preparada localmente y fail-closed en
+[`prod-environment-readiness.md`](prod-environment-readiness.md). La misma
+cuenta/región aprobada aloja stacks independientes `FolooIdentity-prod` y
+`FolooBackend-prod`: VPC `10.43.0.0/16`, Cognito/secretos/KMS retenidos y SES
+`foloo.io` importado sin asumir su lifecycle. No declara PROD operativo:
+faltan prefijo Cognito, secretos/identificadores OAuth, cuota/presupuesto,
+triggers Cognito declarativos, gates D-13/RC, Change Sets, migraciones, carga
+privada de preautorizaciones, E2E/restore y publicación web.

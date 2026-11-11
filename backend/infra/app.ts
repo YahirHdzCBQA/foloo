@@ -4,6 +4,7 @@ import * as cdk from "aws-cdk-lib";
 
 import {
   environmentConfig,
+  managedProductionEnvironmentConfig,
   administrativeEntitlementForEnvironment,
   automaticEntitlementConfigForEnvironment,
   accountDeletionQaConfigForEnvironment,
@@ -14,12 +15,33 @@ import {
   webSessionQaConfigForEnvironment,
 } from "./config.js";
 import { FolooBackendStack } from "./foloo_backend_stack.js";
+import { FolooIdentityStack } from "./foloo_identity_stack.js";
+import { prodIdentityProviderConfig } from "./prod_identity_config.js";
 
 const app = new cdk.App();
 const environment = app.node.tryGetContext("environment");
-const config = environmentConfig(
-  typeof environment === "string" ? environment : "dev",
-);
+const environmentName = typeof environment === "string" ? environment : "dev";
+const stackEnvironment = process.env.CDK_DEFAULT_ACCOUNT
+  ? { account: process.env.CDK_DEFAULT_ACCOUNT, region: "us-east-1" }
+  : { region: "us-east-1" };
+const prodIdentity =
+  environmentName === "prod"
+    ? new FolooIdentityStack(app, "FolooIdentity-prod", {
+        providers: prodIdentityProviderConfig((name) =>
+          app.node.tryGetContext(name),
+        ),
+        env: stackEnvironment,
+        terminationProtection: true,
+        description: "Foloo PROD retained Cognito, secrets and deletion keys",
+      })
+    : undefined;
+const config = prodIdentity
+  ? managedProductionEnvironmentConfig({
+      userPoolId: prodIdentity.userPool.userPoolId,
+      appClientId: prodIdentity.mobileClient.userPoolClientId,
+      cognitoDomain: prodIdentity.cognitoDomain,
+    })
+  : environmentConfig(environmentName);
 const unlimitedQaMode = unlimitedQaModeForEnvironment(
   config.name,
   app.node.tryGetContext("unlimitedQaMode"),
@@ -41,17 +63,38 @@ const webSessionQa = webSessionQaConfigForEnvironment(
   app.node.tryGetContext("webSessionQaSubjectHashes"),
   app.node.tryGetContext("webSessionNormalAccessEnabled"),
 );
-const cognitoFederatedProviders = cognitoFederatedProviderConfigForEnvironment(
-  config.name,
-  app.node.tryGetContext("cognitoAppleSignInEnabled"),
-  app.node.tryGetContext("cognitoMicrosoftSignInEnabled"),
-);
-const cognitoAppleIdentityProvider =
-  cognitoAppleIdentityProviderConfigForEnvironment(
-    config.name,
-    app.node.tryGetContext("cognitoAppleIdentityProviderEnabled"),
-    app.node.tryGetContext("cognitoApplePrivateKeySecretArn"),
-  );
+const cognitoFederatedProviders = prodIdentity
+  ? {
+      allowedProviderNames: [
+        ...(app.node.tryGetContext("prodGoogleIdentityProviderEnabled") ===
+          true ||
+        app.node.tryGetContext("prodGoogleIdentityProviderEnabled") === "true"
+          ? (["Google"] as const)
+          : []),
+        ...(app.node.tryGetContext("prodAppleIdentityProviderEnabled") ===
+          true ||
+        app.node.tryGetContext("prodAppleIdentityProviderEnabled") === "true"
+          ? (["SignInWithApple"] as const)
+          : []),
+      ],
+    }
+  : cognitoFederatedProviderConfigForEnvironment(
+      config.name,
+      app.node.tryGetContext("cognitoAppleSignInEnabled"),
+      app.node.tryGetContext("cognitoMicrosoftSignInEnabled"),
+    );
+const cognitoAppleIdentityProvider = prodIdentity
+  ? {
+      enabled: false,
+      servicesId: "com.foloo.signin" as const,
+      teamId: "PU238KF2F9" as const,
+      keyId: "6LK763G44F" as const,
+    }
+  : cognitoAppleIdentityProviderConfigForEnvironment(
+      config.name,
+      app.node.tryGetContext("cognitoAppleIdentityProviderEnabled"),
+      app.node.tryGetContext("cognitoApplePrivateKeySecretArn"),
+    );
 const accountDeletionQa = accountDeletionQaConfigForEnvironment(
   config.name,
   app.node.tryGetContext("accountDeletionQaEnabled"),
@@ -103,7 +146,7 @@ const requiredKeyArn = (contextName: string): string => {
   return value;
 };
 
-new FolooBackendStack(app, `FolooBackend-${config.name}`, {
+const backend = new FolooBackendStack(app, `FolooBackend-${config.name}`, {
   config,
   unlimitedQaMode,
   administrativeEntitlementEnabled,
@@ -116,13 +159,19 @@ new FolooBackendStack(app, `FolooBackend-${config.name}`, {
   accountDeletionQa,
   accountDeletionSesNotificationsEnabled,
   accountDeletionKeyArns: {
-    identityHmacKeyArn: requiredKeyArn("accountDeletionIdentityHmacKeyArn"),
-    notificationRecipientKeyArn: requiredKeyArn(
-      "accountDeletionNotificationRecipientKeyArn",
-    ),
+    identityHmacKeyArn:
+      prodIdentity?.identityHmacKey.keyArn ??
+      requiredKeyArn("accountDeletionIdentityHmacKeyArn"),
+    notificationRecipientKeyArn:
+      prodIdentity?.notificationRecipientKey.keyArn ??
+      requiredKeyArn("accountDeletionNotificationRecipientKeyArn"),
   },
-  env: process.env.CDK_DEFAULT_ACCOUNT
-    ? { account: process.env.CDK_DEFAULT_ACCOUNT, region: config.region }
-    : { region: config.region },
+  env: stackEnvironment,
+  terminationProtection: config.name === "prod",
   description: "FL-014 Foloo backend foundation",
 });
+if (prodIdentity) {
+  backend.addStackDependency(prodIdentity);
+  cdk.Tags.of(prodIdentity).add("Environment", "prod");
+  cdk.Tags.of(backend).add("Environment", "prod");
+}

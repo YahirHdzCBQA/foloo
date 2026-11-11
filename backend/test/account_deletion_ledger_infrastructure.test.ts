@@ -115,7 +115,7 @@ test("STORE-02 infrastructure is deployable but every runtime boundary stays dis
     DisplayName: "Foloo Account Deletion operations",
   });
   template.hasResourceProperties("AWS::RDS::DBInstance", {
-    BackupRetentionPeriod: 15,
+    BackupRetentionPeriod: 1,
   });
   template.hasResourceProperties("AWS::Logs::LogGroup", {
     RetentionInDays: 7,

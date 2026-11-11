@@ -2,13 +2,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { webSessionQaConfigForEnvironment } from "../infra/config.js";
-test("normal web admission is explicit, DEV-only and cannot combine with QA admission", () => {
+test("normal web admission is explicit and cannot combine with QA admission", () => {
   assert.deepEqual(
     webSessionQaConfigForEnvironment("dev", false, undefined, true),
     { enabled: true, subjectHashes: [], normalAccessEnabled: true },
   );
-  assert.throws(() =>
+  assert.deepEqual(
     webSessionQaConfigForEnvironment("prod", false, undefined, true),
+    { enabled: true, subjectHashes: [], normalAccessEnabled: true },
   );
   assert.throws(() =>
     webSessionQaConfigForEnvironment("dev", false, undefined, "typo"),

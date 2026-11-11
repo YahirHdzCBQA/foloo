@@ -4,8 +4,7 @@ library;
 import 'dart:convert';
 
 import '../config/qa_runtime_flags.dart';
-
-enum FolooEnvironment { dev, prod }
+import '../config/runtime_environment.dart';
 
 class CognitoEnvironmentConfiguration {
   const CognitoEnvironmentConfiguration({
@@ -74,22 +73,15 @@ class CognitoEnvironmentConfiguration {
 }
 
 abstract final class CognitoConfigurations {
-  static const dev = CognitoEnvironmentConfiguration(
-    region: 'us-east-1',
-    userPoolId: 'us-east-1_QVm3dWe4O',
-    appClientId: '6jong3atp2crqcsde6g215ant8',
-    hostedUiDomain: String.fromEnvironment(
-      'FOLOO_COGNITO_HOSTED_UI_DOMAIN',
-      defaultValue: 'us-east-1qvm3dwe4o.auth.us-east-1.amazoncognito.com',
-    ),
-    signInRedirectUri: String.fromEnvironment(
-      'FOLOO_AUTH_SIGN_IN_REDIRECT',
-      defaultValue: 'foloo://callback/',
-    ),
-    signOutRedirectUri: String.fromEnvironment(
-      'FOLOO_AUTH_SIGN_OUT_REDIRECT',
-      defaultValue: 'foloo://signout/',
-    ),
+  static CognitoEnvironmentConfiguration forRuntime(
+    FolooRuntimeEnvironment environment,
+  ) => CognitoEnvironmentConfiguration(
+    region: environment.region,
+    userPoolId: environment.userPoolId,
+    appClientId: environment.appClientId,
+    hostedUiDomain: environment.cognitoHostedUiDomain,
+    signInRedirectUri: environment.signInRedirectUri,
+    signOutRedirectUri: environment.signOutRedirectUri,
     oauthRequired: true,
     hostedUiIdentityProviders: [
       CognitoHostedUiProvider.google,
@@ -97,14 +89,8 @@ abstract final class CognitoConfigurations {
     ],
   );
 
-  static CognitoEnvironmentConfiguration forEnvironment(
-    FolooEnvironment environment,
-  ) => switch (environment) {
-    FolooEnvironment.dev => dev,
-    FolooEnvironment.prod => throw UnsupportedError(
-      'Cognito PROD configuration has not been supplied.',
-    ),
-  };
+  static CognitoEnvironmentConfiguration get dev =>
+      forRuntime(FolooRuntimeEnvironment.dev);
 }
 
 /// Built-in providers represented by the Amplify Outputs OAuth schema.

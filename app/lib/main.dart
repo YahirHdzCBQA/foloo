@@ -12,6 +12,7 @@ import 'auth/cognito_auth_service.dart';
 import 'auth/cognito_configuration.dart';
 import 'auth/cognito_runtime.dart';
 import 'auth/cognito_sync_session_provider.dart';
+import 'config/runtime_environment.dart';
 import 'data/repositories/local_repositories.dart';
 import 'services/account_deletion_service.dart';
 import 'sync/foloo_api_client.dart';
@@ -19,11 +20,12 @@ import 'sync/media_binary_transfer.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await CognitoRuntime.configure(
-    CognitoConfigurations.forEnvironment(FolooEnvironment.dev),
-  );
+  final environment = FolooRuntimeEnvironment.fromBuild();
+  await CognitoRuntime.configure(CognitoConfigurations.forRuntime(environment));
   final persistence = await LocalPersistence.production();
-  final syncApi = FolooApiClient(configuration: FolooApiConfiguration.dev);
+  final syncApi = FolooApiClient(
+    configuration: FolooApiConfiguration(baseUrl: environment.apiBaseUrl),
+  );
   const syncSessions = CognitoSyncSessionProvider();
   runApp(
     FolooApp(

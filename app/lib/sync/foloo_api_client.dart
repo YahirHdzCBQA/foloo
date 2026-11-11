@@ -14,13 +14,6 @@ class FolooApiConfiguration {
   const FolooApiConfiguration({required this.baseUrl});
 
   final String baseUrl;
-
-  static const dev = FolooApiConfiguration(
-    baseUrl: String.fromEnvironment(
-      'FOLOO_API_BASE_URL',
-      defaultValue: 'https://zbc91cpy10.execute-api.us-east-1.amazonaws.com',
-    ),
-  );
 }
 
 abstract interface class SyncHttpTransport {

@@ -451,7 +451,7 @@
   "subscriptionExpired": "Subscription expired",
   "paywallTitle": "Your 5 free leads have been used",
   "paywallExpiredTitle": "Your Foloo plan ended",
-  "paywallBody": "If you used your free leads or your plan ended, you can add more from your account on the Foloo website. Everything you already saved remains available.",
+  "paywallBody": "If you’ve used all your free leads or your plan has ended, you can’t add more leads. Everything you’ve already saved remains available.",
   "paywallOpenWeb": "Add more leads on the web",
   "paywallOpenWebError": "The Foloo website could not be opened. Try again.",
   "paywallFutureAction": "You can still review and export your records here.",

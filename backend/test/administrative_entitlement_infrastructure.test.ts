@@ -355,22 +355,23 @@ test("MON-21 activation enables durable enqueue and consumption while Unlimited 
   assert.doesNotMatch(serialized, /admin-entitlement.*RouteKey/iu);
 });
 
-test("administrative boundary is disabled by default and DEV-only", () => {
+test("administrative boundary is explicit in DEV and PROD", () => {
   assert.equal(
     administrativeEntitlementForEnvironment("dev", undefined),
     false,
   );
   assert.equal(administrativeEntitlementForEnvironment("dev", "true"), true);
-  assert.throws(
-    () => administrativeEntitlementForEnvironment("prod", true),
-    /restricted to DEV/u,
-  );
+  assert.equal(administrativeEntitlementForEnvironment("prod", true), true);
   assert.deepEqual(
     automaticEntitlementConfigForEnvironment("dev", true, false, false),
     { enabled: true, enqueueEnabled: false, workerEnabled: false },
   );
   assert.deepEqual(
     automaticEntitlementConfigForEnvironment("dev", true, true, true),
+    { enabled: true, enqueueEnabled: true, workerEnabled: true },
+  );
+  assert.deepEqual(
+    automaticEntitlementConfigForEnvironment("prod", true, true, true),
     { enabled: true, enqueueEnabled: true, workerEnabled: true },
   );
   assert.throws(
