@@ -22,5 +22,6 @@ class EntitlementScope extends InheritedWidget {
   bool updateShouldNotify(EntitlementScope oldWidget) =>
       entitlement.status != oldWidget.entitlement.status ||
       entitlement.trialLeadsUsed != oldWidget.entitlement.trialLeadsUsed ||
-      entitlement.verified != oldWidget.entitlement.verified;
+      entitlement.verified != oldWidget.entitlement.verified ||
+      entitlement.unlimitedQaMode != oldWidget.entitlement.unlimitedQaMode;
 }

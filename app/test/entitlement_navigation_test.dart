@@ -159,9 +159,10 @@ void main() {
 
     await tester.tap(find.byKey(const Key('hamburgerMenuButton')).first);
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('drawerEntitlement')), findsOneWidget);
-    expect(find.textContaining('Plan FREE'), findsOneWidget);
-    expect(find.textContaining('5 de 5 leads históricos'), findsOneWidget);
+    expect(find.byKey(const Key('drawerEntitlement')), findsNothing);
+    expect(find.textContaining('Plan FREE'), findsNothing);
+    expect(find.textContaining('5 de 5 leads históricos'), findsNothing);
+    expect(find.textContaining('Plan PRO'), findsNothing);
   });
 
   testWidgets(

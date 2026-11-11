@@ -962,6 +962,18 @@ abstract class AppLocalizations {
   /// **'Se guarda sin evento, en tu base general de leads.'**
   String get directLeadHelp;
 
+  /// No description provided for @placeExample.
+  ///
+  /// In es, this message translates to:
+  /// **'Ej. Oficina del cliente'**
+  String get placeExample;
+
+  /// No description provided for @emailNoConnectedAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'Aún no has conectado ninguna cuenta para enviar seguimientos vía correo.'**
+  String get emailNoConnectedAccount;
+
   /// No description provided for @place.
   ///
   /// In es, this message translates to:

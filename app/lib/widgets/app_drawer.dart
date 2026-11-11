@@ -199,7 +199,9 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
             Divider(height: 1, color: ink.withValues(alpha: 0.35)),
-            if (entitlement != null)
+            if (entitlement != null &&
+                (!entitlement.unlimitedQaMode ||
+                    entitlement.effectiveStatus == SubscriptionStatus.active))
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 12, 22, 4),
                 child: Row(

@@ -47,6 +47,20 @@ class EmailConnectionService {
     );
   }
 
+  /// Confirms an absent/disconnected sender without treating missing auth as evidence.
+  Future<bool> hasNoConnection(String owner) async {
+    final token = await _session.accessTokenFor(owner);
+    if (token == null) return false;
+    final response = await _api.send(
+      token,
+      const SyncRequest(method: 'GET', path: '/v1/email/connection'),
+    );
+    final envelope = response.data;
+    if (envelope is! Map || !envelope.containsKey('data')) return false;
+    final data = envelope['data'];
+    return data == null || (data is Map && data['status'] == 'disconnected');
+  }
+
   Future<bool> connect(String owner, String provider) async {
     final token = await _session.accessTokenFor(owner);
     if (token == null) return false;

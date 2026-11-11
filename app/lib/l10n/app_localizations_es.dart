@@ -483,6 +483,13 @@ class AppLocalizationsEs extends AppLocalizations {
       'Se guarda sin evento, en tu base general de leads.';
 
   @override
+  String get placeExample => 'Ej. Oficina del cliente';
+
+  @override
+  String get emailNoConnectedAccount =>
+      'Aún no has conectado ninguna cuenta para enviar seguimientos vía correo.';
+
+  @override
   String get place => 'Lugar';
 
   @override

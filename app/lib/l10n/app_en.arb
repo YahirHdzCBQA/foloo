@@ -145,6 +145,8 @@
   "event": "Event",
   "directLead": "Direct lead",
   "directLeadHelp": "Saved without an event in your general lead database.",
+  "placeExample": "e.g. Client office",
+  "emailNoConnectedAccount": "You haven't connected an email account to send follow-up emails yet.",
   "place": "Place",
   "createNewEvent": "Create new event",
   "captureConnection": "Capture connection",

@@ -637,28 +637,73 @@ class EmailDeliveryRepository {
     return id;
   }
 
+  /// Identifies a missing remote intent caused by a rejected local confirmation.
+  Future<bool> hasRejectedEmailConfirmation(
+    String owner,
+    String intentId,
+  ) async {
+    final operations = await _database.syncDao.forEntity(
+      owner,
+      SyncEntityType.emailSendIntent.name,
+      intentId,
+    );
+    return operations.any(
+      (operation) =>
+          (operation.action == 'confirm' || operation.action == 'resend') &&
+          operation.status == 'failed' &&
+          emailDeliveryErrorCode(operation.lastError) ==
+              'email_connection_required',
+    );
+  }
+
   Future<void> retry({
     required String owner,
     required StoredEmailSendIntent intent,
   }) async {
     if (isTerminalEmailDeliveryError(intent.errorCode)) return;
     final now = DateTime.now().toUtc();
-    await _database.emailDeliveryDao.updateIntentState(
-      owner,
-      intent.localId,
-      'pending',
-      intent.attemptCount,
-      null,
-      now,
-    );
-    await _syncStore.enqueue(
-      ownerSub: owner,
-      entityType: SyncEntityType.emailSendIntent,
-      entityId: intent.localId,
-      action: 'retry',
-      payload: {'intentId': intent.localId},
-      now: now,
-    );
+    await _database.transaction(() async {
+      final operations = await _database.syncDao.forEntity(
+        owner,
+        SyncEntityType.emailSendIntent.name,
+        intent.localId,
+      );
+      final uncreated = operations.where(
+        (operation) =>
+            (operation.action == 'confirm' || operation.action == 'resend') &&
+            emailDeliveryErrorCode(operation.lastError) ==
+                'email_connection_required' &&
+            (operation.status == 'pending' ||
+                operation.status == 'retryable' ||
+                operation.status == 'syncing' ||
+                operation.status == 'failed'),
+      );
+      await _database.emailDeliveryDao.updateIntentState(
+        owner,
+        intent.localId,
+        'pending',
+        intent.attemptCount,
+        null,
+        now,
+      );
+      if (uncreated.isNotEmpty) {
+        // SAL-07: a rejected confirmation never created a server intent.
+        // Reuse its payload and idempotency key instead of retrying a missing ID.
+        final operation = uncreated.first;
+        if (operation.status == 'failed') {
+          await _database.syncDao.markPending(operation.operationId, now);
+        }
+        return;
+      }
+      await _syncStore.enqueue(
+        ownerSub: owner,
+        entityType: SyncEntityType.emailSendIntent,
+        entityId: intent.localId,
+        action: 'retry',
+        payload: {'intentId': intent.localId},
+        now: now,
+      );
+    });
   }
 
   Future<void> cancelAttachmentDecision({

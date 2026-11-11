@@ -1576,6 +1576,25 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           onLeadUpdated: _updateLead,
           ownerSub: _userId,
           deliveryRepository: _persistence.emailDelivery,
+          isEmailConnectionMissing: _emailConnectionService == null
+              ? null
+              : (intent) async {
+                  final owner = _userId;
+                  if (intent != null && intent.ownerUserId != owner) {
+                    return false;
+                  }
+                  if (intent?.errorCode == 'http_404_not_found' &&
+                      !await _persistence.emailDelivery
+                          .hasRejectedEmailConfirmation(
+                            owner,
+                            intent!.localId,
+                          )) {
+                    return false;
+                  }
+                  final missing = await _emailConnectionService!
+                      .hasNoConnection(owner);
+                  return owner == _userId && missing;
+                },
           onSendQueued: () =>
               unawaited(_synchronize(trigger: SyncTrigger.postSave)),
           onDelete: _deleteLead,

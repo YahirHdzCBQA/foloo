@@ -77,6 +77,29 @@ Future<void> _loginAndCompleteProfile(WidgetTester tester) async {
 }
 
 void main() {
+  test(
+    'SAL-07 missing sender is based on an authoritative connection response',
+    () async {
+      final api = _ConnectionApi();
+      final service = EmailConnectionService(api, const _Session());
+      expect(await service.hasNoConnection('seller-a'), isTrue);
+      api.connection = {
+        'id': 'connection-a',
+        'provider': 'google',
+        'senderAddress': 'masked',
+        'status': 'connected',
+      };
+      expect(await service.hasNoConnection('seller-a'), isFalse);
+      api.connection!['status'] = 'disconnected';
+      expect(await service.hasNoConnection('seller-a'), isTrue);
+      api.fail = true;
+      await expectLater(
+        service.hasNoConnection('seller-a'),
+        throwsA(isA<SyncTransportException>()),
+      );
+    },
+  );
+
   testWidgets(
     'AUT-15 same social account starts fresh sender OAuth without auth tokens',
     (tester) async {

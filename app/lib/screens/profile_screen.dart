@@ -494,7 +494,10 @@ class _ProfileScreenState extends State<ProfileScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (entitlement != null) ...[
+                if (entitlement != null &&
+                    (!entitlement.unlimitedQaMode ||
+                        entitlement.effectiveStatus ==
+                            SubscriptionStatus.active)) ...[
                   DecoratedBox(
                     key: const Key('profileEntitlement'),
                     decoration: BoxDecoration(

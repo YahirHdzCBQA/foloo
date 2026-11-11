@@ -145,6 +145,8 @@
   "event": "Evento",
   "directLead": "Lead directo",
   "directLeadHelp": "Se guarda sin evento, en tu base general de leads.",
+  "placeExample": "Ej. Oficina del cliente",
+  "emailNoConnectedAccount": "Aún no has conectado ninguna cuenta para enviar seguimientos vía correo.",
   "place": "Lugar",
   "createNewEvent": "Crear evento nuevo",
   "captureConnection": "Capturar conexión",

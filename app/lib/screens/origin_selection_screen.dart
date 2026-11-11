@@ -202,6 +202,8 @@ class _OriginSelectionScreenState extends State<OriginSelectionScreen> {
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
                         labelText: context.l10n.place,
+                        hintText: context.l10n.placeExample,
+                        hintStyle: TextStyle(color: palette.inkSecondary),
                       ),
                     ),
                     const SizedBox(height: 7),

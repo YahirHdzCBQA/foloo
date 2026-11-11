@@ -92,6 +92,7 @@ class RecordsScreen extends StatefulWidget {
     this.deviceSaveAvailable,
     this.ownerSub,
     this.deliveryRepository,
+    this.isEmailConnectionMissing,
     this.onSendQueued,
     this.onDelete,
     this.onEmailReviewRequested,
@@ -120,6 +121,10 @@ class RecordsScreen extends StatefulWidget {
   final bool? deviceSaveAvailable;
   final String? ownerSub;
   final EmailDeliveryRepository? deliveryRepository;
+
+  /// Checks the authenticated sender state before interpreting an ambiguous 404.
+  final Future<bool> Function(StoredEmailSendIntent? intent)?
+  isEmailConnectionMissing;
   final VoidCallback? onSendQueued;
   final Future<void> Function(SessionLead record)? onDelete;
   final Future<EmailReviewDraft?> Function(SessionLead record)?
@@ -278,6 +283,22 @@ class _RecordsScreenState extends State<RecordsScreen>
   Future<void> _retryEmail(StoredEmailSendIntent intent) async {
     final owner = widget.ownerSub;
     if (owner == null) return;
+    var missingConnection = false;
+    try {
+      missingConnection =
+          await widget.isEmailConnectionMissing?.call(intent) ??
+          (emailDeliveryErrorCode(intent.errorCode) ==
+              'email_connection_required');
+    } on Object {
+      // The durable retry retains its original failure when status is unavailable.
+    }
+    if (!mounted || owner != widget.ownerSub) return;
+    if (missingConnection) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.emailNoConnectedAccount)),
+      );
+      return;
+    }
     await widget.deliveryRepository?.retry(owner: owner, intent: intent);
     widget.onSendQueued?.call();
   }
@@ -438,6 +459,7 @@ class _RecordsScreenState extends State<RecordsScreen>
           ownerSub: widget.ownerSub,
           deliveryRepository: widget.deliveryRepository,
           onRetryEmail: _retryEmail,
+          isEmailConnectionMissing: widget.isEmailConnectionMissing,
           onResendEmail: _resendEmail,
           onEmail: () => _openEmailReview(record),
           onDelete: () => _confirmDelete(record, closeDetail: true),
@@ -1430,6 +1452,7 @@ class ConnectionDetailScreen extends StatelessWidget {
     this.emailIntent,
     this.ownerSub,
     this.deliveryRepository,
+    this.isEmailConnectionMissing,
     this.onRetryEmail,
     this.onResendEmail,
     this.onEmail,
@@ -1445,6 +1468,10 @@ class ConnectionDetailScreen extends StatelessWidget {
   final StoredEmailSendIntent? emailIntent;
   final String? ownerSub;
   final EmailDeliveryRepository? deliveryRepository;
+
+  /// Checks the authenticated sender state before interpreting an ambiguous 404.
+  final Future<bool> Function(StoredEmailSendIntent? intent)?
+  isEmailConnectionMissing;
   final Future<void> Function(StoredEmailSendIntent intent)? onRetryEmail;
   final Future<void> Function(
     StoredEmailFollowUp followUp,
@@ -1806,6 +1833,7 @@ class ConnectionDetailScreen extends StatelessWidget {
               leadName: lead.fullName,
               ownerSub: ownerSub,
               repository: deliveryRepository,
+              isEmailConnectionMissing: isEmailConnectionMissing,
               initialFollowUp: followUp,
               initialIntent: emailIntent,
               onRetry: onRetryEmail,
@@ -2112,6 +2140,7 @@ class _LiveLeadFollowUpSection extends StatelessWidget {
     required this.initialFollowUp,
     required this.initialIntent,
     required this.onRetry,
+    required this.isEmailConnectionMissing,
     required this.onResend,
   });
 
@@ -2122,6 +2151,8 @@ class _LiveLeadFollowUpSection extends StatelessWidget {
   final StoredEmailFollowUp? initialFollowUp;
   final StoredEmailSendIntent? initialIntent;
   final Future<void> Function(StoredEmailSendIntent intent)? onRetry;
+  final Future<bool> Function(StoredEmailSendIntent? intent)?
+  isEmailConnectionMissing;
   final Future<void> Function(
     StoredEmailFollowUp followUp,
     StoredEmailSendIntent intent,
@@ -2138,6 +2169,7 @@ class _LiveLeadFollowUpSection extends StatelessWidget {
         followUp: initialFollowUp,
         intent: initialIntent,
         onRetry: onRetry,
+        isEmailConnectionMissing: isEmailConnectionMissing,
         onResend: onResend,
       );
     }
@@ -2161,6 +2193,7 @@ class _LiveLeadFollowUpSection extends StatelessWidget {
               followUp: followUp,
               intent: intents.isEmpty ? null : intents.first,
               onRetry: onRetry,
+              isEmailConnectionMissing: isEmailConnectionMissing,
               onResend: onResend,
             );
           },
@@ -2176,6 +2209,7 @@ class _LeadFollowUpSection extends StatelessWidget {
     required this.followUp,
     required this.intent,
     required this.onRetry,
+    required this.isEmailConnectionMissing,
     required this.onResend,
   });
 
@@ -2183,6 +2217,8 @@ class _LeadFollowUpSection extends StatelessWidget {
   final StoredEmailFollowUp? followUp;
   final StoredEmailSendIntent? intent;
   final Future<void> Function(StoredEmailSendIntent intent)? onRetry;
+  final Future<bool> Function(StoredEmailSendIntent? intent)?
+  isEmailConnectionMissing;
   final Future<void> Function(
     StoredEmailFollowUp followUp,
     StoredEmailSendIntent intent,
@@ -2215,101 +2251,128 @@ class _LeadFollowUpSection extends StatelessWidget {
       'pending' => (Icons.schedule_send_outlined, palette.pending),
       _ => (Icons.drafts_outlined, palette.inkSecondary),
     };
-    Future<void> showDetails() => showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        key: const Key('leadFollowUpDetailsDialog'),
-        title: Text(leadName),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                current!.recipientAddress,
-                style: TextStyle(color: palette.inkSecondary),
-              ),
-              if (intent?.senderAddress case final sender?) ...[
-                const SizedBox(height: 4),
-                Text(sender, style: TextStyle(color: palette.inkSecondary)),
-              ],
-              const SizedBox(height: 16),
-              Text(
-                context.l10n.subject,
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 5),
-              Text(current.subject, key: const Key('leadFollowUpSubject')),
-              const SizedBox(height: 16),
-              Text(
-                context.l10n.emailReviewMessage,
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 5),
-              Text(current.plainBody, key: const Key('leadFollowUpBody')),
-              if (names.isNotEmpty) ...[
+    Future<void> showDetails() async {
+      var missingConnection =
+          emailDeliveryErrorCode(intent?.errorCode) ==
+          'email_connection_required';
+      if (intent?.errorCode == 'http_404_not_found' || intent == null) {
+        try {
+          missingConnection =
+              await isEmailConnectionMissing?.call(intent) ?? false;
+        } on Object {
+          // Retain the original error when sender state cannot be verified.
+        }
+      }
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          key: const Key('leadFollowUpDetailsDialog'),
+          title: Text(leadName),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  current!.recipientAddress,
+                  style: TextStyle(color: palette.inkSecondary),
+                ),
+                if (intent?.senderAddress case final sender?) ...[
+                  const SizedBox(height: 4),
+                  Text(sender, style: TextStyle(color: palette.inkSecondary)),
+                ],
                 const SizedBox(height: 16),
-                ...names.map(
-                  (name) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.picture_as_pdf_outlined, size: 17),
-                        const SizedBox(width: 6),
-                        Expanded(child: Text(name)),
-                      ],
+                Text(
+                  context.l10n.subject,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 5),
+                Text(current.subject, key: const Key('leadFollowUpSubject')),
+                const SizedBox(height: 16),
+                Text(
+                  context.l10n.emailReviewMessage,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 5),
+                Text(current.plainBody, key: const Key('leadFollowUpBody')),
+                if (names.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  ...names.map(
+                    (name) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.picture_as_pdf_outlined, size: 17),
+                          const SizedBox(width: 6),
+                          Expanded(child: Text(name)),
+                        ],
+                      ),
                     ),
                   ),
+                ],
+                const SizedBox(height: 12),
+                Text(
+                  DateFormat.yMMMd(
+                    Localizations.localeOf(context).toLanguageTag(),
+                  ).add_Hm().format(current.preparedAt.toLocal()),
+                  style: TextStyle(color: palette.inkSecondary, fontSize: 12),
                 ),
+                if (missingConnection && intent?.errorCode == null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    context.l10n.emailNoConnectedAccount,
+                    style: TextStyle(color: palette.error),
+                  ),
+                ],
+                if (intent?.errorCode case final error?) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    missingConnection
+                        ? context.l10n.emailNoConnectedAccount
+                        : error,
+                    style: TextStyle(color: palette.error),
+                  ),
+                ],
               ],
-              const SizedBox(height: 12),
-              Text(
-                DateFormat.yMMMd(
-                  Localizations.localeOf(context).toLanguageTag(),
-                ).add_Hm().format(current.preparedAt.toLocal()),
-                style: TextStyle(color: palette.inkSecondary, fontSize: 12),
-              ),
-              if (intent?.errorCode case final error?) ...[
-                const SizedBox(height: 6),
-                Text(error, style: TextStyle(color: palette.error)),
-              ],
-            ],
+            ),
           ),
+          actions: [
+            if (intent case final emailIntent?)
+              if (emailIntent.status == 'error' &&
+                  !isTerminalEmailDeliveryError(emailIntent.errorCode))
+                TextButton.icon(
+                  key: const Key('leadFollowUpRetry'),
+                  onPressed: onRetry == null
+                      ? null
+                      : () async {
+                          Navigator.pop(dialogContext);
+                          await onRetry!(emailIntent);
+                        },
+                  icon: const Icon(Icons.refresh),
+                  label: Text(context.l10n.retry),
+                )
+              else if (emailIntent.status == 'sent' ||
+                  emailIntent.status == 'confirmation_required')
+                TextButton.icon(
+                  key: const Key('leadFollowUpResend'),
+                  onPressed: onResend == null
+                      ? null
+                      : () async {
+                          Navigator.pop(dialogContext);
+                          await onResend!(current, emailIntent);
+                        },
+                  icon: const Icon(Icons.forward_to_inbox_outlined),
+                  label: Text(context.l10n.emailResend),
+                ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(MaterialLocalizations.of(context).closeButtonLabel),
+            ),
+          ],
         ),
-        actions: [
-          if (intent case final emailIntent?)
-            if (emailIntent.status == 'error' &&
-                !isTerminalEmailDeliveryError(emailIntent.errorCode))
-              TextButton.icon(
-                key: const Key('leadFollowUpRetry'),
-                onPressed: onRetry == null
-                    ? null
-                    : () async {
-                        Navigator.pop(dialogContext);
-                        await onRetry!(emailIntent);
-                      },
-                icon: const Icon(Icons.refresh),
-                label: Text(context.l10n.retry),
-              )
-            else if (emailIntent.status == 'sent' ||
-                emailIntent.status == 'confirmation_required')
-              TextButton.icon(
-                key: const Key('leadFollowUpResend'),
-                onPressed: onResend == null
-                    ? null
-                    : () async {
-                        Navigator.pop(dialogContext);
-                        await onResend!(current, emailIntent);
-                      },
-                icon: const Icon(Icons.forward_to_inbox_outlined),
-                label: Text(context.l10n.emailResend),
-              ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(MaterialLocalizations.of(context).closeButtonLabel),
-          ),
-        ],
-      ),
-    );
+      );
+    }
+
     return Column(
       key: const Key('leadFollowUpSection'),
       crossAxisAlignment: CrossAxisAlignment.stretch,

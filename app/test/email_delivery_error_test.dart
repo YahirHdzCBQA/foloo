@@ -56,6 +56,63 @@ void main() {
   });
 
   test(
+    'SAL-07 reconnect retries the original rejected confirmation once',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = EmailDeliveryRepository(database);
+      final store = SyncStore(database, idFactory: () => 'original-operation');
+      final now = DateTime.now().toUtc();
+      const owner = 'seller-a';
+      final intent = StoredEmailSendIntent(
+        localId: 'intent-a',
+        ownerUserId: owner,
+        followUpLocalId: 'follow-up-a',
+        status: 'error',
+        omittedContentIdsJson: '[]',
+        attemptCount: 2,
+        errorCode: 'http_404_not_found',
+        createdAt: now,
+        updatedAt: now,
+      );
+      await store.enqueue(
+        ownerSub: owner,
+        entityType: SyncEntityType.emailSendIntent,
+        entityId: intent.localId,
+        action: 'confirm',
+        payload: {'followUpId': 'follow-up-a', 'intentId': intent.localId},
+        now: now,
+      );
+      await database.syncDao.markFailed(
+        'original-operation',
+        1,
+        'http_409_email_connection_required',
+        now,
+      );
+      expect(
+        await repository.hasRejectedEmailConfirmation(owner, intent.localId),
+        isTrue,
+      );
+      expect(
+        await repository.hasRejectedEmailConfirmation(
+          'seller-b',
+          intent.localId,
+        ),
+        isFalse,
+      );
+      final before = (await store.all(owner)).single;
+      await repository.retry(owner: owner, intent: intent);
+      await repository.retry(owner: owner, intent: intent);
+      final after = (await store.all(owner)).single;
+      expect(after.action, 'confirm');
+      expect(after.status, 'pending');
+      expect(after.idempotencyKey, before.idempotencyKey);
+      expect(after.payloadJson, before.payloadJson);
+      expect(await store.all('seller-b'), isEmpty);
+    },
+  );
+
+  test(
     'legacy failed outbox restores terminal intent without retrying',
     () async {
       final database = AppDatabase(NativeDatabase.memory());
