@@ -16,6 +16,7 @@ class LeadConfirmationScreen extends StatefulWidget {
     required this.record,
     required this.onCaptureAnother,
     this.emailOutcome,
+    this.savedWithoutEmail = false,
     this.attachmentNames = const [],
     super.key,
   });
@@ -23,6 +24,9 @@ class LeadConfirmationScreen extends StatefulWidget {
   final SessionLead record;
   final VoidCallback onCaptureAnother;
   final EmailReviewOutcome? emailOutcome;
+
+  /// Selects the save-only acknowledgement while retaining the shared timer.
+  final bool savedWithoutEmail;
   final List<String> attachmentNames;
 
   @override
@@ -31,6 +35,7 @@ class LeadConfirmationScreen extends StatefulWidget {
 
 class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
   Timer? _returnTimer;
+  bool _returned = false;
   static const _automaticReturnSeconds = 7;
   int _seconds = _automaticReturnSeconds;
 
@@ -41,8 +46,7 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
     _returnTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       if (_seconds <= 1) {
-        timer.cancel();
-        widget.onCaptureAnother();
+        _captureAnother();
       } else {
         setState(() => _seconds--);
       }
@@ -56,6 +60,8 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
   }
 
   void _captureAnother() {
+    if (_returned) return;
+    _returned = true;
     _returnTimer?.cancel();
     widget.onCaptureAnother();
   }
@@ -89,7 +95,9 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
               ),
               const SizedBox(height: 18),
               Text(
-                context.l10n.savedLead,
+                widget.savedWithoutEmail
+                    ? context.l10n.savedWithoutEmailTitle
+                    : context.l10n.savedLead,
                 style: Theme.of(context).textTheme.headlineSmall
                     ?.copyWith(fontSize: 30),
               ),
@@ -222,7 +230,11 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
             key: const Key('captureAnotherButton'),
             onPressed: _captureAnother,
             icon: const Icon(Icons.person_add_alt_1_outlined),
-            label: Text(context.l10n.captureAnother),
+            label: Text(
+              widget.savedWithoutEmail
+                  ? context.l10n.saveOnlyCaptureAnother
+                  : context.l10n.captureAnother,
+            ),
             style: FilledButton.styleFrom(
               backgroundColor: palette.paper,
               foregroundColor: palette.ink,
@@ -242,6 +254,20 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
     final rows = <(String, String, EmailReviewOutcome?)>[
       (context.l10n.savedOnDevice, context.l10n.savedOnDeviceDetail, null),
     ];
+    if (widget.savedWithoutEmail) {
+      rows.add((
+        context.l10n.emailNotSent,
+        context.l10n.savedWithoutEmailDetail,
+        null,
+      ));
+      if (widget.record.uploadState != SessionUploadState.synced) {
+        rows.add((
+          context.l10n.savedOnDevice,
+          context.l10n.savedSyncPendingDetail,
+          EmailReviewOutcome.pending,
+        ));
+      }
+    }
     switch (widget.emailOutcome) {
       case EmailReviewOutcome.sent:
         rows.add((

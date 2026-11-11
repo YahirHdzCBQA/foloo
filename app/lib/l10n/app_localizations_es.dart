@@ -1075,6 +1075,20 @@ class AppLocalizationsEs extends AppLocalizations {
       'Dónde surgió la conversación. Este lugar puede usarse en el seguimiento.';
 
   @override
+  String get saveOnlyCaptureAnother => 'Capturar otro lead';
+
+  @override
+  String get savedWithoutEmailTitle => '¡Lead guardado!';
+
+  @override
+  String get savedWithoutEmailDetail =>
+      'El contacto se guardó en Registros. No se envió ningún correo de seguimiento.';
+
+  @override
+  String get savedSyncPendingDetail =>
+      'El lead se guardó en este dispositivo. Su sincronización está pendiente.';
+
+  @override
   String get savedLead => 'Lead guardado';
 
   @override

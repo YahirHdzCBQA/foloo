@@ -164,6 +164,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   LeadType? _leadType;
   InterestLevel _interest = InterestLevel.medium;
   bool _showValidation = false;
+  bool _submitting = false;
   VoiceNoteState _voiceNote = const VoiceNoteState();
   String? _voiceNoteMessage;
   bool _voiceActionInProgress = false;
@@ -916,7 +917,17 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
 
   /// Validates V1 fields before
   /// handing an immutable draft to the session-local application store.
-  Future<void> _submit() async {
+  Future<void> _submit({bool saveOnly = false}) async {
+    if (_submitting) return;
+    setState(() => _submitting = true);
+    try {
+      await _saveAndContinue(saveOnly: saveOnly);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _saveAndContinue({required bool saveOnly}) async {
     FocusManager.instance.primaryFocus?.unfocus();
     if (_voiceNote.isRecording) await _stopRecording();
     if (_voiceNote.isPlaying || _voiceNote.isPaused) {
@@ -1002,9 +1013,11 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
           .showSnackBar(SnackBar(content: Text(context.l10n.mediaSaveWarning)));
     }
 
-    final review = await Future<EmailReviewDraft?>.sync(
-      () => widget.onEmailReviewRequested?.call(record),
-    );
+    final review = saveOnly
+        ? null
+        : await Future<EmailReviewDraft?>.sync(
+            () => widget.onEmailReviewRequested?.call(record),
+          );
     if (!mounted) return;
     if (review != null && widget.onEmailReviewConfirmed != null) {
       Navigator.of(context).push(
@@ -1032,16 +1045,19 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       MaterialPageRoute<void>(
         builder: (_) => LeadConfirmationScreen(
           record: record,
+          savedWithoutEmail: saveOnly,
           onCaptureAnother: () {
             Navigator.of(context).pop();
-            if (widget.onCaptureAnotherRequested?.call() ?? true) _reset();
+            if (widget.onCaptureAnotherRequested?.call() ?? true) {
+              _reset(clearSavedDraft: saveOnly);
+            }
           },
         ),
       ),
     );
   }
 
-  void _reset() {
+  void _reset({bool clearSavedDraft = false}) {
     _recordingTimer?.cancel();
     unawaited(_voiceNoteService.stopPlayback());
     for (final controller in [
@@ -1076,6 +1092,10 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       _voiceNoteTransferred = false;
       _referenceImages.clear();
       _persistedRecord = null;
+      if (clearSavedDraft) {
+        _imageFailureKind = null;
+        _selectedContentIds = _defaultContentIds();
+      }
     });
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
   }
@@ -1209,10 +1229,23 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         key: const Key('saveLeadButton'),
-                        onPressed: _submit,
+                        onPressed: _submitting ? null : _submit,
                         iconAlignment: IconAlignment.end,
                         icon: const Icon(Icons.send_outlined),
                         label: Text(context.l10n.saveAndFoloo),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: OutlinedButton.icon(
+                        key: const Key('saveOnlyLeadButton'),
+                        onPressed: _submitting
+                            ? null
+                            : () => _submit(saveOnly: true),
+                        icon: const Icon(Icons.save_outlined),
+                        label: Text(context.l10n.save),
                       ),
                     ),
                     if (EntitlementScope.maybeOf(context)

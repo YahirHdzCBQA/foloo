@@ -52,4 +52,74 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(returned, isTrue);
   });
+  for (final language in ['es', 'en']) {
+    for (final immediate in [false, true]) {
+      testWidgets('FL-024 CAP-11 $language immediate=$immediate returns once', (
+        tester,
+      ) async {
+        var returns = 0;
+        final record = SessionLead(
+          localId: 'saved',
+          folio: null,
+          capturedAt: DateTime.utc(2026, 11, 11),
+          lead: LeadDraft(
+            name: 'Ana',
+            lastName: '',
+            role: '',
+            company: '',
+            email: '',
+            phone: '5551234567',
+            type: LeadType.customer,
+            interest: InterestLevel.high,
+            note: '',
+            originKind: LeadOriginKind.direct,
+            audioSeconds: 0,
+          ),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: Locale(language),
+            theme: FolooTheme.light,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: LeadConfirmationScreen(
+              record: record,
+              savedWithoutEmail: true,
+              onCaptureAnother: () => returns++,
+            ),
+          ),
+        );
+        expect(
+          find.text(language == 'es' ? '¡Lead guardado!' : 'Lead saved!'),
+          findsOneWidget,
+        );
+        expect(
+          find.text(
+            language == 'es'
+                ? 'El contacto se guardó en Registros. No se envió ningún correo de seguimiento.'
+                : 'The contact was saved to Records. No follow-up email was sent.',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.text(
+            language == 'es' ? 'Capturar otro lead' : 'Capture another lead',
+          ),
+          findsOneWidget,
+        );
+        if (immediate) {
+          await tester.tap(find.byKey(const Key('captureAnotherButton')));
+          await tester.pump();
+        } else {
+          await tester.pump(const Duration(seconds: 6));
+          expect(returns, 0);
+          await tester.pump(const Duration(seconds: 1));
+        }
+        expect(returns, 1);
+        await tester.pump(const Duration(seconds: 8));
+        expect(returns, 1);
+        await tester.pumpWidget(const SizedBox());
+      });
+    }
+  }
 }

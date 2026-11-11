@@ -2036,6 +2036,30 @@ abstract class AppLocalizations {
   /// **'Dónde surgió la conversación. Este lugar puede usarse en el seguimiento.'**
   String get directPlaceHelp;
 
+  /// No description provided for @saveOnlyCaptureAnother.
+  ///
+  /// In es, this message translates to:
+  /// **'Capturar otro lead'**
+  String get saveOnlyCaptureAnother;
+
+  /// No description provided for @savedWithoutEmailTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'¡Lead guardado!'**
+  String get savedWithoutEmailTitle;
+
+  /// No description provided for @savedWithoutEmailDetail.
+  ///
+  /// In es, this message translates to:
+  /// **'El contacto se guardó en Registros. No se envió ningún correo de seguimiento.'**
+  String get savedWithoutEmailDetail;
+
+  /// No description provided for @savedSyncPendingDetail.
+  ///
+  /// In es, this message translates to:
+  /// **'El lead se guardó en este dispositivo. Su sincronización está pendiente.'**
+  String get savedSyncPendingDetail;
+
   /// No description provided for @savedLead.
   ///
   /// In es, this message translates to:

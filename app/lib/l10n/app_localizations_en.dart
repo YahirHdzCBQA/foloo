@@ -1070,6 +1070,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'Where the conversation took place. This location can be used in the follow-up.';
 
   @override
+  String get saveOnlyCaptureAnother => 'Capture another lead';
+
+  @override
+  String get savedWithoutEmailTitle => 'Lead saved!';
+
+  @override
+  String get savedWithoutEmailDetail =>
+      'The contact was saved to Records. No follow-up email was sent.';
+
+  @override
+  String get savedSyncPendingDetail =>
+      'The lead was saved on this device. Sync is pending.';
+
+  @override
   String get savedLead => 'Lead saved';
 
   @override
