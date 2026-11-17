@@ -1514,6 +1514,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get templateSavedV1 => 'Plantilla guardada';
 
   @override
+  String get templateSaveFailed =>
+      'No se pudo guardar la plantilla. Tus cambios siguen aquí.';
+
+  @override
+  String get next => 'Siguiente';
+
+  @override
   String get folooDefaultTemplate => 'Plantilla predeterminada de Foloo';
 
   @override

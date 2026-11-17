@@ -1509,6 +1509,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get templateSavedV1 => 'Template saved';
 
   @override
+  String get templateSaveFailed =>
+      'The template could not be saved. Your changes are still here.';
+
+  @override
+  String get next => 'Next';
+
+  @override
   String get folooDefaultTemplate => 'Foloo default template';
 
   @override

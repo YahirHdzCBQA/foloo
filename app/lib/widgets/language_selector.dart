@@ -11,9 +11,10 @@ import '../theme/foloo_theme.dart';
 
 /// Switches locale immediately without introducing a navigation destination.
 class LanguageSelector extends StatelessWidget {
-  const LanguageSelector({this.compact = true, super.key});
+  const LanguageSelector({this.compact = true, this.onChanged, super.key});
 
   final bool compact;
+  final ValueChanged<Locale>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -36,13 +37,17 @@ class LanguageSelector extends StatelessWidget {
               key: const Key('languageEs'),
               label: context.l10n.languageSpanish,
               selected: locale.languageCode == 'es',
-              onTap: () => language?.onLocaleChanged(const Locale('es')),
+              onTap: () => (onChanged ?? language?.onLocaleChanged)?.call(
+                const Locale('es'),
+              ),
             ),
             _LanguageOption(
               key: const Key('languageEn'),
               label: context.l10n.languageEnglish,
               selected: locale.languageCode == 'en',
-              onTap: () => language?.onLocaleChanged(const Locale('en')),
+              onTap: () => (onChanged ?? language?.onLocaleChanged)?.call(
+                const Locale('en'),
+              ),
             ),
           ],
         ),

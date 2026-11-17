@@ -67,7 +67,6 @@ class AuthTextFormField extends StatelessWidget {
       autofillHints: autofillHints,
       obscureText: obscureText,
       style: TextStyle(color: palette.ink, fontSize: 16, height: 1.25),
-      cursorColor: palette.ink,
       contextMenuBuilder: folooAuthContextMenuBuilder,
       decoration: InputDecoration(
         filled: true,

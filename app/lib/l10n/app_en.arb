@@ -435,6 +435,8 @@
   "emailFooterGenericV1": "You received this email as a follow-up to our meeting.",
   "emailSignatureV1": "Signature",
   "templateSavedV1": "Template saved",
+  "templateSaveFailed": "The template could not be saved. Your changes are still here.",
+  "next": "Next",
   "folooDefaultTemplate": "Foloo default template",
   "sellerTemplateHelp": "This template will be used as the basis for future follow-ups.",
   "restoreDefaultTemplate": "Restore default template",

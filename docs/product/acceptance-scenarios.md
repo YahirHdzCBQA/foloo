@@ -24,8 +24,11 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   la contraseña del proveedor del correo.
 - Código inválido/vencido, reenvío, usuario confirmado, red y error inesperado
   se expresan en ES/EN sin texto AWS crudo.
-- Login válido restaura el `sub`; perfil incompleto abre Tu perfil vacío, sin
-  Yahir/CBQA u otra identidad demo, y perfil completo abre Inicio.
+- Login válido restaura el `sub`; mientras se hidrata el estado owner-scoped se
+  muestra una transición de carga sin enseñar ni un frame del onboarding. Un
+  perfil incompleto abre Tu perfil vacío, sin Yahir/CBQA u otra identidad demo,
+  y un perfil completo abre directamente la selección de evento/origen, sin
+  parpadeos ni redirecciones duplicadas.
 - En identidad Google federada, `username` técnico, atributo `email` y `sub`
   permanecen separados: la UI muestra `email`, nunca `google_*`, mientras
   ownership continúa usando exclusivamente `sub`.
@@ -45,7 +48,9 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 **Trazas:** `EVT-01`–`EVT-12`.
 
-- Crear evento permite elegir inicio/fin y lo deja activo.
+- Crear evento separa Datos (nombre e inicio/fin) de Contenido opcional. Siguiente
+  valida, Atrás conserva lo capturado y la confirmación final crea una sola vez
+  desde cualquiera de los accesos vigentes; al terminar queda activo.
 - La lista muestra activo una vez, futuros por inicio ascendente y pasados por
   fin descendente usando la fecha local real.
 - Sin selección manual válida, el evento futuro más próximo queda activo y se
@@ -182,9 +187,11 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   en ES y `Following up, {nombre}` en EN, renderizado con el nombre real. Una
   plantilla personalizada o un follow-up histórico congelado no se reescriben.
 - Evento resuelve override propio → predeterminada del vendedor → default Foloo;
-  Directo omite el nivel Evento. Restaurar Foloo solo cambia el editor hasta
-  Guardar; “Usar plantilla predeterminada” elimina el override y recupera
-  herencia viva. Ninguna edición de plantilla crea preparación o envío.
+  Directo omite el nivel Evento. Restaurar Foloo persiste inmediatamente el
+  default como nueva base, deja Cancelar deshabilitado y una edición posterior
+  solo puede cancelarse hacia esa base, nunca hacia la personalización anterior.
+  “Usar plantilla predeterminada” elimina el override y recupera herencia viva.
+  Ninguna edición de plantilla crea preparación o envío.
 - El override de Evento reutiliza los mismos chips, rayo, selector, inserción al
   cursor y validación ES/EN de Correo; guardar/cancelar y reabrir el sheet no
   deja overlays ni controladores desmontados, y persiste solo para ese evento.
@@ -198,7 +205,13 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   Gmail, Outlook u otros clientes comunes.
 - Tocar un token lo inserta en la selección/caret del asunto o cuerpo que tenga
   el foco (y en el último campo activo si el teclado perdió foco), sin borrar
-  texto adyacente ni moverlo siempre al final.
+  texto adyacente ni moverlo siempre al final. Unicode, saltos y chips mantienen
+  offsets visuales exactos al tocar o borrar desde una posición intermedia.
+- Guardar correctamente cierra teclado y modo edición y vuelve a mostrar los
+  lápices; un error conserva el borrador. Cancelar restaura la última versión
+  guardada. Navegar, cambiar idioma o cerrar la pantalla con cambios pendientes
+  ofrece guardar y salir, descartar o seguir editando.
+- Los campos usan cursor oscuro en tema claro y verde Foloo en tema oscuro.
 - FL-019.5 no genera footer/enlace de baja, no expone GET/POST unsubscribe ni
   crea nuevos bloqueos por destinatario. Migraciones/tablas históricas se
   preservan y la decisión no se presenta como cumplimiento legal.

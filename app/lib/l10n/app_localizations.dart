@@ -2689,6 +2689,18 @@ abstract class AppLocalizations {
   /// **'Plantilla guardada'**
   String get templateSavedV1;
 
+  /// No description provided for @templateSaveFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo guardar la plantilla. Tus cambios siguen aquí.'**
+  String get templateSaveFailed;
+
+  /// No description provided for @next.
+  ///
+  /// In es, this message translates to:
+  /// **'Siguiente'**
+  String get next;
+
   /// No description provided for @folooDefaultTemplate.
   ///
   /// In es, this message translates to:

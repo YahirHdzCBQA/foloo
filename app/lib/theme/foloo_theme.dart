@@ -225,6 +225,13 @@ abstract final class FolooTheme {
       scaffoldBackgroundColor: palette.paper,
       dividerColor: palette.line,
       extensions: [palette],
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: dark ? FolooColors.lime : FolooColors.ink,
+        selectionColor: (dark ? FolooColors.lime : FolooColors.ink).withValues(
+          alpha: .24,
+        ),
+        selectionHandleColor: dark ? FolooColors.lime : FolooColors.ink,
+      ),
       // Poppins, DM Sans and Nexa binaries are not present as installable
       // Flutter assets. D-12 remains open; platform sans is the safe fallback.
       textTheme: TextTheme(

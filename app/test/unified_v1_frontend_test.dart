@@ -103,6 +103,11 @@ void main() {
     expect(foreground, FolooColors.ink);
   });
 
+  test('NAV-04 applies readable cursor colors to both themes', () {
+    expect(FolooTheme.light.textSelectionTheme.cursorColor, FolooColors.ink);
+    expect(FolooTheme.dark.textSelectionTheme.cursorColor, FolooColors.lime);
+  });
+
   testWidgets('V1 onboarding requires Lugar and create-event shows content', (
     tester,
   ) async {
@@ -122,7 +127,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('originManageEventsButton')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Contenido para este evento'), findsOneWidget);
+    expect(find.textContaining('Contenido para este evento'), findsNothing);
+    await tester.enterText(
+      find.byKey(const Key('newEventNameField')),
+      'Evento temporal',
+    );
+    await tester.tap(find.byKey(const Key('nextCreateEventButton')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Contenido para este evento'), findsWidgets);
+    await tester.tap(find.byKey(const Key('backCreateEventButton')));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Cancelar'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('originDirectTab')));
@@ -246,6 +260,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('emailScreen')), findsOneWidget);
     expect(find.byKey(const Key('emailPreview')), findsOneWidget);
+
+    final cancel = find.byKey(const Key('cancelEmailTemplateButton'));
+    final save = find.byKey(const Key('saveEmailTemplateButton'));
+    expect(tester.getSize(cancel).height, tester.getSize(save).height);
+    expect(
+      tester
+          .widget<OutlinedButton>(cancel)
+          .style
+          ?.shape
+          ?.resolve(const <WidgetState>{}),
+      isA<StadiumBorder>(),
+    );
+    expect(
+      tester
+          .widget<FilledButton>(save)
+          .style
+          ?.shape
+          ?.resolve(const <WidgetState>{}),
+      isA<StadiumBorder>(),
+    );
+    final saveLabel = tester.widget<Text>(
+      find.descendant(of: save, matching: find.text('Guardar plantilla')),
+    );
+    expect(saveLabel.maxLines, 1);
+    expect(saveLabel.softWrap, isFalse);
   });
 
   testWidgets('CON-06 uploads content while creating an event', (tester) async {
@@ -257,6 +296,12 @@ void main() {
     await tester.tap(find.byKey(const Key('createEventButton')));
     await tester.pumpAndSettle();
 
+    await tester.enterText(
+      find.byKey(const Key('newEventNameField')),
+      'Expo Nueva',
+    );
+    await tester.tap(find.byKey(const Key('nextCreateEventButton')));
+    await tester.pumpAndSettle();
     expect(
       find.byKey(const Key('createEventUploadContentButton')),
       findsOneWidget,
@@ -274,10 +319,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('1 de 4'), findsOneWidget);
 
-    await tester.enterText(
-      find.byKey(const Key('newEventNameField')),
-      'Expo Nueva',
-    );
     await tester.tap(find.byKey(const Key('confirmCreateEventButton')));
     await tester.pumpAndSettle();
     expect(find.text('Expo Nueva'), findsOneWidget);
@@ -569,7 +610,16 @@ void main() {
     );
     final editingToken = editingBodySpan.children!
         .whereType<TextSpan>()
-        .firstWhere((span) => span.text == 'Nombre del contacto');
+        .firstWhere(
+          (span) => span.text?.contains('Nombre del contacto') ?? false,
+        );
+    expect(
+      editingBodySpan.children!
+          .whereType<TextSpan>()
+          .map((span) => span.text ?? '')
+          .join(),
+      editingBody.controller!.text,
+    );
     expect(editingToken.style?.backgroundColor, isNotNull);
     expect(editingToken.style?.decoration, TextDecoration.none);
     expect(editingToken.style?.decorationColor, Colors.transparent);
@@ -703,7 +753,7 @@ void main() {
       withComposing: false,
     );
     final editingToken = editingSpan.children!.whereType<TextSpan>().firstWhere(
-      (span) => span.text == 'Nombre del contacto',
+      (span) => span.text?.contains('Nombre del contacto') ?? false,
     );
     expect(editingToken.style?.color, FolooColors.white);
     expect(editingToken.style?.backgroundColor, isNotNull);
@@ -712,74 +762,78 @@ void main() {
     expect(editingToken.style?.decorationThickness, 0);
   });
 
-  testWidgets(
-    'PLT-08 restore is staged until Save and template keyboard dismisses',
-    (tester) async {
-      phone(tester);
-      await login(tester);
-      await drawer(tester);
-      await tester.tap(find.byKey(const Key('drawerEmail')));
-      await tester.pumpAndSettle();
-      final subject = find.byKey(const ValueKey('emailSubject-event'));
-      await tester.tap(find.byKey(const Key('templateEdit-subject')));
-      await tester.pump();
-      await tester.enterText(subject, 'Personalizada {nombre}');
-      await tester.tap(find.byKey(const Key('saveEmailTemplateButton')));
-      await tester.pumpAndSettle();
+  testWidgets('PLT-06 restore becomes the persisted cancellation baseline', (
+    tester,
+  ) async {
+    phone(tester);
+    await login(tester);
+    await drawer(tester);
+    await tester.tap(find.byKey(const Key('drawerEmail')));
+    await tester.pumpAndSettle();
 
-      await tester.tap(subject);
-      await tester.pump();
-      final subjectFocus = tester
-          .widget<EditableText>(
-            find.descendant(of: subject, matching: find.byType(EditableText)),
-          )
-          .focusNode;
-      expect(subjectFocus.hasFocus, isTrue);
-      await tester.tapAt(const Offset(5, 400));
-      await tester.pump();
-      expect(subjectFocus.hasFocus, isFalse);
+    final subject = find.byKey(const ValueKey('emailSubject-event'));
+    final cancel = find.byKey(const Key('cancelEmailTemplateButton'));
+    expect(tester.widget<OutlinedButton>(cancel).onPressed, isNull);
 
-      await tester.ensureVisible(
-        find.byKey(const Key('restoreFolooTemplateButton')),
-      );
-      await tester.tap(find.byKey(const Key('restoreFolooTemplateButton')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Restaurar').last);
-      await tester.pumpAndSettle();
-      expect(find.text('Nombre del contacto'), findsWidgets);
+    await tester.tap(find.byKey(const Key('templateEdit-subject')));
+    await tester.pump();
+    await tester.enterText(subject, 'Personalizada {nombre}');
+    await tester.pump();
+    expect(tester.widget<OutlinedButton>(cancel).onPressed, isNotNull);
 
-      await drawer(tester);
-      await tester.tap(find.byKey(const Key('drawerEmail')));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.byKey(const Key('templateEdit-subject')));
-      await tester.tap(find.byKey(const Key('templateEdit-subject')));
-      await tester.pump();
-      expect(
-        tester.widget<TextField>(subject).controller?.text,
-        allOf(contains('Personalizada'), contains('Nombre del contacto')),
-      );
+    await tester.tap(find.byKey(const Key('saveEmailTemplateButton')));
+    await tester.pumpAndSettle();
+    expect(subject, findsNothing);
+    expect(tester.widget<OutlinedButton>(cancel).onPressed, isNull);
 
-      await tester.ensureVisible(
-        find.byKey(const Key('restoreFolooTemplateButton')),
-      );
-      await tester.tap(find.byKey(const Key('restoreFolooTemplateButton')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Restaurar').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('saveEmailTemplateButton')));
-      await tester.pumpAndSettle();
-      await drawer(tester);
-      await tester.tap(find.byKey(const Key('drawerEmail')));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.byKey(const Key('templateEdit-subject')));
-      await tester.tap(find.byKey(const Key('templateEdit-subject')));
+    await tester.ensureVisible(
+      find.byKey(const Key('restoreFolooTemplateButton')),
+    );
+    await tester.tap(find.byKey(const Key('restoreFolooTemplateButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Restaurar').last);
+    await tester.pumpAndSettle();
+    expect(tester.widget<OutlinedButton>(cancel).onPressed, isNull);
+
+    await tester.ensureVisible(find.byKey(const Key('templateEdit-subject')));
+    await tester.tap(find.byKey(const Key('templateEdit-subject')));
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(subject).controller?.text,
+      allOf(contains('Damos seguimiento'), contains('Nombre del contacto')),
+    );
+    await tester.enterText(subject, 'Nueva edición {nombre}');
+    await tester.pump();
+    expect(tester.widget<OutlinedButton>(cancel).onPressed, isNotNull);
+
+    await tester.tap(cancel);
+    await tester.pumpAndSettle();
+    expect(tester.widget<OutlinedButton>(cancel).onPressed, isNull);
+    await tester.ensureVisible(find.byKey(const Key('templateEdit-subject')));
+    await tester.tap(find.byKey(const Key('templateEdit-subject')));
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(subject).controller?.text,
+      allOf(contains('Damos seguimiento'), contains('Nombre del contacto')),
+    );
+
+    await drawer(tester);
+    await tester.tap(find.byKey(const Key('drawerRecords')));
+    await tester.pumpAndSettle();
+    await drawer(tester);
+    await tester.tap(find.byKey(const Key('drawerEmail')));
+    await tester.pumpAndSettle();
+    final editSubject = find.byKey(const Key('templateEdit-subject'));
+    if (editSubject.evaluate().isNotEmpty) {
+      await tester.ensureVisible(editSubject);
+      await tester.tap(editSubject);
       await tester.pump();
-      expect(
-        tester.widget<TextField>(subject).controller?.text,
-        allOf(contains('Damos seguimiento'), contains('Nombre del contacto')),
-      );
-    },
-  );
+    }
+    expect(
+      tester.widget<TextField>(subject).controller?.text,
+      allOf(contains('Damos seguimiento'), contains('Nombre del contacto')),
+    );
+  });
 
   testWidgets('direct save confirms local persistence and keeps Lugar', (
     tester,

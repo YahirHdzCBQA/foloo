@@ -39,6 +39,8 @@ Future<void> _createEvent(WidgetTester tester, String name) async {
   await tester.tap(find.byKey(const Key('originManageEventsButton')));
   await tester.pumpAndSettle();
   await tester.enterText(find.byKey(const Key('newEventNameField')), name);
+  await tester.tap(find.byKey(const Key('nextCreateEventButton')));
+  await tester.pumpAndSettle();
   await tester.tap(find.byKey(const Key('confirmCreateEventButton')));
   await tester.pumpAndSettle();
 }

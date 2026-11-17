@@ -319,6 +319,8 @@ void main() {
     final okLabel = MaterialLocalizations.of(pickerContext).okButtonLabel;
     await tester.tap(find.text(okLabel));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('nextCreateEventButton')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirmCreateEventButton')));
     await tester.pumpAndSettle();
 
@@ -360,6 +362,57 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('EVT-01 creates in two steps and retains data when going back', (
+    tester,
+  ) async {
+    usePhoneViewport(tester);
+    await tester.pumpWidget(const FolooApp());
+    await enterCapture(tester);
+
+    tester.view.physicalSize = const Size(360, 640);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('captureCreateEventButton')));
+    await tester.pumpAndSettle();
+    final eventName = find.byKey(const Key('newEventNameField'));
+    await tester.showKeyboard(eventName);
+    await tester.pumpAndSettle();
+    final startDate = find.byKey(const Key('newEventStartDate'));
+    final endDate = find.byKey(const Key('newEventEndDate'));
+    expect(tester.getTopLeft(startDate).dy, tester.getTopLeft(endDate).dy);
+    expect(find.byKey(const Key('nextCreateEventButton')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byKey(const Key('nextCreateEventButton')));
+    await tester.pump();
+    expect(find.text('Este campo es obligatorio'), findsOneWidget);
+
+    await tester.enterText(eventName, 'Evento en dos pasos');
+    await tester.tap(find.byKey(const Key('nextCreateEventButton')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('createEventContentStep')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('confirmCreateEventButton')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('backCreateEventButton')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('newEventNameField')))
+          .controller
+          ?.text,
+      'Evento en dos pasos',
+    );
+    await tester.tap(find.byKey(const Key('nextCreateEventButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirmCreateEventButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Evento en dos pasos'), findsWidgets);
   });
 
   testWidgets('saved lead appears in records and opens detail', (tester) async {

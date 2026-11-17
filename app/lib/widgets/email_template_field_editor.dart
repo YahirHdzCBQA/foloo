@@ -565,7 +565,11 @@ class _FriendlyTemplateEditingController extends TextEditingController {
       if (end < 0) break;
       spans.add(
         TextSpan(
-          text: text.substring(start + 1, end),
+          // Keep the invisible boundary markers in the rendered span. The
+          // EditableText selection is expressed in controller code units; if
+          // the markers are omitted here, every friendly token shifts the
+          // visual caret two positions away from the actual edit location.
+          text: text.substring(start, end + 1),
           style: clean.copyWith(
             color: FolooPalette.of(context).ink,
             backgroundColor: FolooColors.lime.withValues(alpha: .25),

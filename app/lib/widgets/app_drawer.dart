@@ -37,6 +37,7 @@ class AppDrawer extends StatelessWidget {
     required this.onDestinationSelected,
     required this.onAppearanceChanged,
     required this.onLogout,
+    this.onLanguageChanged,
     this.contentCount = 0,
     this.profile = DemoProfile.empty,
     super.key,
@@ -48,6 +49,7 @@ class AppDrawer extends StatelessWidget {
   final ValueChanged<AppDestination> onDestinationSelected;
   final ValueChanged<bool> onAppearanceChanged;
   final VoidCallback onLogout;
+  final ValueChanged<Locale>? onLanguageChanged;
   final DemoProfile profile;
   final int contentCount;
 
@@ -336,7 +338,7 @@ class AppDrawer extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const LanguageSelector(),
+                          LanguageSelector(onChanged: onLanguageChanged),
                         ],
                       ),
                     ),

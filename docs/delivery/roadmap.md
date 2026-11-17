@@ -576,6 +576,25 @@ R8 en solución permanente.
   operaciones Git quedan reservadas al desarrollador: esta actividad no hace
   add, commit, push, checkout, switch, merge, pull, reset ni stash.
 
+## FL-025A — Correcciones UX posteriores al evento
+
+**Estado:** **IMPLEMENTADA LOCALMENTE; validación automatizada pendiente.**
+
+- Trazas: `AUT-07`, `EVT-01`, `EVT-11`, `PLT-06`, `PLT-11`–`PLT-13`,
+  `NAV-04`; E-01/E-02/E-08; ADR-001/004/006/007.
+- El login existente mantiene una pantalla de transición hasta resolver el
+  perfil owner-scoped y evita enseñar onboarding a perfiles completos.
+- Plantillas conserva paridad entre offsets del controlador y chips visibles,
+  ofrece Cancelar, protege borradores al salir/cambiar idioma y cierra edición
+  solo después de guardar con éxito. Tras QA físico, Restaurar persiste el
+  default como nueva base de cancelación y no conserva historial de la versión
+  personalizada sustituida.
+- El tema centraliza cursor oscuro en claro y verde Foloo en oscuro.
+- Crear evento se divide en Datos y Contenido opcional, conserva estado al
+  volver y reutiliza la persistencia/selección de contenido existente sin
+  cambios backend ni migraciones.
+- Esta FL no incluye ninguna corrección funcional del bloque FL-025B.
+
 ## Exclusiones del plan V1
 
 No existen fases Basic E2E, capability Basic/Pro, Pro E2E, transcripción Pro ni
