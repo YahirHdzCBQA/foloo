@@ -1,0 +1,15 @@
+Asunto: Foloo DEV — inventario de accesos AWS y migración a acceso federado
+
+Hola, Abdías:
+
+Completamos una auditoría de solo lectura de la cuenta AWS 837153590200, con región principal us-east-1, al 12 de noviembre de 2026.
+
+Hay tres usuarios IAM y tres llaves activas: foloo-deployer, chris-foloo y foloo-entitlement-operator. El perfil foloo-dev usa la llave de foloo-deployer, que tiene AdministratorAccess y no tiene MFA registrado. chris-foloo también dispone de una ruta de despliegue CDK que termina en un ejecutor administrativo; su acceso real supera lo que sugiere el nombre de su política. El operador FL-021 sí exige MFA y solo puede invocar su función administrativa.
+
+Root tiene MFA y no tiene llaves de acceso. La cuenta aún no pertenece a AWS Organizations. No se identificaron instancias de Identity Center en las 18 regiones habilitadas ni proveedores IAM OIDC/SAML. No hay pipelines CodePipeline/CodeBuild en us-east-1 ni workflows CI identificados en este checkout; queda por confirmar cualquier automatización externa y el custodio de cada llave.
+
+Propongo incorporar el acceso federado de CBQA para personas y usar roles OIDC para el CI que se confirme, con permisos separados DEV/PROD. Conviene conservar temporalmente la vía actual mientras se prueban en paralelo los nuevos accesos y un despliegue DEV autorizado. La confianza FL-021 y el ejecutor CDK compartido requieren revisión específica para evitar perder acceso o mantener permisos excesivos.
+
+Necesitamos de TI: confirmar IdP/Organizations y destino de PROD; responsables y consumidores de las tres llaves; permission sets, MFA y acceso de emergencia; y una ventana aprobada de validación y migración. La reducción/rotación de llaves se hará solo después de comprobar las dependencias y con autorización separada.
+
+Adjunto el inventario técnico con identificadores, fechas, último uso, roles y matriz de permisos propuestos. No contiene contraseñas, tokens ni claves secretas. No se modificó AWS, no se rotaron llaves y no se desplegaron recursos.

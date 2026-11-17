@@ -1,0 +1,396 @@
+AUDITORÍA TÉCNICA DE ACCESOS AWS DE FOLOO DEV
+Fecha: 12 de noviembre de 2026 (America/Mexico_City)
+Cuenta: 837153590200 | Perfil consultado: foloo-dev | Región principal: us-east-1
+Clasificación: uso interno TI CBQA. Contiene identificadores y topología de permisos; no contiene valores secretos.
+
+1. CONCLUSIÓN Y ALCANCE
+
+El acceso operativo sigue basado en tres usuarios IAM y tres llaves permanentes activas. El perfil local foloo-dev utiliza foloo-deployer y su llave AKIA4F2R6BO4BKEQE36T. Ese usuario hereda AdministratorAccess y no tiene MFA registrado. La principal exposición es el compromiso de esa llave, con alcance administrativo en la cuenta completa, incluidos futuros recursos PROD en la misma cuenta.
+
+chris-foloo tiene una política de nombre acotado a Stripe/Cognito DEV, pero puede asumir el rol CDK de despliegue que pasa un ejecutor CloudFormation con AdministratorAccess. Su alcance efectivo potencial es mucho mayor que el nombre de la política. No se ejecutó ningún despliegue ni prueba de escalamiento.
+
+Se inventariaron IAM global, cinco roles bootstrap CDK y roles Foloo; los servicios regionales de despliegue/ejecución se revisaron en us-east-1. Identity Center se consultó en las 18 regiones habilitadas. Las comprobaciones remotas fueron exclusivamente Get/List/Describe/Lookup; no se generó un credential report ni políticas Access Analyzer. Se leyó la configuración local mostrando solo metadatos e identificadores públicos, nunca secretos. No se ejecutó Git ni se cambiaron IAM, llaves, infraestructura, permisos o entitlements.
+
+Las finalidades siguientes se infieren de políticas, CDK y runbooks; TI debe confirmar al responsable humano, custodio y consumidores de cada llave. Esta auditoría no certifica la inexistencia de copias en otras estaciones, bóvedas o servicios CI externos.
+
+2. USUARIOS IAM Y POLÍTICAS EFECTIVAS
+
+foloo-deployer
+- Creado: 2026-09-09T18:58:35Z. Finalidad observada: CLI y operaciones de despliegue/administración Foloo.
+- Grupo: foloo-deployers, con arn:aws:iam::aws:policy/AdministratorAccess (Action=*; Resource=*).
+- Sin políticas directas/inline ni permissions boundary. Sin login profile de consola; sin dispositivos MFA IAM registrados.
+- La falta de contraseña de consola no limita su llave de API. AdministratorAccess también permite cambiar IAM, leer secretos y operar recursos ajenos a DEV.
+
+chris-foloo
+- Creado: 2026-10-22T16:23:35Z. Finalidad inferida: soporte técnico Stripe/Cognito y despliegue DEV; responsable nominal por confirmar.
+- Política directa: arn:aws:iam::837153590200:policy/FolooChrisStripeCognitoDev, versión predeterminada v2 (2026-10-22). Sin grupo, inline ni permissions boundary.
+- Permite asumir deploy/file-publishing/image-publishing/lookup bootstrap de la cuenta; consultar CloudFormation y logs; invocar/consultar cualquier Lambda FolooBackend-dev-*; listar metadata de secretos; crear/escribir/taggear secretos foloo/dev/stripe-*; describir/crear/actualizar proveedores y cliente Cognito en cualquier pool de us-east-1 de la cuenta.
+- No contiene GetSecretValue directo, pero no debe clasificarse como usuario de solo lectura ni acceso mínimo: la cadena CDK proporciona un camino a despliegues con ejecutor administrativo. DescribeIdentityProvider puede devolver configuración sensible del proveedor; no se llamó esa operación en esta auditoría.
+- Sin login profile ni MFA IAM registrado. La autorización InvokeFunction es más amplia que solo la función de migraciones nombrada por su Sid; no se verificó mediante invocaciones el efecto de las validaciones internas de cada función.
+
+foloo-entitlement-operator
+- Creado: 2026-11-06T20:55:47Z. Finalidad: operaciones administrativas FL-021, separadas del usuario de despliegue.
+- Inline: AdministrativeEntitlementOperatorUserDefaultPolicyA839B5D6. Solo sts:AssumeRole y sts:SetSourceIdentity sobre arn:aws:iam::837153590200:role/foloo-dev-fl021-entitlement-operator.
+- Sin grupo ni políticas managed ni permissions boundary; sin login profile. MFA registrado el 2026-11-06T21:23:08Z, dispositivo arn:aws:iam::837153590200:mfa/foloo-entitlement-operator.
+- La confianza del rol exige ese usuario exacto, MFA, SourceIdentity=foloo-entitlement-operator y RoleSessionName=fl021-*. Duración máxima: 3600 segundos.
+- El rol solo autoriza lambda:InvokeFunction sobre FolooBackend-dev-AdministrativeEntitlementFunction-d903DQ3338Jm y sus versiones/aliases. No equivale a administración IAM ni acceso directo a RDS.
+
+Los tres usuarios carecen de login profile de consola. No se identificaron otros usuarios IAM. Las políticas completas, grupos y trust policies se incluyen en evidencia-aws.json; las condiciones ExternalId se redactaron preventivamente.
+
+3. LLAVES DE ACCESO
+
+Solo se enumeran AccessKeyId; jamás SecretAccessKey o session tokens. Tiempos UTC, según respuesta IAM; último uso no es un historial completo y puede reflejar retraso de actualización. Las lecturas de esta auditoría utilizan la llave del deployer y pueden actualizar su último uso.
+
+Usuario: chris-foloo
+AccessKeyId: AKIA4F2R6BO4DNGWZNHM
+Estado: Active
+Creación: 2026-10-22T16:24:30+00:00
+Último uso reportado: 2026-10-28T14:23:00+00:00 | Servicio: secretsmanager | Región: us-east-1
+
+Usuario: foloo-deployer
+AccessKeyId: AKIA4F2R6BO4BKEQE36T
+Estado: Active
+Creación: 2026-09-09T19:24:28+00:00
+Último uso reportado: 2026-11-12T00:08:00+00:00 | Servicio: s3 | Región: us-east-1
+
+Usuario: foloo-entitlement-operator
+AccessKeyId: AKIA4F2R6BO4PD7E5TWZ
+Estado: Active
+Creación: 2026-11-06T21:25:58+00:00
+Último uso reportado: 2026-11-07T05:39:00+00:00 | Servicio: sts | Región: us-east-1
+
+Root: AccountMFAEnabled=1 y AccountAccessKeysPresent=0. AccountPasswordPresent=1 indica presencia de contraseña root; no se consultó su valor ni se usó root. El resumen no informa clase/custodio del MFA root. No hay credential report previo disponible (ReportNotPresent); no se generó porque sería una operación de escritura. Las consultas directas por usuario aportan las llaves y MFA anteriores.
+
+4. CLI, CI/CD Y CREDENCIALES DE EJECUCIÓN
+
+Configuración local comprobada:
+- ~/.aws/config: foloo-dev tiene region/output; no sso_session, role_arn, credential_process ni web_identity_token_file.
+- ~/.aws/credentials: únicamente sección foloo-dev, con identificador de llave y secreto configurados. El identificador coincide con la llave activa de foloo-deployer. No se copió ni mostró el valor secreto.
+- No había variables AWS_* en el entorno del proceso auditado.
+- foloo-entitlement-operator existe como perfil de configuración, pero no tiene sección de credenciales base en este archivo local.
+- foloo-entitlement-admin configura role_arn=arn:aws:iam::837153590200:role/foloo-dev-fl021-entitlement-operator, source_profile=foloo-entitlement-operator y mfa_serial correspondiente. También declara source_identity, role_session_name y duración. Depende de recuperar de su custodio la credencial base autorizada y del dispositivo MFA. No se intentó asumir el rol ni obtener sesiones en esta auditoría.
+- El runbook menciona un perfil base foloo-entitlement-operator-base, mientras que la configuración local usa foloo-entitlement-operator. TI debe alinear el nombre al preparar la transición; no se cambió configuración.
+
+Evidencia de despliegue:
+- backend/README.md describe AWS_PROFILE=foloo-dev para CDK, y muestra aws sso login. El SSO documentado no coincide con la autenticación IAM actualmente efectiva. No debe reemplazarse a ciegas el perfil usado por scripts.
+- FolooBackend-dev está UPDATE_COMPLETE y registra como RoleARN el ejecutor CDK CloudFormation. Hay también CDKToolkit, FolooLanding-dev y FolooPromo-dev; no se observaron stacks PROD en la enumeración de us-east-1.
+- No hay workflows .github/.gitlab/CircleCI/Jenkins/buildspec identificados en el checkout inspeccionado. CodePipeline y CodeBuild devolvieron listas vacías en us-east-1. Esto no demuestra que no existan automatizaciones en otros repositorios, regiones, equipos, servicios hospedados o cuentas.
+- No se accedió a los secretos de GitHub, Apple, CI ni a variables secretas de los proveedores. TI debe levantar la matriz consumidor -> llave/rol -> propietario -> repositorio/job -> entorno -> procedimiento de prueba.
+- Se enumeraron 18 funciones Lambda con sus Role ARN. Los roles de ejecución usan confianza lambda.amazonaws.com y credenciales temporales de servicio. Su dependencia de secretos de DB/OAuth/KMS es distinta de la llave humana de despliegue; no se consultaron los valores. La ausencia de credenciales hardcodeadas en todos los artefactos/despliegues no fue objeto de certificación.
+- CloudTrail: se obtuvo una muestra de los 20 eventos AssumeRole más recientes, dominada por servicios AWS. Solo se conservaron metadatos; no constituye trazabilidad completa de usuarios humanos ni prueba de ausencia de CI. No se inspeccionaron tokens ni respuestas STS.
+
+5. ROLES CDK Y FRONTERAS DE PRIVILEGIO
+
+Prefijo exacto bootstrap: cdk-hnb659fds-<tipo>-role-837153590200-us-east-1.
+- cfn-exec: AdministratorAccess; solo cloudformation.amazonaws.com figura como principal de confianza. Es el ejecutor observado de FolooBackend-dev.
+- deploy: AWSCloudFormationReadOnlyAccess más inline default. Permite crear/ejecutar Change Sets, crear/actualizar/eliminar stacks y pasar únicamente el cfn-exec de esta cuenta/región. Las operaciones de CloudFormation están ampliamente Resource=*. Incluye acceso de staging S3, versión SSM y permisos de artefactos/cifrado.
+- file-publishing: publica assets en el bucket bootstrap; los permisos exactos S3/KMS constan en la política inventariada.
+- image-publishing: publica imágenes en el repositorio ECR bootstrap; no se reportó último uso. Eso no prueba que pueda eliminarse.
+- lookup: ReadOnlyAccess y deny explícito a kms:Decrypt. No debe considerarse automáticamente equivalente al perfil auditor personalizado requerido para TI.
+
+Los cuatro roles asumibles por clientes confían en la cuenta 837153590200 (principal :root, que representa delegación a identidades autorizadas de la cuenta, no exclusivamente al login root). No exigen MFA en sus trust policies. Los permisos sts:AssumeRole de los usuarios determinan quién puede entrar; no es un rol público. Ninguno de los 32 roles enumerados tiene permissions boundary registrada. El bootstrap es compartido por las operaciones de la cuenta/región: reducirlo o cambiar su confianza sin inventariar Landing/Promo puede romper despliegues ajenos al backend.
+
+El resto de roles relevantes está en el anexo A con nombres exactos, políticas y últimos usos. Las políticas de runtime no deben darse a usuarios humanos por comodidad. No se modificó ningún trust policy, runtime role o permiso.
+
+6. MFA, ORGANIZATIONS Y FEDERACIÓN
+
+- Root: MFA habilitado y sin llaves de acceso.
+- Usuarios IAM: MFA solo en foloo-entitlement-operator. Registrar MFA por sí solo no hace que cada llamada con una llave permanente requiera MFA: hacen falta las condiciones apropiadas. En FL-021 la confianza de AssumeRole sí lo exige.
+- Organizations: DescribeOrganization devolvió AWSOrganizationsNotInUseException. La cuenta aún no pertenece a ninguna organización. No hay SCP corporativa heredada de una organización en este estado; no se evaluaron otros controles externos.
+- Identity Center: cero instancias visibles en las 18 regiones habilitadas consultadas. No hay roles AWSReservedSSO en IAM ni configuración SSO local. Los permisos enumerados no devolvieron AccessDenied en estas consultas. Esto no inventaría un Identity Center corporativo de CBQA en otra cuenta.
+- IAM: cero proveedores OIDC y cero proveedores SAML; las 32 trust policies enumeradas no muestran una ruta AssumeRoleWithWebIdentity/AssumeRoleWithSAML.
+- Cognito Identity Pools: ninguno en us-east-1. La autenticación Google/Apple de usuarios Foloo en Cognito User Pools no equivale a federación administrativa AWS y queda fuera de esta revisión.
+
+7. RIESGOS PRIORIZADOS
+
+ALTO R1. Llave permanente del deployer con AdministratorAccess, sin MFA IAM y usada localmente. Impacto potencial en toda la cuenta, incluidos IAM y futuros recursos PROD. Migrar personas a credenciales temporales; mantener continuidad con una ventana de transición aprobada y custodia controlada.
+ALTO R2. chris-foloo tiene acceso CDK que termina en un ejecutor administrativo. Su política también permite invocar todas las Lambda FolooBackend-dev-* y modificar todos los pools Cognito de us-east-1. Reducir por función/ARN y separar despliegue, migraciones, proveedores OAuth y operación administrativa. No basta con cambiar la etiqueta de la política.
+ALTO R3. Mínimo privilegio futuro DEV/PROD no existe por usar nombres de stack diferentes: el deploy role y cfn-exec compartidos permiten salir de esos límites. Hay que controlar el ejecutor y PassRole, además de las identidades de entrada.
+MEDIO R4. Credencial base FL-021 activa en AWS, ausente del archivo local auditado. Puede dificultar continuidad operativa; no indica pérdida o compromiso. Confirmar custodio, bóveda, MFA y procedimiento autorizado antes de migrar.
+MEDIO R5. No hay federación laboral/CI demostrada. Debe completarse el inventario de consumidores externos antes de retirar llaves; no se concluye que las llaves estén comprometidas ni se autoriza su rotación/desactivación.
+MEDIO R6. El runbook SSO y nombres de perfil no reflejan exactamente la configuración efectiva. Actualizarlos en una tarea autorizada tras decidir el modelo de acceso.
+
+8. MIGRACIÓN SIN INTERRUMPIR DESPLIEGUES (PROPUESTA, NO EJECUTADA)
+
+1) TI confirma responsables, IdP corporativo, membresía Organizations/instancia Identity Center de CBQA y cuenta/región destino PROD. Define acceso de emergencia con MFA, custodios y aprobación; el administrador actual conserva acceso operativo durante la transición.
+2) Inventariar consumidores de las tres llaves, incluidos jobs externos, estaciones, IDE, scripts, bóvedas y procesos manuales. Confirmar necesidad de acceso por persona; no copiar secretos al reporte ni compartir una llave común.
+3) Crear, bajo autorización futura, grupos/perfiles federados paralelos a los actuales, inicialmente con roles dedicados. Probar acceso STS/lecturas con nombre nuevo (por ejemplo un perfil propuesto foloo-dev-sso); no sobrescribir foloo-dev ni las credenciales existentes de entrada.
+4) Separar personas (Identity Center con MFA corporativo) de automatización (rol OIDC del CI real que se confirme). El OIDC de CI debe fijar audiencia y subject a organización/repositorio y rama o entorno autorizado; ningún comodín abierto para forks/PR no confiables. Establecer aprobaciones separadas para PROD.
+5) Preparar least privilege sobre entrada, assets, CloudFormation execution e IAM. Revisar todas las plantillas y dependencias antes de estrechar el bootstrap compartido. No reemplazar CDKToolkit ni recortar cfn-exec en el primer corte de SSO. La migración de identidad y el endurecimiento de permisos se validan en pasos separados con evidencias.
+6) Adaptar FL-021 por separado: su trust solo admite el usuario antiguo y el contexto MFA IAM no se traslada sin más a Identity Center. Diseñar confianza en el nuevo rol autorizado y prueba de MFA del IdP/claims o session tags controladas; preservar SourceIdentity, auditoría y límite de invocación. No eliminar el requisito MFA ni fingir que aws:MultiFactorAuthPresent estará presente para sesiones federadas. Mantener la ruta anterior hasta validar la nueva.
+7) Tras autorización de pruebas con escritura, validar un despliegue DEV controlado, publicación de assets, lectura de contexto, migraciones autorizadas, rollback y operaciones FL-021. Un synth o un listado STS por sí solos no demuestran permisos para deploy. No se hicieron esas pruebas ahora.
+8) Migrar consumidores uno a uno y observar CloudTrail/errores. Solo retirar o rotar llaves antiguas con aprobación explícita, confirmación de ausencia de dependencias y procedimiento de recuperación. La reversión de la migración debe poder volver temporalmente a la ruta anterior aún vigente; nunca reactivar automáticamente una llave comprometida.
+
+9. PERMISOS MÍNIMOS PROPUESTOS PARA DEV Y PROD
+
+Esta matriz es un diseño de responsabilidades, no una policy JSON lista para adjuntar. Los ARN de PROD no existen todavía; se completan desde el despliegue autorizado. No es posible certificar un conjunto exacto mínimo sin sintetizar la configuración final, revisar cada recurso y validar el proceso de despliegue.
+
+A) Auditor/observador TI (DEV y PROD separados).
+   Permitir IAM Get/List de inventario de usuarios/roles/policies/MFA/llaves; sts:GetCallerIdentity; cloudformation:Describe*/List*/GetTemplate; cloudwatch:GetMetricData/GetMetricStatistics/ListMetrics; logs:DescribeLogGroups/DescribeLogStreams/GetLogEvents/FilterLogEvents; metadata de Lambda/RDS/S3/SQS/DynamoDB/Cognito/SES/KMS/Secrets Manager según función. Restringir recursos donde la API lo soporte; algunas acciones List/GetAccountSummary requieren '*'.
+   Excluir secretsmanager:GetSecretValue, ssm:GetParameter con descifrado, kms:Decrypt, lectura de objetos S3 de negocio, Scan/Query de datos, InvokeFunction y acceso de consola a funciones destructivas. No dar ReadOnlyAccess indiscriminadamente si permite datos/configuración sensibles. Revisar operaciones Describe de Cognito y configuración Lambda que pueden devolver secretos antes de incluirlas; usar vistas filtradas cuando sea necesario. Los logs también pueden contener PII y requieren audiencia limitada.
+
+B) Desplegador por entorno (humano federado o CI OIDC).
+   Entrada: sts:AssumeRole únicamente sobre roles de lookup/file-publishing/deploy aprobados de ese entorno; image-publishing solo si existe un asset de contenedor necesario. sts:TagSession/SetSourceIdentity cuando el modelo aprobado lo requiera. Lectura de la versión SSM del bootstrap y contexto estrictamente necesario.
+   Assets: S3 Get/Put/List limitados al bucket y prefijos bootstrap aplicables; KMS si está cifrado con CMK; ECR upload solo si necesario. No dar acceso a los objetos con leads como permiso de despliegue.
+   Change Sets: cloudformation:CreateChangeSet/DescribeChangeSet/GetTemplate/DescribeStacks/DescribeStackEvents/List* y operaciones de validación necesarias sobre stacks aprobados. cloudformation:ExecuteChangeSet/UpdateStack/CreateStack solo al rol de ejecución autorizado, con aprobación PROD; DeleteStack/terminación/rollback privilegiado separados según procedimiento. Evitar invocar CDK diff durante auditorías estrictamente de lectura si va a crear Change Sets.
+   iam:PassRole solo al ejecutor CloudFormation de ese entorno y con iam:PassedToService=cloudformation.amazonaws.com. Revisar cloudformation:RoleArn y exclusión de otros stacks. Un filtro FolooBackend-prod* no basta si el ejecutor puede crear o mutar recursos IAM arbitrarios.
+
+C) Ejecutor CloudFormation, separado de la identidad humana y por entorno.
+   Operaciones de lifecycle necesarias para Lambda, API Gateway, EC2/VPC/subredes/SG/endpoints, RDS/subnet groups, S3, SQS, DynamoDB, Secrets Manager, KMS, Cognito, SES, EventBridge/Scheduler, logs/CloudWatch, CloudTrail/SNS y recursos auxiliares presentes en la plantilla final; no habilitar servicios o políticas históricas no utilizados. El inventario de tipos del template final determina el alcance exacto, no esta lista orientativa.
+   IAM limitado a crear/actualizar roles/policies de runtime en una ruta/nombres aprobados y con permissions boundary que el ejecutor no pueda modificar; impedir que gestione su propia política/trust, bootstrap y roles de gobierno. PassRole de runtime solo a servicios concretos (por ejemplo lambda.amazonaws.com) y ARN autorizados. No conceder administración general de usuarios/llaves.
+   Limitar acciones por ARN/cuenta/región y tags cuando la acción admita esas condiciones; usar RequestTag para creación y ResourceTag para recursos existentes donde aplique. Controlar los casos que exigen Resource='*'. Las tags no sustituyen boundaries ni límites de confianza. Ajustar key policies y S3/resource policies para que la frontera también sea efectiva allí.
+   Separar DEV/PROD mediante roles/ejecutores y alcance de recursos; si comparten bootstrap de cuenta/región, personalizarlo o establecer controles demostrables antes de considerar esos despliegues aislados. Una cuenta PROD separada refuerza aislamiento, pero es una decisión de CBQA, no requisito nuevo impuesto por esta auditoría.
+
+D) Operación de aplicación por entorno.
+   Observabilidad y diagnóstico con métricas/logs/metadata. UpdateFunctionConfiguration, cambio de cuotas/concurrencia, replay SQS, restauración RDS, exportación/borrado S3, cambios Cognito y modificaciones KMS son facultades distintas con aprobación y runbooks. No otorgar acceso de datos ni GetSecretValue a operadores rutinarios. Actualizaciones de infraestructura ordinarias pasan por CDK/CloudFormation.
+
+E) Operador de migraciones y entitlements.
+   Migraciones: lambda:InvokeFunction y lectura de logs únicamente sobre la Lambda de migración del entorno, con payload/procedimiento aprobado. IAM InvokeFunction no restringe por sí solo el contenido del payload; la función debe validar los comandos admitidos. Secretos de DB permanecen en el rol de runtime de la Lambda.
+   Entitlements: conservar el boundary FL-021: InvokeFunction solo al endpoint administrativo por entorno, con identidad atribuible y MFA comprobable. Status/grant/revoke no son separables mediante IAM si el mismo ARN recibe diferentes payloads; un rol que puede invocar esa función requiere autorización operacional y validación interna.
+
+F) Seguridad/identidad CBQA y secretos OAuth.
+   Administrar Identity Center/IdP, confianza OIDC, permission sets/boundaries, bootstrap y acceso de emergencia en un rol de seguridad separado. Organizations/facturación no forman parte de los permisos diarios de Foloo.
+   Personal autorizado de integración configura secretos OAuth/Apple/email mediante Secrets Manager PutSecretValue sobre ARN específicos y KMS estrictamente necesario. No incluir credenciales en Flutter, contextos CDK o logs; no entregar lectura amplia de secretos al desplegador humano. La creación inicial de un secreto y su key policy requiere una fase autorizada de aprovisionamiento, distinta del uso cotidiano.
+
+10. PENDIENTES PARA TI Y EVIDENCIA
+
+- Confirmar propietario y custodio de chris-foloo, foloo-deployer, operador FL-021 y root; confirmar consumidores de cada llave. No inferir que una llave se usa por una sola persona o en un solo equipo.
+- Confirmar IdP, organización y cuenta/región PROD, objetivos de sesión/MFA, permission sets, accesos de emergencia y separación de funciones.
+- Revisar CI externo y otras regiones de CodeBuild/CodePipeline si aplican. La búsqueda de Identity Center sí cubrió todas las regiones habilitadas devueltas por DescribeRegions.
+- Revisar, en una fase separada, resource policies, KMS key policies, S3 bucket policies, acceso público/cross-account, Access Analyzer, cobertura/retención de CloudTrail y controles del IdP. Esta auditoría inventaría identidades y políticas asociadas, no certifica la seguridad completa de todos los datos AWS.
+- Mantener la operación DEV actual hasta verificar la sustitución. No se autoriza activar PROD ni cambiar AWS a partir de este reporte.
+
+Fuentes internas: backend/README.md (configuración/despliegue), backend/infra/foloo_backend_stack.ts (boundary FL-021), docs/delivery/fl021-administrative-entitlement-operations.md, configuración AWS local sin valores secretos, respuestas AWS adjuntas. Trazas pertinentes: INF-05/INF-12/INF-14, MON-21/MON-22 y ADR-003; no se modificó producto ni arquitectura.
+
+Fuentes oficiales consultadas para las recomendaciones (no reemplazan la evidencia de cuenta):
+- IAM, credenciales temporales y mínimo privilegio: https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html
+- CLI Identity Center: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html
+- CDK bootstrap y execution roles: https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping-env.html
+- Contexto MFA/federación: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html
+- OIDC y restricción de confianza: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-idp_oidc.html
+
+ANEXO A. ROLES IAM ENUMERADOS
+
+Las políticas de cada rol Foloo/CDK consultado y sus trust policies figuran completas en evidencia-aws.json. Los seis service-linked roles de AWS se enumeran con confianza; sus políticas adjuntas no se desglosaron porque no son roles humanos/de despliegue Foloo. Último uso RoleLastUsed no constituye prueba de inactividad ni autoriza borrar roles.
+
+AWSServiceRoleForAPIGateway
+ARN: arn:aws:iam::837153590200:role/aws-service-role/ops.apigateway.amazonaws.com/AWSServiceRoleForAPIGateway
+Managed: no desglosadas
+Inline: no desglosadas
+Último uso: {}
+
+AWSServiceRoleForCloudFrontLogger
+ARN: arn:aws:iam::837153590200:role/aws-service-role/logger.cloudfront.amazonaws.com/AWSServiceRoleForCloudFrontLogger
+Managed: no desglosadas
+Inline: no desglosadas
+Último uso: {}
+
+AWSServiceRoleForRDS
+ARN: arn:aws:iam::837153590200:role/aws-service-role/rds.amazonaws.com/AWSServiceRoleForRDS
+Managed: no desglosadas
+Inline: no desglosadas
+Último uso: {}
+
+AWSServiceRoleForResourceExplorer
+ARN: arn:aws:iam::837153590200:role/aws-service-role/resource-explorer-2.amazonaws.com/AWSServiceRoleForResourceExplorer
+Managed: no desglosadas
+Inline: no desglosadas
+Último uso: {}
+
+AWSServiceRoleForSupport
+ARN: arn:aws:iam::837153590200:role/aws-service-role/support.amazonaws.com/AWSServiceRoleForSupport
+Managed: no desglosadas
+Inline: no desglosadas
+Último uso: {}
+
+AWSServiceRoleForTrustedAdvisor
+ARN: arn:aws:iam::837153590200:role/aws-service-role/trustedadvisor.amazonaws.com/AWSServiceRoleForTrustedAdvisor
+Managed: no desglosadas
+Inline: no desglosadas
+Último uso: {}
+
+cdk-hnb659fds-cfn-exec-role-837153590200-us-east-1
+ARN: arn:aws:iam::837153590200:role/cdk-hnb659fds-cfn-exec-role-837153590200-us-east-1
+Managed: AdministratorAccess
+Inline: ninguna
+Último uso: {"LastUsedDate": "2026-11-11T23:35:21+00:00", "Region": "us-east-1"}
+
+cdk-hnb659fds-deploy-role-837153590200-us-east-1
+ARN: arn:aws:iam::837153590200:role/cdk-hnb659fds-deploy-role-837153590200-us-east-1
+Managed: AWSCloudFormationReadOnlyAccess
+Inline: default
+Último uso: {"LastUsedDate": "2026-11-11T23:07:56+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): cloudformation:ContinueUpdateRollback, cloudformation:CreateChangeSet, cloudformation:CreateStack, cloudformation:CreateStackRefactor, cloudformation:DeleteChangeSet, cloudformation:DeleteStack, cloudformation:ExecuteChangeSet, cloudformation:ExecuteStackRefactor, cloudformation:RollbackStack, cloudformation:UpdateStack, cloudformation:UpdateTerminationProtection, iam:PassRole, kms:Decrypt, kms:DescribeKey, kms:Encrypt, kms:GenerateDataKey*, kms:ReEncrypt*, s3:Abort*, s3:DeleteObject*, s3:GetBucket*, s3:GetObject*, s3:List*, s3:PutObject*, ssm:GetParameter, ssm:GetParameters, sts:GetCallerIdentity
+
+cdk-hnb659fds-file-publishing-role-837153590200-us-east-1
+ARN: arn:aws:iam::837153590200:role/cdk-hnb659fds-file-publishing-role-837153590200-us-east-1
+Managed: ninguna
+Inline: cdk-hnb659fds-file-publishing-role-default-policy-837153590200-us-east-1
+Último uso: {"LastUsedDate": "2026-11-11T23:07:26+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): kms:Decrypt, kms:DescribeKey, kms:Encrypt, kms:GenerateDataKey*, kms:ReEncrypt*, s3:Abort*, s3:DeleteObject*, s3:GetBucket*, s3:GetEncryptionConfiguration, s3:GetObject*, s3:List*, s3:PutObject*
+
+cdk-hnb659fds-image-publishing-role-837153590200-us-east-1
+ARN: arn:aws:iam::837153590200:role/cdk-hnb659fds-image-publishing-role-837153590200-us-east-1
+Managed: ninguna
+Inline: cdk-hnb659fds-image-publishing-role-default-policy-837153590200-us-east-1
+Último uso: {}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): ecr:BatchCheckLayerAvailability, ecr:BatchGetImage, ecr:CompleteLayerUpload, ecr:DescribeImages, ecr:DescribeRepositories, ecr:GetAuthorizationToken, ecr:GetDownloadUrlForLayer, ecr:InitiateLayerUpload, ecr:PutImage, ecr:UploadLayerPart
+
+cdk-hnb659fds-lookup-role-837153590200-us-east-1
+ARN: arn:aws:iam::837153590200:role/cdk-hnb659fds-lookup-role-837153590200-us-east-1
+Managed: ReadOnlyAccess
+Inline: LookupRolePolicy
+Último uso: {"LastUsedDate": "2026-11-11T23:07:35+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): kms:Decrypt
+
+foloo-dev-fl021-entitlement-operator
+ARN: arn:aws:iam::837153590200:role/foloo-dev-fl021-entitlement-operator
+Managed: ninguna
+Inline: AdministrativeEntitlementOperatorRoleDefaultPolicy24B5BE24
+Último uso: {"LastUsedDate": "2026-11-07T06:18:51+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): lambda:InvokeFunction
+
+FolooBackend-dev-AccountDeletionCognitoFinalizerFun-N9vtKrjnHxZr
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-AccountDeletionCognitoFinalizerFun-N9vtKrjnHxZr
+Managed: AWSLambdaBasicExecutionRole
+Inline: AccountDeletionCognitoFinalizerFunctionServiceRoleDefaultPolicyDAA532A0
+Último uso: {"LastUsedDate": "2026-11-04T19:16:51+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): cognito-idp:AdminDeleteUser, cognito-idp:AdminUserGlobalSignOut, cognito-idp:ListUsers
+
+FolooBackend-dev-AccountDeletionEmailFunctionServic-jg2ydB7AtoVM
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-AccountDeletionEmailFunctionServic-jg2ydB7AtoVM
+Managed: AWSLambdaBasicExecutionRole
+Inline: AccountDeletionEmailFunctionServiceRoleDefaultPolicy8E1ACEAC
+Último uso: {"LastUsedDate": "2026-11-04T19:16:52+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): dynamodb:DeleteItem, dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem, kms:Decrypt, kms:Encrypt, kms:GenerateDataKey*, kms:ReEncrypt*, ses:SendEmail, sqs:SendMessage
+
+FolooBackend-dev-AccountDeletionOutboxRecoveryFunct-gcwzfY8qTKpf
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-AccountDeletionOutboxRecoveryFunct-gcwzfY8qTKpf
+Managed: AWSLambdaBasicExecutionRole
+Inline: AccountDeletionOutboxRecoveryFunctionServiceRoleDefaultPolicy45E75D45
+Último uso: {"LastUsedDate": "2026-11-12T17:39:04+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): dynamodb:DeleteItem, dynamodb:GetItem, dynamodb:PutItem, dynamodb:Query, dynamodb:TransactWriteItems, dynamodb:UpdateItem, kms:Decrypt, kms:Encrypt, kms:GenerateDataKey*, kms:ReEncrypt*, sqs:GetQueueAttributes, sqs:GetQueueUrl, sqs:SendMessage
+
+FolooBackend-dev-AccountDeletionPostAuthenticationF-T8G73T6ocnDB
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-AccountDeletionPostAuthenticationF-T8G73T6ocnDB
+Managed: AWSLambdaBasicExecutionRole
+Inline: AccountDeletionPostAuthenticationFunctionServiceRoleDefaultPolicy1B276D5E
+Último uso: {"LastUsedDate": "2026-11-11T18:23:19+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): dynamodb:BatchGetItem, kms:GenerateMac, kms:VerifyMac, sqs:GetQueueAttributes, sqs:GetQueueUrl, sqs:SendMessage
+
+FolooBackend-dev-AccountDeletionPreSignUpFunctionSe-5ggTzmfxbW5E
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-AccountDeletionPreSignUpFunctionSe-5ggTzmfxbW5E
+Managed: AWSLambdaBasicExecutionRole
+Inline: AccountDeletionPreSignUpFunctionServiceRoleDefaultPolicy03AED16C
+Último uso: {"LastUsedDate": "2026-11-11T18:22:34+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): dynamodb:BatchGetItem, kms:GenerateMac, kms:VerifyMac
+
+FolooBackend-dev-AccountDeletionRestoreReconcilerFu-z817QiKVADq2
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-AccountDeletionRestoreReconcilerFu-z817QiKVADq2
+Managed: AWSLambdaVPCAccessExecutionRole, AWSLambdaBasicExecutionRole
+Inline: AccountDeletionRestoreReconcilerFunctionServiceRoleDefaultPolicyCCCFEE7B
+Último uso: {"LastUsedDate": "2026-10-26T19:36:26+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): dynamodb:BatchGetItem, kms:GenerateMac, kms:VerifyMac, secretsmanager:DescribeSecret, secretsmanager:GetSecretValue, sqs:GetQueueAttributes, sqs:GetQueueUrl, sqs:SendMessage
+
+FolooBackend-dev-AccountDeletionVerifiedEmailFuncti-f0GFSzsrpAJE
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-AccountDeletionVerifiedEmailFuncti-f0GFSzsrpAJE
+Managed: ninguna
+Inline: AccountDeletionVerifiedEmailFunctionRoleDefaultPolicy5C383A9F
+Último uso: {"LastUsedDate": "2026-11-04T19:05:47+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): logs:CreateLogStream, logs:PutLogEvents
+
+FolooBackend-dev-AccountDeletionWorkerFunctionServi-o85kE6bwHVRU
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-AccountDeletionWorkerFunctionServi-o85kE6bwHVRU
+Managed: AWSLambdaVPCAccessExecutionRole, AWSLambdaBasicExecutionRole
+Inline: AccountDeletionWorkerFunctionServiceRoleDefaultPolicy782CCF74
+Último uso: {"LastUsedDate": "2026-11-12T17:34:56+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): dynamodb:GetItem, dynamodb:PutItem, dynamodb:TransactWriteItems, dynamodb:UpdateItem, kms:Decrypt, kms:Encrypt, kms:GenerateDataKey*, kms:GenerateMac, kms:ReEncrypt*, kms:VerifyMac, lambda:InvokeFunction, s3:DeleteObject, s3:GetObject, s3:ListBucket, secretsmanager:DescribeSecret, secretsmanager:GetSecretValue, sqs:ChangeMessageVisibility, sqs:DeleteMessage, sqs:GetQueueAttributes, sqs:GetQueueUrl, sqs:ReceiveMessage
+
+FolooBackend-dev-AdministrativeEntitlementAuditTrai-JyZjVKfUBB3p
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-AdministrativeEntitlementAuditTrai-JyZjVKfUBB3p
+Managed: ninguna
+Inline: AdministrativeEntitlementAuditTrailLogsRoleDefaultPolicy55AA1477
+Último uso: {"LastUsedDate": "2026-11-12T17:41:08+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): logs:CreateLogStream, logs:PutLogEvents
+
+FolooBackend-dev-AdministrativeEntitlementFunctionS-Ta54A5vzmG7J
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-AdministrativeEntitlementFunctionS-Ta54A5vzmG7J
+Managed: AWSLambdaVPCAccessExecutionRole, AWSLambdaBasicExecutionRole
+Inline: AdministrativeEntitlementFunctionServiceRoleDefaultPolicyE1A90AD7
+Último uso: {"LastUsedDate": "2026-11-07T06:19:00+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): kms:GenerateMac, lambda:InvokeFunction, secretsmanager:DescribeSecret, secretsmanager:GetSecretValue
+
+FolooBackend-dev-AdministrativeEntitlementIdentityF-1STICkisza6h
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-AdministrativeEntitlementIdentityF-1STICkisza6h
+Managed: AWSLambdaBasicExecutionRole
+Inline: AdministrativeEntitlementIdentityFunctionServiceRoleDefaultPolicyE7B9D503
+Último uso: {"LastUsedDate": "2026-11-11T18:23:19+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): cognito-idp:ListUsers
+
+FolooBackend-dev-ApiFunctionServiceRole52B9747B-pafPeaisQ8if
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-ApiFunctionServiceRole52B9747B-pafPeaisQ8if
+Managed: AWSLambdaVPCAccessExecutionRole, AWSLambdaBasicExecutionRole
+Inline: ApiFunctionServiceRoleDefaultPolicy20A32B8D
+Último uso: {"LastUsedDate": "2026-11-12T17:42:29+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): dynamodb:BatchGetItem, dynamodb:GetItem, dynamodb:PutItem, dynamodb:TransactWriteItems, kms:Decrypt, kms:Encrypt, kms:GenerateDataKey*, kms:GenerateMac, kms:ReEncrypt*, kms:VerifyMac, lambda:InvokeFunction, s3:GetObject, s3:PutObject, secretsmanager:DescribeSecret, secretsmanager:GetSecretValue, sqs:GetQueueAttributes, sqs:GetQueueUrl, sqs:SendMessage
+
+FolooBackend-dev-AutomaticEntitlementWorkerFunction-QooOc2CMxpw1
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-AutomaticEntitlementWorkerFunction-QooOc2CMxpw1
+Managed: AWSLambdaVPCAccessExecutionRole, AWSLambdaBasicExecutionRole
+Inline: AutomaticEntitlementWorkerFunctionServiceRoleDefaultPolicyA5A3BC63
+Último uso: {"LastUsedDate": "2026-11-12T17:42:02+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): kms:GenerateMac, lambda:InvokeFunction, secretsmanager:DescribeSecret, secretsmanager:GetSecretValue, sqs:ChangeMessageVisibility, sqs:DeleteMessage, sqs:GetQueueAttributes, sqs:GetQueueUrl, sqs:ReceiveMessage
+
+FolooBackend-dev-BillingProviderFunctionServiceRole-u8U5Tb38TU0r
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-BillingProviderFunctionServiceRole-u8U5Tb38TU0r
+Managed: AWSLambdaBasicExecutionRole
+Inline: BillingProviderFunctionServiceRoleDefaultPolicy01510A54
+Último uso: {"LastUsedDate": "2026-10-22T21:51:16+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): secretsmanager:DescribeSecret, secretsmanager:GetSecretValue
+
+FolooBackend-dev-EmailProviderFunctionServiceRoleC0-8izT0RNu3S8d
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-EmailProviderFunctionServiceRoleC0-8izT0RNu3S8d
+Managed: AWSLambdaBasicExecutionRole
+Inline: EmailProviderFunctionServiceRoleDefaultPolicy267A9F1D
+Último uso: {"LastUsedDate": "2026-11-11T20:35:06+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): kms:Decrypt, kms:Encrypt, kms:GenerateDataKey*, kms:ReEncrypt*, secretsmanager:DescribeSecret, secretsmanager:GetSecretValue
+
+FolooBackend-dev-LogRetentionaae0aa3c5b4d4f87b02d85-f0oM3lToT0re
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-LogRetentionaae0aa3c5b4d4f87b02d85-f0oM3lToT0re
+Managed: AWSLambdaBasicExecutionRole
+Inline: LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB
+Último uso: {"LastUsedDate": "2026-09-09T21:53:34+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): logs:DeleteRetentionPolicy, logs:PutRetentionPolicy
+
+FolooBackend-dev-MigrationFunctionServiceRole14DD1B-ap8tSLzfAuCK
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-MigrationFunctionServiceRole14DD1B-ap8tSLzfAuCK
+Managed: AWSLambdaVPCAccessExecutionRole, AWSLambdaBasicExecutionRole
+Inline: MigrationFunctionServiceRoleDefaultPolicy280CFF3C
+Último uso: {"LastUsedDate": "2026-11-09T22:22:21+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): secretsmanager:DescribeSecret, secretsmanager:GetSecretValue
+
+FolooBackend-dev-WebSessionsFunctionServiceRoleCCEC-89WfDfgSIKMZ
+ARN: arn:aws:iam::837153590200:role/FolooBackend-dev-WebSessionsFunctionServiceRoleCCEC-89WfDfgSIKMZ
+Managed: AWSLambdaBasicExecutionRole
+Inline: WebSessionsFunctionServiceRoleDefaultPolicy2E7E0A90
+Último uso: {"LastUsedDate": "2026-11-11T18:23:25+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): dynamodb:DeleteItem, dynamodb:GetItem, dynamodb:PutItem, kms:Decrypt, kms:Encrypt
+
+FolooLanding-dev-DeploymentRoleC7BBCF2C-5p3jEYWIVIEG
+ARN: arn:aws:iam::837153590200:role/FolooLanding-dev-DeploymentRoleC7BBCF2C-5p3jEYWIVIEG
+Managed: ninguna
+Inline: DeploymentRoleDefaultPolicyB30A6D11
+Último uso: {"LastUsedDate": "2026-10-22T04:49:11+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): cloudfront:CreateInvalidation, cloudfront:GetInvalidation, logs:CreateLogStream, logs:PutLogEvents, s3:AbortMultipartUpload, s3:DeleteObject, s3:GetBucketLocation, s3:GetObject, s3:ListBucket, s3:PutObject
+
+FolooPromo-dev-RegistrationRole9C3F4077-Q5sHuryOQGj4
+ARN: arn:aws:iam::837153590200:role/FolooPromo-dev-RegistrationRole9C3F4077-Q5sHuryOQGj4
+Managed: ninguna
+Inline: RegistrationRoleDefaultPolicy7695A7C3
+Último uso: {"LastUsedDate": "2026-11-12T00:14:19+00:00", "Region": "us-east-1"}
+Acciones inline (consultar Effect/Resource/Condition en evidencia): dynamodb:PutItem
+
+ANEXO B. CORTE DE EVIDENCIA
+
+Inicio/corte del primer inventario: 2026-11-12T17:48:28.547768+00:00. Complementos regionales posteriores en la misma sesión. 180 entradas de evidencia, incluidas metadata y consultas sin resultados; no es un número de recursos.
+Regiones Identity Center consultadas: ap-south-1, eu-north-1, eu-west-3, eu-west-2, eu-west-1, ap-northeast-3, ap-northeast-2, ap-northeast-1, ca-central-1, sa-east-1, mx-central-1, ap-southeast-1, ap-southeast-2, eu-central-1, us-east-1, us-east-2, us-west-1, us-west-2.
