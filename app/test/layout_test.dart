@@ -59,6 +59,22 @@ void main() {
     expect(saveOnlyRect.top, saveRect.top);
     expect(saveOnlyRect.bottom, saveRect.bottom);
     expect(saveRect.width / saveOnlyRect.width, closeTo(2, .2));
+    expect(
+      tester
+          .widget<OutlinedButton>(find.byKey(const Key('saveOnlyLeadButton')))
+          .style
+          ?.shape
+          ?.resolve(<WidgetState>{}),
+      isA<StadiumBorder>(),
+    );
+    expect(
+      tester
+          .widget<ElevatedButton>(find.byKey(const Key('saveLeadButton')))
+          .style
+          ?.shape
+          ?.resolve(<WidgetState>{}),
+      isA<StadiumBorder>(),
+    );
     expect(find.text('Guarda y da “foloo”'), findsOneWidget);
     expect(scrollRect.height, greaterThan(500));
     expect(scrollRect.bottom, lessThanOrEqualTo(saveRect.top));

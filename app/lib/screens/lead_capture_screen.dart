@@ -1243,6 +1243,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                           Expanded(
                             child: OutlinedButton(
                               key: const Key('saveOnlyLeadButton'),
+                              style: OutlinedButton.styleFrom(
+                                shape: const StadiumBorder(),
+                              ),
                               onPressed: _submitting
                                   ? null
                                   : () => _submit(saveOnly: true),
@@ -1257,6 +1260,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                             flex: 2,
                             child: ElevatedButton.icon(
                               key: const Key('saveLeadButton'),
+                              style: ElevatedButton.styleFrom(
+                                shape: const StadiumBorder(),
+                              ),
                               onPressed: _submitting ? null : _submit,
                               iconAlignment: IconAlignment.end,
                               icon: const Icon(Icons.send_outlined),

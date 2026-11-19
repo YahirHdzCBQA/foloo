@@ -767,8 +767,18 @@ class AppLocalizationsEs extends AppLocalizations {
   String get clearFilters => 'Limpiar filtros';
 
   @override
-  String get exportNoMatchingLeads =>
-      'No hay leads que coincidan con estos filtros.';
+  String get exportNoDirectLeads =>
+      'Todavía no hay leads directos para exportar.';
+
+  @override
+  String exportNoMatchingContent(String content) {
+    return 'No se encontraron leads con el contenido $content.';
+  }
+
+  @override
+  String exportNoMatchingContents(String contents) {
+    return 'No se encontraron leads con los contenidos $contents.';
+  }
 
   @override
   String get searchEvents => 'Buscar entre eventos';

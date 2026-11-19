@@ -331,10 +331,11 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Elegir evento produce exclusivamente datos locales de ese owner/evento;
   elegir Leads directos incluye únicamente origen Directo. Ambos incluyen
   pendientes, funcionan offline y una vista agregada exige elegir un alcance.
-- Leads directos permite todo el historial o fechas inicial/final inclusivas en
-  calendario local y uno o más contenidos. Los contenidos se combinan con OR y
-  el rango con AND; el conteo cambia en vivo, cero resultados deshabilita la
-  salida y Limpiar filtros restaura todo. Un rango inválido no genera archivo.
+- Leads directos permite filtrar únicamente por uno o más contenidos, que se
+  combinan con OR; no muestra filtro de fecha. El conteo cambia en vivo, cero
+  resultados deshabilita la salida y nombra el contenido seleccionado; si no
+  existen Leads directos muestra una explicación distinta. Limpiar filtros
+  restaura todo el alcance.
 - La elección de evento es de una sola acción: la fila completa es táctil y no
   muestra un indicador circular de selección múltiple.
 - Las trece columnas aparecen en el orden de `REG-11`, con vacíos como celda

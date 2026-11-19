@@ -48,6 +48,235 @@ class _RecordedVoiceDraft {
   final int durationSeconds;
 }
 
+/// Owns one uncommitted voice-note draft in the Records detail flow.
+///
+/// It mirrors capture's explicit record, review, discard/re-record and save
+/// lifecycle without persisting audio until the user confirms it (VOZ-01–04).
+class _VoiceNoteRecorderSheet extends StatefulWidget {
+  const _VoiceNoteRecorderSheet({required this.service});
+
+  final VoiceNoteService service;
+
+  @override
+  State<_VoiceNoteRecorderSheet> createState() =>
+      _VoiceNoteRecorderSheetState();
+}
+
+class _VoiceNoteRecorderSheetState extends State<_VoiceNoteRecorderSheet> {
+  Timer? _timer;
+  StreamSubscription<void>? _playbackCompleted;
+  String? _path;
+  var _elapsed = Duration.zero;
+  var _recording = false;
+  var _playing = false;
+  var _busy = false;
+  var _committed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _playbackCompleted = widget.service.playbackCompleted.listen((_) {
+      if (mounted) setState(() => _playing = false);
+    });
+  }
+
+  Future<void> _start({bool replace = false}) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final previous = replace ? _path : null;
+    try {
+      await widget.service.stopPlayback();
+      final next = await widget.service.startRecording();
+      if (previous != null) await widget.service.deleteFile(previous);
+      _timer?.cancel();
+      if (!mounted) return;
+      setState(() {
+        _path = next;
+        _elapsed = Duration.zero;
+        _recording = true;
+        _playing = false;
+      });
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() => _elapsed += const Duration(seconds: 1));
+      });
+    } on VoiceNotePermissionDeniedException {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.l10n.microphoneDenied)));
+      }
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.l10n.recordStartError)));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _stop() async {
+    if (!_recording || _busy) return;
+    setState(() => _busy = true);
+    try {
+      final path = await widget.service.stopRecording();
+      _timer?.cancel();
+      if (!mounted) return;
+      setState(() {
+        _path = path ?? _path;
+        _recording = false;
+      });
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.l10n.recordStopError)));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _togglePlayback() async {
+    final path = _path;
+    if (path == null || _busy) return;
+    setState(() => _busy = true);
+    try {
+      if (_playing) {
+        await widget.service.pausePlayback();
+      } else {
+        await widget.service.play(path);
+      }
+      if (mounted) setState(() => _playing = !_playing);
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(context.l10n.audioPlayError)));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _discard() async {
+    final path = _path;
+    if (path == null || _busy) return;
+    setState(() => _busy = true);
+    await widget.service.stopPlayback();
+    await widget.service.deleteFile(path);
+    if (!mounted) return;
+    setState(() {
+      _path = null;
+      _elapsed = Duration.zero;
+      _playing = false;
+      _busy = false;
+    });
+  }
+
+  void _save() {
+    final path = _path;
+    if (path == null || _recording || _busy) return;
+    _committed = true;
+    Navigator.pop(context, _RecordedVoiceDraft(path, _elapsed.inSeconds));
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    unawaited(_playbackCompleted?.cancel());
+    if (_recording) unawaited(widget.service.cancelRecording());
+    unawaited(widget.service.stopPlayback());
+    if (!_committed && _path != null) {
+      unawaited(widget.service.deleteFile(_path!));
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            context.l10n.addVoiceNote,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 18),
+          Center(
+            child: Text(
+              _voiceDuration(_elapsed.inSeconds),
+              key: const Key('detailVoiceRecordingDuration'),
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (_path == null || _recording)
+            FilledButton.icon(
+              key: const Key('detailVoiceRecordButton'),
+              onPressed: _busy ? null : (_recording ? _stop : _start),
+              icon: Icon(_recording ? Icons.stop : Icons.mic),
+              label: Text(
+                _recording
+                    ? context.l10n.stopRecording
+                    : context.l10n.startRecording,
+              ),
+            )
+          else ...[
+            OutlinedButton.icon(
+              key: const Key('detailVoicePlayButton'),
+              onPressed: _busy ? null : _togglePlayback,
+              icon: Icon(_playing ? Icons.pause : Icons.play_arrow),
+              label: Text(
+                _playing ? context.l10n.pauseAudio : context.l10n.playAudio,
+              ),
+            ),
+            VoicePlaybackWaveform(
+              key: const Key('detailVoicePlaybackWaveform'),
+              active: _playing,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('detailVoiceDiscardButton'),
+                    onPressed: _busy ? null : _discard,
+                    icon: const Icon(Icons.delete_outline),
+                    label: Text(context.l10n.deleteAudio),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('detailVoiceRerecordButton'),
+                    onPressed: _busy ? null : () => _start(replace: true),
+                    icon: const Icon(Icons.replay),
+                    label: Text(context.l10n.recordAgain),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 8),
+          OutlinedButton(
+            key: const Key('detailVoiceSaveButton'),
+            onPressed: !_recording && _path != null && !_busy ? _save : null,
+            child: Text(context.l10n.save),
+          ),
+          TextButton(
+            onPressed: _busy ? null : () => Navigator.pop(context),
+            child: Text(context.l10n.cancel),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 String _leadTypeLabel(BuildContext context, LeadType type) => switch (type) {
   LeadType.supplier => context.l10n.supplier,
   LeadType.partner => context.l10n.partner,
@@ -563,129 +792,13 @@ class _RecordsScreenState extends State<RecordsScreen>
     }
     await _stopAudio();
     if (!mounted) return null;
-    String? recordedPath;
-    var elapsed = Duration.zero;
-    var recording = false;
-    var busy = false;
-    Timer? timer;
     final draft = await showModalBottomSheet<_RecordedVoiceDraft>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) {
-          Future<void> start() async {
-            if (busy) return;
-            setSheetState(() => busy = true);
-            try {
-              recordedPath = await _voice.startRecording();
-              elapsed = Duration.zero;
-              recording = true;
-              timer?.cancel();
-              timer = Timer.periodic(const Duration(seconds: 1), (_) {
-                if (sheetContext.mounted) {
-                  setSheetState(() => elapsed += const Duration(seconds: 1));
-                }
-              });
-            } on VoiceNotePermissionDeniedException {
-              if (sheetContext.mounted) {
-                ScaffoldMessenger.of(sheetContext).showSnackBar(
-                  SnackBar(content: Text(context.l10n.microphoneDenied)),
-                );
-              }
-            } finally {
-              if (sheetContext.mounted) setSheetState(() => busy = false);
-            }
-          }
-
-          Future<void> stop() async {
-            if (!recording || busy) return;
-            setSheetState(() => busy = true);
-            final path = await _voice.stopRecording();
-            timer?.cancel();
-            if (sheetContext.mounted) {
-              setSheetState(() {
-                recordedPath = path ?? recordedPath;
-                recording = false;
-                busy = false;
-              });
-            }
-          }
-
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    context.l10n.addVoiceNote,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Center(
-                    child: Text(
-                      _voiceDuration(elapsed.inSeconds),
-                      key: const Key('detailVoiceRecordingDuration'),
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  FilledButton.icon(
-                    key: const Key('detailVoiceRecordButton'),
-                    onPressed: busy ? null : (recording ? stop : start),
-                    icon: Icon(recording ? Icons.stop : Icons.mic),
-                    label: Text(
-                      recording
-                          ? context.l10n.stopRecording
-                          : context.l10n.startRecording,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    key: const Key('detailVoiceSaveButton'),
-                    onPressed: !recording && recordedPath != null && !busy
-                        ? () => Navigator.pop(
-                            sheetContext,
-                            _RecordedVoiceDraft(
-                              recordedPath!,
-                              elapsed.inSeconds,
-                            ),
-                          )
-                        : null,
-                    child: Text(context.l10n.save),
-                  ),
-                  TextButton(
-                    onPressed: busy
-                        ? null
-                        : () async {
-                            timer?.cancel();
-                            if (recording) await _voice.cancelRecording();
-                            if (sheetContext.mounted) {
-                              Navigator.pop(sheetContext);
-                            }
-                          },
-                    child: Text(context.l10n.cancel),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+      builder: (_) => _VoiceNoteRecorderSheet(service: _voice),
     );
-    timer?.cancel();
-    if (draft == null) {
-      if (recordedPath != null) await _voice.deleteFile(recordedPath!);
-      return null;
-    }
+    if (draft == null) return null;
     try {
       final refreshed = await widget.onVoiceNoteAdded!(
         record,
@@ -732,15 +845,18 @@ class _RecordsScreenState extends State<RecordsScreen>
           onConnectionRequired: () =>
               widget.onDestinationSelected(AppDestination.email),
           onCaptureAnother: () => Navigator.of(context).pop(),
-          onDraftSaved: widget.onEmailReviewUpdated == null
+          onDraftSaved:
+              widget.onEmailReviewUpdated == null &&
+                  widget.onLeadUpdated == null
               ? null
-              : (updated) => widget.onEmailReviewUpdated!(
-                  updated,
-                  record.lead.copyWith(
+              : (updated) async {
+                  final updatedLead = record.lead.copyWith(
                     contentFileIds: updated.attachmentIds,
                     contentNames: updated.attachmentNames,
-                  ),
-                ),
+                  );
+                  await widget.onLeadUpdated?.call(record, updatedLead);
+                  await widget.onEmailReviewUpdated?.call(updated, updatedLead);
+                },
         ),
       ),
     );
@@ -793,9 +909,6 @@ class _RecordsScreenState extends State<RecordsScreen>
     }
     final exportTarget = target;
     var format = RecordsExportFormat.xlsx;
-    var useDateRange = false;
-    DateTime? rangeStart;
-    DateTime? rangeEnd;
     final selectedContentIds = <String>{};
     await showDialog<void>(
       context: context,
@@ -828,8 +941,6 @@ class _RecordsScreenState extends State<RecordsScreen>
                         context.l10n.leadCount(
                           _recordsForExport(
                             exportTarget,
-                            start: useDateRange ? rangeStart : null,
-                            end: useDateRange ? rangeEnd : null,
                             contentIds: selectedContentIds,
                           ).length,
                         ),
@@ -843,66 +954,6 @@ class _RecordsScreenState extends State<RecordsScreen>
                     ),
                     const SizedBox(height: 16),
                     if (exportTarget.direct) ...[
-                      SwitchListTile.adaptive(
-                        key: const Key('directExportDateRange'),
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(context.l10n.dateAndTime),
-                        subtitle: Text(
-                          useDateRange
-                              ? '${rangeStart == null ? '—' : MaterialLocalizations.of(context).formatMediumDate(rangeStart!)} – ${rangeEnd == null ? '—' : MaterialLocalizations.of(context).formatMediumDate(rangeEnd!)}'
-                              : context.l10n.all,
-                        ),
-                        value: useDateRange,
-                        onChanged: (value) => setDialogState(() {
-                          useDateRange = value;
-                          rangeStart ??= DateTime.now();
-                          rangeEnd ??= rangeStart;
-                        }),
-                      ),
-                      if (useDateRange)
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                key: const Key('directExportStartDate'),
-                                onPressed: () async {
-                                  final selected = await showDatePicker(
-                                    context: context,
-                                    initialDate: rangeStart ?? DateTime.now(),
-                                    firstDate: DateTime(2000),
-                                    lastDate: rangeEnd ?? DateTime(2100),
-                                  );
-                                  if (selected != null) {
-                                    setDialogState(() => rangeStart = selected);
-                                  }
-                                },
-                                child: Text(context.l10n.starts),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: OutlinedButton(
-                                key: const Key('directExportEndDate'),
-                                onPressed: () async {
-                                  final selected = await showDatePicker(
-                                    context: context,
-                                    initialDate:
-                                        rangeEnd ??
-                                        rangeStart ??
-                                        DateTime.now(),
-                                    firstDate: rangeStart ?? DateTime(2000),
-                                    lastDate: DateTime(2100),
-                                  );
-                                  if (selected != null) {
-                                    setDialogState(() => rangeEnd = selected);
-                                  }
-                                },
-                                child: Text(context.l10n.ends),
-                              ),
-                            ),
-                          ],
-                        ),
-                      const SizedBox(height: 8),
                       Text(
                         context.l10n.exportContentFilter,
                         style: const TextStyle(fontWeight: FontWeight.w700),
@@ -948,12 +999,9 @@ class _RecordsScreenState extends State<RecordsScreen>
                         alignment: Alignment.centerLeft,
                         child: TextButton(
                           key: const Key('clearDirectExportFilters'),
-                          onPressed: !useDateRange && selectedContentIds.isEmpty
+                          onPressed: selectedContentIds.isEmpty
                               ? null
                               : () => setDialogState(() {
-                                  useDateRange = false;
-                                  rangeStart = null;
-                                  rangeEnd = null;
                                   selectedContentIds.clear();
                                 }),
                           child: Text(context.l10n.clearFilters),
@@ -961,12 +1009,10 @@ class _RecordsScreenState extends State<RecordsScreen>
                       ),
                       if (_recordsForExport(
                         exportTarget,
-                        start: useDateRange ? rangeStart : null,
-                        end: useDateRange ? rangeEnd : null,
                         contentIds: selectedContentIds,
                       ).isEmpty)
                         Text(
-                          context.l10n.exportNoMatchingLeads,
+                          _directExportEmptyMessage(selectedContentIds),
                           key: const Key('directExportNoResults'),
                           style: TextStyle(
                             color: FolooPalette.of(context).error,
@@ -1004,8 +1050,6 @@ class _RecordsScreenState extends State<RecordsScreen>
                             exportTarget.direct &&
                                 _recordsForExport(
                                   exportTarget,
-                                  start: useDateRange ? rangeStart : null,
-                                  end: useDateRange ? rangeEnd : null,
                                   contentIds: selectedContentIds,
                                 ).isEmpty
                             ? null
@@ -1017,8 +1061,6 @@ class _RecordsScreenState extends State<RecordsScreen>
                                   _ExportDelivery.saveToDevice,
                                   records: _recordsForExport(
                                     exportTarget,
-                                    start: useDateRange ? rangeStart : null,
-                                    end: useDateRange ? rangeEnd : null,
                                     contentIds: selectedContentIds,
                                   ),
                                 );
@@ -1034,8 +1076,6 @@ class _RecordsScreenState extends State<RecordsScreen>
                           exportTarget.direct &&
                               _recordsForExport(
                                 exportTarget,
-                                start: useDateRange ? rangeStart : null,
-                                end: useDateRange ? rangeEnd : null,
                                 contentIds: selectedContentIds,
                               ).isEmpty
                           ? null
@@ -1047,8 +1087,6 @@ class _RecordsScreenState extends State<RecordsScreen>
                                 _ExportDelivery.share,
                                 records: _recordsForExport(
                                   exportTarget,
-                                  start: useDateRange ? rangeStart : null,
-                                  end: useDateRange ? rangeEnd : null,
                                   contentIds: selectedContentIds,
                                 ),
                               );
@@ -1160,27 +1198,38 @@ class _RecordsScreenState extends State<RecordsScreen>
 
   List<SessionLead> _recordsForExport(
     _RecordsExportTarget target, {
-    DateTime? start,
-    DateTime? end,
     Set<String> contentIds = const {},
   }) => target.direct
-      ? widget.exportService
-            .directRecordsInLocalDateRange(
-              records: widget.records,
-              start: start,
-              end: end,
-            )
-            .where((record) {
-              if (contentIds.isEmpty) return true;
-              return record.lead.contentFileIds.any(contentIds.contains);
-            })
-            .toList()
+      ? widget.exportService.directRecords(records: widget.records).where((
+          record,
+        ) {
+          if (contentIds.isEmpty) return true;
+          return record.lead.contentFileIds.any(contentIds.contains);
+        }).toList()
       : widget.records.where((record) {
           if (target.direct) {
             return record.lead.originKind == LeadOriginKind.direct;
           }
           return record.lead.eventLocalId == target.event!.id;
         }).toList();
+
+  String _directExportEmptyMessage(Set<String> contentIds) {
+    if (contentIds.isEmpty) return context.l10n.exportNoDirectLeads;
+    final names = widget.contentFiles
+        .where((file) => contentIds.contains(file.id))
+        .map((file) => '«${file.displayName}»')
+        .toList();
+    if (names.length == 1) {
+      return context.l10n.exportNoMatchingContent(names.single);
+    }
+    final conjunction = Localizations.localeOf(context).languageCode == 'es'
+        ? ' y '
+        : ' and ';
+    final display = names.length == 2
+        ? names.join(conjunction)
+        : '${names.take(names.length - 1).join(', ')}$conjunction${names.last}';
+    return context.l10n.exportNoMatchingContents(display);
+  }
 
   Future<void> _export(
     _RecordsExportTarget target,

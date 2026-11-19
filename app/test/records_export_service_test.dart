@@ -156,8 +156,8 @@ void main() {
     }
   });
 
-  test('REG-09 direct date range is inclusive in local calendar days', () {
-    final records = const RecordsExportService().directRecordsInLocalDateRange(
+  test('REG-09 direct scope excludes event leads without date filtering', () {
+    final records = const RecordsExportService().directRecords(
       records: [
         directRecord(name: 'Before', capturedAt: DateTime(2026, 9, 9, 23)),
         directRecord(name: 'Start', capturedAt: DateTime(2026, 9, 10, 0)),
@@ -165,18 +165,13 @@ void main() {
         directRecord(name: 'After', capturedAt: DateTime(2026, 9, 13)),
         record('event-a'),
       ],
-      start: DateTime(2026, 9, 10),
-      end: DateTime(2026, 9, 12),
     );
 
-    expect(records.map((item) => item.lead.name), ['Start', 'End']);
-    expect(
-      () => const RecordsExportService().directRecordsInLocalDateRange(
-        records: const [],
-        start: DateTime(2026, 9, 12),
-        end: DateTime(2026, 9, 10),
-      ),
-      throwsArgumentError,
-    );
+    expect(records.map((item) => item.lead.name), [
+      'Before',
+      'Start',
+      'End',
+      'After',
+    ]);
   });
 }

@@ -607,9 +607,9 @@ R8 en solución permanente.
   eventos del mismo workspace; no cambia origen, identidad ni fecha.
 - Review permite ajustar asunto, mensaje y adjuntos mientras la preparación
   esté pendiente; la confirmación conserva el snapshot inmutable existente.
-- Exportación de Leads directos agrega rango inclusivo de fecha local sin
-  cambiar columnas CSV/XLSX. Contenido conserva un solo borrador atómico para
-  nombre visible y asociaciones.
+- Exportación de Leads directos conserva CSV/XLSX y filtra únicamente por
+  Content con OR. Contenido conserva un solo borrador atómico para nombre
+  visible y asociaciones.
 - No requiere migración. Los cambios backend de contrato/runtime requieren un
   despliegue independiente y autorizado antes de E2E remoto.
 
@@ -622,13 +622,25 @@ R8 en solución permanente.
   local-first/optimista existente.
 - El selector de adjuntos vive solo en Review/Reenviar desde Registros; backend
   congela exactamente la selección válida. Captura conserva su flujo primario.
-- Exportar Leads directos combina Content con OR y rango inclusivo con AND,
-  muestra conteo vivo y bloquea una salida vacía.
+- Exportar Leads directos combina Content con OR, muestra conteo vivo y bloquea
+  una salida vacía; QA-12 retira el filtro de fecha y explica el filtro sin
+  coincidencias por nombre.
 - Registros permite hasta tres Voice Notes y seis referencias por Lead; elimina
   una voz exacta mediante confirmación/tombstone. Captura conserva tres
   referencias. La limpieza física remota sigue `D-13`.
 - Contenido explica el nombre visible en ES/EN. No hay migración. Runtime API y
   E2E físico requieren autorización de despliegue independiente.
+
+### Corte QA-09–QA-12 aprobado (2026-11-18)
+
+- QA-09 conserva en Registros la selección exacta de Content para el siguiente
+  envío o reenvío sin alterar snapshots históricos ni la Captura principal.
+- QA-10 alinea la adición de Voice Notes desde Registros con grabar, detener,
+  escuchar, descartar/regrabar y confirmar; mantiene máximo tres y tombstones.
+- QA-11 iguala altura y forma Stadium de los botones Guardar (1/3) y Guardar y
+  dar Foloo (2/3) sin cambiar acciones.
+- QA-12 elimina solo el filtro de fecha de la exportación directa y conserva
+  Content OR, conteo vivo, Limpiar filtros y archivos CSV/XLSX.
 
 ## Exclusiones del plan V1
 

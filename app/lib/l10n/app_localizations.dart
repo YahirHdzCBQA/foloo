@@ -1508,11 +1508,23 @@ abstract class AppLocalizations {
   /// **'Limpiar filtros'**
   String get clearFilters;
 
-  /// No description provided for @exportNoMatchingLeads.
+  /// No description provided for @exportNoDirectLeads.
   ///
   /// In es, this message translates to:
-  /// **'No hay leads que coincidan con estos filtros.'**
-  String get exportNoMatchingLeads;
+  /// **'Todavía no hay leads directos para exportar.'**
+  String get exportNoDirectLeads;
+
+  /// No description provided for @exportNoMatchingContent.
+  ///
+  /// In es, this message translates to:
+  /// **'No se encontraron leads con el contenido {content}.'**
+  String exportNoMatchingContent(String content);
+
+  /// No description provided for @exportNoMatchingContents.
+  ///
+  /// In es, this message translates to:
+  /// **'No se encontraron leads con los contenidos {contents}.'**
+  String exportNoMatchingContents(String contents);
 
   /// No description provided for @searchEvents.
   ///

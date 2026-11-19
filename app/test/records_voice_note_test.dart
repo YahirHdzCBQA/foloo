@@ -69,6 +69,7 @@ Widget recordsApp(
   Future<SessionLead> Function(SessionLead, LeadVoiceNote)? onVoiceNoteDeleted,
   Future<EmailReviewDraft?> Function(SessionLead)? onEmailReviewRequested,
   Future<EmailReviewOutcome> Function(EmailReviewDraft)? onEmailReviewConfirmed,
+  Future<void> Function(EmailReviewDraft, LeadDraft)? onEmailReviewUpdated,
   List<ContentFile> contentFiles = const [],
   String? ownerSub,
   EmailDeliveryRepository? deliveryRepository,
@@ -100,6 +101,7 @@ Widget recordsApp(
     onVoiceNoteDeleted: onVoiceNoteDeleted,
     onEmailReviewRequested: onEmailReviewRequested,
     onEmailReviewConfirmed: onEmailReviewConfirmed,
+    onEmailReviewUpdated: onEmailReviewUpdated,
     ownerSub: ownerSub,
     deliveryRepository: deliveryRepository,
   ),
@@ -318,6 +320,70 @@ void main() {
     );
   });
 
+  testWidgets(
+    'VOZ-01–04 Records reviews, discards, rerecords and confirms audio',
+    (tester) async {
+      final service = FakeVoiceNoteService();
+      String? savedPath;
+      int? savedSeconds;
+      final record = SessionLead(
+        localId: 'voice-review',
+        folio: null,
+        capturedAt: DateTime(2026, 11, 18),
+        lead: lead(),
+      );
+      await tester.pumpWidget(
+        recordsApp(
+          service,
+          records: [record],
+          onVoiceNoteAdded: (current, path, duration) async {
+            savedPath = path;
+            savedSeconds = duration;
+            return current;
+          },
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('record-voice-review')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('detailAddVoiceNote')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('detailVoiceRecordButton')));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      await tester.tap(find.byKey(const Key('detailVoiceRecordButton')));
+      await tester.pump();
+
+      expect(find.byKey(const Key('detailVoicePlayButton')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('detailVoicePlayButton')));
+      await tester.pump();
+      expect(service.playedPaths, ['/tmp/foloo_voice_1.m4a']);
+
+      await tester.tap(find.byKey(const Key('detailVoiceDiscardButton')));
+      await tester.pump();
+      expect(service.deletedPaths, contains('/tmp/foloo_voice_1.m4a'));
+      expect(find.byKey(const Key('detailVoiceRecordButton')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('detailVoiceRecordButton')));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.tap(find.byKey(const Key('detailVoiceRecordButton')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('detailVoiceRerecordButton')));
+      await tester.pump();
+      expect(service.deletedPaths, contains('/tmp/foloo_voice_2.m4a'));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.tap(find.byKey(const Key('detailVoiceRecordButton')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('detailVoiceSaveButton')));
+      await tester.pumpAndSettle();
+
+      expect(savedPath, '/tmp/foloo_voice_3.m4a');
+      expect(savedSeconds, 1);
+      expect(service.deletedPaths, contains('/tmp/foloo_voice_3.m4a'));
+    },
+  );
+
   testWidgets('REG-17 uses global header and delete swipe confirms', (
     tester,
   ) async {
@@ -471,6 +537,87 @@ void main() {
     expect(find.byIcon(Icons.outgoing_mail), findsOneWidget);
     expect(find.bySemanticsLabel('Reenviar correo'), findsOneWidget);
   });
+
+  testWidgets(
+    'SAL-01 Records saves the exact Content selection for send or resend',
+    (tester) async {
+      const first = ContentFile(
+        id: 'content-first',
+        displayName: 'Ficha A',
+        fileName: 'a.pdf',
+        sizeLabel: '1 MB',
+      );
+      const second = ContentFile(
+        id: 'content-second',
+        displayName: 'Ficha B',
+        fileName: 'b.pdf',
+        sizeLabel: '1 MB',
+      );
+      final record = SessionLead(
+        localId: 'lead-email-content',
+        folio: null,
+        capturedAt: DateTime(2026, 11, 18),
+        lead: lead(
+          originKind: LeadOriginKind.direct,
+          place: 'León',
+          contentNames: const ['Ficha A'],
+        ).copyWith(contentFileIds: const ['content-first']),
+      );
+      LeadDraft? savedLead;
+      EmailReviewDraft? savedReview;
+      await tester.pumpWidget(
+        recordsApp(
+          FakeVoiceNoteService(),
+          records: [record],
+          contentFiles: const [first, second],
+          onLeadUpdated: (current, updated) async {
+            savedLead = updated;
+            return SessionLead(
+              localId: current.localId,
+              folio: current.folio,
+              capturedAt: current.capturedAt,
+              lead: updated,
+            );
+          },
+          onEmailReviewRequested: (_) async => const EmailReviewDraft(
+            followUpId: 'follow-up-1',
+            leadName: 'Mariana',
+            recipientAddress: 'qa@example.com',
+            subject: 'Hola',
+            message: 'Mensaje',
+            attachmentIds: ['content-first'],
+            attachmentNames: ['Ficha A'],
+          ),
+          onEmailReviewConfirmed: (_) async => EmailReviewOutcome.pending,
+          onEmailReviewUpdated: (review, updated) async {
+            savedReview = review;
+          },
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('record-lead-email-content')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('detailEmailAction')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('detailEmailAction')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('editEmailAttachments')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('editEmailAttachments')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('emailAttachment-content-first')));
+      await tester.tap(find.byKey(const Key('emailAttachment-content-second')));
+      await tester.tap(find.byKey(const Key('saveEmailAttachments')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('emailReviewBack')));
+      await tester.pumpAndSettle();
+
+      expect(savedLead?.contentFileIds, ['content-second']);
+      expect(savedLead?.contentNames, ['Ficha B']);
+      expect(savedReview?.attachmentIds, ['content-second']);
+      expect(savedReview?.attachmentNames, ['Ficha B']);
+    },
+  );
 
   testWidgets('REG-02 distinguishes all events from direct leads', (
     tester,
@@ -989,9 +1136,7 @@ void main() {
     expect(sharer.file?.filename, endsWith('.xlsx'));
   });
 
-  testWidgets('REG-09 direct export combines content and inclusive dates', (
-    tester,
-  ) async {
+  testWidgets('REG-09 direct export filters only by Content', (tester) async {
     final sharer = _CapturingRecordsFileSharer();
     const burritos = ContentFile(
       id: 'content-burritos',
@@ -1048,6 +1193,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('exportDirectLeads')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('directExportDateRange')), findsNothing);
     expect(
       tester.widget<Text>(find.byKey(const Key('exportLeadSummary'))).data,
       contains('2 leads'),
@@ -1065,6 +1211,113 @@ void main() {
     await tester.tap(find.byKey(const Key('confirmExportButton')));
     await tester.pumpAndSettle();
     expect(sharer.file, isNotNull);
+  });
+
+  testWidgets('REG-09 direct export names one and multiple empty filters', (
+    tester,
+  ) async {
+    const burritos = ContentFile(
+      id: 'content-burritos',
+      displayName: 'Catálogo de productos',
+      fileName: 'burritos.pdf',
+      sizeLabel: '1 MB',
+    );
+    const tacos = ContentFile(
+      id: 'content-tacos',
+      displayName: 'Presentación comercial',
+      fileName: 'tacos.pdf',
+      sizeLabel: '1 MB',
+    );
+    await tester.pumpWidget(
+      recordsApp(
+        FakeVoiceNoteService(),
+        records: [
+          SessionLead(
+            localId: 'direct-unassigned',
+            folio: null,
+            capturedAt: DateTime(2026, 11, 10),
+            lead: lead(originKind: LeadOriginKind.direct, place: 'León'),
+          ),
+        ],
+        contentFiles: const [burritos, tacos],
+        events: [
+          AppEvent(
+            id: 'event-a',
+            name: 'Evento A',
+            startsOn: DateTime(2026, 11, 1),
+            endsOn: DateTime(2026, 11, 2),
+          ),
+        ],
+      ),
+    );
+    await tester.tap(find.byKey(const Key('exportButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('exportDirectLeads')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('directExportContent-content-burritos')),
+    );
+    await tester.pump();
+    expect(
+      find.text(
+        'No se encontraron leads con el contenido «Catálogo de productos».',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const Key('directExportContent-content-tacos')),
+    );
+    await tester.pump();
+    expect(
+      find.text(
+        'No se encontraron leads con los contenidos «Catálogo de productos» y «Presentación comercial».',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('clearDirectExportFilters')));
+    await tester.pump();
+    expect(find.byKey(const Key('directExportNoResults')), findsNothing);
+  });
+
+  testWidgets('REG-09 distinguishes an empty direct-lead scope', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      recordsApp(
+        FakeVoiceNoteService(),
+        records: [
+          SessionLead(
+            localId: 'event-only',
+            folio: null,
+            capturedAt: DateTime(2026, 11, 10),
+            lead: lead(),
+          ),
+        ],
+        events: [
+          AppEvent(
+            id: 'event-a',
+            name: 'Evento A',
+            startsOn: DateTime(2026, 11, 1),
+            endsOn: DateTime(2026, 11, 2),
+          ),
+        ],
+      ),
+    );
+    await tester.tap(find.byKey(const Key('exportButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('exportDirectLeads')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Todavía no hay leads directos para exportar.'),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('confirmExportButton')))
+          .onPressed,
+      isNull,
+    );
   });
 
   testWidgets(
