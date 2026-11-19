@@ -15,6 +15,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/app_event.dart';
+import '../models/content_file.dart';
 import '../models/lead_draft.dart';
 import '../models/session_lead.dart';
 
@@ -71,6 +72,7 @@ class RecordsExportService {
     required List<SessionLead> records,
     required RecordsExportFormat format,
     required RecordsExportLabels labels,
+    List<ContentFile> contentFiles = const [],
     DateTime? generatedAt,
   }) {
     return _build(
@@ -79,6 +81,7 @@ class RecordsExportService {
       event: event,
       format: format,
       labels: labels,
+      contentFiles: contentFiles,
       generatedAt: generatedAt,
     );
   }
@@ -89,6 +92,7 @@ class RecordsExportService {
     required List<SessionLead> records,
     required RecordsExportFormat format,
     required RecordsExportLabels labels,
+    List<ContentFile> contentFiles = const [],
     DateTime? generatedAt,
   }) => _build(
     scopeName: scopeName,
@@ -98,6 +102,7 @@ class RecordsExportService {
     event: null,
     format: format,
     labels: labels,
+    contentFiles: contentFiles,
     generatedAt: generatedAt,
   );
 
@@ -107,12 +112,16 @@ class RecordsExportService {
     required AppEvent? event,
     required RecordsExportFormat format,
     required RecordsExportLabels labels,
+    required List<ContentFile> contentFiles,
     required DateTime? generatedAt,
   }) {
-    if (labels.headers.length != 13) {
+    if (labels.headers.length != 15) {
       throw ArgumentError.value(labels.headers.length, 'headers');
     }
-    final rows = records.map((record) => _row(record, event, labels)).toList();
+    final filesById = {for (final file in contentFiles) file.id: file};
+    final rows = records
+        .map((record) => _row(record, event, labels, filesById))
+        .toList();
     final extension = format.name;
     final day = _date((generatedAt ?? DateTime.now()).toLocal());
     final filename = 'foloo_${_safeFilename(scopeName)}_$day.$extension';
@@ -148,6 +157,7 @@ class RecordsExportService {
     SessionLead record,
     AppEvent? event,
     RecordsExportLabels labels,
+    Map<String, ContentFile> filesById,
   ) => [
     _timestamp(record.capturedAt),
     record.lead.name,
@@ -174,6 +184,10 @@ class RecordsExportService {
         ? (record.lead.place ?? '')
         : '',
     record.lead.note,
+    record.lead.contentNames.join('; '),
+    record.lead.contentFileIds
+        .map((id) => filesById[id]?.fileName ?? '')
+        .join('; '),
   ];
 
   String _timestamp(DateTime value) {

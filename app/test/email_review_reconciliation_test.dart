@@ -240,6 +240,111 @@ void main() {
     },
   );
 
+  test(
+    'QA-13 empty and later Content selections keep the semantic sentence',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      await _seed(database);
+      final repository = EmailDeliveryRepository(database);
+      final prepared = await repository.prepareForLead(
+        owner: _owner,
+        leadId: _leadId,
+        lead: _lead(),
+        seller: _seller,
+        language: 'es',
+      );
+      await repository.updatePreparation(
+        owner: _owner,
+        followUpId: prepared!.localId,
+        subject: prepared.subject,
+        plainBody: prepared.plainBody.replaceFirst(
+          '\nAna|Foloo',
+          '\nPárrafo manual.\nAna|Foloo',
+        ),
+        lead: _lead(),
+        seller: _seller,
+      );
+
+      final withoutContent = await repository.prepareForLead(
+        owner: _owner,
+        leadId: _leadId,
+        lead: _lead(contentIds: const [], contentNames: const []),
+        seller: _seller,
+        language: 'es',
+        reconcileExisting: true,
+      );
+      expect(withoutContent!.plainBody, isNot(contains('Ficha A')));
+      expect(withoutContent.plainBody, isNot(contains('Ficha B')));
+      expect(withoutContent.plainBody, contains('Párrafo manual.'));
+      expect(withoutContent.plainBody, endsWith('Ana|Foloo'));
+      await repository.updatePreparation(
+        owner: _owner,
+        followUpId: prepared.localId,
+        subject: withoutContent.subject,
+        plainBody: '${withoutContent.plainBody}\nNota sin adjuntos.',
+        lead: _lead(contentIds: const [], contentNames: const []),
+        seller: _seller,
+      );
+
+      final restoredContent = await repository.prepareForLead(
+        owner: _owner,
+        leadId: _leadId,
+        lead: _lead(
+          contentIds: const ['content-c'],
+          contentNames: const ['Ficha C'],
+        ),
+        seller: _seller,
+        language: 'es',
+        reconcileExisting: true,
+      );
+      expect(restoredContent!.plainBody, contains('Ficha C'));
+      expect(restoredContent.plainBody, contains('Párrafo manual.'));
+      expect(restoredContent.plainBody, contains('Ana|Foloo'));
+      expect(restoredContent.plainBody, endsWith('Nota sin adjuntos.'));
+    },
+  );
+
+  test('QA-13 preserves a manually changed Content fragment', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    await _seed(database);
+    final repository = EmailDeliveryRepository(database);
+    final prepared = await repository.prepareForLead(
+      owner: _owner,
+      leadId: _leadId,
+      lead: _lead(),
+      seller: _seller,
+      language: 'es',
+    );
+    final customBody = prepared!.plainBody.replaceFirst(
+      'Ficha A, Ficha B',
+      'los documentos que acordamos',
+    );
+    await repository.updatePreparation(
+      owner: _owner,
+      followUpId: prepared.localId,
+      subject: prepared.subject,
+      plainBody: customBody,
+      lead: _lead(),
+      seller: _seller,
+    );
+
+    final reconciled = await repository.prepareForLead(
+      owner: _owner,
+      leadId: _leadId,
+      lead: _lead(
+        contentIds: const ['content-c'],
+        contentNames: const ['Ficha C'],
+      ),
+      seller: _seller,
+      language: 'es',
+      reconcileExisting: true,
+    );
+    expect(reconciled!.plainBody, contains('los documentos que acordamos'));
+    expect(reconciled.plainBody, isNot(contains('Ficha C')));
+  });
+
   test('semantic Review metadata survives database close and reopen', () async {
     final directory = await Directory.systemTemp.createTemp(
       'foloo_email_review_',

@@ -829,6 +829,7 @@ class _RecordsScreenState extends State<RecordsScreen>
       return;
     }
     setState(() => _openSwipeLeadId = null);
+    var reviewRecord = record;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => EmailReviewScreen(
@@ -841,6 +842,29 @@ class _RecordsScreenState extends State<RecordsScreen>
                 (eventId != null && file.eventIds.contains(eventId));
           }).toList(),
           allowAttachmentEditing: true,
+          onAttachmentSelectionChanged:
+              widget.onEmailReviewUpdated == null ||
+                  widget.onLeadUpdated == null
+              ? null
+              : (updated) async {
+                  await widget.onEmailReviewUpdated!(
+                    updated,
+                    reviewRecord.lead,
+                  );
+                  final updatedLead = reviewRecord.lead.copyWith(
+                    contentFileIds: updated.attachmentIds,
+                    contentNames: updated.attachmentNames,
+                  );
+                  reviewRecord = await widget.onLeadUpdated!(
+                    reviewRecord,
+                    updatedLead,
+                  );
+                  final reconciled = await request(reviewRecord) ?? updated;
+                  return reconciled.copyWith(
+                    attachmentIds: updated.attachmentIds,
+                    attachmentNames: updated.attachmentNames,
+                  );
+                },
           onConfirm: confirm,
           onConnectionRequired: () =>
               widget.onDestinationSelected(AppDestination.email),
@@ -850,11 +874,16 @@ class _RecordsScreenState extends State<RecordsScreen>
                   widget.onLeadUpdated == null
               ? null
               : (updated) async {
-                  final updatedLead = record.lead.copyWith(
+                  final updatedLead = reviewRecord.lead.copyWith(
                     contentFileIds: updated.attachmentIds,
                     contentNames: updated.attachmentNames,
                   );
-                  await widget.onLeadUpdated?.call(record, updatedLead);
+                  reviewRecord =
+                      await widget.onLeadUpdated?.call(
+                        reviewRecord,
+                        updatedLead,
+                      ) ??
+                      reviewRecord;
                   await widget.onEmailReviewUpdated?.call(updated, updatedLead);
                 },
         ),
@@ -1258,6 +1287,8 @@ class _RecordsScreenState extends State<RecordsScreen>
           l10n.event,
           l10n.place,
           l10n.writtenNote,
+          l10n.exportSharedContent,
+          l10n.exportOriginalFile,
         ],
         customer: l10n.client,
         partner: l10n.partner,
@@ -1274,12 +1305,14 @@ class _RecordsScreenState extends State<RecordsScreen>
               records: records ?? widget.records,
               format: format,
               labels: labels,
+              contentFiles: widget.contentFiles,
             )
           : widget.exportService.build(
               event: target.event!,
               records: widget.records,
               format: format,
               labels: labels,
+              contentFiles: widget.contentFiles,
             );
       if (delivery == _ExportDelivery.saveToDevice) {
         final outcome = await widget.fileSaver.save(file);

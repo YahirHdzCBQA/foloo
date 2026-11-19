@@ -642,6 +642,20 @@ R8 en solución permanente.
 - QA-12 elimina solo el filtro de fecha de la exportación directa y conserva
   Content OR, conteo vivo, Limpiar filtros y archivos CSV/XLSX.
 
+### Corte QA-13–QA-14 aprobado (2026-11-18)
+
+- QA-13 reconcilia de inmediato la referencia semántica a Content dentro del
+  cuerpo ya visible de Review/Reenviar desde Registros. Conserva asunto, firma,
+  párrafos manuales y snapshots históricos; un fragmento convertido a literal
+  no se sobrescribe y se señala con la advertencia existente. No agrega otra
+  vista previa ni modifica el Review primario de Captura.
+- QA-14 amplía CSV/XLSX de 13 a 15 columnas con Contenido compartido y Archivo
+  original desde la asociación vigente del Lead y la metadata local de Content.
+  Valores múltiples conservan orden con `; ` y metadata ausente queda vacía;
+  filtros Content OR y ausencia de filtro por fecha permanecen intactos.
+- Trazas: `PLT-08`, `SAL-01`, `REG-09`–`REG-13`; E-08/E-10;
+  ADR-001/004/006/007. No requiere backend, migración ni infraestructura.
+
 ## Exclusiones del plan V1
 
 No existen fases Basic E2E, capability Basic/Pro, Pro E2E, transcripción Pro ni

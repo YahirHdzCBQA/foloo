@@ -23,6 +23,7 @@ class EmailReviewScreen extends StatefulWidget {
     required this.onConnectionRequired,
     required this.onCaptureAnother,
     this.onDraftSaved,
+    this.onAttachmentSelectionChanged,
     this.availableContent = const [],
     this.allowAttachmentEditing = false,
     super.key,
@@ -34,6 +35,8 @@ class EmailReviewScreen extends StatefulWidget {
   final VoidCallback onConnectionRequired;
   final VoidCallback onCaptureAnother;
   final Future<void> Function(EmailReviewDraft draft)? onDraftSaved;
+  final Future<EmailReviewDraft> Function(EmailReviewDraft draft)?
+  onAttachmentSelectionChanged;
   final List<ContentFile> availableContent;
   final bool allowAttachmentEditing;
 
@@ -398,11 +401,47 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
       ),
     );
     if (result != null && mounted) {
+      final previousIds = Set<String>.from(_attachmentIds);
+      final previousMessage = _combinedMessage;
+      final names = widget.availableContent
+          .where((file) => result.contains(file.id))
+          .map((file) => file.displayName)
+          .toList();
+      var refreshed = _reviewedDraft(
+        subject: _subject.text.trim(),
+        message: _combinedMessage,
+      ).copyWith(attachmentIds: result.toList(), attachmentNames: names);
+      if (widget.onAttachmentSelectionChanged case final reconcile?) {
+        try {
+          refreshed = await reconcile(refreshed);
+        } on Object {
+          if (!mounted) return;
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(context.l10n.localSaveError)));
+          return;
+        }
+      }
+      if (!mounted) return;
+      final updatedParts = _splitMessage(refreshed.message);
       setState(() {
         _attachmentIds
           ..clear()
-          ..addAll(result);
+          ..addAll(refreshed.attachmentIds);
+        _subject.text = refreshed.subject;
+        _message.text = updatedParts.$1;
+        _signature.text = updatedParts.$2;
       });
+      if (previousIds.difference(result).isNotEmpty ||
+          result.difference(previousIds).isNotEmpty) {
+        if (widget.onAttachmentSelectionChanged != null &&
+            refreshed.message == previousMessage &&
+            mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.emailAttachmentTextReview)),
+          );
+        }
+      }
     }
   }
 

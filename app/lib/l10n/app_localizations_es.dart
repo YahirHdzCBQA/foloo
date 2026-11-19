@@ -1175,6 +1175,10 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get emailAttachmentTextReview =>
+      'Los adjuntos cambiaron. Conservamos tu texto personalizado; revísalo antes de enviar.';
+
+  @override
   String get emailConnectionRequiredTitle => 'Conecta tu correo';
 
   @override
@@ -1368,6 +1372,12 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get exportPosition => 'Puesto';
+
+  @override
+  String get exportSharedContent => 'Contenido compartido';
+
+  @override
+  String get exportOriginalFile => 'Archivo original';
 
   @override
   String get exportType => 'Tipo';

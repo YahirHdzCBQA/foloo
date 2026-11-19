@@ -2192,6 +2192,12 @@ abstract class AppLocalizations {
   /// **'{count, plural, =0{Sin archivos adjuntos} =1{Se adjunta 1 archivo} other{Se adjuntan {count} archivos}}'**
   String emailAttachmentCount(int count);
 
+  /// No description provided for @emailAttachmentTextReview.
+  ///
+  /// In es, this message translates to:
+  /// **'Los adjuntos cambiaron. Conservamos tu texto personalizado; revísalo antes de enviar.'**
+  String get emailAttachmentTextReview;
+
   /// No description provided for @emailConnectionRequiredTitle.
   ///
   /// In es, this message translates to:
@@ -2521,6 +2527,18 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Puesto'**
   String get exportPosition;
+
+  /// No description provided for @exportSharedContent.
+  ///
+  /// In es, this message translates to:
+  /// **'Contenido compartido'**
+  String get exportSharedContent;
+
+  /// No description provided for @exportOriginalFile.
+  ///
+  /// In es, this message translates to:
+  /// **'Archivo original'**
+  String get exportOriginalFile;
 
   /// No description provided for @exportType.
   ///

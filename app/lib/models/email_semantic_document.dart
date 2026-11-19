@@ -64,7 +64,7 @@ class EmailSemanticDocument {
 
   final List<_SemanticSegment> _segments;
 
-  String render(Map<String, String> values) => _segments
+  String render(Map<String, String> values) => _effectiveSegments(values)
       .map(
         (segment) =>
             segment.isToken ? values[segment.value] ?? '' : segment.value,
@@ -94,9 +94,10 @@ class EmailSemanticDocument {
     required Map<String, String> values,
   }) {
     final renderedSegments = <_RenderedSegment>[];
+    final effectiveSegments = _effectiveSegments(values);
     var offset = 0;
-    for (var index = 0; index < _segments.length; index++) {
-      final segment = _segments[index];
+    for (var index = 0; index < effectiveSegments.length; index++) {
+      final segment = effectiveSegments[index];
       final rendered = segment.isToken
           ? values[segment.value] ?? ''
           : segment.value;
@@ -195,6 +196,73 @@ class EmailSemanticDocument {
     }
     emitEmptyTokensAt(oldPosition);
     return EmailSemanticDocument._(_mergeLiterals(result));
+  }
+
+  /// Omits the generated Content sentence for an empty selection while
+  /// retaining a zero-width semantic token at that exact location.
+  ///
+  /// Keeping the effective segments aligned with [render] is essential: a
+  /// later manual edit must not shift or corrupt the signature, and adding
+  /// Content again must be able to restore the generated sentence.
+  List<_SemanticSegment> _effectiveSegments(Map<String, String> values) {
+    if ((values['contenido'] ?? '').isNotEmpty) return _segments;
+    final contentIndex = _segments.indexWhere(
+      (segment) => segment.isToken && segment.value == 'contenido',
+    );
+    if (contentIndex < 0) return _segments;
+
+    final rendered = <int>[];
+    var contentOffset = 0;
+    for (var index = 0; index < _segments.length; index++) {
+      final segment = _segments[index];
+      if (index == contentIndex) contentOffset = rendered.length;
+      rendered.addAll(
+        (segment.isToken ? values[segment.value] ?? '' : segment.value).runes,
+      );
+    }
+    const newline = 0x0A;
+    var removeStart = contentOffset;
+    while (removeStart > 0 && rendered[removeStart - 1] != newline) {
+      removeStart--;
+    }
+    var removeEnd = contentOffset;
+    while (removeEnd < rendered.length && rendered[removeEnd] != newline) {
+      removeEnd++;
+    }
+    if (removeEnd < rendered.length) removeEnd++;
+
+    final result = <_SemanticSegment>[];
+    var segmentStart = 0;
+    for (var index = 0; index < _segments.length; index++) {
+      final segment = _segments[index];
+      final concrete = segment.isToken
+          ? values[segment.value] ?? ''
+          : segment.value;
+      final runes = concrete.runes.toList();
+      final segmentEnd = segmentStart + runes.length;
+      if (index == contentIndex) {
+        result.add(segment);
+      } else if (segmentEnd <= removeStart || segmentStart >= removeEnd) {
+        result.add(segment);
+      } else if (!segment.isToken) {
+        if (segmentStart < removeStart) {
+          result.add(
+            _SemanticSegment.literal(
+              String.fromCharCodes(runes.take(removeStart - segmentStart)),
+            ),
+          );
+        }
+        if (segmentEnd > removeEnd) {
+          result.add(
+            _SemanticSegment.literal(
+              String.fromCharCodes(runes.skip(removeEnd - segmentStart)),
+            ),
+          );
+        }
+      }
+      segmentStart = segmentEnd;
+    }
+    return _mergeLiterals(result);
   }
 }
 

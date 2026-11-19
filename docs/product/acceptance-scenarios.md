@@ -218,6 +218,13 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   el foco (y en el último campo activo si el teclado perdió foco), sin borrar
   texto adyacente ni moverlo siempre al final. Unicode, saltos y chips mantienen
   offsets visuales exactos al tocar o borrar desde una posición intermedia.
+- En Review/Reenviar abierto desde Registros, agregar o quitar Content actualiza
+  de inmediato el segmento `{contenido}` del mismo cuerpo visible y los adjuntos
+  quedan alineados, incluso con selección vacía. Asunto, firma, párrafos y
+  literales manuales permanecen; un segmento de Content convertido manualmente
+  en texto literal no se sobrescribe y activa la advertencia existente para
+  revisarlo. No aparece otra vista previa, Captura no cambia y los snapshots
+  históricos continúan congelados.
 - Guardar correctamente cierra teclado y modo edición y vuelve a mostrar los
   lápices; un error conserva el borrador. Cancelar restaura la última versión
   guardada. Navegar, cambiar idioma o cerrar la pantalla con cambios pendientes
@@ -338,8 +345,11 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   restaura todo el alcance.
 - La elección de evento es de una sola acción: la fila completa es táctil y no
   muestra un indicador circular de selección múltiple.
-- Las trece columnas aparecen en el orden de `REG-11`, con vacíos como celda
-  vacía, encabezados ES/EN y fecha local con offset.
+- Las quince columnas aparecen en el orden de `REG-11`, con vacíos como celda
+  vacía, encabezados ES/EN y fecha local con offset. Contenido compartido toma
+  los nombres visibles vigentes del Lead; Archivo original resuelve la metadata
+  vigente por ID, conserva el mismo orden y queda vacío si ya no está
+  disponible. Múltiples valores se separan con `; ` sin exponer IDs internos.
 - CSV usa BOM UTF-8 y escaping RFC 4180; XLSX es un archivo real. Ambos
   preservan Unicode, omiten medios/IDs/estado técnico y conservan Compartir
   mediante la hoja del sistema con el filename de `REG-12`.

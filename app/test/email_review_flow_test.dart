@@ -45,6 +45,8 @@ Widget harness({
   VoidCallback? onConnectionRequired,
   EmailReviewDraft reviewDraft = draft,
   Future<void> Function(EmailReviewDraft)? onDraftSaved,
+  Future<EmailReviewDraft> Function(EmailReviewDraft)?
+  onAttachmentSelectionChanged,
   List<ContentFile> availableContent = const [],
   bool allowAttachmentEditing = false,
 }) => MaterialApp(
@@ -64,6 +66,7 @@ Widget harness({
     onConnectionRequired: onConnectionRequired ?? () {},
     onCaptureAnother: () {},
     onDraftSaved: onDraftSaved,
+    onAttachmentSelectionChanged: onAttachmentSelectionChanged,
     availableContent: availableContent,
     allowAttachmentEditing: allowAttachmentEditing,
   ),
@@ -251,6 +254,76 @@ void main() {
     expect(saved?.attachmentIds, ['b']);
     expect(saved?.attachmentNames, ['Ficha B.pdf']);
   });
+
+  testWidgets(
+    'QA-13 attachment changes refresh the existing body without losing edits',
+    (tester) async {
+      EmailReviewDraft? reconciled;
+      await tester.pumpWidget(
+        harness(
+          reviewDraft: const EmailReviewDraft(
+            followUpId: 'follow-up-1',
+            leadName: 'Mariana Sandoval',
+            recipientAddress: 'mariana@example.com',
+            subject: 'Asunto manual',
+            message:
+                'Hola Mariana,\n\nTe comparto Ficha A y Ficha B.\n'
+                'Párrafo personalizado.\n\nSaludos,\nAna',
+            attachmentIds: ['a', 'b'],
+            attachmentNames: ['Ficha A', 'Ficha B'],
+          ),
+          availableContent: const [
+            ContentFile(
+              id: 'a',
+              displayName: 'Ficha A',
+              fileName: 'a.pdf',
+              sizeLabel: '1 MB',
+            ),
+            ContentFile(
+              id: 'b',
+              displayName: 'Ficha B',
+              fileName: 'b.pdf',
+              sizeLabel: '1 MB',
+            ),
+          ],
+          allowAttachmentEditing: true,
+          onAttachmentSelectionChanged: (candidate) async {
+            reconciled = candidate.copyWith(
+              message:
+                  'Hola Mariana,\n\nTe comparto Ficha A.\n'
+                  'Párrafo personalizado.\n\nSaludos,\nAna',
+            );
+            return reconciled!;
+          },
+          onConfirm: (_) async => EmailReviewOutcome.pending,
+        ),
+      );
+
+      await tester.ensureVisible(find.byKey(const Key('editEmailAttachments')));
+      await tester.tap(find.byKey(const Key('editEmailAttachments')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('emailAttachment-b')));
+      await tester.tap(find.byKey(const Key('saveEmailAttachments')));
+      await tester.pumpAndSettle();
+
+      final subject = tester.widget<TextField>(
+        find.byKey(const Key('emailReviewSubject')),
+      );
+      final body = tester.widget<TextField>(
+        find.byKey(const Key('emailReviewMessage')),
+      );
+      final signature = tester.widget<TextField>(
+        find.byKey(const Key('emailReviewSignature')),
+      );
+      expect(reconciled?.attachmentIds, ['a']);
+      expect(subject.controller?.text, 'Asunto manual');
+      expect(body.controller?.text, contains('Te comparto Ficha A.'));
+      expect(body.controller?.text, isNot(contains('Ficha B')));
+      expect(body.controller?.text, contains('Párrafo personalizado.'));
+      expect(signature.controller?.text, 'Saludos,\nAna');
+      expect(find.text('Vista previa'), findsNothing);
+    },
+  );
 
   testWidgets('missing provider asks for connection without losing review', (
     tester,
