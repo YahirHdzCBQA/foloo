@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/l10n/app_localizations.dart';
 import 'package:foloo/models/email_review.dart';
+import 'package:foloo/models/content_file.dart';
 import 'package:foloo/models/lead_draft.dart';
 import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/screens/email_review_screen.dart';
@@ -44,6 +45,8 @@ Widget harness({
   VoidCallback? onConnectionRequired,
   EmailReviewDraft reviewDraft = draft,
   Future<void> Function(EmailReviewDraft)? onDraftSaved,
+  List<ContentFile> availableContent = const [],
+  bool allowAttachmentEditing = false,
 }) => MaterialApp(
   locale: const Locale('es'),
   theme: FolooTheme.light,
@@ -61,6 +64,8 @@ Widget harness({
     onConnectionRequired: onConnectionRequired ?? () {},
     onCaptureAnother: () {},
     onDraftSaved: onDraftSaved,
+    availableContent: availableContent,
+    allowAttachmentEditing: allowAttachmentEditing,
   ),
 );
 
@@ -196,6 +201,55 @@ void main() {
     expect(find.text('Ficha A.pdf'), findsOneWidget);
     expect(find.text('Ficha B.pdf'), findsOneWidget);
     expect(find.text('Se adjuntan 2 archivos'), findsOneWidget);
+  });
+
+  testWidgets('pending review can change attachments before confirmation', (
+    tester,
+  ) async {
+    EmailReviewDraft? saved;
+    await tester.pumpWidget(
+      harness(
+        reviewDraft: const EmailReviewDraft(
+          followUpId: 'follow-up-1',
+          leadName: 'Mariana Sandoval',
+          recipientAddress: 'mariana@example.com',
+          subject: 'Seguimiento',
+          message: 'Mensaje concreto',
+          attachmentIds: ['a'],
+          attachmentNames: ['Ficha A.pdf'],
+        ),
+        availableContent: const [
+          ContentFile(
+            id: 'a',
+            displayName: 'Ficha A.pdf',
+            fileName: 'a.pdf',
+            sizeLabel: '1 MB',
+          ),
+          ContentFile(
+            id: 'b',
+            displayName: 'Ficha B.pdf',
+            fileName: 'b.pdf',
+            sizeLabel: '1 MB',
+          ),
+        ],
+        allowAttachmentEditing: true,
+        onDraftSaved: (value) async => saved = value,
+        onConfirm: (_) async => EmailReviewOutcome.pending,
+      ),
+    );
+
+    await tester.ensureVisible(find.byKey(const Key('editEmailAttachments')));
+    await tester.tap(find.byKey(const Key('editEmailAttachments')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('emailAttachment-a')));
+    await tester.tap(find.byKey(const Key('emailAttachment-b')));
+    await tester.tap(find.byKey(const Key('saveEmailAttachments')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('emailReviewBack')));
+    await tester.pumpAndSettle();
+
+    expect(saved?.attachmentIds, ['b']);
+    expect(saved?.attachmentNames, ['Ficha B.pdf']);
   });
 
   testWidgets('missing provider asks for connection without losing review', (

@@ -336,6 +336,9 @@ class SyncEngine extends ChangeNotifier {
         mediaTransfer == null) {
       return _send(operation.ownerUserId, token, _request(operation));
     }
+    if (operation.action == 'delete') {
+      return _send(operation.ownerUserId, token, _request(operation));
+    }
     final payload = _payload(operation);
     final leadId = payload.remove('leadId');
     if (leadId is! String) {
@@ -719,7 +722,9 @@ class SyncEngine extends ChangeNotifier {
           ? '/v1/leads'
           : '/v1/leads/${operation.entityId}',
     SyncEntityType.leadMedia =>
-      '/v1/leads/${_payload(operation)['leadId']}/media',
+      operation.action == 'delete'
+          ? '/v1/leads/${_payload(operation)['leadId']}/media/${operation.entityId}'
+          : '/v1/leads/${_payload(operation)['leadId']}/media',
     SyncEntityType.content =>
       operation.action == 'create'
           ? '/v1/content'
@@ -793,9 +798,11 @@ class SyncEngine extends ChangeNotifier {
         idempotencyKey: operation.idempotencyKey,
       ),
       SyncEntityType.leadMedia => SyncRequest(
-        method: 'POST',
-        path: '/v1/leads/${payload.remove('leadId')}/media',
-        body: payload,
+        method: operation.action == 'delete' ? 'DELETE' : 'POST',
+        path: operation.action == 'delete'
+            ? '/v1/leads/${payload.remove('leadId')}/media/${operation.entityId}'
+            : '/v1/leads/${payload.remove('leadId')}/media',
+        body: operation.action == 'delete' ? null : payload,
         idempotencyKey: operation.idempotencyKey,
       ),
       SyncEntityType.content => SyncRequest(

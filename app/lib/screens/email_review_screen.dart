@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/l10n.dart';
 import '../models/email_review.dart';
+import '../models/content_file.dart';
 import '../models/session_lead.dart';
 import '../theme/foloo_theme.dart';
 import 'lead_confirmation_screen.dart';
@@ -22,6 +23,8 @@ class EmailReviewScreen extends StatefulWidget {
     required this.onConnectionRequired,
     required this.onCaptureAnother,
     this.onDraftSaved,
+    this.availableContent = const [],
+    this.allowAttachmentEditing = false,
     super.key,
   });
 
@@ -31,6 +34,8 @@ class EmailReviewScreen extends StatefulWidget {
   final VoidCallback onConnectionRequired;
   final VoidCallback onCaptureAnother;
   final Future<void> Function(EmailReviewDraft draft)? onDraftSaved;
+  final List<ContentFile> availableContent;
+  final bool allowAttachmentEditing;
 
   @override
   State<EmailReviewScreen> createState() => _EmailReviewScreenState();
@@ -47,6 +52,7 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
   bool _editingMessage = false;
   bool _editingSignature = false;
   bool _submitting = false;
+  late final Set<String> _attachmentIds;
 
   @override
   void initState() {
@@ -55,6 +61,13 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
     final parts = _splitMessage(widget.draft.message);
     _message = TextEditingController(text: parts.$1);
     _signature = TextEditingController(text: parts.$2);
+    _attachmentIds = widget.draft.attachmentIds.toSet();
+    if (widget.allowAttachmentEditing) {
+      final availableIds = widget.availableContent
+          .map((file) => file.id)
+          .toSet();
+      _attachmentIds.retainAll(availableIds);
+    }
     _subjectFocus.addListener(_syncEditingWithFocus);
     _messageFocus.addListener(_syncEditingWithFocus);
     _signatureFocus.addListener(_syncEditingWithFocus);
@@ -81,11 +94,21 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
       return;
     }
     setState(() => _submitting = true);
+    final reviewed = _reviewedDraft(subject: subject, message: message);
+    if (widget.onDraftSaved case final save?) {
+      try {
+        await save(reviewed);
+      } catch (_) {
+        if (!mounted) return;
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(context.l10n.localSaveError)));
+        return;
+      }
+    }
     late final EmailReviewOutcome outcome;
     try {
-      outcome = await widget.onConfirm(
-        widget.draft.copyWith(subject: subject, message: message),
-      );
+      outcome = await widget.onConfirm(reviewed);
     } catch (_) {
       outcome = EmailReviewOutcome.error;
     }
@@ -120,7 +143,7 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
         builder: (_) => LeadConfirmationScreen(
           record: widget.record,
           emailOutcome: outcome,
-          attachmentNames: widget.draft.attachmentNames,
+          attachmentNames: reviewed.attachmentNames,
           onCaptureAnother: widget.onCaptureAnother,
         ),
       ),
@@ -132,7 +155,7 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
     final message = _combinedMessage;
     final save = widget.onDraftSaved;
     if (save != null) {
-      await save(widget.draft.copyWith(subject: subject, message: message));
+      await save(_reviewedDraft(subject: subject, message: message));
     }
     if (mounted) Navigator.pop(context);
   }
@@ -255,17 +278,25 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
                 const SizedBox(height: 22),
                 Text(
                   context.l10n.emailAttachmentCount(
-                    widget.draft.attachmentNames.length,
+                    _selectedAttachmentNames.length,
                   ),
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
-                for (final name in widget.draft.attachmentNames)
+                for (final name in _selectedAttachmentNames)
                   ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.description_outlined),
                     title: Text(name),
+                  ),
+                if (widget.allowAttachmentEditing &&
+                    widget.availableContent.isNotEmpty)
+                  OutlinedButton.icon(
+                    key: const Key('editEmailAttachments'),
+                    onPressed: _chooseAttachments,
+                    icon: const Icon(Icons.attach_file),
+                    label: Text(context.l10n.edit),
                   ),
               ],
             ),
@@ -303,6 +334,76 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
         ),
       ),
     );
+  }
+
+  List<String> get _selectedAttachmentNames => widget.availableContent.isEmpty
+      ? widget.draft.attachmentNames
+      : widget.availableContent
+            .where((file) => _attachmentIds.contains(file.id))
+            .map((file) => file.displayName)
+            .toList();
+
+  EmailReviewDraft _reviewedDraft({
+    required String subject,
+    required String message,
+  }) => widget.draft.copyWith(
+    subject: subject,
+    message: message,
+    attachmentIds: _attachmentIds.toList(),
+    attachmentNames: _selectedAttachmentNames,
+  );
+
+  Future<void> _chooseAttachments() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final selected = Set<String>.from(_attachmentIds);
+    final result = await showModalBottomSheet<Set<String>>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final file in widget.availableContent)
+                        CheckboxListTile(
+                          key: Key('emailAttachment-${file.id}'),
+                          value: selected.contains(file.id),
+                          title: Text(file.displayName),
+                          onChanged: (checked) => setSheetState(() {
+                            if (checked ?? false) {
+                              selected.add(file.id);
+                            } else {
+                              selected.remove(file.id);
+                            }
+                          }),
+                        ),
+                    ],
+                  ),
+                ),
+                FilledButton(
+                  key: const Key('saveEmailAttachments'),
+                  onPressed: () => Navigator.pop(sheetContext, selected),
+                  child: Text(context.l10n.saveChanges),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _attachmentIds
+          ..clear()
+          ..addAll(result);
+      });
+    }
   }
 
   Widget _label(String value) => Padding(

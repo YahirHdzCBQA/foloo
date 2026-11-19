@@ -161,6 +161,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
   bool _companyEdited = false;
   bool _emailEdited = false;
   bool _phoneEdited = false;
+  bool _noteEdited = false;
   LeadType? _leadType;
   InterestLevel _interest = InterestLevel.medium;
   bool _showValidation = false;
@@ -624,6 +625,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       _fillFromOcr(_company, card.company, manuallyEdited: _companyEdited);
       _fillFromOcr(_email, card.email, manuallyEdited: _emailEdited);
       _fillFromOcr(_phone, card.phone, manuallyEdited: _phoneEdited);
+      _fillFromOcr(_note, card.note, manuallyEdited: _noteEdited);
 
       final coreFieldsDetected =
           card.name.isNotEmpty &&
@@ -1025,9 +1027,16 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
           builder: (_) => EmailReviewScreen(
             record: record,
             draft: review,
+            availableContent: widget.contentFiles,
             onConfirm: widget.onEmailReviewConfirmed!,
             onDraftSaved: (draft) async {
-              await widget.onEmailReviewUpdated?.call(draft, record.lead);
+              await widget.onEmailReviewUpdated?.call(
+                draft,
+                record.lead.copyWith(
+                  contentFileIds: draft.attachmentIds,
+                  contentNames: draft.attachmentNames,
+                ),
+              );
             },
             onConnectionRequired: () {
               widget.onProfileRequested?.call();
@@ -1083,6 +1092,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
       _companyEdited = false;
       _emailEdited = false;
       _phoneEdited = false;
+      _noteEdited = false;
       _leadType = null;
       _interest = InterestLevel.medium;
       _showValidation = false;
@@ -1226,26 +1236,37 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        key: const Key('saveLeadButton'),
-                        onPressed: _submitting ? null : _submit,
-                        iconAlignment: IconAlignment.end,
-                        icon: const Icon(Icons.send_outlined),
-                        label: Text(context.l10n.saveAndFoloo),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
                       height: 56,
-                      child: OutlinedButton.icon(
-                        key: const Key('saveOnlyLeadButton'),
-                        onPressed: _submitting
-                            ? null
-                            : () => _submit(saveOnly: true),
-                        icon: const Icon(Icons.save_outlined),
-                        label: Text(context.l10n.save),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              key: const Key('saveOnlyLeadButton'),
+                              onPressed: _submitting
+                                  ? null
+                                  : () => _submit(saveOnly: true),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(context.l10n.save),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton.icon(
+                              key: const Key('saveLeadButton'),
+                              onPressed: _submitting ? null : _submit,
+                              iconAlignment: IconAlignment.end,
+                              icon: const Icon(Icons.send_outlined),
+                              label: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(context.l10n.saveAndFoloo),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     if (EntitlementScope.maybeOf(context)
@@ -2066,6 +2087,7 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
               minLines: 4,
               maxLines: 7,
               textCapitalization: TextCapitalization.sentences,
+              onChanged: (_) => _noteEdited = true,
             ),
           ),
         ],

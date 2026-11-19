@@ -48,6 +48,7 @@ class MediaRepository extends MemoryRepository {
       uploadStatus: "pending",
       uploadedAt: null,
       revision: 1,
+      deletedAt: null,
     });
   }
 
@@ -76,9 +77,34 @@ class MediaRepository extends MemoryRepository {
       uploadStatus: "available",
       uploadedAt: "2026-09-11T12:00:00Z",
       revision: 1,
+      deletedAt: null,
     };
     this.records.set(input.id, value);
     return { value, replayed: this.confirmCalls > 1 };
+  }
+
+  override async deleteLeadMedia(
+    principal: Principal,
+    targetLeadId: string,
+    mediaId: string,
+  ) {
+    if (this.leadOwner.get(targetLeadId) !== principal.workspaceId) {
+      throw notFound("Lead");
+    }
+    const existing = this.records.get(mediaId);
+    if (!existing || existing.kind !== "voice_note") {
+      throw notFound("Lead media");
+    }
+    const value = {
+      ...existing,
+      deletedAt: existing.deletedAt ?? "2026-11-18T12:00:00Z",
+      revision: existing.deletedAt ? existing.revision : existing.revision + 1,
+    };
+    this.records.set(mediaId, value);
+    return {
+      value: { id: mediaId, deleted: true },
+      replayed: existing.deletedAt !== null,
+    };
   }
 }
 
@@ -191,6 +217,57 @@ test("GET returns temporary read access but never exposes the object key", async
     items[0]!.download!.url,
     /^https:\/\/private\.example\/download/,
   );
+});
+
+test("REG-08 deletes exactly one voice note idempotently", async () => {
+  const repository = new MediaRepository();
+  const application = new FolooApplication(repository, new FakeMediaStorage());
+  const first: MediaInput = {
+    ...media,
+    id: "73b21d9f-8532-4ca0-b45e-cf8336bb807c",
+    kind: "voice_note",
+    contentType: "audio/mp4",
+  };
+  const second: MediaInput = {
+    ...first,
+    id: "83b21d9f-8532-4ca0-b45e-cf8336bb807c",
+  };
+  repository.records.set(first.id, {
+    ...first,
+    storageObjectKey: "first",
+    uploadStatus: "available",
+    uploadedAt: "2026-11-18T11:00:00Z",
+    revision: 1,
+    deletedAt: null,
+  });
+  repository.records.set(second.id, {
+    ...second,
+    storageObjectKey: "second",
+    uploadStatus: "available",
+    uploadedAt: "2026-11-18T11:00:00Z",
+    revision: 1,
+    deletedAt: null,
+  });
+
+  const deleted = await application.deleteLeadMedia(
+    "subject-a",
+    leadId,
+    first.id,
+    "delete-first",
+    "hash",
+  );
+  const replay = await application.deleteLeadMedia(
+    "subject-a",
+    leadId,
+    first.id,
+    "delete-first",
+    "hash",
+  );
+
+  assert.equal(deleted.replayed, false);
+  assert.equal(replay.replayed, true);
+  assert.equal(repository.records.get(first.id)?.deletedAt, "2026-11-18T12:00:00Z");
+  assert.equal(repository.records.get(second.id)?.deletedAt, null);
 });
 
 test("S3 key construction ignores filenames and client-provided storage keys", () => {

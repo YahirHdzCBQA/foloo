@@ -726,6 +726,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get saveChanges => 'Save changes';
 
   @override
+  String get leadChangesSaved => 'Changes saved.';
+
+  @override
   String get back => 'Back';
 
   @override
@@ -745,6 +748,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get displayName => 'Display name';
+
+  @override
+  String get contentDisplayNameHelp =>
+      'Enter the product or solution name. This is the name that will appear in the email.';
+
+  @override
+  String get exportContentFilter => 'Associated content';
+
+  @override
+  String get exportNoContentAvailable =>
+      'There is no content available to filter by.';
+
+  @override
+  String get clearFilters => 'Clear filters';
+
+  @override
+  String get exportNoMatchingLeads => 'No leads match these filters.';
 
   @override
   String get searchEvents => 'Search events';
@@ -1007,6 +1027,20 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get microphoneDenied =>
       'Microphone permission was denied. You can continue with the written note.';
+
+  @override
+  String get addVoiceNote => 'Add voice note';
+
+  @override
+  String get voiceNoteLimitReached =>
+      'This lead already has the maximum of 3 voice notes.';
+
+  @override
+  String get referenceImageLimitReached =>
+      'This lead already has the maximum of 6 reference images.';
+
+  @override
+  String get deleteVoiceNoteQuestion => 'Delete this voice note?';
 
   @override
   String get microphonePermissionTitle => 'Enable microphone access';

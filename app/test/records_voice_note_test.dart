@@ -6,6 +6,7 @@ import 'package:foloo/data/repositories/local_repositories.dart';
 import 'package:foloo/l10n/app_localizations.dart';
 import 'package:foloo/models/app_destination.dart';
 import 'package:foloo/models/app_event.dart';
+import 'package:foloo/models/content_file.dart';
 import 'package:foloo/models/email_review.dart';
 import 'package:foloo/models/lead_draft.dart';
 import 'package:foloo/models/session_lead.dart';
@@ -60,12 +61,15 @@ Widget recordsApp(
   RecordsFileSharer fileSharer = const _FakeRecordsFileSharer(),
   RecordsFileSaver fileSaver = const _FakeRecordsFileSaver(),
   bool? deviceSaveAvailable,
-  Future<void> Function(SessionLead, LeadDraft)? onLeadUpdated,
+  Future<SessionLead> Function(SessionLead, LeadDraft)? onLeadUpdated,
   Future<String?> Function(String eventId)? eventNameForId,
   Locale locale = const Locale('es'),
   Future<void> Function(SessionLead)? onDelete,
+  Future<SessionLead> Function(SessionLead, String, int)? onVoiceNoteAdded,
+  Future<SessionLead> Function(SessionLead, LeadVoiceNote)? onVoiceNoteDeleted,
   Future<EmailReviewDraft?> Function(SessionLead)? onEmailReviewRequested,
   Future<EmailReviewOutcome> Function(EmailReviewDraft)? onEmailReviewConfirmed,
+  List<ContentFile> contentFiles = const [],
   String? ownerSub,
   EmailDeliveryRepository? deliveryRepository,
 }) => MaterialApp(
@@ -77,6 +81,7 @@ Widget recordsApp(
   supportedLocales: AppLocalizations.supportedLocales,
   home: RecordsScreen(
     records: records,
+    contentFiles: contentFiles,
     darkMode: darkMode,
     events: events,
     eventNameForId: eventNameForId,
@@ -91,6 +96,8 @@ Widget recordsApp(
     deviceSaveAvailable: deviceSaveAvailable,
     onLeadUpdated: onLeadUpdated,
     onDelete: onDelete,
+    onVoiceNoteAdded: onVoiceNoteAdded,
+    onVoiceNoteDeleted: onVoiceNoteDeleted,
     onEmailReviewRequested: onEmailReviewRequested,
     onEmailReviewConfirmed: onEmailReviewConfirmed,
     ownerSub: ownerSub,
@@ -261,6 +268,55 @@ void main() {
       expect(service.stopPlaybackCount, greaterThanOrEqualTo(1));
     },
   );
+
+  testWidgets('REG-08 detail reports the three voice-note limit', (
+    tester,
+  ) async {
+    var addCalls = 0;
+    final record = SessionLead(
+      localId: 'voice-limit',
+      folio: null,
+      capturedAt: DateTime(2026, 11, 18),
+      lead: lead(audioPath: '/tmp/voice-1.m4a'),
+      voiceNotes: const [
+        LeadVoiceNote(
+          id: 'voice-1',
+          localPath: '/tmp/voice-1.m4a',
+          durationSeconds: 1,
+        ),
+        LeadVoiceNote(
+          id: 'voice-2',
+          localPath: '/tmp/voice-2.m4a',
+          durationSeconds: 2,
+        ),
+        LeadVoiceNote(
+          id: 'voice-3',
+          localPath: '/tmp/voice-3.m4a',
+          durationSeconds: 3,
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      recordsApp(
+        FakeVoiceNoteService(),
+        records: [record],
+        onVoiceNoteAdded: (current, path, duration) async {
+          addCalls += 1;
+          return current;
+        },
+      ),
+    );
+    await tester.tap(find.byKey(const Key('record-voice-limit')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('detailAddVoiceNote')));
+    await tester.pump();
+
+    expect(addCalls, 0);
+    expect(
+      find.text('Este lead ya tiene el máximo de 3 notas de voz.'),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('REG-17 uses global header and delete swipe confirms', (
     tester,
@@ -835,7 +891,15 @@ void main() {
       recordsApp(
         FakeVoiceNoteService(),
         records: [current],
-        onLeadUpdated: (_, value) async => updated = value,
+        onLeadUpdated: (_, value) async {
+          updated = value;
+          return SessionLead(
+            localId: current.localId,
+            folio: current.folio,
+            capturedAt: current.capturedAt,
+            lead: value,
+          );
+        },
       ),
     );
     await tester.tap(find.text('Mariana Sandoval Ruiz'));
@@ -853,7 +917,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(updated?.name, 'María José');
     expect(updated?.cardImageLocalPath, '/private/card.jpg');
-    expect(find.byKey(const Key('recordsList')), findsOneWidget);
+    expect(find.byKey(const Key('detailBackButton')), findsOneWidget);
+    expect(find.text('María José Sandoval Ruiz'), findsWidgets);
   });
 
   testWidgets('REG-10 all events requires one concrete export event', (
@@ -922,6 +987,84 @@ void main() {
     await tester.pumpAndSettle();
     expect(sharer.file?.filename, startsWith('foloo_Evento B_'));
     expect(sharer.file?.filename, endsWith('.xlsx'));
+  });
+
+  testWidgets('REG-09 direct export combines content and inclusive dates', (
+    tester,
+  ) async {
+    final sharer = _CapturingRecordsFileSharer();
+    const burritos = ContentFile(
+      id: 'content-burritos',
+      displayName: 'Burritos',
+      fileName: 'burritos.pdf',
+      sizeLabel: '1 MB',
+    );
+    const tacos = ContentFile(
+      id: 'content-tacos',
+      displayName: 'Tacos',
+      fileName: 'tacos.pdf',
+      sizeLabel: '1 MB',
+    );
+    await tester.pumpWidget(
+      recordsApp(
+        FakeVoiceNoteService(),
+        records: [
+          SessionLead(
+            localId: 'direct-burritos',
+            folio: null,
+            capturedAt: DateTime(2026, 11, 10, 10),
+            lead: lead(
+              originKind: LeadOriginKind.direct,
+              place: 'León',
+              contentNames: const ['Burritos'],
+            ).copyWith(contentFileIds: const ['content-burritos']),
+          ),
+          SessionLead(
+            localId: 'direct-tacos',
+            folio: null,
+            capturedAt: DateTime(2026, 11, 11, 10),
+            lead: lead(
+              originKind: LeadOriginKind.direct,
+              place: 'León',
+              name: 'Taco',
+              contentNames: const ['Tacos'],
+            ).copyWith(contentFileIds: const ['content-tacos']),
+          ),
+        ],
+        contentFiles: const [burritos, tacos],
+        events: [
+          AppEvent(
+            id: 'event-a',
+            name: 'Evento A',
+            startsOn: DateTime(2026, 11, 1),
+            endsOn: DateTime(2026, 11, 2),
+          ),
+        ],
+        fileSharer: sharer,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('exportButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('exportDirectLeads')));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<Text>(find.byKey(const Key('exportLeadSummary'))).data,
+      contains('2 leads'),
+    );
+    await tester.tap(
+      find.byKey(const Key('directExportContent-content-burritos')),
+    );
+    await tester.pump();
+    expect(
+      tester.widget<Text>(find.byKey(const Key('exportLeadSummary'))).data,
+      contains('1 lead'),
+    );
+    await tester.ensureVisible(find.byKey(const Key('confirmExportButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirmExportButton')));
+    await tester.pumpAndSettle();
+    expect(sharer.file, isNotNull);
   });
 
   testWidgets(

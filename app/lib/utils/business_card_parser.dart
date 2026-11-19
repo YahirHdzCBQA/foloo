@@ -13,6 +13,7 @@ class ParsedBusinessCard {
     this.company = '',
     this.email = '',
     this.phone = '',
+    this.note = '',
     this.detectedWebsite = '',
   });
 
@@ -22,6 +23,7 @@ class ParsedBusinessCard {
   final String company;
   final String email;
   final String phone;
+  final String note;
 
   /// Diagnostic only. OQ-A02 prevents adding this to the lead model.
   final String detectedWebsite;
@@ -33,6 +35,7 @@ class ParsedBusinessCard {
     company,
     email,
     phone,
+    note,
   ].where((value) => value.isNotEmpty).length;
 }
 
@@ -70,7 +73,19 @@ class BusinessCardParser {
     caseSensitive: false,
   );
   static final RegExp _labelPattern = RegExp(
-    r'^(?:tel(?:[eé]fono)?|m[oó]vil|cel(?:ular)?|email|correo|web|sitio)\s*[:\-]?\s*',
+    r'^(?:tel(?:[eé]fono)?|m[oó]vil|cel(?:ular)?|email|correo(?:\s+electr[oó]nico)?|web|sitio|notas?)\s*[:\-]?\s*',
+    caseSensitive: false,
+  );
+  static final RegExp _phoneLabelPattern = RegExp(
+    r'^(?:tel(?:[eé]fono)?|m[oó]vil|cel(?:ular)?)\s*[:\-]?\s*(.*)$',
+    caseSensitive: false,
+  );
+  static final RegExp _emailLabelPattern = RegExp(
+    r'^(?:email|correo(?:\s+electr[oó]nico)?)\s*[:\-]?\s*(.*)$',
+    caseSensitive: false,
+  );
+  static final RegExp _noteLabelPattern = RegExp(
+    r'^notas?\s*[:\-]?\s*(.*)$',
     caseSensitive: false,
   );
   static final RegExp _nameLinePattern = RegExp(
@@ -87,28 +102,59 @@ class BusinessCardParser {
 
     var email = '';
     var phone = '';
+    var note = '';
     var website = '';
-    for (final line in lines) {
+    final structuralLabels = <int>{};
+    for (var index = 0; index < lines.length; index++) {
+      final line = lines[index];
+      final next = index + 1 < lines.length ? lines[index + 1] : '';
+      final phoneLabel = _phoneLabelPattern.firstMatch(line);
+      final emailLabel = _emailLabelPattern.firstMatch(line);
+      final noteLabel = _noteLabelPattern.firstMatch(line);
+      if (phoneLabel != null || emailLabel != null || noteLabel != null) {
+        structuralLabels.add(index);
+      }
+      final labeledPhone = phoneLabel?.group(1)?.trim();
+      final labeledEmail = emailLabel?.group(1)?.trim();
+      final labeledNote = noteLabel?.group(1)?.trim();
+      final phoneSource = labeledPhone?.isNotEmpty == true
+          ? labeledPhone!
+          : next;
+      final emailSource = labeledEmail?.isNotEmpty == true
+          ? labeledEmail!
+          : next;
+      final noteSource = labeledNote?.isNotEmpty == true ? labeledNote! : next;
+      if (phone.isEmpty && phoneLabel != null) {
+        phone = _validPhone(phoneSource);
+      }
+      if (email.isEmpty &&
+          emailLabel != null &&
+          !_looksTruncated(emailSource)) {
+        email = _emailPattern.firstMatch(emailSource)?.group(0) ?? '';
+      }
+      if (note.isEmpty && noteLabel != null && noteSource.isNotEmpty) {
+        note = noteSource;
+      }
       email = email.isEmpty
-          ? _emailPattern.firstMatch(line)?.group(0) ?? ''
+          ? (_looksTruncated(line)
+                ? ''
+                : _emailPattern.firstMatch(line)?.group(0) ?? '')
           : email;
       website = website.isEmpty && !_emailPattern.hasMatch(line)
           ? _websitePattern.firstMatch(line)?.group(0) ?? ''
           : website;
       if (phone.isEmpty) {
-        for (final match in _phonePattern.allMatches(line)) {
-          final candidate = _normalizeWhitespace(match.group(0) ?? '');
-          final digitCount = candidate.replaceAll(RegExp(r'\D'), '').length;
-          if (digitCount >= 7 && digitCount <= 15) {
-            phone = candidate;
-            break;
-          }
-        }
+        phone = _validPhone(line);
       }
     }
 
     final textLines = <String>[];
-    for (final original in lines) {
+    for (var index = 0; index < lines.length; index++) {
+      if (structuralLabels.contains(index)) continue;
+      final previousWasLabel =
+          index > 0 && structuralLabels.contains(index - 1);
+      if (previousWasLabel) continue;
+      final original = lines[index];
       var line = original
           .replaceAll(_emailPattern, ' ')
           .replaceAll(_phonePattern, ' ')
@@ -118,7 +164,7 @@ class BusinessCardParser {
     }
 
     final role = textLines.where(_looksLikeRole).firstOrNull ?? '';
-    final company = textLines.where(_looksLikeCompany).firstOrNull ?? '';
+    var company = textLines.where(_looksLikeCompany).firstOrNull ?? '';
     final nameLine = textLines.where((line) {
       return line != role &&
           line != company &&
@@ -134,6 +180,10 @@ class BusinessCardParser {
       name = parts.first;
       lastName = parts.skip(1).join(' ');
     }
+    if (company.isEmpty && nameLine != null) {
+      final following = textLines.skip(textLines.indexOf(nameLine) + 1);
+      company = following.where(_looksLikeUppercaseCompany).firstOrNull ?? '';
+    }
 
     return ParsedBusinessCard(
       name: name,
@@ -142,6 +192,7 @@ class BusinessCardParser {
       company: company,
       email: email,
       phone: phone,
+      note: note,
       detectedWebsite: website,
     );
   }
@@ -149,6 +200,24 @@ class BusinessCardParser {
   bool _looksLikeRole(String line) => _rolePattern.hasMatch(line);
 
   bool _looksLikeCompany(String line) => _companyPattern.hasMatch(line);
+
+  bool _looksLikeUppercaseCompany(String line) =>
+      line.length >= 3 &&
+      line == line.toUpperCase() &&
+      RegExp(r'[A-ZÁÉÍÓÚÜÑ]').hasMatch(line) &&
+      !_looksLikeRole(line);
+
+  static String _validPhone(String value) {
+    for (final match in _phonePattern.allMatches(value)) {
+      final candidate = _normalizeWhitespace(match.group(0) ?? '');
+      final digitCount = candidate.replaceAll(RegExp(r'\D'), '').length;
+      if (digitCount >= 7 && digitCount <= 15) return candidate;
+    }
+    return '';
+  }
+
+  static bool _looksTruncated(String value) =>
+      value.contains('…') || value.contains('...');
 
   static String _normalizeWhitespace(String value) =>
       value.trim().replaceAll(RegExp(r'\s+'), ' ');

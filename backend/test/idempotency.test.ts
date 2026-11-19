@@ -108,6 +108,12 @@ test("rejects reuse of an idempotency key with another payload", async () => {
 });
 
 class LeadUpdateClient extends IdempotencyClient {
+  constructor(
+    readonly leadOrigin: "event" | "direct" = "direct",
+    readonly currentEventId: string | null = null,
+  ) {
+    super();
+  }
   updateCount = 0;
   conflictRevision = false;
   updatedValues: unknown[] = [];
@@ -115,17 +121,25 @@ class LeadUpdateClient extends IdempotencyClient {
   override async query<
     Row extends Record<string, unknown> = Record<string, unknown>,
   >(sql: string, values: unknown[] = []) {
-    if (sql.includes("SELECT origin,content_file_ids,content_names FROM leads"))
+    if (
+      sql.includes(
+        "SELECT origin,event_id,content_file_ids,content_names FROM leads",
+      )
+    )
       return {
         rows: [
           {
-            origin: "direct",
+            origin: this.leadOrigin,
+            event_id: this.currentEventId,
             content_file_ids: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
             content_names: ["Anterior.pdf"],
           } as unknown as Row,
         ],
         rowCount: 1,
       };
+    if (sql.includes("SELECT 1 FROM events")) {
+      return { rows: [{ exists: 1 } as unknown as Row], rowCount: 1 };
+    }
     if (sql.includes("SELECT id,display_name FROM content_files")) {
       const ids = values[1] as string[];
       return {
@@ -300,8 +314,8 @@ test("REG-07 refreshes the complete ordered Content selection", async () => {
     "content-update-key",
     requestHash(update),
   );
-  assert.deepEqual(client.updatedValues[13], contentIds);
-  assert.deepEqual(client.updatedValues[14], [
+  assert.deepEqual(client.updatedValues[14], contentIds);
+  assert.deepEqual(client.updatedValues[15], [
     "Documento 1.pdf",
     "Documento 2.pdf",
   ]);
@@ -328,6 +342,23 @@ test("REG-07 replays an optimistic lead update without a second write", async ()
   assert.equal(first.replayed, false);
   assert.equal(replay.replayed, true);
   assert.equal(client.updateCount, 1);
+});
+
+test("REG-07 moves only an event lead to an existing workspace event", async () => {
+  const previous = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const next = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const update = { ...leadUpdate, place: null, eventId: next };
+  const client = new LeadUpdateClient("event", previous);
+
+  await repository(client).updateLead(
+    principal,
+    "57d8ce9a-dcc4-4b78-8fd9-552c216a62a1",
+    update,
+    "move-event-key",
+    requestHash(update),
+  );
+
+  assert.equal(client.updatedValues[13], next);
 });
 
 test("REG-07 returns a specific recoverable revision conflict", async () => {

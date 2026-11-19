@@ -249,6 +249,7 @@ export class FolooApplication {
         return {
           ...publicItem,
           download:
+            !item.deletedAt &&
             item.uploadStatus === "available" &&
             storageObjectKey &&
             this.mediaStorage
@@ -289,6 +290,23 @@ export class FolooApplication {
       key,
       hash,
       objectKey,
+    );
+  }
+
+  async deleteLeadMedia(
+    subject: string,
+    leadId: string,
+    mediaId: string,
+    key: string,
+    hash: string,
+  ) {
+    const principal = await this.repository.resolvePrincipal(subject);
+    return this.repository.deleteLeadMedia(
+      principal,
+      leadId,
+      mediaId,
+      key,
+      hash,
     );
   }
 

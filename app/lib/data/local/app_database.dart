@@ -459,6 +459,8 @@ class EmailDeliveryDao extends DatabaseAccessor<AppDatabase>
     required String bodySemanticJson,
     required bool subjectManuallyEdited,
     required bool bodyManuallyEdited,
+    required String contentFileIdsJson,
+    required String contentNamesJson,
   }) =>
       (update(localEmailFollowUps)..where(
             (row) => row.ownerUserId.equals(owner) & row.localId.equals(id),
@@ -472,6 +474,8 @@ class EmailDeliveryDao extends DatabaseAccessor<AppDatabase>
               bodySemanticJson: Value(bodySemanticJson),
               subjectManuallyEdited: Value(subjectManuallyEdited),
               bodyManuallyEdited: Value(bodyManuallyEdited),
+              contentFileIdsJson: Value(contentFileIdsJson),
+              contentNamesJson: Value(contentNamesJson),
             ),
           );
 

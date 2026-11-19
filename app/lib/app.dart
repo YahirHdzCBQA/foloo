@@ -471,6 +471,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       recipientAddress: followUp.recipientAddress,
       subject: followUp.subject,
       message: followUp.plainBody,
+      attachmentIds: record.lead.contentFileIds,
       attachmentNames: record.lead.contentNames,
     );
   }
@@ -517,18 +518,85 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
         seller: _profile,
       );
 
-  Future<void> _updateLead(SessionLead record, LeadDraft updated) async {
+  Future<SessionLead> _updateLead(SessionLead record, LeadDraft updated) async {
     await _persistence.leads.updateDraft(_userId, record, updated);
+    await _persistence.emailDelivery.prepareForLead(
+      owner: _userId,
+      leadId: record.localId,
+      lead: updated,
+      seller: _profile,
+      language: _locale.languageCode == 'en' ? 'en' : 'es',
+      reconcileExisting: true,
+    );
     final leads = await _persistence.leads.listAll(_userId);
-    if (!mounted) return;
-    setState(() {
-      _sessionLeads
-        ..clear()
-        ..addAll(leads);
-    });
+    if (mounted) {
+      setState(() {
+        _sessionLeads
+          ..clear()
+          ..addAll(leads);
+      });
+    }
     if (_isOnline) {
       unawaited(_synchronize(trigger: SyncTrigger.postSave));
     }
+    return leads.firstWhere((item) => item.localId == record.localId);
+  }
+
+  Future<SessionLead> _appendLeadReferenceImage(
+    SessionLead record,
+    String sourcePath,
+  ) async {
+    await _persistence.leads.appendReferenceImage(_userId, record, sourcePath);
+    final leads = await _persistence.leads.listAll(_userId);
+    if (mounted) {
+      setState(() {
+        _sessionLeads
+          ..clear()
+          ..addAll(leads);
+      });
+    }
+    if (_isOnline) unawaited(_synchronize(trigger: SyncTrigger.postSave));
+    return leads.firstWhere((item) => item.localId == record.localId);
+  }
+
+  Future<SessionLead> _appendLeadVoiceNote(
+    SessionLead record,
+    String sourcePath,
+    int durationSeconds,
+  ) async {
+    await _persistence.leads.appendVoiceNote(
+      _userId,
+      record,
+      sourcePath,
+      durationSeconds,
+    );
+    final leads = await _persistence.leads.listAll(_userId);
+    if (mounted) {
+      setState(() {
+        _sessionLeads
+          ..clear()
+          ..addAll(leads);
+      });
+    }
+    if (_isOnline) unawaited(_synchronize(trigger: SyncTrigger.postSave));
+    return leads.firstWhere((item) => item.localId == record.localId);
+  }
+
+  Future<SessionLead> _deleteLeadVoiceNote(
+    SessionLead record,
+    LeadVoiceNote note,
+  ) async {
+    await _persistence.leads.deleteVoiceNote(_userId, record, note);
+    final leads = await _persistence.leads.listAll(_userId);
+    if (mounted) {
+      setState(() {
+        _sessionLeads
+          ..clear()
+          ..addAll(leads);
+      });
+    }
+    if (_isOnline) unawaited(_synchronize(trigger: SyncTrigger.postSave));
+    return leads.firstWhere((item) => item.localId == record.localId);
   }
 
   Future<void> _deleteLead(SessionLead record) async {
@@ -1574,6 +1642,11 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           onSync: () => _synchronize(trigger: SyncTrigger.manual),
           syncing: _syncEngine?.running ?? false,
           onLeadUpdated: _updateLead,
+          onReferenceImageAdded: _appendLeadReferenceImage,
+          onVoiceNoteAdded: _appendLeadVoiceNote,
+          onVoiceNoteDeleted: _deleteLeadVoiceNote,
+          contactImagePickerService: widget.contactImagePickerService,
+          cameraAccessCoordinator: widget.cameraAccessCoordinator,
           ownerSub: _userId,
           deliveryRepository: _persistence.emailDelivery,
           isEmailConnectionMissing: _emailConnectionService == null

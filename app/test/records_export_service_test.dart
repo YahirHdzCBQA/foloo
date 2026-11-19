@@ -56,25 +56,26 @@ SessionLead record(String eventId, {String name = 'José, "Pepe"'}) =>
       ),
     );
 
-SessionLead directRecord({required String name}) => SessionLead(
-  localId: 'direct-$name',
-  folio: 'hidden',
-  capturedAt: DateTime(2026, 9, 15, 12),
-  lead: LeadDraft(
-    name: name,
-    lastName: '',
-    role: '',
-    company: 'Foloo',
-    email: 'direct@example.com',
-    phone: '',
-    type: LeadType.customer,
-    interest: InterestLevel.high,
-    note: '',
-    originKind: LeadOriginKind.direct,
-    audioSeconds: 0,
-    place: 'León',
-  ),
-);
+SessionLead directRecord({required String name, DateTime? capturedAt}) =>
+    SessionLead(
+      localId: 'direct-$name',
+      folio: 'hidden',
+      capturedAt: capturedAt ?? DateTime(2026, 9, 15, 12),
+      lead: LeadDraft(
+        name: name,
+        lastName: '',
+        role: '',
+        company: 'Foloo',
+        email: 'direct@example.com',
+        phone: '',
+        type: LeadType.customer,
+        interest: InterestLevel.high,
+        note: '',
+        originKind: LeadOriginKind.direct,
+        audioSeconds: 0,
+        place: 'León',
+      ),
+    );
 
 void main() {
   final event = AppEvent(
@@ -153,5 +154,29 @@ void main() {
         expect(rows[1][10]?.value.toString(), '');
       }
     }
+  });
+
+  test('REG-09 direct date range is inclusive in local calendar days', () {
+    final records = const RecordsExportService().directRecordsInLocalDateRange(
+      records: [
+        directRecord(name: 'Before', capturedAt: DateTime(2026, 9, 9, 23)),
+        directRecord(name: 'Start', capturedAt: DateTime(2026, 9, 10, 0)),
+        directRecord(name: 'End', capturedAt: DateTime(2026, 9, 12, 23, 59)),
+        directRecord(name: 'After', capturedAt: DateTime(2026, 9, 13)),
+        record('event-a'),
+      ],
+      start: DateTime(2026, 9, 10),
+      end: DateTime(2026, 9, 12),
+    );
+
+    expect(records.map((item) => item.lead.name), ['Start', 'End']);
+    expect(
+      () => const RecordsExportService().directRecordsInLocalDateRange(
+        records: const [],
+        start: DateTime(2026, 9, 12),
+        end: DateTime(2026, 9, 10),
+      ),
+      throwsArgumentError,
+    );
   });
 }

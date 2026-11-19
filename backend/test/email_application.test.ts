@@ -379,6 +379,54 @@ test("prepared follow-up persists the rendered subject instead of template token
   assert.doesNotMatch(storedSubject, /\{nombre\}/);
 });
 
+test("Records attachment selection is passed exactly to follow-up context", async () => {
+  const selected = ["77777777-7777-4777-8777-777777777777"];
+  let received: string[] | undefined;
+  const core = {
+    resolvePrincipal: async () => principal,
+    listEmailTemplates: async () => [],
+    listEventEmailTemplates: async () => [],
+  } as unknown as FolooRepository;
+  const repository = {
+    followUpContext: async (
+      _principal: unknown,
+      _leadId: string,
+      selectedContentFileIds?: string[],
+    ) => {
+      received = selectedContentFileIds;
+      return {
+        leadId: "22222222-2222-4222-8222-222222222222",
+        eventId: null,
+        origin: "direct" as const,
+        recipientAddress: "lead@example.com",
+        values: { nombre: "Mariana", contenido: "Burritos" },
+        contentFileIds: selected,
+        contentNames: ["Burritos"],
+        attachments: [],
+      };
+    },
+    createFollowUp: async () => ({ id: "follow-up" }),
+  } as unknown as EmailRepository;
+  const application = new EmailApplication(
+    core,
+    repository,
+    { invoke: async () => ({ outcome: "accepted" }) } as EmailProviderBoundary,
+    {} as MediaStorage,
+    "https://api.invalid",
+  );
+
+  await application.prepare(
+    principal.userId,
+    "22222222-2222-4222-8222-222222222222",
+    "es",
+    "88888888-8888-4888-8888-888888888888",
+    undefined,
+    selected,
+  );
+
+  assert.deepEqual(received, selected);
+});
+
 test("historical raw subjects are rendered before returning email history", async () => {
   const core = {
     resolvePrincipal: async () => principal,

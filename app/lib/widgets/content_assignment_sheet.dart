@@ -146,6 +146,8 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
                 decoration: InputDecoration(
                   labelText: context.l10n.displayName,
                   hintText: context.l10n.displayName,
+                  helperText: context.l10n.contentDisplayNameHelp,
+                  helperMaxLines: 2,
                 ),
               ),
               const SizedBox(height: 14),

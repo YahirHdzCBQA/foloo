@@ -11,6 +11,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
@@ -22,12 +23,15 @@ import '../data/repositories/local_repositories.dart';
 import '../models/email_delivery_error.dart';
 import '../models/email_review.dart';
 import '../services/voice_note_service.dart';
+import '../services/camera_access_service.dart';
+import '../services/contact_image_picker_service.dart';
 import '../services/records_export_service.dart';
 import '../theme/foloo_theme.dart';
 import '../l10n/l10n.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/module_header.dart';
 import '../widgets/swipe_action_card.dart';
+import '../widgets/camera_access_dialog.dart';
 import '../widgets/voice_playback_waveform.dart';
 import 'email_review_screen.dart';
 
@@ -36,6 +40,13 @@ const _allEventsFilterId = '__all_events__';
 const _directLeadsFilterId = '__direct_leads__';
 
 enum _ExportDelivery { share, saveToDevice }
+
+class _RecordedVoiceDraft {
+  const _RecordedVoiceDraft(this.path, this.durationSeconds);
+
+  final String path;
+  final int durationSeconds;
+}
 
 String _leadTypeLabel(BuildContext context, LeadType type) => switch (type) {
   LeadType.supplier => context.l10n.supplier,
@@ -70,6 +81,9 @@ bool _isFailed(SessionUploadState state) =>
     state == SessionUploadState.conflict ||
     state == SessionUploadState.syncedWithMediaError;
 
+String _voiceDuration(int seconds) =>
+    '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
+
 /// Lists leads loaded from durable local persistence (REG-01–REG-08).
 class RecordsScreen extends StatefulWidget {
   const RecordsScreen({
@@ -86,6 +100,11 @@ class RecordsScreen extends StatefulWidget {
     this.onSync,
     this.syncing = false,
     this.onLeadUpdated,
+    this.onReferenceImageAdded,
+    this.onVoiceNoteAdded,
+    this.onVoiceNoteDeleted,
+    this.contactImagePickerService,
+    this.cameraAccessCoordinator,
     this.exportService = const RecordsExportService(),
     this.fileSharer = const DeviceRecordsFileSharer(),
     this.fileSaver = const DeviceRecordsFileSaver(),
@@ -113,8 +132,20 @@ class RecordsScreen extends StatefulWidget {
   final Future<String?> Function(String eventId)? eventNameForId;
   final Future<void> Function()? onSync;
   final bool syncing;
-  final Future<void> Function(SessionLead record, LeadDraft updated)?
+  final Future<SessionLead> Function(SessionLead record, LeadDraft updated)?
   onLeadUpdated;
+  final Future<SessionLead> Function(SessionLead record, String sourcePath)?
+  onReferenceImageAdded;
+  final Future<SessionLead> Function(
+    SessionLead record,
+    String sourcePath,
+    int durationSeconds,
+  )?
+  onVoiceNoteAdded;
+  final Future<SessionLead> Function(SessionLead record, LeadVoiceNote note)?
+  onVoiceNoteDeleted;
+  final ContactImagePickerService? contactImagePickerService;
+  final CameraAccessCoordinator? cameraAccessCoordinator;
   final RecordsExportService exportService;
   final RecordsFileSharer fileSharer;
   final RecordsFileSaver fileSaver;
@@ -371,8 +402,7 @@ class _RecordsScreenState extends State<RecordsScreen>
 
   /// Ensures only one record audio file is active and keeps lifecycle state
   /// synchronized with the shared device player.
-  Future<void> _toggleAudio(SessionLead record) async {
-    final path = record.lead.audioLocalPath;
+  Future<void> _toggleAudioPath(String? path) async {
     if (path == null || _busyAudioPath != null) {
       return;
     }
@@ -450,10 +480,20 @@ class _RecordsScreenState extends State<RecordsScreen>
           record: record,
           currentEventName: currentEventName,
           audioPlayingListenable: _detailAudioPlaying,
-          onToggleAudio: () => _toggleAudio(record),
+          onToggleAudio: (note) => _toggleAudioPath(note.localPath),
           onEdit: widget.onLeadUpdated == null
               ? null
               : (updated) => widget.onLeadUpdated!(record, updated),
+          events: widget.events,
+          onAddReferenceImage: widget.onReferenceImageAdded == null
+              ? null
+              : () => _addReferenceImage(record),
+          onAddVoiceNote: widget.onVoiceNoteAdded == null
+              ? null
+              : () => _addVoiceNote(record),
+          onDeleteVoiceNote: widget.onVoiceNoteDeleted == null
+              ? null
+              : (note) => widget.onVoiceNoteDeleted!(record, note),
           followUp: _followUpForLead(record.localId),
           emailIntent: _intentFor(_followUpForLead(record.localId)),
           ownerSub: widget.ownerSub,
@@ -468,6 +508,199 @@ class _RecordsScreenState extends State<RecordsScreen>
     );
     await _stopAudio();
     if (mounted) setState(() {});
+  }
+
+  Future<SessionLead?> _addReferenceImage(SessionLead record) async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              key: const Key('detailReferenceImageCamera'),
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: Text(context.l10n.takePhoto),
+              onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
+            ),
+            ListTile(
+              key: const Key('detailReferenceImageGallery'),
+              leading: const Icon(Icons.photo_outlined),
+              title: Text(context.l10n.chooseGallery),
+              onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return null;
+    final camera = widget.cameraAccessCoordinator ?? CameraAccessCoordinator();
+    if (source == ImageSource.camera &&
+        !await ensureCameraAccess(context, camera)) {
+      return null;
+    }
+    try {
+      final picker =
+          widget.contactImagePickerService ?? DeviceContactImagePickerService();
+      final image = await picker.pick(source);
+      if (image == null || !mounted) return null;
+      return await widget.onReferenceImageAdded!(record, image.path);
+    } on Object {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.imageOpenError)));
+      return null;
+    }
+  }
+
+  Future<SessionLead?> _addVoiceNote(SessionLead record) async {
+    if (record.effectiveVoiceNotes.length >= 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.voiceNoteLimitReached)),
+      );
+      return null;
+    }
+    await _stopAudio();
+    if (!mounted) return null;
+    String? recordedPath;
+    var elapsed = Duration.zero;
+    var recording = false;
+    var busy = false;
+    Timer? timer;
+    final draft = await showModalBottomSheet<_RecordedVoiceDraft>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          Future<void> start() async {
+            if (busy) return;
+            setSheetState(() => busy = true);
+            try {
+              recordedPath = await _voice.startRecording();
+              elapsed = Duration.zero;
+              recording = true;
+              timer?.cancel();
+              timer = Timer.periodic(const Duration(seconds: 1), (_) {
+                if (sheetContext.mounted) {
+                  setSheetState(() => elapsed += const Duration(seconds: 1));
+                }
+              });
+            } on VoiceNotePermissionDeniedException {
+              if (sheetContext.mounted) {
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  SnackBar(content: Text(context.l10n.microphoneDenied)),
+                );
+              }
+            } finally {
+              if (sheetContext.mounted) setSheetState(() => busy = false);
+            }
+          }
+
+          Future<void> stop() async {
+            if (!recording || busy) return;
+            setSheetState(() => busy = true);
+            final path = await _voice.stopRecording();
+            timer?.cancel();
+            if (sheetContext.mounted) {
+              setSheetState(() {
+                recordedPath = path ?? recordedPath;
+                recording = false;
+                busy = false;
+              });
+            }
+          }
+
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    context.l10n.addVoiceNote,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Center(
+                    child: Text(
+                      _voiceDuration(elapsed.inSeconds),
+                      key: const Key('detailVoiceRecordingDuration'),
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  FilledButton.icon(
+                    key: const Key('detailVoiceRecordButton'),
+                    onPressed: busy ? null : (recording ? stop : start),
+                    icon: Icon(recording ? Icons.stop : Icons.mic),
+                    label: Text(
+                      recording
+                          ? context.l10n.stopRecording
+                          : context.l10n.startRecording,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    key: const Key('detailVoiceSaveButton'),
+                    onPressed: !recording && recordedPath != null && !busy
+                        ? () => Navigator.pop(
+                            sheetContext,
+                            _RecordedVoiceDraft(
+                              recordedPath!,
+                              elapsed.inSeconds,
+                            ),
+                          )
+                        : null,
+                    child: Text(context.l10n.save),
+                  ),
+                  TextButton(
+                    onPressed: busy
+                        ? null
+                        : () async {
+                            timer?.cancel();
+                            if (recording) await _voice.cancelRecording();
+                            if (sheetContext.mounted) {
+                              Navigator.pop(sheetContext);
+                            }
+                          },
+                    child: Text(context.l10n.cancel),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    timer?.cancel();
+    if (draft == null) {
+      if (recordedPath != null) await _voice.deleteFile(recordedPath!);
+      return null;
+    }
+    try {
+      final refreshed = await widget.onVoiceNoteAdded!(
+        record,
+        draft.path,
+        draft.durationSeconds,
+      );
+      await _voice.deleteFile(draft.path);
+      return refreshed;
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(context.l10n.localSaveError)));
+      }
+      return null;
+    }
   }
 
   Future<void> _openEmailReview(SessionLead record) async {
@@ -488,13 +721,26 @@ class _RecordsScreenState extends State<RecordsScreen>
         builder: (_) => EmailReviewScreen(
           record: record,
           draft: draft,
+          availableContent: widget.contentFiles.where((file) {
+            if (record.lead.originKind == LeadOriginKind.direct) return true;
+            final eventId = record.lead.eventLocalId;
+            return file.allEvents ||
+                (eventId != null && file.eventIds.contains(eventId));
+          }).toList(),
+          allowAttachmentEditing: true,
           onConfirm: confirm,
           onConnectionRequired: () =>
               widget.onDestinationSelected(AppDestination.email),
           onCaptureAnother: () => Navigator.of(context).pop(),
           onDraftSaved: widget.onEmailReviewUpdated == null
               ? null
-              : (updated) => widget.onEmailReviewUpdated!(updated, record.lead),
+              : (updated) => widget.onEmailReviewUpdated!(
+                  updated,
+                  record.lead.copyWith(
+                    contentFileIds: updated.attachmentIds,
+                    contentNames: updated.attachmentNames,
+                  ),
+                ),
         ),
       ),
     );
@@ -545,7 +791,12 @@ class _RecordsScreenState extends State<RecordsScreen>
       target = await _chooseExportTarget();
       if (target == null || !mounted) return;
     }
+    final exportTarget = target;
     var format = RecordsExportFormat.xlsx;
+    var useDateRange = false;
+    DateTime? rangeStart;
+    DateTime? rangeEnd;
+    final selectedContentIds = <String>{};
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -558,82 +809,264 @@ class _RecordsScreenState extends State<RecordsScreen>
             constraints: const BoxConstraints(maxWidth: 360),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    context.l10n.exportRecords,
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    context.l10n.exportLeadSummary(
-                      context.l10n.leadCount(_recordsForExport(target!).length),
-                      target.label(context),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      context.l10n.exportRecords,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                    style: TextStyle(
-                      color: FolooPalette.of(context).inkSecondary,
-                      fontSize: 12.5,
-                      height: 1.45,
+                    const SizedBox(height: 5),
+                    Text(
+                      key: const Key('exportLeadSummary'),
+                      context.l10n.exportLeadSummary(
+                        context.l10n.leadCount(
+                          _recordsForExport(
+                            exportTarget,
+                            start: useDateRange ? rangeStart : null,
+                            end: useDateRange ? rangeEnd : null,
+                            contentIds: selectedContentIds,
+                          ).length,
+                        ),
+                        exportTarget.label(context),
+                      ),
+                      style: TextStyle(
+                        color: FolooPalette.of(context).inkSecondary,
+                        fontSize: 12.5,
+                        height: 1.45,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  _ExportFormatOption(
-                    key: const Key('exportXlsOption'),
-                    icon: Icons.grid_on_outlined,
-                    title: 'XLSX',
-                    subtitle: context.l10n.xlsHelp,
-                    selected: format == RecordsExportFormat.xlsx,
-                    onTap: () =>
-                        setDialogState(() => format = RecordsExportFormat.xlsx),
-                  ),
-                  const SizedBox(height: 8),
-                  _ExportFormatOption(
-                    key: const Key('exportCsvOption'),
-                    icon: Icons.description_outlined,
-                    title: 'CSV',
-                    subtitle: context.l10n.csvHelp,
-                    selected: format == RecordsExportFormat.csv,
-                    onTap: () =>
-                        setDialogState(() => format = RecordsExportFormat.csv),
-                  ),
-                  const SizedBox(height: 18),
-                  if (_canSaveExportToDevice) ...[
-                    OutlinedButton.icon(
-                      key: const Key('saveExportToDeviceButton'),
-                      onPressed: () async {
-                        Navigator.pop(dialogContext);
-                        await _export(
-                          target!,
-                          format,
-                          _ExportDelivery.saveToDevice,
-                        );
-                      },
-                      icon: const Icon(Icons.save_alt_outlined, size: 17),
-                      label: Text(context.l10n.saveExportToDevice),
+                    const SizedBox(height: 16),
+                    if (exportTarget.direct) ...[
+                      SwitchListTile.adaptive(
+                        key: const Key('directExportDateRange'),
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(context.l10n.dateAndTime),
+                        subtitle: Text(
+                          useDateRange
+                              ? '${rangeStart == null ? '—' : MaterialLocalizations.of(context).formatMediumDate(rangeStart!)} – ${rangeEnd == null ? '—' : MaterialLocalizations.of(context).formatMediumDate(rangeEnd!)}'
+                              : context.l10n.all,
+                        ),
+                        value: useDateRange,
+                        onChanged: (value) => setDialogState(() {
+                          useDateRange = value;
+                          rangeStart ??= DateTime.now();
+                          rangeEnd ??= rangeStart;
+                        }),
+                      ),
+                      if (useDateRange)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                key: const Key('directExportStartDate'),
+                                onPressed: () async {
+                                  final selected = await showDatePicker(
+                                    context: context,
+                                    initialDate: rangeStart ?? DateTime.now(),
+                                    firstDate: DateTime(2000),
+                                    lastDate: rangeEnd ?? DateTime(2100),
+                                  );
+                                  if (selected != null) {
+                                    setDialogState(() => rangeStart = selected);
+                                  }
+                                },
+                                child: Text(context.l10n.starts),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton(
+                                key: const Key('directExportEndDate'),
+                                onPressed: () async {
+                                  final selected = await showDatePicker(
+                                    context: context,
+                                    initialDate:
+                                        rangeEnd ??
+                                        rangeStart ??
+                                        DateTime.now(),
+                                    firstDate: rangeStart ?? DateTime(2000),
+                                    lastDate: DateTime(2100),
+                                  );
+                                  if (selected != null) {
+                                    setDialogState(() => rangeEnd = selected);
+                                  }
+                                },
+                                child: Text(context.l10n.ends),
+                              ),
+                            ),
+                          ],
+                        ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.l10n.exportContentFilter,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 6),
+                      if (widget.contentFiles.isEmpty)
+                        Text(
+                          context.l10n.exportNoContentAvailable,
+                          style: TextStyle(
+                            color: FolooPalette.of(context).inkSecondary,
+                          ),
+                        )
+                      else
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 150),
+                          child: ListView(
+                            shrinkWrap: true,
+                            children: widget.contentFiles
+                                .map(
+                                  (file) => CheckboxListTile(
+                                    key: Key('directExportContent-${file.id}'),
+                                    dense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                    value: selectedContentIds.contains(file.id),
+                                    title: Text(
+                                      file.displayName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    onChanged: (selected) => setDialogState(() {
+                                      if (selected == true) {
+                                        selectedContentIds.add(file.id);
+                                      } else {
+                                        selectedContentIds.remove(file.id);
+                                      }
+                                    }),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          key: const Key('clearDirectExportFilters'),
+                          onPressed: !useDateRange && selectedContentIds.isEmpty
+                              ? null
+                              : () => setDialogState(() {
+                                  useDateRange = false;
+                                  rangeStart = null;
+                                  rangeEnd = null;
+                                  selectedContentIds.clear();
+                                }),
+                          child: Text(context.l10n.clearFilters),
+                        ),
+                      ),
+                      if (_recordsForExport(
+                        exportTarget,
+                        start: useDateRange ? rangeStart : null,
+                        end: useDateRange ? rangeEnd : null,
+                        contentIds: selectedContentIds,
+                      ).isEmpty)
+                        Text(
+                          context.l10n.exportNoMatchingLeads,
+                          key: const Key('directExportNoResults'),
+                          style: TextStyle(
+                            color: FolooPalette.of(context).error,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      const SizedBox(height: 10),
+                    ],
+                    _ExportFormatOption(
+                      key: const Key('exportXlsOption'),
+                      icon: Icons.grid_on_outlined,
+                      title: 'XLSX',
+                      subtitle: context.l10n.xlsHelp,
+                      selected: format == RecordsExportFormat.xlsx,
+                      onTap: () => setDialogState(
+                        () => format = RecordsExportFormat.xlsx,
+                      ),
                     ),
                     const SizedBox(height: 8),
-                  ],
-                  FilledButton.icon(
-                    key: const Key('confirmExportButton'),
-                    onPressed: () async {
-                      Navigator.pop(dialogContext);
-                      await _export(target!, format, _ExportDelivery.share);
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: FolooPalette.of(context).ink,
-                      foregroundColor: FolooPalette.of(context).card,
+                    _ExportFormatOption(
+                      key: const Key('exportCsvOption'),
+                      icon: Icons.description_outlined,
+                      title: 'CSV',
+                      subtitle: context.l10n.csvHelp,
+                      selected: format == RecordsExportFormat.csv,
+                      onTap: () => setDialogState(
+                        () => format = RecordsExportFormat.csv,
+                      ),
                     ),
-                    icon: const Icon(Icons.ios_share_outlined, size: 17),
-                    label: Text(context.l10n.shareExport),
-                  ),
-                  const SizedBox(height: 4),
-                  TextButton(
-                    onPressed: () => Navigator.pop(dialogContext),
-                    child: Text(context.l10n.cancel),
-                  ),
-                ],
+                    const SizedBox(height: 18),
+                    if (_canSaveExportToDevice) ...[
+                      OutlinedButton.icon(
+                        key: const Key('saveExportToDeviceButton'),
+                        onPressed:
+                            exportTarget.direct &&
+                                _recordsForExport(
+                                  exportTarget,
+                                  start: useDateRange ? rangeStart : null,
+                                  end: useDateRange ? rangeEnd : null,
+                                  contentIds: selectedContentIds,
+                                ).isEmpty
+                            ? null
+                            : () async {
+                                Navigator.pop(dialogContext);
+                                await _export(
+                                  exportTarget,
+                                  format,
+                                  _ExportDelivery.saveToDevice,
+                                  records: _recordsForExport(
+                                    exportTarget,
+                                    start: useDateRange ? rangeStart : null,
+                                    end: useDateRange ? rangeEnd : null,
+                                    contentIds: selectedContentIds,
+                                  ),
+                                );
+                              },
+                        icon: const Icon(Icons.save_alt_outlined, size: 17),
+                        label: Text(context.l10n.saveExportToDevice),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    FilledButton.icon(
+                      key: const Key('confirmExportButton'),
+                      onPressed:
+                          exportTarget.direct &&
+                              _recordsForExport(
+                                exportTarget,
+                                start: useDateRange ? rangeStart : null,
+                                end: useDateRange ? rangeEnd : null,
+                                contentIds: selectedContentIds,
+                              ).isEmpty
+                          ? null
+                          : () async {
+                              Navigator.pop(dialogContext);
+                              await _export(
+                                exportTarget,
+                                format,
+                                _ExportDelivery.share,
+                                records: _recordsForExport(
+                                  exportTarget,
+                                  start: useDateRange ? rangeStart : null,
+                                  end: useDateRange ? rangeEnd : null,
+                                  contentIds: selectedContentIds,
+                                ),
+                              );
+                            },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: FolooPalette.of(context).ink,
+                        foregroundColor: FolooPalette.of(context).card,
+                      ),
+                      icon: const Icon(Icons.ios_share_outlined, size: 17),
+                      label: Text(context.l10n.shareExport),
+                    ),
+                    const SizedBox(height: 4),
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: Text(context.l10n.cancel),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -725,19 +1158,36 @@ class _RecordsScreenState extends State<RecordsScreen>
         ),
       );
 
-  List<SessionLead> _recordsForExport(_RecordsExportTarget target) =>
-      widget.records.where((record) {
-        if (target.direct) {
-          return record.lead.originKind == LeadOriginKind.direct;
-        }
-        return record.lead.eventLocalId == target.event!.id;
-      }).toList();
+  List<SessionLead> _recordsForExport(
+    _RecordsExportTarget target, {
+    DateTime? start,
+    DateTime? end,
+    Set<String> contentIds = const {},
+  }) => target.direct
+      ? widget.exportService
+            .directRecordsInLocalDateRange(
+              records: widget.records,
+              start: start,
+              end: end,
+            )
+            .where((record) {
+              if (contentIds.isEmpty) return true;
+              return record.lead.contentFileIds.any(contentIds.contains);
+            })
+            .toList()
+      : widget.records.where((record) {
+          if (target.direct) {
+            return record.lead.originKind == LeadOriginKind.direct;
+          }
+          return record.lead.eventLocalId == target.event!.id;
+        }).toList();
 
   Future<void> _export(
     _RecordsExportTarget target,
     RecordsExportFormat format,
-    _ExportDelivery delivery,
-  ) async {
+    _ExportDelivery delivery, {
+    List<SessionLead>? records,
+  }) async {
     final l10n = context.l10n;
     final box = context.findRenderObject() as RenderBox?;
     final origin = box == null
@@ -772,7 +1222,7 @@ class _RecordsScreenState extends State<RecordsScreen>
       final file = target.direct
           ? widget.exportService.buildDirect(
               scopeName: l10n.directLeads,
-              records: widget.records,
+              records: records ?? widget.records,
               format: format,
               labels: labels,
             )
@@ -953,7 +1403,8 @@ class _RecordsScreenState extends State<RecordsScreen>
                               _audioPlaying,
                           audioBusy:
                               _busyAudioPath == record.lead.audioLocalPath,
-                          onToggleAudio: () => _toggleAudio(record),
+                          onToggleAudio: () =>
+                              _toggleAudioPath(record.lead.audioLocalPath),
                           onOpen: () => _openDetail(record),
                           emailIntent: emailIntent,
                           hasPreparedEmail: followUp != null,
@@ -1441,13 +1892,17 @@ class _RecordRow extends StatelessWidget {
 ///
 /// Media and identity fields remain read-only; automatic transcription is not
 /// exposed in V1.
-class ConnectionDetailScreen extends StatelessWidget {
+class ConnectionDetailScreen extends StatefulWidget {
   const ConnectionDetailScreen({
     required this.record,
     required this.audioPlayingListenable,
     required this.onToggleAudio,
     this.currentEventName,
+    this.events = const [],
     this.onEdit,
+    this.onAddReferenceImage,
+    this.onAddVoiceNote,
+    this.onDeleteVoiceNote,
     this.followUp,
     this.emailIntent,
     this.ownerSub,
@@ -1461,9 +1916,13 @@ class ConnectionDetailScreen extends StatelessWidget {
   });
   final SessionLead record;
   final ValueListenable<bool> audioPlayingListenable;
-  final VoidCallback onToggleAudio;
+  final Future<void> Function(LeadVoiceNote note) onToggleAudio;
   final String? currentEventName;
-  final Future<void> Function(LeadDraft updated)? onEdit;
+  final List<AppEvent> events;
+  final Future<SessionLead> Function(LeadDraft updated)? onEdit;
+  final Future<SessionLead?> Function()? onAddReferenceImage;
+  final Future<SessionLead?> Function()? onAddVoiceNote;
+  final Future<SessionLead> Function(LeadVoiceNote note)? onDeleteVoiceNote;
   final StoredEmailFollowUp? followUp;
   final StoredEmailSendIntent? emailIntent;
   final String? ownerSub;
@@ -1482,7 +1941,41 @@ class ConnectionDetailScreen extends StatelessWidget {
   final VoidCallback? onDelete;
 
   @override
+  State<ConnectionDetailScreen> createState() => _ConnectionDetailScreenState();
+}
+
+class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
+  late SessionLead _record;
+  late String? _currentEventName;
+  String? _activeVoiceId;
+
+  @override
+  void initState() {
+    super.initState();
+    _record = widget.record;
+    _currentEventName = widget.currentEventName;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final record = _record;
+    final currentEventName = _currentEventName;
+    final audioPlayingListenable = widget.audioPlayingListenable;
+    final onToggleAudio = widget.onToggleAudio;
+    final events = widget.events;
+    final onEdit = widget.onEdit;
+    final onAddReferenceImage = widget.onAddReferenceImage;
+    final onAddVoiceNote = widget.onAddVoiceNote;
+    final onDeleteVoiceNote = widget.onDeleteVoiceNote;
+    final followUp = widget.followUp;
+    final emailIntent = widget.emailIntent;
+    final ownerSub = widget.ownerSub;
+    final deliveryRepository = widget.deliveryRepository;
+    final isEmailConnectionMissing = widget.isEmailConnectionMissing;
+    final onRetryEmail = widget.onRetryEmail;
+    final onResendEmail = widget.onResendEmail;
+    final onEmail = widget.onEmail;
+    final onDelete = widget.onDelete;
     final palette = FolooPalette.of(context);
     final lead = record.lead;
     final interestColor = switch (lead.interest) {
@@ -1530,14 +2023,26 @@ class ConnectionDetailScreen extends StatelessWidget {
               key: const Key('editLeadButton'),
               tooltip: context.l10n.editLead,
               onPressed: () async {
-                final saved = await Navigator.of(context).push<bool>(
-                  MaterialPageRoute<bool>(
-                    builder: (_) =>
-                        _LeadEditScreen(lead: lead, onSave: onEdit!),
+                final saved = await Navigator.of(context).push<SessionLead>(
+                  MaterialPageRoute<SessionLead>(
+                    builder: (_) => _LeadEditScreen(
+                      lead: lead,
+                      events: events,
+                      onSave: onEdit,
+                    ),
                   ),
                 );
-                if (saved == true && context.mounted) {
-                  Navigator.pop(context);
+                if (saved != null && context.mounted) {
+                  setState(() {
+                    _record = saved;
+                    _currentEventName = events
+                        .where((event) => event.id == saved.lead.eventLocalId)
+                        .map((event) => event.name)
+                        .firstOrNull;
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(context.l10n.leadChangesSaved)),
+                  );
                 }
               },
               icon: const Icon(Icons.edit_outlined),
@@ -1658,111 +2163,246 @@ class ConnectionDetailScreen extends StatelessWidget {
               label: context.l10n.contactRole,
               value: lead.role.isEmpty ? '—' : lead.role,
             ),
-            if (lead.hasVoiceNote) ...[
+            if (record.effectiveVoiceNotes.isNotEmpty ||
+                onAddVoiceNote != null) ...[
               const SizedBox(height: 18),
-              ValueListenableBuilder<bool>(
-                valueListenable: audioPlayingListenable,
-                builder: (context, playing, _) => Container(
-                  key: const Key('detailVoiceNoteCard'),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: palette.paper,
-                    borderRadius: BorderRadius.circular(FolooRadii.md),
-                  ),
-                  child: Row(
-                    children: [
-                      IconButton.filled(
-                        key: const Key('detailAudioButton'),
-                        tooltip: playing
-                            ? context.l10n.pauseVoiceNote
-                            : context.l10n.playVoiceNote,
-                        onPressed: onToggleAudio,
-                        style: IconButton.styleFrom(
-                          backgroundColor: FolooColors.lime,
-                          foregroundColor: FolooColors.ink,
-                        ),
-                        icon: Icon(
-                          playing
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
-                        ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.l10n.voiceNote,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              context.l10n.voiceNote,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
+                    ),
+                  ),
+                  if (onAddVoiceNote != null)
+                    IconButton(
+                      key: const Key('detailAddVoiceNote'),
+                      tooltip: context.l10n.addVoiceNote,
+                      onPressed: () async {
+                        if (record.effectiveVoiceNotes.length >= 3) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(context.l10n.voiceNoteLimitReached),
                             ),
-                            const SizedBox(height: 4),
-                            VoicePlaybackWaveform(
-                              key: const Key('detailAudioWaveform'),
-                              active: playing,
+                          );
+                          return;
+                        }
+                        final refreshed = await onAddVoiceNote();
+                        if (refreshed != null && mounted) {
+                          setState(() => _record = refreshed);
+                        }
+                      },
+                      icon: const Icon(Icons.mic_none_outlined),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ...record.effectiveVoiceNotes.asMap().entries.map((entry) {
+                final index = entry.key;
+                final note = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Dismissible(
+                    key: Key('detailVoiceNote-${note.id}'),
+                    direction: onDeleteVoiceNote == null
+                        ? DismissDirection.none
+                        : DismissDirection.startToEnd,
+                    background: Container(
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.only(left: 20),
+                      decoration: BoxDecoration(
+                        color: palette.error,
+                        borderRadius: BorderRadius.circular(FolooRadii.md),
+                      ),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.white,
+                      ),
+                    ),
+                    confirmDismiss: (_) async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          title: Text(context.l10n.deleteVoiceNoteQuestion),
+                          actions: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, false),
+                              child: Text(context.l10n.cancel),
+                            ),
+                            FilledButton(
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, true),
+                              child: Text(context.l10n.delete),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        _duration(lead.audioSeconds),
-                        style: TextStyle(color: palette.inkSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-            if (lead.referenceImageLocalPaths.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              Text(
-                context.l10n.referenceImagesDetail,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 10),
-              GridView.builder(
-                key: const Key('detailReferenceImages'),
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: lead.referenceImageLocalPaths.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                ),
-                itemBuilder: (context, index) {
-                  final path = lead.referenceImageLocalPaths[index];
-                  return Semantics(
-                    button: true,
-                    label: context.l10n.referenceImagePreview,
-                    child: InkWell(
-                      key: Key('detailReferenceImage-$index'),
-                      onTap: () => _showReferenceImage(context, path),
-                      borderRadius: BorderRadius.circular(FolooRadii.sm),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(FolooRadii.sm),
-                        child: Image.file(
-                          File(path),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => ColoredBox(
+                      );
+                      if (confirmed != true || onDeleteVoiceNote == null) {
+                        return false;
+                      }
+                      try {
+                        final refreshed = await onDeleteVoiceNote(note);
+                        if (mounted) {
+                          setState(() {
+                            _record = refreshed;
+                            if (_activeVoiceId == note.id) {
+                              _activeVoiceId = null;
+                            }
+                          });
+                        }
+                        return false;
+                      } on Object {
+                        if (mounted) {
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(
+                              content: Text(this.context.l10n.localSaveError),
+                            ),
+                          );
+                        }
+                        return false;
+                      }
+                    },
+                    child: ValueListenableBuilder<bool>(
+                      valueListenable: audioPlayingListenable,
+                      builder: (context, playing, _) {
+                        final active = playing && _activeVoiceId == note.id;
+                        return Container(
+                          key: index == 0
+                              ? const Key('detailVoiceNoteCard')
+                              : null,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
                             color: palette.paper,
-                            child: Icon(
-                              Icons.broken_image_outlined,
-                              color: palette.inkSecondary,
+                            borderRadius: BorderRadius.circular(FolooRadii.md),
+                          ),
+                          child: Row(
+                            children: [
+                              IconButton.filled(
+                                key: index == 0
+                                    ? const Key('detailAudioButton')
+                                    : Key('detailAudioButton-$index'),
+                                tooltip: active
+                                    ? context.l10n.pauseVoiceNote
+                                    : context.l10n.playVoiceNote,
+                                onPressed: () async {
+                                  setState(() => _activeVoiceId = note.id);
+                                  await onToggleAudio(note);
+                                },
+                                style: IconButton.styleFrom(
+                                  backgroundColor: FolooColors.lime,
+                                  foregroundColor: FolooColors.ink,
+                                ),
+                                icon: Icon(
+                                  active
+                                      ? Icons.pause_rounded
+                                      : Icons.play_arrow_rounded,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: VoicePlaybackWaveform(
+                                  key: index == 0
+                                      ? const Key('detailAudioWaveform')
+                                      : Key('detailAudioWaveform-$index'),
+                                  active: active,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                _voiceDuration(note.durationSeconds),
+                                style: TextStyle(color: palette.inkSecondary),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              }),
+            ],
+            if (lead.referenceImageLocalPaths.isNotEmpty ||
+                onAddReferenceImage != null) ...[
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.l10n.referenceImagesDetail,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  if (onAddReferenceImage != null)
+                    IconButton(
+                      key: const Key('detailAddReferenceImage'),
+                      onPressed: () async {
+                        if (lead.referenceImageLocalPaths.length >= 6) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                context.l10n.referenceImageLimitReached,
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+                        final refreshed = await onAddReferenceImage();
+                        if (refreshed != null && mounted) {
+                          setState(() => _record = refreshed);
+                        }
+                      },
+                      icon: const Icon(Icons.add_photo_alternate_outlined),
+                      tooltip: context.l10n.referenceImagePickerTitle,
+                    ),
+                ],
+              ),
+              if (lead.referenceImageLocalPaths.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                GridView.builder(
+                  key: const Key('detailReferenceImages'),
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: lead.referenceImageLocalPaths.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  itemBuilder: (context, index) {
+                    final path = lead.referenceImageLocalPaths[index];
+                    return Semantics(
+                      button: true,
+                      label: context.l10n.referenceImagePreview,
+                      child: InkWell(
+                        key: Key('detailReferenceImage-$index'),
+                        onTap: () => _showReferenceImage(context, path),
+                        borderRadius: BorderRadius.circular(FolooRadii.sm),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(FolooRadii.sm),
+                          child: Image.file(
+                            File(path),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => ColoredBox(
+                              color: palette.paper,
+                              child: Icon(
+                                Icons.broken_image_outlined,
+                                color: palette.inkSecondary,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
+                    );
+                  },
+                ),
+              ],
             ],
             if (lead.note.isNotEmpty) ...[
               const SizedBox(height: 20),
@@ -1867,9 +2507,6 @@ class ConnectionDetailScreen extends StatelessWidget {
     );
   }
 
-  static String _duration(int seconds) =>
-      '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
-
   static String _capturedAt(BuildContext context, DateTime value) => DateFormat(
     'd MMM y · HH:mm',
     Localizations.localeOf(context).toLanguageTag(),
@@ -1940,10 +2577,15 @@ class ConnectionDetailScreen extends StatelessWidget {
 }
 
 class _LeadEditScreen extends StatefulWidget {
-  const _LeadEditScreen({required this.lead, required this.onSave});
+  const _LeadEditScreen({
+    required this.lead,
+    required this.events,
+    required this.onSave,
+  });
 
   final LeadDraft lead;
-  final Future<void> Function(LeadDraft updated) onSave;
+  final List<AppEvent> events;
+  final Future<SessionLead> Function(LeadDraft updated) onSave;
 
   @override
   State<_LeadEditScreen> createState() => _LeadEditScreenState();
@@ -1961,6 +2603,7 @@ class _LeadEditScreenState extends State<_LeadEditScreen> {
   late final TextEditingController _place;
   late LeadType _type;
   late InterestLevel _interest;
+  String? _eventId;
   bool _saving = false;
 
   @override
@@ -1977,6 +2620,7 @@ class _LeadEditScreenState extends State<_LeadEditScreen> {
     _place = TextEditingController(text: lead.place);
     _type = lead.type;
     _interest = lead.interest;
+    _eventId = lead.eventLocalId;
   }
 
   @override
@@ -2000,7 +2644,7 @@ class _LeadEditScreenState extends State<_LeadEditScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
-      await widget.onSave(
+      final refreshed = await widget.onSave(
         widget.lead.copyWith(
           name: _name.text.trim(),
           lastName: _lastName.text.trim(),
@@ -2012,9 +2656,14 @@ class _LeadEditScreenState extends State<_LeadEditScreen> {
           interest: _interest,
           note: _note.text.trim(),
           place: _place.text.trim(),
+          eventLocalId: _eventId,
+          eventName: widget.events
+              .where((event) => event.id == _eventId)
+              .map((event) => event.name)
+              .firstOrNull,
         ),
       );
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) Navigator.pop(context, refreshed);
     } on Object {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -2072,6 +2721,24 @@ class _LeadEditScreenState extends State<_LeadEditScreen> {
           if (widget.lead.originKind == LeadOriginKind.direct) ...[
             const SizedBox(height: 12),
             _field(_place, context.l10n.place, isRequired: true),
+          ] else ...[
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              key: const Key('editLeadEvent'),
+              initialValue: _eventId,
+              decoration: InputDecoration(labelText: context.l10n.event),
+              items: widget.events
+                  .map(
+                    (event) => DropdownMenuItem(
+                      value: event.id,
+                      child: Text(event.name),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) => setState(() => _eventId = value),
+              validator: (value) =>
+                  value == null ? context.l10n.requiredField : null,
+            ),
           ],
           const SizedBox(height: 12),
           _field(_note, context.l10n.writtenNote, lines: 5),

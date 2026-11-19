@@ -729,6 +729,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get saveChanges => 'Guardar cambios';
 
   @override
+  String get leadChangesSaved => 'Cambios guardados.';
+
+  @override
   String get back => 'Regresar';
 
   @override
@@ -748,6 +751,24 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get displayName => 'Nombre para mostrar';
+
+  @override
+  String get contentDisplayNameHelp =>
+      'Escribe el nombre del producto o solución. Este nombre será el que aparezca en el correo.';
+
+  @override
+  String get exportContentFilter => 'Contenido asociado';
+
+  @override
+  String get exportNoContentAvailable =>
+      'No hay contenido disponible para filtrar.';
+
+  @override
+  String get clearFilters => 'Limpiar filtros';
+
+  @override
+  String get exportNoMatchingLeads =>
+      'No hay leads que coincidan con estos filtros.';
 
   @override
   String get searchEvents => 'Buscar entre eventos';
@@ -1011,6 +1032,20 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get microphoneDenied =>
       'Permiso de micrófono rechazado. Puedes continuar con la nota escrita.';
+
+  @override
+  String get addVoiceNote => 'Agregar nota de voz';
+
+  @override
+  String get voiceNoteLimitReached =>
+      'Este lead ya tiene el máximo de 3 notas de voz.';
+
+  @override
+  String get referenceImageLimitReached =>
+      'Este lead ya tiene el máximo de 6 imágenes de referencia.';
+
+  @override
+  String get deleteVoiceNoteQuestion => '¿Eliminar esta nota de voz?';
 
   @override
   String get microphonePermissionTitle => 'Activa el acceso al micrófono';

@@ -685,10 +685,11 @@ export class PostgresFolooRepository implements FolooRepository {
       async (db) => {
         const current = await db.query<{
           origin: "event" | "direct";
+          event_id: string | null;
           content_file_ids: string[];
           content_names: string[];
         }>(
-          `SELECT origin,content_file_ids,content_names FROM leads
+          `SELECT origin,event_id,content_file_ids,content_names FROM leads
            WHERE workspace_id = $1 AND id = $2 AND deleted_at IS NULL
            FOR UPDATE`,
           [principal.workspaceId, leadId],
@@ -708,6 +709,25 @@ export class PostgresFolooRepository implements FolooRepository {
             400,
             "Place is required for direct leads.",
           );
+        }
+        if (existing.origin === "direct" && input.eventId != null) {
+          throw new ApplicationError(
+            "invalid_lead_update",
+            400,
+            "A direct lead cannot be assigned to an event.",
+          );
+        }
+        const selectedEventId =
+          existing.origin === "event"
+            ? (input.eventId ?? existing.event_id)
+            : null;
+        if (existing.origin === "event") {
+          const event = await db.query(
+            `SELECT 1 FROM events
+             WHERE workspace_id = $1 AND id = $2 AND deleted_at IS NULL`,
+            [principal.workspaceId, selectedEventId],
+          );
+          if (!event.rows[0]) throw notFound("Event");
         }
         let selected = existing.content_file_ids;
         let contentNames = existing.content_names;
@@ -732,8 +752,8 @@ export class PostgresFolooRepository implements FolooRepository {
           `UPDATE leads SET
              first_name = $4, last_name = $5, position = $6, company = $7,
              email = $8, phone = $9, lead_type = $10, interest = $11,
-             written_note = $12, place = $13,
-             content_file_ids = $14::uuid[], content_names = $15::text[]
+             written_note = $12, place = $13, event_id = $14,
+             content_file_ids = $15::uuid[], content_names = $16::text[]
            WHERE workspace_id = $1 AND id = $2 AND revision = $3
              AND deleted_at IS NULL
            RETURNING id, event_id AS "eventId", captured_at AS "capturedAt", origin,
@@ -755,6 +775,7 @@ export class PostgresFolooRepository implements FolooRepository {
             input.interest,
             input.writtenNote ?? null,
             existing.origin === "direct" ? input.place : null,
+            selectedEventId,
             selected,
             contentNames,
           ],
@@ -808,9 +829,10 @@ export class PostgresFolooRepository implements FolooRepository {
       `SELECT m.id, m.kind, m.content_type AS "contentType", m.byte_size AS "byteSize",
               m.captured_at AS "capturedAt", m.duration_ms AS "durationMs", m.sha256,
               m.storage_object_key AS "storageObjectKey",
-              m.upload_status AS "uploadStatus", m.uploaded_at AS "uploadedAt", m.revision
+              m.upload_status AS "uploadStatus", m.uploaded_at AS "uploadedAt", m.revision,
+              m.deleted_at AS "deletedAt"
        FROM lead_media m JOIN leads l ON l.id = m.lead_id AND l.workspace_id = m.workspace_id
-       WHERE m.workspace_id = $1 AND m.lead_id = $2 AND m.deleted_at IS NULL
+       WHERE m.workspace_id = $1 AND m.lead_id = $2
          AND l.deleted_at IS NULL ORDER BY m.created_at`,
       [principal.workspaceId, leadId],
     );
@@ -823,12 +845,28 @@ export class PostgresFolooRepository implements FolooRepository {
     input: LeadMediaInput,
     objectKey: string,
   ): Promise<void> {
-    const lead = await this.pool.query(
-      "SELECT id FROM leads WHERE workspace_id = $1 AND id = $2 AND deleted_at IS NULL",
-      [principal.workspaceId, leadId],
-    );
-    if (!lead.rows[0]) throw notFound("Lead");
-    const result = await this.pool.query(
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const lead = await client.query(
+        "SELECT id FROM leads WHERE workspace_id = $1 AND id = $2 AND deleted_at IS NULL FOR UPDATE",
+        [principal.workspaceId, leadId],
+      );
+      if (!lead.rows[0]) throw notFound("Lead");
+      const limit = input.kind === "voice_note" ? 3 : input.kind === "reference_image" ? 6 : 1;
+      const count = await client.query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM lead_media
+         WHERE workspace_id=$1 AND lead_id=$2 AND kind=$3 AND deleted_at IS NULL AND id<>$4`,
+        [principal.workspaceId, leadId, input.kind, input.id],
+      );
+      if (Number(count.rows[0]?.count ?? 0) >= limit) {
+        throw new ApplicationError(
+          "media_limit_reached",
+          409,
+          "The saved lead media limit has been reached.",
+        );
+      }
+      const result = await client.query(
       `INSERT INTO lead_media
         (id, workspace_id, lead_id, kind, content_type, byte_size, captured_at,
          duration_ms, sha256, storage_object_key, upload_status)
@@ -856,7 +894,60 @@ export class PostgresFolooRepository implements FolooRepository {
         objectKey,
       ],
     );
-    if (!result.rows[0]) throw notFound("Media");
+      if (!result.rows[0]) throw notFound("Media");
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async deleteLeadMedia(
+    principal: Principal,
+    leadId: string,
+    mediaId: string,
+    key: string,
+    hash: string,
+  ): Promise<IdempotentResult<unknown>> {
+    return this.idempotent(
+      principal.workspaceId,
+      "delete-lead-media",
+      key,
+      hash,
+      async (db) => {
+        const found = await db.query<{
+          id: string;
+          kind: string;
+          deletedAt: string | null;
+        }>(
+          `SELECT m.id,m.kind,m.deleted_at AS "deletedAt"
+           FROM lead_media m JOIN leads l ON l.id=m.lead_id AND l.workspace_id=m.workspace_id
+           WHERE m.workspace_id=$1 AND m.lead_id=$2 AND m.id=$3
+             AND l.deleted_at IS NULL FOR UPDATE`,
+          [principal.workspaceId, leadId, mediaId],
+        );
+        const media = found.rows[0];
+        if (!media) throw notFound("Media");
+        if (media.kind !== "voice_note") {
+          throw new ApplicationError(
+            "media_delete_not_allowed",
+            409,
+            "Only saved voice notes can be deleted from Lead detail.",
+          );
+        }
+        if (!media.deletedAt) {
+          await db.query(
+            `UPDATE lead_media SET deleted_at=now()
+             WHERE workspace_id=$1 AND lead_id=$2 AND id=$3`,
+            [principal.workspaceId, leadId, mediaId],
+          );
+        }
+        return { id: mediaId, deleted: true };
+      },
+      200,
+    );
   }
 
   async createLeadMedia(

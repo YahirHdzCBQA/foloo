@@ -37,7 +37,7 @@ class LeadDraft {
     this.contentFileIds = const <String>[],
     this.contentNames = const <String>[],
     this.referenceImageLocalPaths = const <String>[],
-  }) : assert(referenceImageLocalPaths.length <= 3);
+  }) : assert(referenceImageLocalPaths.length <= 6);
 
   final String name;
   final String lastName;

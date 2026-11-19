@@ -70,6 +70,9 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 **Trazas:** `CAP-01`–`CAP-06`, `OCR-01`–`OCR-10`.
 
 - Cámara o galería ejecutan ML Kit local y precargan solo valores reconocidos.
+- Una captura de contacto iPhone con etiquetas separadas reconoce nombre,
+  empresa, teléfono, correo y notas; texto truncado con elipsis queda vacío y
+  editable en lugar de completar caracteres no visibles.
 - Correcciones manuales no se sobrescriben sin acción explícita.
 - Tarjeta ilegible deja todos los campos manuales disponibles.
 - Foto puede reprocesarse, reemplazarse o quitarse antes de guardar.
@@ -133,8 +136,16 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   desde la relación local, no un snapshot antiguo; también resuelve el nombre
   del evento eliminado lógicamente. Un Lead directo muestra "Lead directo · Lugar"
   (o su equivalente EN) si Lugar existe, y solo "Lead directo" si falta.
-- Corregir los campos estructurados de `REG-07` persiste primero en Drift,
-  actualiza por outbox y no cambia owner, UUID, captura, origen, evento o medios.
+- Corregir los campos estructurados de `REG-07` persiste primero en Drift y
+  actualiza por outbox. Un Lead de evento puede cambiar a otro evento válido
+  del mismo workspace sin cambiar owner, UUID, captura u origen; filtros,
+  conteos, exportación y preparación pendiente reflejan el evento nuevo.
+- Agregar imágenes de referencia a un Lead existente desde Registros las copia
+  al storage privado y encola su media sin reemplazar o borrar las anteriores,
+  hasta seis en total; Captura conserva su máximo de tres.
+- El detalle permite agregar hasta tres Voice Notes. Deslizar una nota a la
+  derecha pide confirmación y elimina solo esa nota mediante tombstone
+  owner-scoped; repetir alta o baja no duplica ni afecta otra media.
 - Una revisión remota distinta conserva la edición local, muestra conflicto
   recuperable y nunca crea otro Lead.
 - Swipe revela Correo o Eliminar sin ejecutar por el gesto; Correo abre Review
@@ -222,8 +233,9 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   manual toma el nombre vigente e intenciones históricas nulas usan `Foloo` sin
   recalcular. La representación final en Gmail/Outlook es best effort.
 - Guardar Lead confirma primero la persistencia local y abre “Revisar” con
-  destinatario no editable, texto concreto sin tokens y todos los adjuntos
-  seleccionados. Antes de `foloo`, Back → editar Lead → Guardar actualiza la
+  destinatario no editable, texto concreto sin tokens y los adjuntos vigentes.
+  Antes de `foloo`, asunto, mensaje y selección de Content pueden modificarse y
+  se guardan en la misma preparación sin enviar. Back → editar Lead → Guardar actualiza la
   misma preparación: A+B puede pasar a A o volver a A+B, Records refleja esa
   selección y nombre/apellido/empresa/puesto/evento/lugar rerenderizan asunto y
   cuerpo. Asunto y cuerpo detectan edición manual por separado. Un literal
@@ -278,6 +290,10 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   intención hasta `foloo`. Templates representan tokens internos como chips
   humanos; rayo inserta en cursor, tocar chip reemplaza ese segmento y preview
   vivo nunca muestra llaves técnicas.
+- Desde Registros, Review/Reenviar permite elegir adjuntos disponibles. Evento
+  ofrece únicamente Content de su evento o de Todos los eventos; Directo ofrece
+  todo Content activo. Backend valida y congela exactamente los IDs elegidos.
+  El Review primario de Captura no expone este selector ni altera su flujo.
 
 ## E-09 · Offline total y sincronización
 
@@ -315,6 +331,10 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Elegir evento produce exclusivamente datos locales de ese owner/evento;
   elegir Leads directos incluye únicamente origen Directo. Ambos incluyen
   pendientes, funcionan offline y una vista agregada exige elegir un alcance.
+- Leads directos permite todo el historial o fechas inicial/final inclusivas en
+  calendario local y uno o más contenidos. Los contenidos se combinan con OR y
+  el rango con AND; el conteo cambia en vivo, cero resultados deshabilita la
+  salida y Limpiar filtros restaura todo. Un rango inválido no genera archivo.
 - La elección de evento es de una sola acción: la fila completa es táctil y no
   muestra un indicador circular de selección múltiple.
 - Las trece columnas aparecen en el orden de `REG-11`, con vacíos como celda

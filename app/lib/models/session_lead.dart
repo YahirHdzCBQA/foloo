@@ -16,6 +16,19 @@ enum SessionUploadState {
   conflict,
 }
 
+/// One durable voice-note attachment owned by a saved Lead.
+class LeadVoiceNote {
+  const LeadVoiceNote({
+    required this.id,
+    required this.localPath,
+    required this.durationSeconds,
+  });
+
+  final String id;
+  final String localPath;
+  final int durationSeconds;
+}
+
 /// Captured lead loaded from local persistence or created by an isolated demo.
 class SessionLead {
   const SessionLead({
@@ -27,6 +40,7 @@ class SessionLead {
     this.mediaIncomplete = false,
     this.remoteRevision,
     this.capturedBy = '',
+    this.voiceNotes = const [],
   });
 
   final String localId;
@@ -37,6 +51,19 @@ class SessionLead {
   final bool mediaIncomplete;
   final int? remoteRevision;
   final String capturedBy;
+  final List<LeadVoiceNote> voiceNotes;
+
+  List<LeadVoiceNote> get effectiveVoiceNotes => voiceNotes.isNotEmpty
+      ? voiceNotes
+      : lead.hasVoiceNote
+      ? [
+          LeadVoiceNote(
+            id: 'legacy-primary',
+            localPath: lead.audioLocalPath!,
+            durationSeconds: lead.audioSeconds,
+          ),
+        ]
+      : const [];
 
   String get uiKey => folio ?? localId;
 }

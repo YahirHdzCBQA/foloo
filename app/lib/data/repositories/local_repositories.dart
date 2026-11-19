@@ -552,6 +552,8 @@ class EmailDeliveryRepository {
       bodySemanticJson: bodyDocument.toJson(),
       subjectManuallyEdited: existing.subjectManuallyEdited || subjectChanged,
       bodyManuallyEdited: existing.bodyManuallyEdited || bodyChanged,
+      contentFileIdsJson: jsonEncode(lead.contentFileIds),
+      contentNamesJson: jsonEncode(lead.contentNames),
     );
   }
 
@@ -600,6 +602,8 @@ class EmailDeliveryRepository {
             'id': followUpId,
             'leadId': followUp.leadLocalId,
             'language': followUp.languageCode,
+            'contentFileIds': (jsonDecode(followUp.contentFileIdsJson) as List)
+                .cast<String>(),
             'subject': finalSubject,
             'plainBody': finalPlainBody,
             'htmlBody': finalHtmlBody,
@@ -1486,13 +1490,22 @@ class LeadRepository {
     if (stored == null || stored.ownerUserId != userId) {
       throw StateError('Cannot update an unavailable lead.');
     }
-    if (draft.originKind != LeadOriginKind.values.byName(stored.originKind) ||
-        draft.eventLocalId != stored.eventLocalId) {
+    if (draft.originKind != LeadOriginKind.values.byName(stored.originKind)) {
       throw StateError('Immutable lead identity fields cannot be changed.');
+    }
+    if (draft.originKind == LeadOriginKind.event) {
+      final eventId = draft.eventLocalId;
+      if (eventId == null ||
+          await _database.eventDao.byId(userId, eventId) == null) {
+        throw StateError('The selected event is unavailable.');
+      }
     }
     final now = DateTime.now().toUtc();
     final payload = <String, Object?>{
       'revision': stored.remoteRevision ?? 1,
+      'eventId': stored.originKind == LeadOriginKind.event.name
+          ? draft.eventLocalId
+          : null,
       'firstName': draft.name,
       'lastName': draft.lastName.isEmpty ? null : draft.lastName,
       'position': draft.role.isEmpty ? null : draft.role,
@@ -1521,6 +1534,16 @@ class LeadRepository {
           note: draft.note,
           contentFileIdsJson: jsonEncode(draft.contentFileIds),
           contentNamesJson: jsonEncode(draft.contentNames),
+          eventLocalId: Value(
+            stored.originKind == LeadOriginKind.event.name
+                ? draft.eventLocalId
+                : stored.eventLocalId,
+          ),
+          eventNameSnapshot: Value(
+            stored.originKind == LeadOriginKind.event.name
+                ? draft.eventName
+                : stored.eventNameSnapshot,
+          ),
           place: Value(
             stored.originKind == LeadOriginKind.direct.name
                 ? draft.place
@@ -1573,6 +1596,169 @@ class LeadRepository {
         now: now,
       );
     });
+  }
+
+  /// Appends one reference image to an existing Lead without replacing media.
+  Future<String> appendReferenceImage(
+    String userId,
+    SessionLead session,
+    String sourcePath,
+  ) async {
+    final stored = await _database.leadDao.byId(userId, session.localId);
+    if (stored == null || stored.ownerUserId != userId) {
+      throw StateError('Cannot update an unavailable lead.');
+    }
+    final media = await _database.leadDao.mediaFor(session.localId);
+    final existing = media
+        .where((item) => item.mediaType == LocalMediaType.referenceImage.name)
+        .length;
+    if (existing >= 6) {
+      throw StateError(
+        'A saved lead can contain at most six reference images.',
+      );
+    }
+    final id = _defaultLocalId();
+    final path = await _mediaStorage.persist(
+      sourcePath: sourcePath,
+      leadLocalId: session.localId,
+      type: LocalMediaType.referenceImage,
+      slot: id,
+    );
+    if (path == null) throw StateError('The selected image is unavailable.');
+    final now = DateTime.now().toUtc();
+    try {
+      await _database.transaction(() async {
+        await _insertMedia(
+          id: id,
+          leadId: session.localId,
+          type: LocalMediaType.referenceImage,
+          path: path,
+          now: now,
+        );
+        await _syncStore.enqueue(
+          ownerSub: userId,
+          entityType: SyncEntityType.leadMedia,
+          entityId: id,
+          action: 'create',
+          payload: {
+            'leadId': session.localId,
+            'id': id,
+            'kind': 'reference_image',
+            'contentType': 'image/jpeg',
+            'byteSize': await File(path).length(),
+            'capturedAt': now.toIso8601String(),
+            'durationMs': null,
+          },
+          now: now,
+        );
+      });
+      return path;
+    } catch (_) {
+      await _mediaStorage.deleteIfManaged(path);
+      rethrow;
+    }
+  }
+
+  /// Appends one post-save voice note without changing capture media limits.
+  Future<LeadVoiceNote> appendVoiceNote(
+    String userId,
+    SessionLead session,
+    String sourcePath,
+    int durationSeconds,
+  ) async {
+    final stored = await _database.leadDao.byId(userId, session.localId);
+    if (stored == null || stored.ownerUserId != userId) {
+      throw StateError('Cannot update an unavailable lead.');
+    }
+    final media = await _database.leadDao.mediaFor(session.localId);
+    final existing = media
+        .where((item) => item.mediaType == LocalMediaType.voiceNote.name)
+        .length;
+    if (existing >= 3) {
+      throw StateError('A saved lead can contain at most three voice notes.');
+    }
+    final id = _defaultLocalId();
+    final path = await _mediaStorage.persist(
+      sourcePath: sourcePath,
+      leadLocalId: session.localId,
+      type: LocalMediaType.voiceNote,
+      slot: id,
+    );
+    if (path == null) {
+      throw StateError('The recorded voice note is unavailable.');
+    }
+    final now = DateTime.now().toUtc();
+    try {
+      await _database.transaction(() async {
+        await _insertMedia(
+          id: id,
+          leadId: session.localId,
+          type: LocalMediaType.voiceNote,
+          path: path,
+          durationSeconds: durationSeconds,
+          now: now,
+        );
+        await _syncStore.enqueue(
+          ownerSub: userId,
+          entityType: SyncEntityType.leadMedia,
+          entityId: id,
+          action: 'create',
+          payload: {
+            'leadId': session.localId,
+            'id': id,
+            'kind': 'voice_note',
+            'contentType': 'audio/m4a',
+            'byteSize': await File(path).length(),
+            'capturedAt': now.toIso8601String(),
+            'durationMs': durationSeconds * 1000,
+          },
+          now: now,
+        );
+      });
+      return LeadVoiceNote(
+        id: id,
+        localPath: path,
+        durationSeconds: durationSeconds,
+      );
+    } catch (_) {
+      await _mediaStorage.deleteIfManaged(path);
+      rethrow;
+    }
+  }
+
+  /// Tombstones exactly one owner-scoped voice note and queues remote deletion.
+  Future<void> deleteVoiceNote(
+    String userId,
+    SessionLead session,
+    LeadVoiceNote note,
+  ) async {
+    final stored = await _database.leadDao.byId(userId, session.localId);
+    final media = await _database.leadDao.mediaById(note.id);
+    if (stored == null ||
+        stored.ownerUserId != userId ||
+        media == null ||
+        media.leadLocalId != session.localId ||
+        media.mediaType != LocalMediaType.voiceNote.name) {
+      throw StateError('Cannot delete an unavailable voice note.');
+    }
+    final now = DateTime.now().toUtc();
+    await _database.transaction(() async {
+      await _database.syncDao.deleteForEntity(
+        userId,
+        SyncEntityType.leadMedia.name,
+        note.id,
+      );
+      await _syncStore.enqueue(
+        ownerSub: userId,
+        entityType: SyncEntityType.leadMedia,
+        entityId: note.id,
+        action: 'delete',
+        payload: {'leadId': session.localId, 'id': note.id},
+        now: now,
+      );
+      await _database.leadDao.deleteMediaMetadata(note.id);
+    });
+    await _mediaStorage.deleteIfManaged(media.localPath);
   }
 
   /// Applies Voice changes made while the same Capture/Review preparation is
@@ -1685,16 +1871,17 @@ class LeadRepository {
 
   SessionLead _fromStored(StoredLeadBundle bundle) {
     StoredLeadMedia? card;
-    StoredLeadMedia? voice;
+    final voices = <StoredLeadMedia>[];
     final references = <StoredLeadMedia>[];
     for (final media in bundle.media) {
       if (media.mediaType == LocalMediaType.cardImage.name) card = media;
-      if (media.mediaType == LocalMediaType.voiceNote.name) voice = media;
+      if (media.mediaType == LocalMediaType.voiceNote.name) voices.add(media);
       if (media.mediaType == LocalMediaType.referenceImage.name) {
         references.add(media);
       }
     }
     final stored = bundle.lead;
+    final voice = voices.firstOrNull;
     final mediaStates = bundle.media.map((item) => item.uploadState).toSet();
     final leadState = switch (stored.syncState) {
       'enHoja' || 'synced' => SessionUploadState.synced,
@@ -1723,6 +1910,15 @@ class LeadRepository {
       uploadState: visibleSyncState,
       remoteRevision: stored.remoteRevision,
       capturedBy: stored.capturedBy,
+      voiceNotes: voices
+          .map(
+            (item) => LeadVoiceNote(
+              id: item.localId,
+              localPath: item.localPath,
+              durationSeconds: item.durationSeconds ?? 0,
+            ),
+          )
+          .toList(),
       lead: LeadDraft(
         name: stored.name,
         lastName: stored.lastName,

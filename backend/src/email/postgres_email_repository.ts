@@ -205,6 +205,7 @@ export class PostgresEmailRepository implements EmailRepository {
   async followUpContext(
     principal: Principal,
     leadId: string,
+    selectedContentFileIds?: string[],
   ): Promise<FollowUpContext> {
     const result = await this.pool.query<{
       lead_id: string;
@@ -233,7 +234,33 @@ export class PostgresEmailRepository implements EmailRepository {
     );
     const row = result.rows[0];
     if (!row) throw notFound("Lead");
-    const attachmentRows = row.content_file_ids.length
+    const selected = selectedContentFileIds
+      ? [...new Set(selectedContentFileIds)]
+      : row.content_file_ids;
+    let selectedNames = row.content_names;
+    if (selectedContentFileIds) {
+      const available = selected.length
+        ? await this.pool.query<{ id: string; name: string }>(
+            `SELECT c.id,c.display_name AS name
+             FROM content_files c
+             WHERE c.workspace_id=$1 AND c.id=ANY($2::uuid[])
+               AND c.deleted_at IS NULL AND c.upload_status='available'
+               AND c.storage_object_key IS NOT NULL
+               AND ($3::text='direct' OR c.all_events OR $4::uuid=ANY(c.event_ids))`,
+            [principal.workspaceId, selected, row.origin, row.event_id],
+          )
+        : { rows: [] as Array<{ id: string; name: string }> };
+      const byId = new Map(available.rows.map((item) => [item.id, item.name]));
+      if (byId.size !== selected.length) {
+        throw new ApplicationError(
+          "content_unavailable",
+          409,
+          "One or more selected content files are unavailable for this lead.",
+        );
+      }
+      selectedNames = selected.map((id) => byId.get(id)!);
+    }
+    const attachmentRows = selected.length
       ? await this.pool.query<
           HistoricalAttachment & {
             deletedAt: string | null;
@@ -247,7 +274,7 @@ export class PostgresEmailRepository implements EmailRepository {
                   c.storage_object_key AS "storageObjectKey"
            FROM unnest($2::uuid[],$3::text[]) AS snapshot(id,name)
            LEFT JOIN content_files c ON c.workspace_id=$1 AND c.id=snapshot.id`,
-          [principal.workspaceId, row.content_file_ids, row.content_names],
+          [principal.workspaceId, selected, selectedNames],
         )
       : { rows: [] as HistoricalAttachment[] };
     return {
@@ -255,8 +282,8 @@ export class PostgresEmailRepository implements EmailRepository {
       eventId: row.event_id,
       origin: row.origin,
       recipientAddress: row.recipient_address,
-      contentFileIds: row.content_file_ids,
-      contentNames: row.content_names,
+      contentFileIds: selected,
+      contentNames: selectedNames,
       attachments: attachmentRows.rows,
       values: {
         nombre: row.first_name,
@@ -265,7 +292,7 @@ export class PostgresEmailRepository implements EmailRepository {
         puesto: row.position ?? "",
         evento: row.event_name ?? "",
         lugar: row.place ?? "",
-        contenido: row.content_names.join(", "),
+        contenido: selectedNames.join(", "),
         nombreVendedor: row.seller_name ?? "",
         empresaVendedor: row.seller_company ?? "",
       },

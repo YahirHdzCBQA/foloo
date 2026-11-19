@@ -116,6 +116,7 @@ const prepareFollowUpSchema = z
     subject: z.string().trim().min(1).max(200).optional(),
     plainBody: z.string().trim().min(1).max(20_000).optional(),
     htmlBody: z.string().trim().min(1).max(40_000).optional(),
+    contentFileIds: z.array(z.uuid()).optional(),
   })
   .refine(
     (value) =>
@@ -298,6 +299,7 @@ export function createRouter(
                 htmlBody: payload.htmlBody,
               }
             : undefined,
+          payload.contentFileIds,
         ),
       });
     }
@@ -517,6 +519,27 @@ export function createRouter(
               key,
               hash,
             );
+      return json(
+        200,
+        { data: result.value },
+        result.replayed ? { "idempotency-replayed": "true" } : {},
+      );
+    }
+
+    const mediaDeleteMatch = /^\/v1\/leads\/([^/]+)\/media\/([^/]+)$/.exec(
+      path,
+    );
+    if (mediaDeleteMatch?.[1] && mediaDeleteMatch[2] && method === "DELETE") {
+      const leadId = uuidSchema.parse(mediaDeleteMatch[1]);
+      const mediaId = uuidSchema.parse(mediaDeleteMatch[2]);
+      const key = idempotencyKey(event);
+      const result = await application.deleteLeadMedia(
+        subject,
+        leadId,
+        mediaId,
+        key,
+        requestHash({ leadId, mediaId }),
+      );
       return json(
         200,
         { data: result.value },

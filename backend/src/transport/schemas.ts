@@ -142,6 +142,7 @@ export const leadSchema = z
 export const leadUpdateSchema = z
   .object({
     revision: z.number().int().positive(),
+    eventId: z.uuid().nullable().optional(),
     firstName: z.string().trim().min(1).max(160),
     lastName: nullableText(160),
     position: nullableText(160),

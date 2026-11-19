@@ -472,6 +472,24 @@ paths:
         "201": { $ref: "#/components/responses/DataResponse" }
         "400": { $ref: "#/components/responses/ErrorResponse" }
         "404": { $ref: "#/components/responses/ErrorResponse" }
+  /leads/{leadId}/media/{mediaId}:
+    parameters:
+      - name: leadId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: mediaId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      operationId: deleteLeadVoiceNote
+      description: Idempotently tombstones one owner-scoped saved voice note.
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      responses:
+        "200": { $ref: "#/components/responses/DataResponse" }
+        "404": { $ref: "#/components/responses/ErrorResponse" }
+        "409": { $ref: "#/components/responses/ErrorResponse" }
 components:
   securitySchemes:
     cognitoJwt:
@@ -514,6 +532,10 @@ components:
         id: { type: string, format: uuid }
         leadId: { type: string, format: uuid }
         language: { type: string, enum: [es, en] }
+        contentFileIds:
+          type: array
+          description: Exact owner-scoped Content selection made from Records.
+          items: { type: string, format: uuid }
         subject:
           type: string
           maxLength: 200
@@ -677,6 +699,7 @@ components:
             uploadStatus: { type: string, enum: [pending, available] }
             uploadedAt: { type: string, format: date-time, nullable: true }
             revision: { type: integer, minimum: 1 }
+            deletedAt: { type: string, format: date-time, nullable: true }
             download:
               nullable: true
               allOf:

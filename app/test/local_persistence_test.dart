@@ -276,6 +276,176 @@ void main() {
     },
   );
 
+  test('REG-07 reassigns an event lead without changing its origin', () async {
+    final database = openDatabase();
+    final events = EventRepository(database);
+    await events.save(userId, event(), makeActive: true);
+    await events.save(
+      userId,
+      AppEvent(
+        id: 'event-2',
+        name: 'Expo Dos',
+        startsOn: DateTime(2026, 9, 1),
+        endsOn: DateTime(2026, 9, 2),
+      ),
+    );
+    final leads = LeadRepository(
+      database,
+      PrivateMediaStorage(mediaRoot),
+      idFactory: () => '57d8ce9a-dcc4-4b78-8fd9-552c216a62a1',
+    );
+    final saved = await leads.saveDraft(
+      userId,
+      draft(),
+      capturedBy: const DemoProfile(name: 'Yahir', company: 'CBQA'),
+    );
+
+    await leads.updateDraft(
+      userId,
+      saved,
+      saved.lead.copyWith(eventLocalId: 'event-2', eventName: 'Expo Dos'),
+    );
+
+    final current = (await leads.listAll(userId)).single;
+    expect(current.lead.originKind, LeadOriginKind.event);
+    expect(current.lead.eventLocalId, 'event-2');
+    expect(current.lead.eventName, 'Expo Dos');
+    final operation = (await database.syncDao.forEntity(
+      userId,
+      SyncEntityType.lead.name,
+      saved.localId,
+    )).single;
+    expect(jsonDecode(operation.payloadJson)['eventId'], 'event-2');
+    await database.close();
+  });
+
+  test(
+    'REG-07 appends a persisted reference image to an existing lead',
+    () async {
+      final database = openDatabase();
+      await EventRepository(database).save(userId, event(), makeActive: true);
+      final leads = LeadRepository(
+        database,
+        PrivateMediaStorage(mediaRoot),
+        idFactory: () => '57d8ce9a-dcc4-4b78-8fd9-552c216a62a1',
+      );
+      final saved = await leads.saveDraft(
+        userId,
+        draft(),
+        capturedBy: const DemoProfile(name: 'Yahir', company: 'CBQA'),
+      );
+      final source = File('${temporary.path}/reference.png');
+      await source.writeAsBytes(testPng());
+
+      final path = await leads.appendReferenceImage(userId, saved, source.path);
+
+      expect(await File(path).exists(), isTrue);
+      final refreshed = (await leads.listAll(userId)).single;
+      expect(refreshed.lead.referenceImageLocalPaths, [path]);
+      final media = await database.leadDao.mediaFor(saved.localId);
+      expect(
+        media.where(
+          (item) => item.mediaType == LocalMediaType.referenceImage.name,
+        ),
+        hasLength(1),
+      );
+      await database.close();
+    },
+  );
+
+  test('REG-07 detail accepts six reference images but not a seventh', () async {
+    final database = openDatabase();
+    await EventRepository(database).save(userId, event(), makeActive: true);
+    var sequence = 100;
+    final leads = LeadRepository(
+      database,
+      PrivateMediaStorage(mediaRoot),
+      idFactory: () {
+        sequence += 1;
+        return '00000000-0000-4000-8000-${sequence.toString().padLeft(12, '0')}';
+      },
+    );
+    var current = await leads.saveDraft(
+      userId,
+      draft(),
+      capturedBy: const DemoProfile(name: 'Yahir', company: 'CBQA'),
+    );
+    for (var index = 0; index < 7; index++) {
+      final source = File('${temporary.path}/reference-$index.png');
+      await source.writeAsBytes(testPng());
+      if (index < 6) {
+        await leads.appendReferenceImage(userId, current, source.path);
+        current = (await leads.listAll(userId)).single;
+      } else {
+        await expectLater(
+          leads.appendReferenceImage(userId, current, source.path),
+          throwsStateError,
+        );
+      }
+    }
+    expect(current.lead.referenceImageLocalPaths, hasLength(6));
+    await database.close();
+  });
+
+  test('REG-08 detail keeps three voice notes and tombstones the selected one', () async {
+    final database = openDatabase();
+    await EventRepository(database).save(userId, event(), makeActive: true);
+    var sequence = 0;
+    String nextId() {
+      sequence += 1;
+      return '00000000-0000-4000-8000-${sequence.toString().padLeft(12, '0')}';
+    }
+
+    final leads = LeadRepository(
+      database,
+      PrivateMediaStorage(mediaRoot),
+      idFactory: nextId,
+    );
+    final saved = await leads.saveDraft(
+      userId,
+      draft(),
+      capturedBy: const DemoProfile(name: 'Yahir', company: 'CBQA'),
+    );
+    final sources = <File>[];
+    for (var index = 0; index < 4; index++) {
+      final source = File('${temporary.path}/voice-$index.m4a');
+      await source.writeAsBytes([0, 0, 0, 0, 0x66, 0x74, 0x79, 0x70]);
+      sources.add(source);
+    }
+
+    var current = saved;
+    for (var index = 0; index < 3; index++) {
+      await leads.appendVoiceNote(
+        userId,
+        current,
+        sources[index].path,
+        index + 1,
+      );
+      current = (await leads.listAll(userId)).single;
+    }
+    expect(current.voiceNotes, hasLength(3));
+    await expectLater(
+      leads.appendVoiceNote(userId, current, sources[3].path, 4),
+      throwsStateError,
+    );
+
+    final selected = current.voiceNotes[1];
+    await leads.deleteVoiceNote(userId, current, selected);
+    current = (await leads.listAll(userId)).single;
+    expect(
+      current.voiceNotes.map((item) => item.id),
+      isNot(contains(selected.id)),
+    );
+    expect(current.voiceNotes, hasLength(2));
+    final deleteOperations = await database.syncDao.forEntity(
+      userId,
+      SyncEntityType.leadMedia.name,
+      selected.id,
+    );
+    expect(deleteOperations.single.action, 'delete');
+    await database.close();
+  });
+
   test(
     'events and profile preferences survive reopen; delete is logical',
     () async {

@@ -113,9 +113,14 @@ export class EmailApplication {
     language: EmailLanguage,
     id: string = randomUUID(),
     frozen?: { subject: string; plainBody: string; htmlBody: string },
+    selectedContentFileIds?: string[],
   ) {
     const principal = await this.principal(subject);
-    const context = await this.repository.followUpContext(principal, leadId);
+    const context = await this.repository.followUpContext(
+      principal,
+      leadId,
+      selectedContentFileIds,
+    );
     if (!context.recipientAddress)
       throw new ApplicationError(
         "lead_email_required",

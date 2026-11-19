@@ -60,6 +60,28 @@ class RecordsExportFile {
 class RecordsExportService {
   const RecordsExportService();
 
+  /// Applies REG-09's inclusive capture-date range in the device locale.
+  List<SessionLead> directRecordsInLocalDateRange({
+    required Iterable<SessionLead> records,
+    DateTime? start,
+    DateTime? end,
+  }) {
+    final from = start == null
+        ? null
+        : DateTime(start.year, start.month, start.day);
+    final through = end == null ? null : DateTime(end.year, end.month, end.day);
+    if (from != null && through != null && through.isBefore(from)) {
+      throw ArgumentError('End date cannot precede start date.');
+    }
+    return records.where((record) {
+      if (record.lead.originKind != LeadOriginKind.direct) return false;
+      final local = record.capturedAt.toLocal();
+      final day = DateTime(local.year, local.month, local.day);
+      return (from == null || !day.isBefore(from)) &&
+          (through == null || !day.isAfter(through));
+    }).toList();
+  }
+
   RecordsExportFile build({
     required AppEvent event,
     required List<SessionLead> records,

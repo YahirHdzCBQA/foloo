@@ -140,4 +140,11 @@ export interface FolooRepository {
     requestHash: string,
     objectKey: string,
   ): Promise<IdempotentResult<unknown>>;
+  deleteLeadMedia(
+    principal: Principal,
+    leadId: string,
+    mediaId: string,
+    idempotencyKey: string,
+    requestHash: string,
+  ): Promise<IdempotentResult<unknown>>;
 }

@@ -342,6 +342,20 @@ export class MemoryRepository implements FolooRepository {
     void input;
     void objectKey;
   }
+
+  async deleteLeadMedia(
+    principal: Principal,
+    leadId: string,
+    mediaId: string,
+    _idempotencyKey: string,
+    _requestHash: string,
+  ) {
+    void principal;
+    void leadId;
+    void _idempotencyKey;
+    void _requestHash;
+    return { value: { id: mediaId, deleted: true }, replayed: false };
+  }
   async createLeadMedia(
     _principal: Principal,
     _leadId: string,

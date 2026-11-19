@@ -85,8 +85,17 @@ El alcance exige detalle editable y el tablero pide regrabar/eliminar Voice
 Note antes y después. Falta definir auditoría, reenvío de correo y efecto sobre
 adjuntos ya congelados.
 
-**Bloquea:** edición/reemplazo/eliminación post-guardado de medios en `VOZ-03`,
-`REG-07` y `REG-08`; no bloquea los campos estructurados aprobados en `REG-07`.
+Producto resolvió el 2026-11-17 el caso append-only de FL-025B y lo amplió el
+2026-11-18: Registros permite agregar imágenes de referencia después de guardar
+mediante el mismo pipeline privado hasta seis en total, sin reemplazar ni borrar
+las existentes. Captura conserva tres. También permite hasta tres Voice Notes
+post-guardado y eliminar exactamente una con confirmación, persistencia
+local-first y tombstone sincronizable; la limpieza física se rige por `D-13`.
+
+**Bloquea:** únicamente reemplazo/eliminación post-guardado de imágenes y otros
+modelos de edición o historial de Voice Note no aprobados. No bloquea campos
+estructurados, reasignación, append de referencias ni alta/baja de voz aprobada
+en `REG-07`/`REG-08`.
 
 ### `D-10` · Contrato API futuro de Foloo Teams
 

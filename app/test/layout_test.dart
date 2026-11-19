@@ -53,6 +53,13 @@ void main() {
 
     final scrollRect = tester.getRect(scrollView);
     final saveRect = tester.getRect(find.byKey(const Key('saveLeadButton')));
+    final saveOnlyRect = tester.getRect(
+      find.byKey(const Key('saveOnlyLeadButton')),
+    );
+    expect(saveOnlyRect.top, saveRect.top);
+    expect(saveOnlyRect.bottom, saveRect.bottom);
+    expect(saveRect.width / saveOnlyRect.width, closeTo(2, .2));
+    expect(find.text('Guarda y da “foloo”'), findsOneWidget);
     expect(scrollRect.height, greaterThan(500));
     expect(scrollRect.bottom, lessThanOrEqualTo(saveRect.top));
     expect(

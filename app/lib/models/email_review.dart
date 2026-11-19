@@ -12,6 +12,7 @@ class EmailReviewDraft {
     required this.recipientAddress,
     required this.subject,
     required this.message,
+    this.attachmentIds = const [],
     required this.attachmentNames,
   });
 
@@ -20,17 +21,23 @@ class EmailReviewDraft {
   final String recipientAddress;
   final String subject;
   final String message;
+  final List<String> attachmentIds;
   final List<String> attachmentNames;
 
-  EmailReviewDraft copyWith({String? subject, String? message}) =>
-      EmailReviewDraft(
-        followUpId: followUpId,
-        leadName: leadName,
-        recipientAddress: recipientAddress,
-        subject: subject ?? this.subject,
-        message: message ?? this.message,
-        attachmentNames: attachmentNames,
-      );
+  EmailReviewDraft copyWith({
+    String? subject,
+    String? message,
+    List<String>? attachmentIds,
+    List<String>? attachmentNames,
+  }) => EmailReviewDraft(
+    followUpId: followUpId,
+    leadName: leadName,
+    recipientAddress: recipientAddress,
+    subject: subject ?? this.subject,
+    message: message ?? this.message,
+    attachmentIds: attachmentIds ?? this.attachmentIds,
+    attachmentNames: attachmentNames ?? this.attachmentNames,
+  );
 }
 
 /// Truthful result used by the acknowledgement screen after confirmation.

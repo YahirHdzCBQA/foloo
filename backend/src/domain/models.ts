@@ -67,6 +67,7 @@ export type LeadInput = {
 /** Mutable Lead fields plus the expected server revision (REG-07). */
 export type LeadUpdateInput = {
   revision: number;
+  eventId?: string | null;
   firstName: string;
   lastName?: string | null;
   position?: string | null;
@@ -96,6 +97,7 @@ export type LeadMediaRecord = LeadMediaInput & {
   uploadStatus: "pending" | "available";
   uploadedAt: string | null;
   revision: number;
+  deletedAt: string | null;
 };
 
 export type MediaUploadAuthorization = {

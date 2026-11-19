@@ -78,6 +78,7 @@ export interface EmailRepository {
   followUpContext(
     principal: Principal,
     leadId: string,
+    selectedContentFileIds?: string[],
   ): Promise<FollowUpContext>;
   createFollowUp(
     principal: Principal,

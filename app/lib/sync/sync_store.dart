@@ -1411,6 +1411,14 @@ class SyncStore {
     for (final item in media) {
       final id = item['id'] as String;
       final local = await database.leadDao.mediaById(id);
+      if (item['deletedAt'] != null) {
+        if (local != null) {
+          await database.leadDao.deleteMediaMetadata(id);
+          await mediaStorage?.deleteIfManaged(local.localPath);
+        }
+        await reconcileRemoteCreate(ownerSub, SyncEntityType.leadMedia, id);
+        continue;
+      }
       final available = item['uploadStatus'] == 'available';
       if (local != null && available) {
         await reconcileRemoteCreate(ownerSub, SyncEntityType.leadMedia, id);
@@ -1442,7 +1450,7 @@ class SyncStore {
           sourcePath: temporaryPath,
           leadLocalId: leadId,
           type: type,
-          slot: type == LocalMediaType.referenceImage ? id : null,
+          slot: type == LocalMediaType.cardImage ? null : id,
         );
         if (localPath == null) continue;
         await database.leadDao.insertMedia(

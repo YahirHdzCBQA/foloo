@@ -344,6 +344,12 @@ void main() {
     expect(find.textContaining('catalogo-empaque-2026.pdf'), findsOneWidget);
 
     final displayName = find.byKey(const Key('contentDisplayNameField'));
+    expect(
+      find.text(
+        'Escribe el nombre del producto o solución. Este nombre será el que aparezca en el correo.',
+      ),
+      findsOneWidget,
+    );
     await tester.showKeyboard(displayName);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('contentAssignmentScroll')), findsOneWidget);

@@ -595,6 +595,41 @@ R8 en solución permanente.
   cambios backend ni migraciones.
 - Esta FL no incluye ninguna corrección funcional del bloque FL-025B.
 
+## FL-025B — Correcciones funcionales posteriores al evento
+
+**Estado:** **IMPLEMENTADA Y VALIDADA LOCALMENTE; despliegue pendiente de autorización.**
+
+- Trazas: `OCR-01`–`OCR-05`, `CAP-08`, `REG-05`–`REG-10`, `SAL-01`,
+  `PLT-08`, `CON-05`; E-03/E-06/E-07/E-08/E-10; ADR-001/004/005/006/007.
+- OCR reutiliza cámara/galería y reconoce capturas etiquetadas de contactos
+  iPhone sin vCard/Share Extension ni completar direcciones truncadas.
+- Detalle permite agregar imágenes append-only y mover un Lead de evento entre
+  eventos del mismo workspace; no cambia origen, identidad ni fecha.
+- Review permite ajustar asunto, mensaje y adjuntos mientras la preparación
+  esté pendiente; la confirmación conserva el snapshot inmutable existente.
+- Exportación de Leads directos agrega rango inclusivo de fecha local sin
+  cambiar columnas CSV/XLSX. Contenido conserva un solo borrador atómico para
+  nombre visible y asociaciones.
+- No requiere migración. Los cambios backend de contrato/runtime requieren un
+  despliegue independiente y autorizado antes de E2E remoto.
+
+### Segunda ronda QA aprobada (2026-11-18)
+
+- Captura mantiene una barra horizontal con `Guardar` (1/3) y
+  `Guarda y da foloo` (2/3), sin cambiar persistencia ni Review.
+- Editar desde Registros permanece en el mismo detalle, refresca los campos y
+  confirma visualmente. La reasignación de evento conserva el contrato
+  local-first/optimista existente.
+- El selector de adjuntos vive solo en Review/Reenviar desde Registros; backend
+  congela exactamente la selección válida. Captura conserva su flujo primario.
+- Exportar Leads directos combina Content con OR y rango inclusivo con AND,
+  muestra conteo vivo y bloquea una salida vacía.
+- Registros permite hasta tres Voice Notes y seis referencias por Lead; elimina
+  una voz exacta mediante confirmación/tombstone. Captura conserva tres
+  referencias. La limpieza física remota sigue `D-13`.
+- Contenido explica el nombre visible en ES/EN. No hay migración. Runtime API y
+  E2E físico requieren autorización de despliegue independiente.
+
 ## Exclusiones del plan V1
 
 No existen fases Basic E2E, capability Basic/Pro, Pro E2E, transcripción Pro ni

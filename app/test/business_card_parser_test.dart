@@ -99,6 +99,40 @@ void main() {
       expect(result.detectedWebsite, 'www.foloo.mx');
       expect(result.populatedLeadFieldCount, 0);
     });
+
+    test('maps an iPhone contact screenshot with labeled multiline values', () {
+      final result = parser.parse(const [
+        'Moisés Rentería',
+        'LOGWELL MEXICO',
+        'Teléfono',
+        '33 1610 1559',
+        'Correo',
+        'MOISES.RENTERIA@LOGWELL.COM.MX',
+        'Notas',
+        'Contacto compartido durante el evento',
+      ]);
+
+      expect(result.name, 'Moisés');
+      expect(result.lastName, 'Rentería');
+      expect(result.company, 'LOGWELL MEXICO');
+      expect(result.phone, '33 1610 1559');
+      expect(result.email, 'MOISES.RENTERIA@LOGWELL.COM.MX');
+      expect(result.note, 'Contacto compartido durante el evento');
+    });
+
+    test(
+      'does not invent a complete address from truncated screenshot text',
+      () {
+        final result = parser.parse(const [
+          'Ana López',
+          'Correo',
+          'ana.lopez@empresa…',
+        ]);
+
+        expect(result.email, isEmpty);
+        expect(result.name, 'Ana');
+      },
+    );
   });
 
   group('OCR prefill policy', () {

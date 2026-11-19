@@ -1436,6 +1436,12 @@ abstract class AppLocalizations {
   /// **'Guardar cambios'**
   String get saveChanges;
 
+  /// No description provided for @leadChangesSaved.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambios guardados.'**
+  String get leadChangesSaved;
+
   /// No description provided for @back.
   ///
   /// In es, this message translates to:
@@ -1477,6 +1483,36 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Nombre para mostrar'**
   String get displayName;
+
+  /// No description provided for @contentDisplayNameHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribe el nombre del producto o solución. Este nombre será el que aparezca en el correo.'**
+  String get contentDisplayNameHelp;
+
+  /// No description provided for @exportContentFilter.
+  ///
+  /// In es, this message translates to:
+  /// **'Contenido asociado'**
+  String get exportContentFilter;
+
+  /// No description provided for @exportNoContentAvailable.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay contenido disponible para filtrar.'**
+  String get exportNoContentAvailable;
+
+  /// No description provided for @clearFilters.
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar filtros'**
+  String get clearFilters;
+
+  /// No description provided for @exportNoMatchingLeads.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay leads que coincidan con estos filtros.'**
+  String get exportNoMatchingLeads;
 
   /// No description provided for @searchEvents.
   ///
@@ -1927,6 +1963,30 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Permiso de micrófono rechazado. Puedes continuar con la nota escrita.'**
   String get microphoneDenied;
+
+  /// No description provided for @addVoiceNote.
+  ///
+  /// In es, this message translates to:
+  /// **'Agregar nota de voz'**
+  String get addVoiceNote;
+
+  /// No description provided for @voiceNoteLimitReached.
+  ///
+  /// In es, this message translates to:
+  /// **'Este lead ya tiene el máximo de 3 notas de voz.'**
+  String get voiceNoteLimitReached;
+
+  /// No description provided for @referenceImageLimitReached.
+  ///
+  /// In es, this message translates to:
+  /// **'Este lead ya tiene el máximo de 6 imágenes de referencia.'**
+  String get referenceImageLimitReached;
+
+  /// No description provided for @deleteVoiceNoteQuestion.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar esta nota de voz?'**
+  String get deleteVoiceNoteQuestion;
 
   /// No description provided for @microphonePermissionTitle.
   ///
