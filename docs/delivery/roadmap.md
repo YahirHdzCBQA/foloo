@@ -656,6 +656,38 @@ R8 en solución permanente.
 - Trazas: `PLT-08`, `SAL-01`, `REG-09`–`REG-13`; E-08/E-10;
   ADR-001/004/006/007. No requiere backend, migración ni infraestructura.
 
+### Corte QA-15–QA-17 aprobado (2026-11-19)
+
+- QA-15 conserva el sheet de Content utilizable con teclado y pantallas
+  pequeñas sin doble `viewInsets`; helper, acciones y placeholder mantienen
+  jerarquía en claro/oscuro.
+- QA-16 presenta en Seguimientos una explicación y Reenviar manual cuando el
+  remitente conectado cambió. Los códigos HTTP/dominio no llegan al texto
+  visible, no hay retry automático y Gmail/Outlook conservan el mismo contrato.
+- QA-17 protege la reasignación Evento con claim compare-and-set de outbox,
+  coalescencia solo antes de enviar y snapshot de nombre coherente con el
+  `eventId`; la última edición local prevalece sobre trabajo obsoleto.
+- Trazas: `CON-03`, `REG-05`, `REG-07`, `SAL-02`, `SAL-03`, `SAL-09`,
+  `SYN-04`–`SYN-10`, `RNF-03`, `RNF-07`; E-06/E-07/E-08/E-09;
+  ADR-001/004/006/007. Sin migración ni infraestructura; validación física
+  iOS/Android queda pendiente.
+
+### Corte QA-18–QA-21 aprobado (2026-11-20)
+
+- QA-18 administra Content exclusivamente desde el detalle del Lead: selección
+  múltiple elegible, retiro de la asociación con confirmación y persistencia
+  local-first. Review/Reenviar consume la asociación vigente sin duplicar UI.
+- QA-19 alinea la grabación post-guardado con Captura, conserva máximo de tres,
+  Guardar explícito y tombstones idempotentes por nota.
+- QA-20 reemplaza controles dispersos de Registros por una barra y un panel de
+  filtros owner-scoped; valores de categoría usan OR y categorías usan AND.
+- QA-21 elimina el segundo filtro de exportación y genera las quince columnas
+  sobre exactamente el conjunto filtrado completo, mixto y determinista.
+- Trazas: `VOZ-01`–`VOZ-08`, `REG-01`–`REG-13`, `CON-07`–`CON-09`,
+  `SAL-01`–`SAL-04`, `SYN-04`–`SYN-10`, `RNF-03`, `RNF-07`; E-06/E-07/E-08/E-10;
+  ADR-001/004/005/006/007. No requiere backend, migración ni infraestructura;
+  validación física iOS/Android queda pendiente.
+
 ## Exclusiones del plan V1
 
 No existen fases Basic E2E, capability Basic/Pro, Pro E2E, transcripción Pro ni

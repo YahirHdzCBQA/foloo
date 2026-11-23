@@ -106,6 +106,32 @@ class RecordsExportService {
     generatedAt: generatedAt,
   );
 
+  /// Builds QA-21's exact filtered workspace result without applying another
+  /// event/direct/content selector inside the export dialog.
+  RecordsExportFile buildFiltered({
+    required String scopeName,
+    required List<SessionLead> records,
+    required RecordsExportFormat format,
+    required RecordsExportLabels labels,
+    List<ContentFile> contentFiles = const [],
+    DateTime? generatedAt,
+  }) {
+    final ordered = [...records]
+      ..sort((left, right) {
+        final byDate = left.capturedAt.compareTo(right.capturedAt);
+        return byDate != 0 ? byDate : left.localId.compareTo(right.localId);
+      });
+    return _build(
+      scopeName: scopeName,
+      records: ordered,
+      event: null,
+      format: format,
+      labels: labels,
+      contentFiles: contentFiles,
+      generatedAt: generatedAt,
+    );
+  }
+
   RecordsExportFile _build({
     required String scopeName,
     required Iterable<SessionLead> records,
@@ -179,7 +205,7 @@ class RecordsExportService {
     record.lead.originKind == LeadOriginKind.event
         ? labels.event
         : labels.direct,
-    event?.name ?? '',
+    event?.name ?? record.lead.eventName ?? '',
     record.lead.originKind == LeadOriginKind.direct
         ? (record.lead.place ?? '')
         : '',

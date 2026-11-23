@@ -161,5 +161,35 @@ void main() {
     expect(queued, isTrue);
     final operations = await database.syncDao.allForOwner(owner);
     expect(operations.any((item) => item.action == 'retry'), isTrue);
+
+    queued = false;
+    await database.emailDeliveryDao.updateIntentState(
+      owner,
+      intentId,
+      'error',
+      2,
+      'http_409_sender_confirmation_required',
+      now.add(const Duration(seconds: 2)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('leadFollowUpCard')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'La cuenta de envío conectada cambió. Confirma un reenvío manual para usar el remitente actual; Foloo no reintentará automáticamente.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('http_409_sender_confirmation_required'), findsNothing);
+    expect(find.byKey(const Key('leadFollowUpRetry')), findsNothing);
+    expect(find.byKey(const Key('leadFollowUpResend')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('leadFollowUpResend')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reenviar'));
+    await tester.pumpAndSettle();
+    final intents = await repository.intents(owner);
+    expect(intents, hasLength(2));
+    expect(intents.first.parentIntentId, intentId);
+    expect(queued, isTrue);
   });
 }

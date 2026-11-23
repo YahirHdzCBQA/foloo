@@ -1559,7 +1559,8 @@ class LeadRepository {
         stored.localId,
       );
       final creates = operations.where(
-        (operation) => operation.action == 'create',
+        (operation) =>
+            operation.action == 'create' && operation.status == 'pending',
       );
       if (creates.isNotEmpty) {
         final create = creates.first;
@@ -1568,24 +1569,27 @@ class LeadRepository {
         createPayload
           ..addAll(payload)
           ..remove('revision');
-        await _database.syncDao.repairFailedPayload(
+        final replaced = await _database.syncDao.replacePendingPayload(
           create.operationId,
+          create.payloadJson,
           jsonEncode(createPayload),
           now,
         );
-        return;
+        if (replaced) return;
       }
       final replaceable = operations.where(
         (operation) =>
-            operation.action == 'update' && operation.status != 'syncing',
+            operation.action == 'update' && operation.status == 'pending',
       );
       if (replaceable.isNotEmpty) {
-        await _database.syncDao.repairFailedPayload(
-          replaceable.first.operationId,
+        final operation = replaceable.first;
+        final replaced = await _database.syncDao.replacePendingPayload(
+          operation.operationId,
+          operation.payloadJson,
           jsonEncode(payload),
           now,
         );
-        return;
+        if (replaced) return;
       }
       await _syncStore.enqueue(
         ownerSub: userId,

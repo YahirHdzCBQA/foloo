@@ -430,6 +430,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'This creates a new manual send and could deliver a duplicate.';
 
   @override
+  String get emailSenderChangedDetail =>
+      'The connected sending account changed. Confirm a manual resend to use the current sender; Foloo will not retry automatically.';
+
+  @override
   String get emailResend => 'Resend';
 
   @override
@@ -624,6 +628,88 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchRecords => 'Search by name or company';
+
+  @override
+  String get recordsFilters => 'Record filters';
+
+  @override
+  String get eventsFilter => 'Events';
+
+  @override
+  String get includeDirectLeads => 'Include direct leads';
+
+  @override
+  String get includeDirectLeadsHelp =>
+      'They are combined with selected events without duplicate results.';
+
+  @override
+  String get nameFilter => 'Name';
+
+  @override
+  String get searchLeadName => 'Search by name';
+
+  @override
+  String get searchCompany => 'Search company';
+
+  @override
+  String get dateFilter => 'Date';
+
+  @override
+  String get startDate => 'Start date';
+
+  @override
+  String get endDate => 'End date';
+
+  @override
+  String get notSelected => 'Not selected';
+
+  @override
+  String get invalidDateRange =>
+      'The start date cannot be later than the end date.';
+
+  @override
+  String viewFilterResults(int count) {
+    return 'View results ($count)';
+  }
+
+  @override
+  String activeFilters(int count) {
+    return 'Filters ($count)';
+  }
+
+  @override
+  String get noEventsAvailable => 'No events are available.';
+
+  @override
+  String get noCompaniesAvailable => 'No companies match.';
+
+  @override
+  String get noFilteredRecords => 'No leads matched the applied filters.';
+
+  @override
+  String get clearAppliedFilters => 'Clear applied filters';
+
+  @override
+  String get exportFilteredRecords => 'Filtered records';
+
+  @override
+  String get contentForLead => 'Content';
+
+  @override
+  String get addLeadContent => 'Add content';
+
+  @override
+  String get selectLeadContent => 'Select content';
+
+  @override
+  String get noLeadContent => 'This lead has no associated content.';
+
+  @override
+  String get removeLeadContentQuestion => 'Remove this content from the lead?';
+
+  @override
+  String get removeLeadContentHelp =>
+      'The file will remain available in Content and for other leads.';
 
   @override
   String get all => 'All';

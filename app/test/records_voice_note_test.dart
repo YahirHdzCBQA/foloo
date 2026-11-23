@@ -241,6 +241,8 @@ void main() {
         isFalse,
       );
 
+      await tester.ensureVisible(find.byKey(const Key('detailAudioButton')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('detailAudioButton')));
       await tester.pump();
       expect(service.playCount, 1);
@@ -539,7 +541,7 @@ void main() {
   });
 
   testWidgets(
-    'SAL-01 Records saves the exact Content selection for send or resend',
+    'QA-18 detail owns Content selection and Review remains read-only',
     (tester) async {
       const first = ContentFile(
         id: 'content-first',
@@ -564,7 +566,6 @@ void main() {
         ).copyWith(contentFileIds: const ['content-first']),
       );
       LeadDraft? savedLead;
-      EmailReviewDraft? savedReview;
       await tester.pumpWidget(
         recordsApp(
           FakeVoiceNoteService(),
@@ -589,39 +590,60 @@ void main() {
             attachmentNames: ['Ficha A'],
           ),
           onEmailReviewConfirmed: (_) async => EmailReviewOutcome.pending,
-          onEmailReviewUpdated: (review, updated) async {
-            savedReview = review;
-          },
         ),
       );
 
       await tester.tap(find.byKey(const Key('record-lead-email-content')));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.byKey(const Key('detailEmailAction')));
+      await tester.ensureVisible(find.byKey(const Key('detailAddContent')));
+      await tester.tap(find.byKey(const Key('detailAddContent')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('detailEmailAction')));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.byKey(const Key('editEmailAttachments')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('editEmailAttachments')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('emailAttachment-content-first')));
-      await tester.tap(find.byKey(const Key('emailAttachment-content-second')));
-      await tester.tap(find.byKey(const Key('saveEmailAttachments')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('emailReviewBack')));
+      await tester.tap(
+        find.byKey(const Key('leadContentOption-content-first')),
+      );
+      await tester.tap(
+        find.byKey(const Key('leadContentOption-content-second')),
+      );
+      await tester.tap(find.byKey(const Key('saveLeadContentSelection')));
       await tester.pumpAndSettle();
 
       expect(savedLead?.contentFileIds, ['content-second']);
       expect(savedLead?.contentNames, ['Ficha B']);
-      expect(savedReview?.attachmentIds, ['content-second']);
-      expect(savedReview?.attachmentNames, ['Ficha B']);
+
+      final secondCard = find.byKey(
+        const Key('leadContentCard-content-second'),
+      );
+      await tester.drag(secondCard, const Offset(500, 0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancelar').last);
+      await tester.pumpAndSettle();
+      expect(savedLead?.contentFileIds, ['content-second']);
+
+      await tester.drag(secondCard, const Offset(500, 0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Quitar').last);
+      await tester.pumpAndSettle();
+      expect(savedLead?.contentFileIds, isEmpty);
+
+      await tester.tap(find.byKey(const Key('detailAddContent')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('leadContentOption-content-second')),
+      );
+      await tester.tap(find.byKey(const Key('saveLeadContentSelection')));
+      await tester.pumpAndSettle();
+      expect(savedLead?.contentFileIds, ['content-second']);
+
+      await tester.ensureVisible(find.byKey(const Key('detailEmailAction')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('detailEmailAction')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('editEmailAttachments')), findsNothing);
+      expect(find.text('Ficha A'), findsOneWidget);
     },
   );
 
-  testWidgets('REG-02 distinguishes all events from direct leads', (
-    tester,
-  ) async {
+  testWidgets('QA-20 unions selected events and direct leads', (tester) async {
     final event = SessionLead(
       localId: 'event-lead',
       folio: null,
@@ -639,23 +661,38 @@ void main() {
       ),
     );
     await tester.pumpWidget(
-      recordsApp(FakeVoiceNoteService(), records: [event, direct]),
+      recordsApp(
+        FakeVoiceNoteService(),
+        records: [event, direct],
+        events: [
+          AppEvent(
+            id: 'expo-alimentaria',
+            name: DemoEventData.eventName,
+            startsOn: DateTime(2026, 10, 1),
+            endsOn: DateTime(2026, 10, 3),
+          ),
+        ],
+      ),
     );
     expect(find.text('Evento Sandoval Ruiz'), findsOneWidget);
     expect(find.text('Directo Sandoval Ruiz'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('recordsEventFilter')));
+    await tester.tap(find.byKey(const Key('recordsEventsFilter')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Todos los eventos').last);
+    await tester.tap(
+      find.byKey(const Key('recordsFilterEvent-expo-alimentaria')),
+    );
+    await tester.tap(find.byKey(const Key('applyRecordsFilters')));
     await tester.pumpAndSettle();
     expect(find.text('Evento Sandoval Ruiz'), findsOneWidget);
     expect(find.text('Directo Sandoval Ruiz'), findsNothing);
 
-    await tester.tap(find.byKey(const Key('recordsEventFilter')));
+    await tester.tap(find.byKey(const Key('recordsDirectFilter')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Leads directos').last);
+    await tester.tap(find.byKey(const Key('recordsFilterDirect')));
+    await tester.tap(find.byKey(const Key('applyRecordsFilters')));
     await tester.pumpAndSettle();
-    expect(find.text('Evento Sandoval Ruiz'), findsNothing);
+    expect(find.text('Evento Sandoval Ruiz'), findsOneWidget);
     expect(find.text('Directo Sandoval Ruiz'), findsOneWidget);
   });
 
@@ -741,7 +778,7 @@ void main() {
     await verify(SessionUploadState.synced, 'Todo sincronizado');
   });
 
-  testWidgets('REG-02 event dropdown filters records and updates results', (
+  testWidgets('QA-20 event filter updates the owner-scoped result set', (
     tester,
   ) async {
     final service = FakeVoiceNoteService();
@@ -781,28 +818,30 @@ void main() {
     expect(find.text('Ana Sandoval Ruiz'), findsOneWidget);
     expect(find.text('Beatriz Sandoval Ruiz'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('recordsEventFilter')));
+    await tester.tap(find.byKey(const Key('recordsEventsFilter')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Evento A').last);
+    await tester.tap(find.byKey(const Key('recordsFilterEvent-event-a')));
+    await tester.tap(find.byKey(const Key('applyRecordsFilters')));
     await tester.pumpAndSettle();
     expect(find.text('Ana Sandoval Ruiz'), findsOneWidget);
     expect(find.text('Beatriz Sandoval Ruiz'), findsNothing);
 
-    await tester.tap(find.byKey(const Key('recordsEventFilter')));
+    await tester.tap(find.byKey(const Key('recordsEventsFilter')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Evento B').last);
+    await tester.tap(find.byKey(const Key('recordsFilterEvent-event-a')));
+    await tester.tap(find.byKey(const Key('recordsFilterEvent-event-b')));
+    await tester.tap(find.byKey(const Key('applyRecordsFilters')));
     await tester.pumpAndSettle();
 
     expect(find.text('Ana Sandoval Ruiz'), findsNothing);
     expect(find.text('Beatriz Sandoval Ruiz'), findsOneWidget);
     expect(find.text('1 lead · 1 por subir'), findsOneWidget);
 
-    tester
-        .widget<DropdownButton<String>>(
-          find.byKey(const Key('recordsEventFilter')),
-        )
-        .onChanged!('__all_events__');
-    await tester.pump();
+    await tester.tap(find.byKey(const Key('recordsEventsFilter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('clearRecordsFilters')));
+    await tester.tap(find.byKey(const Key('applyRecordsFilters')));
+    await tester.pumpAndSettle();
 
     expect(find.text('Ana Sandoval Ruiz'), findsOneWidget);
     expect(find.text('Beatriz Sandoval Ruiz'), findsOneWidget);
@@ -905,7 +944,14 @@ void main() {
     await tester.pumpWidget(
       recordsApp(
         service,
-        records: const [],
+        records: [
+          SessionLead(
+            localId: 'export-a',
+            folio: null,
+            capturedAt: DateTime(2026, 9, 1),
+            lead: lead(eventId: 'event-a', eventName: 'Evento A'),
+          ),
+        ],
         events: [
           AppEvent(
             id: 'event-a',
@@ -919,8 +965,6 @@ void main() {
     );
 
     await tester.tap(find.byKey(const Key('exportButton')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Evento A').last);
     await tester.pumpAndSettle();
 
     expect(find.text('Exportar registros'), findsOneWidget);
@@ -971,8 +1015,6 @@ void main() {
 
     await tester.tap(find.byKey(const Key('exportButton')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Evento Android').last);
-    await tester.pumpAndSettle();
     expect(find.byKey(const Key('saveExportToDeviceButton')), findsOneWidget);
     expect(find.byKey(const Key('confirmExportButton')), findsOneWidget);
     await tester.tap(find.byKey(const Key('exportCsvOption')));
@@ -993,7 +1035,14 @@ void main() {
     await tester.pumpWidget(
       recordsApp(
         FakeVoiceNoteService(),
-        records: const [],
+        records: [
+          SessionLead(
+            localId: 'cancel-export',
+            folio: null,
+            capturedAt: DateTime(2026, 10, 14),
+            lead: lead(eventId: 'event-cancel', eventName: 'Evento Cancelar'),
+          ),
+        ],
         events: [
           AppEvent(
             id: 'event-cancel',
@@ -1009,8 +1058,6 @@ void main() {
     );
 
     await tester.tap(find.byKey(const Key('exportButton')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Evento Cancelar').last);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('saveExportToDeviceButton')));
     await tester.pumpAndSettle();
@@ -1068,256 +1115,90 @@ void main() {
     expect(find.text('María José Sandoval Ruiz'), findsWidgets);
   });
 
-  testWidgets('REG-10 all events requires one concrete export event', (
+  testWidgets('QA-21 export uses the exact mixed filtered result set', (
     tester,
   ) async {
     final sharer = _CapturingRecordsFileSharer();
-    final events = [
-      AppEvent(
-        id: 'event-a',
-        name: 'Evento A',
-        startsOn: DateTime(2026, 9, 1),
-        endsOn: DateTime(2026, 9, 2),
-        active: true,
+    final records = [
+      SessionLead(
+        localId: 'event-a-lead',
+        folio: null,
+        capturedAt: DateTime(2026, 9, 1),
+        lead: lead(eventId: 'event-a', eventName: 'Evento A', name: 'Ana'),
       ),
-      AppEvent(
-        id: 'event-b',
-        name: 'Evento B',
-        startsOn: DateTime(2026, 9, 3),
-        endsOn: DateTime(2026, 9, 4),
+      SessionLead(
+        localId: 'direct-lead',
+        folio: null,
+        capturedAt: DateTime(2026, 9, 2),
+        lead: lead(
+          originKind: LeadOriginKind.direct,
+          place: 'León',
+          name: 'Diana',
+        ),
+      ),
+      SessionLead(
+        localId: 'event-b-lead',
+        folio: null,
+        capturedAt: DateTime(2026, 9, 3),
+        lead: lead(eventId: 'event-b', eventName: 'Evento B', name: 'Beto'),
       ),
     ];
     await tester.pumpWidget(
       recordsApp(
         FakeVoiceNoteService(),
-        records: [
-          SessionLead(
-            localId: 'b',
-            folio: null,
-            capturedAt: DateTime(2026, 9, 3),
-            lead: lead(eventId: 'event-b', eventName: 'Evento B'),
-          ),
-        ],
-        events: events,
-        fileSharer: sharer,
-      ),
-    );
-    await tester.tap(find.byKey(const Key('recordsEventFilter')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Todos los eventos').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('exportButton')));
-    await tester.pumpAndSettle();
-    expect(find.text('Elige qué registros deseas exportar'), findsOneWidget);
-    expect(find.byKey(const Key('exportDirectLeads')), findsOneWidget);
-    expect(find.byType(Dialog), findsOneWidget);
-    expect(find.byType(AlertDialog), findsNothing);
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('exportEvent-event-b')),
-        matching: find.byKey(const Key('exportOptionSelectionIndicator')),
-      ),
-      findsNothing,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('exportEvent-event-b')),
-        matching: find.byIcon(Icons.check),
-      ),
-      findsNothing,
-    );
-    await tester.tap(find.text('Evento B').last);
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('exportXlsOption')), findsOneWidget);
-    expect(find.byKey(const Key('exportCsvOption')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('confirmExportButton')));
-    await tester.pumpAndSettle();
-    expect(sharer.file?.filename, startsWith('foloo_Evento B_'));
-    expect(sharer.file?.filename, endsWith('.xlsx'));
-  });
-
-  testWidgets('REG-09 direct export filters only by Content', (tester) async {
-    final sharer = _CapturingRecordsFileSharer();
-    const burritos = ContentFile(
-      id: 'content-burritos',
-      displayName: 'Burritos',
-      fileName: 'burritos.pdf',
-      sizeLabel: '1 MB',
-    );
-    const tacos = ContentFile(
-      id: 'content-tacos',
-      displayName: 'Tacos',
-      fileName: 'tacos.pdf',
-      sizeLabel: '1 MB',
-    );
-    await tester.pumpWidget(
-      recordsApp(
-        FakeVoiceNoteService(),
-        records: [
-          SessionLead(
-            localId: 'direct-burritos',
-            folio: null,
-            capturedAt: DateTime(2026, 11, 10, 10),
-            lead: lead(
-              originKind: LeadOriginKind.direct,
-              place: 'León',
-              contentNames: const ['Burritos'],
-            ).copyWith(contentFileIds: const ['content-burritos']),
-          ),
-          SessionLead(
-            localId: 'direct-tacos',
-            folio: null,
-            capturedAt: DateTime(2026, 11, 11, 10),
-            lead: lead(
-              originKind: LeadOriginKind.direct,
-              place: 'León',
-              name: 'Taco',
-              contentNames: const ['Tacos'],
-            ).copyWith(contentFileIds: const ['content-tacos']),
-          ),
-        ],
-        contentFiles: const [burritos, tacos],
+        records: records,
         events: [
           AppEvent(
             id: 'event-a',
             name: 'Evento A',
-            startsOn: DateTime(2026, 11, 1),
-            endsOn: DateTime(2026, 11, 2),
+            startsOn: DateTime(2026, 9, 1),
+            endsOn: DateTime(2026, 9, 2),
+          ),
+          AppEvent(
+            id: 'event-b',
+            name: 'Evento B',
+            startsOn: DateTime(2026, 9, 3),
+            endsOn: DateTime(2026, 9, 4),
           ),
         ],
         fileSharer: sharer,
       ),
     );
 
+    await tester.tap(find.byKey(const Key('recordsEventsFilter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('recordsFilterEvent-event-a')));
+    await tester.tap(find.byKey(const Key('applyRecordsFilters')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('recordsDirectFilter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('recordsFilterDirect')));
+    await tester.tap(find.byKey(const Key('applyRecordsFilters')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ana Sandoval Ruiz'), findsOneWidget);
+    expect(find.text('Diana Sandoval Ruiz'), findsOneWidget);
+    expect(find.text('Beto Sandoval Ruiz'), findsNothing);
+
     await tester.tap(find.byKey(const Key('exportButton')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('exportDirectLeads')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('directExportDateRange')), findsNothing);
     expect(
       tester.widget<Text>(find.byKey(const Key('exportLeadSummary'))).data,
       contains('2 leads'),
     );
-    await tester.tap(
-      find.byKey(const Key('directExportContent-content-burritos')),
-    );
-    await tester.pump();
     expect(
-      tester.widget<Text>(find.byKey(const Key('exportLeadSummary'))).data,
-      contains('1 lead'),
+      find.byKey(const Key('directExportContent-content-burritos')),
+      findsNothing,
     );
-    await tester.ensureVisible(find.byKey(const Key('confirmExportButton')));
-    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('exportCsvOption')));
     await tester.tap(find.byKey(const Key('confirmExportButton')));
     await tester.pumpAndSettle();
+
     expect(sharer.file, isNotNull);
-  });
-
-  testWidgets('REG-09 direct export names one and multiple empty filters', (
-    tester,
-  ) async {
-    const burritos = ContentFile(
-      id: 'content-burritos',
-      displayName: 'Catálogo de productos',
-      fileName: 'burritos.pdf',
-      sizeLabel: '1 MB',
-    );
-    const tacos = ContentFile(
-      id: 'content-tacos',
-      displayName: 'Presentación comercial',
-      fileName: 'tacos.pdf',
-      sizeLabel: '1 MB',
-    );
-    await tester.pumpWidget(
-      recordsApp(
-        FakeVoiceNoteService(),
-        records: [
-          SessionLead(
-            localId: 'direct-unassigned',
-            folio: null,
-            capturedAt: DateTime(2026, 11, 10),
-            lead: lead(originKind: LeadOriginKind.direct, place: 'León'),
-          ),
-        ],
-        contentFiles: const [burritos, tacos],
-        events: [
-          AppEvent(
-            id: 'event-a',
-            name: 'Evento A',
-            startsOn: DateTime(2026, 11, 1),
-            endsOn: DateTime(2026, 11, 2),
-          ),
-        ],
-      ),
-    );
-    await tester.tap(find.byKey(const Key('exportButton')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('exportDirectLeads')));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const Key('directExportContent-content-burritos')),
-    );
-    await tester.pump();
-    expect(
-      find.text(
-        'No se encontraron leads con el contenido «Catálogo de productos».',
-      ),
-      findsOneWidget,
-    );
-    await tester.tap(
-      find.byKey(const Key('directExportContent-content-tacos')),
-    );
-    await tester.pump();
-    expect(
-      find.text(
-        'No se encontraron leads con los contenidos «Catálogo de productos» y «Presentación comercial».',
-      ),
-      findsOneWidget,
-    );
-    await tester.tap(find.byKey(const Key('clearDirectExportFilters')));
-    await tester.pump();
-    expect(find.byKey(const Key('directExportNoResults')), findsNothing);
-  });
-
-  testWidgets('REG-09 distinguishes an empty direct-lead scope', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      recordsApp(
-        FakeVoiceNoteService(),
-        records: [
-          SessionLead(
-            localId: 'event-only',
-            folio: null,
-            capturedAt: DateTime(2026, 11, 10),
-            lead: lead(),
-          ),
-        ],
-        events: [
-          AppEvent(
-            id: 'event-a',
-            name: 'Evento A',
-            startsOn: DateTime(2026, 11, 1),
-            endsOn: DateTime(2026, 11, 2),
-          ),
-        ],
-      ),
-    );
-    await tester.tap(find.byKey(const Key('exportButton')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('exportDirectLeads')));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.text('Todavía no hay leads directos para exportar.'),
-      findsOneWidget,
-    );
-    expect(
-      tester
-          .widget<FilledButton>(find.byKey(const Key('confirmExportButton')))
-          .onPressed,
-      isNull,
-    );
+    final csv = String.fromCharCodes(sharer.file!.bytes.skip(3));
+    expect(csv, contains('Ana'));
+    expect(csv, contains('Diana'));
+    expect(csv, isNot(contains('Beto')));
   });
 
   testWidgets(

@@ -95,10 +95,11 @@ void main() {
         final message = scenario.locale == 'es'
             ? 'Aún no has conectado ninguna cuenta para enviar seguimientos vía correo.'
             : "You haven't connected an email account to send follow-up emails yet.";
-        expect(
-          find.text(scenario.missing ? message : scenario.error),
-          findsOneWidget,
-        );
+        final generic = scenario.locale == 'es'
+            ? 'El lead permanece guardado. Puedes reintentar desde Correo.'
+            : 'The lead remains saved. You can retry from Email.';
+        expect(find.text(scenario.missing ? message : generic), findsOneWidget);
+        expect(find.text(scenario.error), findsNothing);
         await tester.tap(find.byKey(const Key('leadFollowUpRetry')));
         await tester.pumpAndSettle();
         expect(queued, !scenario.missing);

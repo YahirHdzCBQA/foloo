@@ -182,7 +182,10 @@ class SyncEngine extends ChangeNotifier {
         continue;
       }
       _log(operation, 'attempt');
-      await _store.markSyncing(operation, _now());
+      if (!await _store.markSyncing(operation, _now())) {
+        _log(operation, 'superseded_before_send');
+        continue;
+      }
       notifyListeners();
       try {
         final response = await _sendOperation(token, operation);
@@ -566,10 +569,10 @@ class SyncEngine extends ChangeNotifier {
   Future<bool> _blockedByParent(StoredSyncOperation operation) async {
     final payload = _payload(operation);
     return switch (SyncEntityType.values.byName(operation.entityType)) {
-      SyncEntityType.lead => await _hasPendingLeadParent(
-        operation.ownerUserId,
-        payload,
-      ),
+      SyncEntityType.lead =>
+        (operation.action != 'create' &&
+                await _hasPendingEntityCreate(operation)) ||
+            await _hasPendingLeadParent(operation.ownerUserId, payload),
       SyncEntityType.leadMedia => switch (payload['leadId']) {
         final String leadId => _store.hasPending(
           operation.ownerUserId,
@@ -636,6 +639,20 @@ class SyncEngine extends ChangeNotifier {
       }
     }
     return false;
+  }
+
+  Future<bool> _hasPendingEntityCreate(StoredSyncOperation operation) async {
+    final operations = await _store.database.syncDao.forEntity(
+      operation.ownerUserId,
+      operation.entityType,
+      operation.entityId,
+    );
+    return operations.any(
+      (item) =>
+          item.operationId != operation.operationId &&
+          item.action == 'create' &&
+          item.status != 'completed',
+    );
   }
 
   Future<bool> _hasPendingContentEvent(

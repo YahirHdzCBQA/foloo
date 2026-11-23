@@ -34,7 +34,7 @@ import '../widgets/camera_access_dialog.dart';
 import '../widgets/create_event_dialog.dart';
 import '../widgets/entitlement_scope.dart';
 import '../widgets/microphone_access_dialog.dart';
-import '../widgets/voice_playback_waveform.dart';
+import '../widgets/voice_note_recorder_surface.dart';
 import '../widgets/progress_header.dart';
 import '../widgets/section_card.dart';
 import '../widgets/segmented_bubble.dart';
@@ -846,13 +846,6 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
     }
   }
 
-  String _formatDuration(Duration duration) {
-    final seconds = duration.inSeconds;
-    final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
-    final remainder = (seconds % 60).toString().padLeft(2, '0');
-    return '$minutes:$remainder';
-  }
-
   String _formatEventDate(DateTime date) {
     return DateFormat(
       'd MMM y',
@@ -1027,16 +1020,9 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
           builder: (_) => EmailReviewScreen(
             record: record,
             draft: review,
-            availableContent: widget.contentFiles,
             onConfirm: widget.onEmailReviewConfirmed!,
             onDraftSaved: (draft) async {
-              await widget.onEmailReviewUpdated?.call(
-                draft,
-                record.lead.copyWith(
-                  contentFileIds: draft.attachmentIds,
-                  contentNames: draft.attachmentNames,
-                ),
-              );
+              await widget.onEmailReviewUpdated?.call(draft, record.lead);
             },
             onConnectionRequired: () {
               widget.onProfileRequested?.call();
@@ -1864,130 +1850,22 @@ class _LeadCaptureScreenState extends State<LeadCaptureScreen>
             style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 8),
-          // TODO(BACKEND/AUDIO): Upload the local voice note when media delivery is implemented.
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: FolooPalette.of(context).paper,
-              borderRadius: BorderRadius.circular(FolooRadii.md),
-            ),
-            child: Row(
-              children: [
-                Semantics(
-                  button: true,
-                  label: _voiceNote.isRecording
-                      ? context.l10n.stopRecording
-                      : _voiceNote.hasRecording
-                      ? context.l10n.recordAgain
-                      : context.l10n.startRecording,
-                  child: IconButton.filled(
-                    key: const Key('recordButton'),
-                    onPressed: _voiceActionInProgress ? null : _toggleRecording,
-                    style: IconButton.styleFrom(
-                      minimumSize: const Size(52, 52),
-                      backgroundColor: FolooColors.ink,
-                      foregroundColor: _voiceNote.isRecording
-                          ? FolooColors.lime
-                          : FolooColors.white,
-                    ),
-                    icon: _voiceActionInProgress
-                        ? const SizedBox.square(
-                            dimension: 22,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : Icon(
-                            _voiceNote.isRecording
-                                ? Icons.stop_rounded
-                                : Icons.mic_none_rounded,
-                            size: _voiceNote.isRecording ? 23 : 24,
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: VoicePlaybackWaveform(
-                          active:
-                              _voiceNote.isRecording || _voiceNote.isPlaying,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        _formatDuration(_voiceNote.elapsed),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          fontFeatures: [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          VoiceNoteRecorderSurface(
+            keyPrefix: 'captureVoice',
+            recordKey: const Key('recordButton'),
+            discardKey: const Key('deleteVoiceNoteButton'),
+            rerecordKey: const Key('rerecordButton'),
+            playKey: const Key('playPauseButton'),
+            recording: _voiceNote.isRecording,
+            hasRecording: _voiceNote.hasRecording,
+            playing: _voiceNote.isPlaying,
+            busy: _voiceActionInProgress,
+            elapsed: _voiceNote.elapsed,
+            onToggleRecording: _toggleRecording,
+            onDelete: _deleteVoiceNote,
+            onRerecord: _startRecording,
+            onTogglePlayback: _togglePlayback,
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(
-                Icons.mic_none_rounded,
-                size: 14,
-                color: FolooPalette.of(context).inkSecondary,
-              ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  context.l10n.offlineSaveHelp,
-                  style: TextStyle(
-                    color: FolooPalette.of(context).inkSecondary,
-                    fontSize: 10.5,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (_voiceNote.hasRecording) ...[
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _AudioActionButton(
-                    key: const Key('deleteVoiceNoteButton'),
-                    tooltip: context.l10n.deleteAudio,
-                    icon: Icons.delete_outline_rounded,
-                    onPressed: _voiceActionInProgress ? null : _deleteVoiceNote,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _AudioActionButton(
-                    key: const Key('rerecordButton'),
-                    tooltip: context.l10n.recordAgain,
-                    icon: Icons.replay_rounded,
-                    onPressed: _voiceActionInProgress ? null : _startRecording,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _AudioActionButton(
-                    key: const Key('playPauseButton'),
-                    tooltip: _voiceNote.isPlaying
-                        ? context.l10n.pauseAudio
-                        : context.l10n.playAudio,
-                    icon: _voiceNote.isPlaying
-                        ? Icons.pause_rounded
-                        : Icons.play_arrow_rounded,
-                    onPressed: _voiceActionInProgress ? null : _togglePlayback,
-                  ),
-                ),
-              ],
-            ),
-          ],
           const SizedBox(height: 16),
           Row(
             children: [
@@ -2207,42 +2085,6 @@ class _ContentSelectionPill extends StatelessWidget {
       ),
     );
   }
-}
-
-class _AudioActionButton extends StatelessWidget {
-  const _AudioActionButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-    super.key,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) => Tooltip(
-    message: tooltip,
-    child: Material(
-      color: FolooPalette.of(context).paper,
-      borderRadius: BorderRadius.circular(FolooRadii.sm),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(FolooRadii.sm),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 44),
-          child: Icon(
-            icon,
-            size: 21,
-            color: onPressed == null
-                ? FolooPalette.of(context).inkMuted
-                : FolooPalette.of(context).ink,
-          ),
-        ),
-      ),
-    ),
-  );
 }
 
 class _ReferenceImageTile extends StatelessWidget {

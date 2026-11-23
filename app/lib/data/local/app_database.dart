@@ -997,16 +997,52 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
           .getSingle() >
       0;
 
-  Future<void> markRunning(String operationId, DateTime now) =>
-      (update(
-        syncOperations,
-      )..where((row) => row.operationId.equals(operationId))).write(
-        SyncOperationsCompanion(
-          status: const Value('syncing'),
-          updatedAt: Value(now),
-          lastError: const Value(null),
-        ),
-      );
+  /// Claims exactly the outbox snapshot that the engine inspected.
+  ///
+  /// A concurrent local edit may replace a pending payload after `due()` has
+  /// returned. Comparing status and payload prevents that stale in-memory
+  /// snapshot from being sent and later deleting the newer edit (SYN-04/09).
+  Future<bool> markRunning(
+    String operationId,
+    String expectedStatus,
+    String expectedPayloadJson,
+    DateTime now,
+  ) async =>
+      await (update(syncOperations)..where(
+            (row) =>
+                row.operationId.equals(operationId) &
+                row.status.equals(expectedStatus) &
+                row.payloadJson.equals(expectedPayloadJson),
+          ))
+          .write(
+            SyncOperationsCompanion(
+              status: const Value('syncing'),
+              updatedAt: Value(now),
+              lastError: const Value(null),
+            ),
+          ) ==
+      1;
+
+  /// Coalesces an update only while its exact snapshot is still unsent.
+  Future<bool> replacePendingPayload(
+    String operationId,
+    String expectedPayloadJson,
+    String payloadJson,
+    DateTime now,
+  ) async =>
+      await (update(syncOperations)..where(
+            (row) =>
+                row.operationId.equals(operationId) &
+                row.status.equals('pending') &
+                row.payloadJson.equals(expectedPayloadJson),
+          ))
+          .write(
+            SyncOperationsCompanion(
+              payloadJson: Value(payloadJson),
+              updatedAt: Value(now),
+            ),
+          ) ==
+      1;
 
   Future<void> markRetryable(
     String operationId,

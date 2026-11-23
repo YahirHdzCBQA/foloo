@@ -866,6 +866,12 @@ abstract class AppLocalizations {
   /// **'Esto crea un envío manual nuevo y podría entregar un duplicado.'**
   String get emailResendWarning;
 
+  /// No description provided for @emailSenderChangedDetail.
+  ///
+  /// In es, this message translates to:
+  /// **'La cuenta de envío conectada cambió. Confirma un reenvío manual para usar el remitente actual; Foloo no reintentará automáticamente.'**
+  String get emailSenderChangedDetail;
+
   /// No description provided for @emailResend.
   ///
   /// In es, this message translates to:
@@ -1249,6 +1255,156 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Buscar por nombre o empresa'**
   String get searchRecords;
+
+  /// No description provided for @recordsFilters.
+  ///
+  /// In es, this message translates to:
+  /// **'Filtros de registros'**
+  String get recordsFilters;
+
+  /// No description provided for @eventsFilter.
+  ///
+  /// In es, this message translates to:
+  /// **'Eventos'**
+  String get eventsFilter;
+
+  /// No description provided for @includeDirectLeads.
+  ///
+  /// In es, this message translates to:
+  /// **'Incluir leads directos'**
+  String get includeDirectLeads;
+
+  /// No description provided for @includeDirectLeadsHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Se combinan con los eventos seleccionados sin duplicar resultados.'**
+  String get includeDirectLeadsHelp;
+
+  /// No description provided for @nameFilter.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombre'**
+  String get nameFilter;
+
+  /// No description provided for @searchLeadName.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar por nombre'**
+  String get searchLeadName;
+
+  /// No description provided for @searchCompany.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar empresa'**
+  String get searchCompany;
+
+  /// No description provided for @dateFilter.
+  ///
+  /// In es, this message translates to:
+  /// **'Fecha'**
+  String get dateFilter;
+
+  /// No description provided for @startDate.
+  ///
+  /// In es, this message translates to:
+  /// **'Fecha inicial'**
+  String get startDate;
+
+  /// No description provided for @endDate.
+  ///
+  /// In es, this message translates to:
+  /// **'Fecha final'**
+  String get endDate;
+
+  /// No description provided for @notSelected.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin seleccionar'**
+  String get notSelected;
+
+  /// No description provided for @invalidDateRange.
+  ///
+  /// In es, this message translates to:
+  /// **'La fecha inicial no puede ser posterior a la fecha final.'**
+  String get invalidDateRange;
+
+  /// No description provided for @viewFilterResults.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver resultados ({count})'**
+  String viewFilterResults(int count);
+
+  /// No description provided for @activeFilters.
+  ///
+  /// In es, this message translates to:
+  /// **'Filtros ({count})'**
+  String activeFilters(int count);
+
+  /// No description provided for @noEventsAvailable.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay eventos disponibles.'**
+  String get noEventsAvailable;
+
+  /// No description provided for @noCompaniesAvailable.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay empresas que coincidan.'**
+  String get noCompaniesAvailable;
+
+  /// No description provided for @noFilteredRecords.
+  ///
+  /// In es, this message translates to:
+  /// **'No se encontraron leads con los filtros aplicados.'**
+  String get noFilteredRecords;
+
+  /// No description provided for @clearAppliedFilters.
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar filtros aplicados'**
+  String get clearAppliedFilters;
+
+  /// No description provided for @exportFilteredRecords.
+  ///
+  /// In es, this message translates to:
+  /// **'Registros filtrados'**
+  String get exportFilteredRecords;
+
+  /// No description provided for @contentForLead.
+  ///
+  /// In es, this message translates to:
+  /// **'Contenido'**
+  String get contentForLead;
+
+  /// No description provided for @addLeadContent.
+  ///
+  /// In es, this message translates to:
+  /// **'Agregar contenido'**
+  String get addLeadContent;
+
+  /// No description provided for @selectLeadContent.
+  ///
+  /// In es, this message translates to:
+  /// **'Seleccionar contenido'**
+  String get selectLeadContent;
+
+  /// No description provided for @noLeadContent.
+  ///
+  /// In es, this message translates to:
+  /// **'Este lead no tiene contenido asociado.'**
+  String get noLeadContent;
+
+  /// No description provided for @removeLeadContentQuestion.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Quitar este contenido del lead?'**
+  String get removeLeadContentQuestion;
+
+  /// No description provided for @removeLeadContentHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'El archivo seguirá disponible en Contenido y en otros leads.'**
+  String get removeLeadContentHelp;
 
   /// No description provided for @all.
   ///

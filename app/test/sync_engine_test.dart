@@ -1013,6 +1013,144 @@ void main() {
   );
 
   test(
+    'QA-17 stale outbox snapshots cannot discard a newer event reassignment',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final store = SyncStore(database);
+      final root = await Directory.systemTemp.createTemp('foloo_qa17_');
+      addTearDown(() => root.delete(recursive: true));
+      const leadId = '71717171-7171-4171-8171-717171717171';
+      const eventX = '11111111-1111-4111-8111-111111111111';
+      const eventY = '22222222-2222-4222-8222-222222222222';
+      const eventZ = '33333333-3333-4333-8333-333333333333';
+      final events = EventRepository(database);
+      for (final value in [
+        (eventX, 'Evento X'),
+        (eventY, 'Evento Y'),
+        (eventZ, 'Evento Z'),
+      ]) {
+        await events.save(
+          owner,
+          AppEvent(
+            id: value.$1,
+            name: value.$2,
+            startsOn: DateTime(2026, 11, 19),
+            endsOn: DateTime(2026, 11, 20),
+          ),
+        );
+      }
+      final leads = LeadRepository(
+        database,
+        PrivateMediaStorage(root),
+        idFactory: () => leadId,
+        syncStore: store,
+      );
+      var lead = await leads.saveDraft(
+        owner,
+        _draft(
+          origin: LeadOriginKind.event,
+          eventId: eventX,
+          eventName: 'Evento X',
+        ),
+        capturedBy: profile,
+      );
+      final staleX = (await store.all(owner))
+          .firstWhere((item) => item.entityType == SyncEntityType.lead.name);
+
+      await leads.updateDraft(
+        owner,
+        lead,
+        lead.lead.copyWith(eventLocalId: eventY, eventName: 'Evento Y'),
+      );
+      expect(await store.markSyncing(staleX, DateTime.now().toUtc()), isFalse);
+      lead = (await leads.listAll(owner)).single;
+      final staleY = (await store.all(owner))
+          .firstWhere((item) => item.entityType == SyncEntityType.lead.name);
+      expect(jsonDecode(staleY.payloadJson)['eventId'], eventY);
+
+      await leads.updateDraft(
+        owner,
+        lead,
+        lead.lead.copyWith(eventLocalId: eventZ, eventName: 'Evento Z'),
+      );
+      expect(await store.markSyncing(staleY, DateTime.now().toUtc()), isFalse);
+      final current = (await leads.listAll(owner)).single;
+      final operation = (await store.all(owner))
+          .firstWhere((item) => item.entityType == SyncEntityType.lead.name);
+      expect(current.localId, leadId);
+      expect(current.capturedAt, lead.capturedAt);
+      expect(current.lead.eventLocalId, eventZ);
+      expect(current.lead.eventName, 'Evento Z');
+      expect(jsonDecode(operation.payloadJson)['eventId'], eventZ);
+    },
+  );
+
+  test('QA-17 remote event change refreshes its snapshot name', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final store = SyncStore(database);
+    final root = await Directory.systemTemp.createTemp('foloo_qa17_pull_');
+    addTearDown(() => root.delete(recursive: true));
+    const leadId = '72727272-7272-4272-8272-727272727272';
+    const eventX = '11111111-1111-4111-8111-111111111111';
+    const eventY = '22222222-2222-4222-8222-222222222222';
+    final events = EventRepository(database);
+    await events.save(
+      owner,
+      AppEvent(
+        id: eventX,
+        name: 'Evento X',
+        startsOn: DateTime(2026, 11, 19),
+        endsOn: DateTime(2026, 11, 20),
+      ),
+    );
+    await events.save(
+      owner,
+      AppEvent(
+        id: eventY,
+        name: 'Evento Y',
+        startsOn: DateTime(2026, 11, 21),
+        endsOn: DateTime(2026, 11, 22),
+      ),
+    );
+    final leads = LeadRepository(
+      database,
+      PrivateMediaStorage(root),
+      idFactory: () => leadId,
+      syncStore: store,
+    );
+    await leads.saveDraft(
+      owner,
+      _draft(
+        origin: LeadOriginKind.event,
+        eventId: eventX,
+        eventName: 'Evento X',
+      ),
+      capturedBy: profile,
+    );
+    await database.syncDao.completeCreatesForEntity(
+      owner,
+      SyncEntityType.lead.name,
+      leadId,
+    );
+    await database.leadDao.markLeadSynced(owner, leadId, 1);
+
+    await store.applyRemoteLeads(owner, [
+      {
+        ..._remoteLead(leadId, revision: 2),
+        'origin': 'event',
+        'eventId': eventY,
+        'place': null,
+      },
+    ]);
+
+    final current = (await leads.listAll(owner)).single;
+    expect(current.lead.eventLocalId, eventY);
+    expect(current.lead.eventName, 'Evento Y');
+  });
+
+  test(
     'REG-07 repeated edits and restarted conflict use bigint JSON revision',
     () async {
       final root = await Directory.systemTemp.createTemp(

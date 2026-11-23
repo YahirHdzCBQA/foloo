@@ -23,3 +23,7 @@ bool isTerminalEmailDeliveryError(String? value) {
   final code = emailDeliveryErrorCode(value);
   return code == 'email_retry_not_allowed';
 }
+
+/// Errors that require a new explicit intent instead of retrying the old one.
+bool requiresManualEmailResend(String? value) =>
+    emailDeliveryErrorCode(value) == 'sender_confirmation_required';

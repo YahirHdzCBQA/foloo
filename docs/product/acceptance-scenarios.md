@@ -124,10 +124,13 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 **Trazas:** `REG-01`–`REG-08`, `REG-15`–`REG-18`, `SAL-10`.
 
-- “Todos” muestra la vista general; “Todos los eventos” incluye únicamente
-  orígenes event y “Leads directos” únicamente origen direct. Elegir un evento
-  filtra y actualiza conteos sin cambiar el evento activo.
-- Búsqueda, tipo y orden funcionan offline sobre Drift.
+- La barra horizontal Eventos / Leads directos / Tipo / Filtros abre un único
+  panel inferior. Eventos y Directos forman una unión; valores de la misma
+  categoría usan OR y categorías distintas AND, sin cambiar el evento activo.
+- Evento, directo, tipo, interés, empresa normalizada, nombre parcial, fechas
+  inclusivas y Content funcionan offline sobre Drift. Ambos lados del panel
+  tienen scroll independiente; acciones quedan fijas y el estado vacío permite
+  limpiar filtros. Ningún Lead aparece duplicado.
 - El renglón comunica interés, voz, correo y sync; correo usa icono accesible
   entre voz y sync para no enviado/pendiente/enviando/enviado/error/por confirmar.
 - El detalle reproduce voz, abre tarjeta/referencias completas y muestra
@@ -140,12 +143,21 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   actualiza por outbox. Un Lead de evento puede cambiar a otro evento válido
   del mismo workspace sin cambiar owner, UUID, captura u origen; filtros,
   conteos, exportación y preparación pendiente reflejan el evento nuevo.
+- Reasignar X → Y → Z conserva Z localmente, offline y tras reinicio. Una
+  instantánea outbox obtenida antes de la última edición no se envía ni elimina
+  el cambio nuevo; pull remoto conserva la edición abierta y actualiza el
+  nombre snapshot cuando el `eventId` remoto realmente cambió.
 - Agregar imágenes de referencia a un Lead existente desde Registros las copia
   al storage privado y encola su media sin reemplazar o borrar las anteriores,
   hasta seis en total; Captura conserva su máximo de tres.
 - El detalle permite agregar hasta tres Voice Notes. Deslizar una nota a la
   derecha pide confirmación y elimina solo esa nota mediante tombstone
   owner-scoped; repetir alta o baja no duplica ni afecta otra media.
+- La grabación post-guardado replica la superficie primaria, mantiene una
+  acción Guardar explícita y conserva reproducción, borrar y regrabar.
+- Desde el detalle se agregan uno o varios Content elegibles y se retira una
+  asociación con swipe + confirmación. No se elimina el PDF físico ni se
+  afectan otros Leads; offline/retry no resucita una asociación retirada.
 - Una revisión remota distinta conserva la edición local, muestra conflicto
   recuperable y nunca crea otro Lead.
 - Swipe revela Correo o Eliminar sin ejecutar por el gesto; Correo abre Review
@@ -177,6 +189,10 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Crear evento permite seleccionar contenido existente o iniciar PDF.
 - Biblioteca y Crear evento explican brevemente la relación Content → Evento →
   adjunto; el modal conserva scroll, aire y Subir contenido accesible.
+- Con teclado visible en el alta de Content, Cancelar/Subir permanecen dentro
+  del área útil sin cubrir el helper del nombre visible. La lista conserva
+  scroll en pantallas pequeñas y placeholder/texto escrito son distinguibles
+  con contraste suficiente en temas claro y oscuro.
 - Adjuntos elegidos quedan congelados por Lead y un PDF atascado no bloquea
   Leads.
 - El PDF de hasta 25 000 000 bytes se copia a almacenamiento privado antes de
@@ -185,8 +201,9 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Upload/confirmación a S3 y descarga autenticada usan URLs temporales sin
   persistirlas; un retry conserva identidad y copia local. El borrado lógico
   deja de ofrecer el Content activo y no borra S3 ni adjuntos históricos.
-- Email Review de un Lead directo muestra exactamente los Content seleccionados
-  y los congela con las mismas reglas de Evento, sin envío automático.
+- Email Review muestra exactamente los Content asociados vigentes y los
+  congela al confirmar, sin duplicar el control de asociación del detalle ni
+  ejecutar envío automático.
 
 ## E-08 · Plantillas y correo
 
@@ -218,13 +235,12 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   el foco (y en el último campo activo si el teclado perdió foco), sin borrar
   texto adyacente ni moverlo siempre al final. Unicode, saltos y chips mantienen
   offsets visuales exactos al tocar o borrar desde una posición intermedia.
-- En Review/Reenviar abierto desde Registros, agregar o quitar Content actualiza
-  de inmediato el segmento `{contenido}` del mismo cuerpo visible y los adjuntos
-  quedan alineados, incluso con selección vacía. Asunto, firma, párrafos y
-  literales manuales permanecen; un segmento de Content convertido manualmente
-  en texto literal no se sobrescribe y activa la advertencia existente para
-  revisarlo. No aparece otra vista previa, Captura no cambia y los snapshots
-  históricos continúan congelados.
+- Agregar o quitar Content desde el detalle del Lead actualiza la preparación
+  pendiente y su segmento `{contenido}`; Review/Reenviar solo consume esa
+  asociación vigente. Asunto, firma, párrafos y literales manuales permanecen;
+  un segmento convertido en literal no se sobrescribe y activa la advertencia
+  existente. No aparece otra vista previa y los snapshots enviados continúan
+  congelados.
 - Guardar correctamente cierra teclado y modo edición y vuelve a mostrar los
   lápices; un error conserva el borrador. Cancelar restaura la última versión
   guardada. Navegar, cambiar idioma o cerrar la pantalla con cambios pendientes
@@ -241,8 +257,8 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   recalcular. La representación final en Gmail/Outlook es best effort.
 - Guardar Lead confirma primero la persistencia local y abre “Revisar” con
   destinatario no editable, texto concreto sin tokens y los adjuntos vigentes.
-  Antes de `foloo`, asunto, mensaje y selección de Content pueden modificarse y
-  se guardan en la misma preparación sin enviar. Back → editar Lead → Guardar actualiza la
+  Antes de `foloo`, asunto y mensaje pueden modificarse; Content se administra
+  desde el detalle y se guarda en la misma preparación sin enviar. Back → editar Lead → Guardar actualiza la
   misma preparación: A+B puede pasar a A o volver a A+B, Records refleja esa
   selección y nombre/apellido/empresa/puesto/evento/lugar rerenderizan asunto y
   cuerpo. Asunto y cuerpo detectan edición manual por separado. Un literal
@@ -290,6 +306,11 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Conectar o cambiar la cuenta de envío abre el selector de cuentas del
   proveedor; cambiar identidad conserva el historial y exige la confirmación
   prevista por `SAL-09` antes de usarla para un pendiente previo.
+- Si una intención preparada sin conexión encuentra después otro remitente
+  Gmail/Outlook autorizado, Seguimientos no expone
+  `sender_confirmation_required`: explica que debe confirmar Reenviar. No hay
+  retry automático, la intención histórica permanece y el reenvío crea una
+  intención nueva una sola vez.
 - Microsoft Graph `202 Accepted` sin cuerpo se registra como Enviado/aceptado,
   no como respuesta perdida. El historial nunca vuelve a mostrar variables de
   plantilla crudas después de reconciliar con backend.
@@ -330,21 +351,17 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   el retry solicita otra autorización para la misma key. Un segundo dispositivo
   obtiene únicamente lectura temporal autenticada, nunca una URL pública.
 
-## E-10 · Exportación por evento o Leads directos
+## E-10 · Exportación del conjunto filtrado
 
 **Trazas:** `REG-09`–`REG-13`, `REL-08`.
 
 - Exportar abre XLSX/CSV con XLSX inicial.
-- Elegir evento produce exclusivamente datos locales de ese owner/evento;
-  elegir Leads directos incluye únicamente origen Directo. Ambos incluyen
-  pendientes, funcionan offline y una vista agregada exige elegir un alcance.
-- Leads directos permite filtrar únicamente por uno o más contenidos, que se
-  combinan con OR; no muestra filtro de fecha. El conteo cambia en vivo, cero
-  resultados deshabilita la salida y nombra el contenido seleccionado; si no
-  existen Leads directos muestra una explicación distinta. Limpiar filtros
-  restaura todo el alcance.
-- La elección de evento es de una sola acción: la fila completa es táctil y no
-  muestra un indicador circular de selección múltiple.
+- Exportar toma exactamente el conjunto owner-scoped filtrado en Registros,
+  incluidos pendientes y todos los resultados locales aunque la UI pagine.
+  Sin filtros incluye todos los Leads accesibles; con filtros puede mezclar
+  eventos y Directos. No presenta un segundo selector de alcance o Content.
+- La salida conserva orden determinista y no duplica Leads. Cero resultados no
+  genera archivo; Limpiar filtros devuelve lista y exportación al alcance total.
 - Las quince columnas aparecen en el orden de `REG-11`, con vacíos como celda
   vacía, encabezados ES/EN y fecha local con offset. Contenido compartido toma
   los nombres visibles vigentes del Lead; Archivo original resuelve la metadata

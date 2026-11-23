@@ -46,8 +46,10 @@ class _ContentAssignmentSheet extends StatefulWidget {
       _ContentAssignmentSheetState();
 }
 
-class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
+class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet>
+    with WidgetsBindingObserver {
   final _name = TextEditingController();
+  final _nameFocus = FocusNode();
   final _search = TextEditingController();
   late Set<String> _selected;
   late Set<String> _selectionBeforeAll;
@@ -56,6 +58,7 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _name.text = widget.file?.displayName ?? '';
     _selected = {...?widget.file?.eventIds};
     _selectionBeforeAll = {..._selected};
@@ -65,9 +68,27 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _name.dispose();
+    _nameFocus.dispose();
     _search.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() => _revealNameField();
+
+  void _revealNameField() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final fieldContext = _nameFocus.context;
+      if (!mounted || !_nameFocus.hasFocus || fieldContext == null) return;
+      Scrollable.ensureVisible(
+        fieldContext,
+        alignment: .25,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   void _toggleAll(bool value) {
@@ -90,6 +111,9 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         child: Scaffold(
+          // This sheet owns keyboard motion in the bottom bar. Disabling the
+          // Scaffold's second compensation avoids lifting the actions twice.
+          resizeToAvoidBottomInset: false,
           backgroundColor: FolooPalette.of(context).card,
           body: ListView(
             key: const Key('contentAssignmentScroll'),
@@ -142,10 +166,20 @@ class _ContentAssignmentSheetState extends State<_ContentAssignmentSheet> {
               TextField(
                 key: const Key('contentDisplayNameField'),
                 controller: _name,
+                focusNode: _nameFocus,
                 inputFormatters: [LengthLimitingTextInputFormatter(160)],
                 decoration: InputDecoration(
                   labelText: context.l10n.displayName,
                   hintText: context.l10n.displayName,
+                  labelStyle: TextStyle(
+                    color: FolooPalette.of(context).inkMuted,
+                  ),
+                  floatingLabelStyle: TextStyle(
+                    color: FolooPalette.of(context).inkSecondary,
+                  ),
+                  hintStyle: TextStyle(
+                    color: FolooPalette.of(context).inkMuted,
+                  ),
                   helperText: context.l10n.contentDisplayNameHelp,
                   helperMaxLines: 2,
                 ),

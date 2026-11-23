@@ -656,9 +656,16 @@ class SyncStore {
     }
   }
 
-  Future<void> markSyncing(StoredSyncOperation operation, DateTime now) async {
-    await database.syncDao.markRunning(operation.operationId, now.toUtc());
+  Future<bool> markSyncing(StoredSyncOperation operation, DateTime now) async {
+    final claimed = await database.syncDao.markRunning(
+      operation.operationId,
+      operation.status,
+      operation.payloadJson,
+      now.toUtc(),
+    );
+    if (!claimed) return false;
     await _markEntity(operation, 'syncing');
+    return true;
   }
 
   Future<void> pause(StoredSyncOperation operation, DateTime now) async {
@@ -1358,7 +1365,13 @@ class SyncStore {
           capturedBy: existing?.capturedBy ?? profile?.name ?? 'Foloo',
           originKind: lead['origin'] as String,
           eventLocalId: Value(eventId),
-          eventNameSnapshot: Value(existing?.eventNameSnapshot ?? event?.name),
+          eventNameSnapshot: Value(
+            eventId == null
+                ? null
+                : eventId == existing?.eventLocalId
+                ? existing?.eventNameSnapshot ?? event?.name
+                : event?.name,
+          ),
           name: lead['firstName'] as String,
           lastName: (lead['lastName'] as String?) ?? '',
           role: (lead['position'] as String?) ?? '',

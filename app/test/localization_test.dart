@@ -124,7 +124,9 @@ void main() {
     await tester.tap(find.byKey(const Key('drawerRecords')));
     await tester.pumpAndSettle();
     expect(find.text('Records'), findsOneWidget);
-    expect(find.text('Search by name or company'), findsOneWidget);
+    expect(find.text('Events'), findsOneWidget);
+    expect(find.text('Direct leads'), findsOneWidget);
+    expect(find.byKey(const Key('recordsAllFilters')), findsOneWidget);
     expect(find.text('Registros'), findsNothing);
 
     await openDrawer(tester);

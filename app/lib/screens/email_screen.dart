@@ -550,7 +550,8 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                       )
                     else if (status == 'error' &&
                         intent?.errorCode != 'cancelled_by_seller' &&
-                        !terminalFailure)
+                        !terminalFailure &&
+                        !requiresManualEmailResend(intent?.errorCode))
                       IconButton(
                         key: ValueKey('emailRetry-${intent!.localId}'),
                         tooltip: _english ? 'Retry safely' : 'Reintentar',
@@ -559,7 +560,8 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                             : null,
                         icon: const Icon(Icons.refresh),
                       )
-                    else if (status == 'confirmation_required' ||
+                    else if (requiresManualEmailResend(intent?.errorCode) ||
+                        status == 'confirmation_required' ||
                         status == 'sent')
                       IconButton(
                         tooltip: _english ? 'Resend manually' : 'Reenviar',
