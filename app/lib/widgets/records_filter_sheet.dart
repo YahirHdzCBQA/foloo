@@ -69,7 +69,7 @@ class RecordsFilterSheet extends StatefulWidget {
 class _RecordsFilterSheetState extends State<RecordsFilterSheet> {
   late RecordsFilterCategory _category;
   late Set<String> _eventIds;
-  late Set<String> _directLeadIds;
+  late Set<String> _directPlaces;
   late bool _onlyDirect;
   late Set<LeadType> _types;
   late Set<InterestLevel> _interests;
@@ -86,7 +86,7 @@ class _RecordsFilterSheetState extends State<RecordsFilterSheet> {
     final source = widget.filters;
     _category = widget.initialCategory;
     _eventIds = {...source.eventIds};
-    _directLeadIds = {...source.directLeadIds};
+    _directPlaces = {...source.directPlaces};
     _onlyDirect = source.onlyDirect;
     _types = {...source.leadTypes};
     _interests = {...source.interests};
@@ -113,7 +113,7 @@ class _RecordsFilterSheetState extends State<RecordsFilterSheet> {
 
   RecordsFilterState get _draft => RecordsFilterState(
     eventIds: _eventIds,
-    directLeadIds: _directLeadIds,
+    directPlaces: _directPlaces,
     onlyDirect: _onlyDirect,
     leadTypes: _types,
     interests: _interests,
@@ -127,7 +127,7 @@ class _RecordsFilterSheetState extends State<RecordsFilterSheet> {
   void _clear() {
     setState(() {
       _eventIds = {};
-      _directLeadIds = {};
+      _directPlaces = {};
       _onlyDirect = false;
       _types = {};
       _interests = {};
@@ -298,16 +298,28 @@ class _RecordsFilterSheetState extends State<RecordsFilterSheet> {
     ],
     RecordsFilterCategory.direct => [
       _heading(context.l10n.directLeads),
-      SwitchListTile(
+      Row(
         key: const Key('recordsFilterDirect'),
-        contentPadding: EdgeInsets.zero,
-        value: _onlyDirect,
-        title: Text(context.l10n.onlyDirectLeads),
-        subtitle: Text(context.l10n.onlyDirectLeadsHelp),
-        onChanged: (value) => setState(() => _onlyDirect = value),
+        children: [
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                context.l10n.onlyDirectLeads,
+                maxLines: 1,
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
+          ),
+          Switch(
+            value: _onlyDirect,
+            onChanged: (value) => setState(() => _onlyDirect = value),
+          ),
+        ],
       ),
       const SizedBox(height: 8),
-      ..._directLeadWidgets(),
+      ..._directPlaceWidgets(),
     ],
     RecordsFilterCategory.type => [
       _heading(context.l10n.leadType),
@@ -373,44 +385,34 @@ class _RecordsFilterSheetState extends State<RecordsFilterSheet> {
     ],
   };
 
-  List<Widget> _directLeadWidgets() {
-    final direct =
-        widget.records
-            .where((record) => record.lead.originKind == LeadOriginKind.direct)
-            .toList()
-          ..sort((left, right) {
-            final byName = left.lead.fullName.toLowerCase().compareTo(
-              right.lead.fullName.toLowerCase(),
-            );
-            return byName != 0 ? byName : left.localId.compareTo(right.localId);
-          });
-    if (direct.isEmpty) return [_empty(context.l10n.noDirectLeadsAvailable)];
+  List<Widget> _directPlaceWidgets() {
+    final byKey = <String, String>{};
+    for (final record in widget.records) {
+      if (record.lead.originKind != LeadOriginKind.direct) continue;
+      final display = record.lead.place?.trim().replaceAll(RegExp(r'\s+'), ' ');
+      final key = canonicalDirectLeadPlace(display);
+      if (key.isNotEmpty) byKey.putIfAbsent(key, () => display!);
+    }
+    final places = byKey.entries.toList()
+      ..sort(
+        (left, right) =>
+            left.value.toLowerCase().compareTo(right.value.toLowerCase()),
+      );
+    if (places.isEmpty) return [_empty(context.l10n.noDirectPlacesAvailable)];
     return [
-      for (final record in direct)
+      for (final place in places)
         CheckboxListTile(
-          key: Key('recordsFilterDirectLead-${record.localId}'),
+          key: Key('recordsFilterDirectPlace-${place.key}'),
           contentPadding: EdgeInsets.zero,
-          value: _directLeadIds.contains(record.localId),
-          title: Text(record.lead.fullName),
-          subtitle: Text(_directLeadSecondary(record)),
+          value: _directPlaces.contains(place.key),
+          title: Text(place.value),
           onChanged: (value) => setState(() {
             value == true
-                ? _directLeadIds.add(record.localId)
-                : _directLeadIds.remove(record.localId);
+                ? _directPlaces.add(place.key)
+                : _directPlaces.remove(place.key);
           }),
         ),
     ];
-  }
-
-  String _directLeadSecondary(SessionLead record) {
-    final details = <String>[
-      if (record.lead.company.trim().isNotEmpty) record.lead.company.trim(),
-      if (record.lead.place?.trim().isNotEmpty == true)
-        record.lead.place!.trim(),
-      MaterialLocalizations.of(context)
-          .formatShortDate(record.capturedAt.toLocal()),
-    ];
-    return details.join(' · ');
   }
 
   List<Widget> _companyWidgets() {

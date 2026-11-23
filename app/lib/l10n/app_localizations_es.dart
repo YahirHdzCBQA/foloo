@@ -649,6 +649,14 @@ class AppLocalizationsEs extends AppLocalizations {
   String get noDirectLeadsAvailable => 'No hay leads directos disponibles.';
 
   @override
+  String get noDirectPlacesAvailable =>
+      'No hay lugares de captura disponibles.';
+
+  @override
+  String get emailAttachmentsUnavailable =>
+      'No se pueden resolver todos los contenidos seleccionados. Revisa Contenido antes de enviar.';
+
+  @override
   String get nameFilter => 'Nombre de lead';
 
   @override

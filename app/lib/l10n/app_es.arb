@@ -199,6 +199,8 @@
   "onlyDirectLeads": "Solo leads directos",
   "onlyDirectLeadsHelp": "Excluye los leads de eventos sin perder sus selecciones.",
   "noDirectLeadsAvailable": "No hay leads directos disponibles.",
+  "noDirectPlacesAvailable": "No hay lugares de captura disponibles.",
+  "emailAttachmentsUnavailable": "No se pueden resolver todos los contenidos seleccionados. Revisa Contenido antes de enviar.",
   "nameFilter": "Nombre de lead",
   "searchLeadName": "Buscar por nombre",
   "searchCompany": "Buscar empresa",

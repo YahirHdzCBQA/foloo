@@ -583,14 +583,14 @@ void main() {
               lead: updated,
             );
           },
-          onEmailReviewRequested: (_) async => const EmailReviewDraft(
+          onEmailReviewRequested: (current) async => EmailReviewDraft(
             followUpId: 'follow-up-1',
             leadName: 'Mariana',
             recipientAddress: 'qa@example.com',
             subject: 'Hola',
             message: 'Mensaje',
-            attachmentIds: ['content-first'],
-            attachmentNames: ['Ficha A'],
+            attachmentIds: current.lead.contentFileIds,
+            attachmentNames: current.lead.contentNames,
           ),
           onEmailReviewConfirmed: (_) async => EmailReviewOutcome.pending,
         ),
@@ -642,11 +642,12 @@ void main() {
       await tester.tap(find.byKey(const Key('detailEmailAction')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('editEmailAttachments')), findsNothing);
-      expect(find.text('Ficha A'), findsOneWidget);
+      expect(find.text('Ficha B'), findsOneWidget);
+      expect(find.text('Ficha A'), findsNothing);
     },
   );
 
-  testWidgets('QA-20 unions selected events and direct leads', (tester) async {
+  testWidgets('QA-28 unions selected events and direct places', (tester) async {
     final event = SessionLead(
       localId: 'event-lead',
       folio: null,
@@ -694,9 +695,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('recordsDirectFilter')));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const Key('recordsFilterDirectLead-direct-lead')),
-    );
+    await tester.tap(find.byKey(const Key('recordsFilterDirectPlace-león')));
     await tester.tap(find.byKey(const Key('applyRecordsFilters')));
     await tester.pumpAndSettle();
     expect(find.text('Evento Sandoval Ruiz'), findsOneWidget);
@@ -706,7 +705,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Solo leads directos'), findsOneWidget);
     expect(
-      find.byKey(const Key('recordsFilterDirectLead-direct-lead')),
+      find.byKey(const Key('recordsFilterDirectPlace-león')),
       findsOneWidget,
     );
   });
@@ -1225,9 +1224,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('recordsDirectFilter')));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const Key('recordsFilterDirectLead-direct-lead')),
-    );
+    await tester.tap(find.byKey(const Key('recordsFilterDirectPlace-león')));
     await tester.tap(find.byKey(const Key('applyRecordsFilters')));
     await tester.pumpAndSettle();
 

@@ -125,9 +125,11 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 **Trazas:** `REG-01`–`REG-08`, `REG-15`–`REG-18`, `SAL-10`.
 
 - La barra horizontal Eventos / Leads directos / Tipo / Filtros abre un único
-  panel inferior. Directos lista registros owner-scoped por identidad estable;
+  panel inferior. Directos lista lugares de captura owner-scoped distintos,
+  preserva su texto visible y omite de la lista los valores ausentes; lugares
   seleccionados y Eventos forman una unión. “Solo leads directos” excluye
-  Eventos sin olvidar su selección. Valores de una categoría usan OR y
+  Eventos sin olvidar su selección y sin lugar elegido incluye todos los
+  Directos, incluso los que no tienen lugar. Valores de una categoría usan OR y
   categorías distintas AND, sin cambiar el evento activo.
 - Evento, directo, tipo, interés, empresa normalizada, nombre parcial, fechas
   inclusivas y Content funcionan offline sobre Drift. Ambos lados del panel
@@ -241,11 +243,15 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   offsets visuales exactos al tocar o borrar desde una posición intermedia.
 - Agregar o quitar Content desde el detalle actualiza Drift y la UI sin pulsar
   Sincronizar, deduplica por ID y reconcilia idempotentemente la preparación
-  pendiente y `{contenido}`; Review/Reenviar solo consume esa asociación vigente
+  pendiente y `{contenido}`; el detalle entrega el registro local confirmado a
+  Review sin volver a Registros. Review/Reenviar solo consume esa asociación vigente
   y su outbox espera la mutación del Lead antes de confirmar. Asunto, firma,
   párrafos y literales manuales permanecen;
-  un segmento convertido en literal no se sobrescribe y activa la advertencia
-  existente. No aparece otra vista previa y los snapshots enviados continúan
+  un segmento convertido en texto propio no se sobrescribe y activa la advertencia
+  existente. Si se eliminó puramente la oración generada, una preparación nueva
+  la reconstruye una vez en su ubicación de plantilla; no lo hace durante la
+  edición activa. Cuerpo, contador y adjuntos se derivan de los mismos IDs
+  resolubles, y una discrepancia bloquea el envío. No aparece otra vista previa y los snapshots enviados continúan
   congelados.
 - Guardar correctamente cierra teclado y modo edición y vuelve a mostrar los
   lápices; un error conserva el borrador. Cancelar restaura la última versión

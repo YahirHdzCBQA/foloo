@@ -17,6 +17,7 @@ import '../../models/app_event.dart';
 import '../../models/content_file.dart';
 import '../../models/email_template.dart';
 import '../../models/email_delivery_error.dart';
+import '../../models/email_review.dart';
 import '../../models/email_semantic_document.dart';
 import '../../models/lead_draft.dart';
 import '../../models/session_lead.dart';
@@ -471,14 +472,18 @@ class EmailDeliveryRepository {
           generatedConcrete: renderedSubject,
           values: values,
         );
-        final bodyDocument = _reconciledDocument(
-          storedJson: existing.bodySemanticJson,
-          wasManuallyEdited: existing.bodyManuallyEdited,
-          generated: generatedBodyDocument,
-          previousConcrete: existing.plainBody,
-          generatedConcrete: renderedBody,
-          values: values,
-        );
+        final bodyDocument =
+            _reconciledDocument(
+              storedJson: existing.bodySemanticJson,
+              wasManuallyEdited: existing.bodyManuallyEdited,
+              generated: generatedBodyDocument,
+              previousConcrete: existing.plainBody,
+              generatedConcrete: renderedBody,
+              values: values,
+            ).restoreGeneratedTokenLine(
+              generated: generatedBodyDocument,
+              token: 'contenido',
+            );
         final concreteSubject = subjectDocument.render(values).trim();
         final concretePlain = bodyDocument.render(values).trim();
         final concreteHtml = renderPlainTextEmailHtml(concretePlain);
@@ -569,6 +574,7 @@ class EmailDeliveryRepository {
     String? intentId,
     String? subject,
     String? plainBody,
+    List<String>? expectedContentIds,
   }) async {
     final id = intentId ?? _defaultLocalId();
     final now = DateTime.now().toUtc();
@@ -580,6 +586,13 @@ class EmailDeliveryRepository {
       followUpId,
     );
     if (followUp == null) throw StateError('Email follow-up not found.');
+    final storedContentIds = (jsonDecode(followUp.contentFileIdsJson) as List)
+        .whereType<String>()
+        .toList();
+    if (expectedContentIds != null &&
+        !_sameOrderedValues(storedContentIds, expectedContentIds)) {
+      throw const EmailAttachmentResolutionException();
+    }
     final finalSubject = (subject ?? followUp.subject).trim();
     final finalPlainBody = (plainBody ?? followUp.plainBody).trim();
     final finalHtmlBody = renderPlainTextEmailHtml(finalPlainBody);
@@ -750,6 +763,14 @@ class EmailDeliveryRepository {
       now: now,
     );
   }
+}
+
+bool _sameOrderedValues(List<String> left, List<String> right) {
+  if (left.length != right.length) return false;
+  for (var index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
 }
 
 /// Device-global values used only before a user-scoped repository is known.

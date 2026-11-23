@@ -452,11 +452,22 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
 
   Future<EmailReviewDraft?> _emailReviewForLead(SessionLead record) async {
     if (record.lead.email.trim().isEmpty) return null;
-    final content = record.lead.normalizedContentSelection;
+    final selected = record.lead.normalizedContentSelection;
+    final filesById = {for (final file in _contentFiles) file.id: file};
+    if (selected.ids.any((id) => !filesById.containsKey(id))) {
+      throw const EmailAttachmentResolutionException();
+    }
+    final contentNames = [
+      for (final id in selected.ids) filesById[id]!.displayName,
+    ];
+    final currentLead = record.lead.copyWith(
+      contentFileIds: selected.ids,
+      contentNames: contentNames,
+    );
     await _persistence.emailDelivery.prepareForLead(
       owner: _userId,
       leadId: record.localId,
-      lead: record.lead,
+      lead: currentLead,
       seller: _profile,
       language: _locale.languageCode == 'en' ? 'en' : 'es',
       reconcileExisting: true,
@@ -468,16 +479,20 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     if (followUp == null) return null;
     return EmailReviewDraft(
       followUpId: followUp.localId,
-      leadName: record.lead.fullName,
+      leadName: currentLead.fullName,
       recipientAddress: followUp.recipientAddress,
       subject: followUp.subject,
       message: followUp.plainBody,
-      attachmentIds: content.ids,
-      attachmentNames: content.names,
+      attachmentIds: selected.ids,
+      attachmentNames: contentNames,
     );
   }
 
   Future<EmailReviewOutcome> _confirmEmailReview(EmailReviewDraft draft) async {
+    final availableIds = _contentFiles.map((file) => file.id).toSet();
+    if (draft.attachmentIds.any((id) => !availableIds.contains(id))) {
+      throw const EmailAttachmentResolutionException();
+    }
     if (_isOnline && _emailConnectionService != null) {
       try {
         final connection = await _emailConnectionService!.status(_userId);
@@ -494,6 +509,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       followUpId: draft.followUpId,
       subject: draft.subject,
       plainBody: draft.message,
+      expectedContentIds: draft.attachmentIds,
     );
     if (!_isOnline) return EmailReviewOutcome.pending;
     await _synchronize(trigger: SyncTrigger.postSave);

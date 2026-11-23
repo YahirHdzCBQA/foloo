@@ -13,6 +13,7 @@ SessionLead _record({
   LeadType type = LeadType.customer,
   InterestLevel interest = InterestLevel.high,
   List<String> contentIds = const [],
+  String? place,
 }) => SessionLead(
   localId: id,
   folio: null,
@@ -31,6 +32,7 @@ SessionLead _record({
     eventLocalId: eventId,
     eventName: eventId,
     audioSeconds: 0,
+    place: place,
     contentFileIds: contentIds,
   ),
 );
@@ -54,6 +56,7 @@ void main() {
       type: LeadType.partner,
       interest: InterestLevel.medium,
       contentIds: const ['presentation'],
+      place: '  Expo   Industrial ',
     ),
     _record(
       id: 'event-b-supplier',
@@ -66,10 +69,10 @@ void main() {
     ),
   ];
 
-  test('QA-23 unions selected direct leads and events', () {
+  test('QA-28 unions selected direct places and events', () {
     final result = RecordsFilterState(
       eventIds: const {'event-a'},
-      directLeadIds: const {'direct-partner'},
+      directPlaces: const {'expo industrial'},
       leadTypes: const {LeadType.customer, LeadType.partner},
       interests: const {InterestLevel.high, InterestLevel.medium},
     ).apply(records);
@@ -81,7 +84,7 @@ void main() {
   });
 
   test(
-    'QA-23 direct-only ignores dormant events and can select individuals',
+    'QA-28 direct-only ignores dormant events and optionally filters places',
     () {
       final allDirect = RecordsFilterState(
         eventIds: const {'event-a'},
@@ -91,14 +94,14 @@ void main() {
 
       final selected = RecordsFilterState(
         eventIds: const {'event-a'},
-        directLeadIds: const {'direct-partner'},
+        directPlaces: const {'expo industrial'},
         onlyDirect: true,
       ).apply(records);
       expect(selected.map((item) => item.localId), ['direct-partner']);
 
       final restoredUnion = RecordsFilterState(
         eventIds: const {'event-a'},
-        directLeadIds: const {'direct-partner'},
+        directPlaces: const {'expo industrial'},
       ).apply(records);
       expect(restoredUnion.map((item) => item.localId), [
         'event-a-customer',
@@ -107,16 +110,48 @@ void main() {
     },
   );
 
-  test('QA-23 ignores a selected lead after it is reassigned to an event', () {
-    final reassigned = _record(
-      id: 'direct-partner',
-      capturedAt: DateTime(2026, 11, 11),
-      origin: LeadOriginKind.event,
-      eventId: 'event-b',
+  test(
+    'QA-28 excludes reassigned event leads from a selected direct place',
+    () {
+      final reassigned = _record(
+        id: 'direct-partner',
+        capturedAt: DateTime(2026, 11, 11),
+        origin: LeadOriginKind.event,
+        eventId: 'event-b',
+      );
+      final result = RecordsFilterState(directPlaces: const {'expo industrial'})
+          .apply([reassigned]);
+      expect(result, isEmpty);
+    },
+  );
+
+  test('QA-28 normalizes place case and spaces and handles missing place', () {
+    final samePlace = _record(
+      id: 'direct-office',
+      capturedAt: DateTime(2026, 11, 13),
+      origin: LeadOriginKind.direct,
+      place: 'EXPO industrial',
     );
-    final result = RecordsFilterState(directLeadIds: const {'direct-partner'})
-        .apply([reassigned]);
-    expect(result, isEmpty);
+    final noPlace = _record(
+      id: 'direct-no-place',
+      capturedAt: DateTime(2026, 11, 14),
+      origin: LeadOriginKind.direct,
+    );
+
+    final byPlace = RecordsFilterState(directPlaces: const {'expo industrial'})
+        .apply([...records, samePlace, noPlace]);
+    expect(byPlace.map((item) => item.localId), [
+      'direct-partner',
+      'direct-office',
+    ]);
+
+    final allDirect = const RecordsFilterState(onlyDirect: true)
+        .apply([...records, samePlace, noPlace]);
+    expect(allDirect.map((item) => item.localId), [
+      'direct-partner',
+      'direct-office',
+      'direct-no-place',
+    ]);
   });
 
   test('QA-20 normalizes Company and keeps date boundaries inclusive', () {

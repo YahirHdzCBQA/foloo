@@ -1286,6 +1286,18 @@ abstract class AppLocalizations {
   /// **'No hay leads directos disponibles.'**
   String get noDirectLeadsAvailable;
 
+  /// No description provided for @noDirectPlacesAvailable.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay lugares de captura disponibles.'**
+  String get noDirectPlacesAvailable;
+
+  /// No description provided for @emailAttachmentsUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pueden resolver todos los contenidos seleccionados. Revisa Contenido antes de enviar.'**
+  String get emailAttachmentsUnavailable;
+
   /// No description provided for @nameFilter.
   ///
   /// In es, this message translates to:

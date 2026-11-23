@@ -4,6 +4,12 @@
 /// in the immutable send intent created after explicit confirmation (SAL-01).
 library;
 
+/// Raised when Review cannot prove that its selected Content and attachments
+/// still describe the same current lead snapshot (CON-08, SAL-01).
+class EmailAttachmentResolutionException implements Exception {
+  const EmailAttachmentResolutionException();
+}
+
 /// Editable presentation of one prepared follow-up.
 class EmailReviewDraft {
   const EmailReviewDraft({

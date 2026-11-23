@@ -710,6 +710,24 @@ R8 en solución permanente.
   `SYN-01`–`SYN-09`, `NAV-01`; E-06/E-08/E-10/E-12;
   ADR-001/004/006/007. Validación física iOS/Android queda pendiente.
 
+### Corte QA-28–QA-29 aprobado (2026-11-23)
+
+- QA-28 sustituye expresamente la selección individual de QA-23: la categoría
+  Directos ofrece lugares reales distintos por clave normalizada, mantiene la
+  grafía visible, combina lugares/Eventos como unión y conserva el switch
+  “Solo leads directos” en una línea. Los Directos sin lugar no crean una opción
+  artificial y siguen incluidos cuando el switch está activo sin lugares.
+- QA-29 amplía QA-27 tras reproducción física: elimina la captura obsoleta del
+  `SessionLead` al pasar del detalle a Review, resuelve nombres y adjuntos desde
+  los IDs persistidos vigentes y bloquea confirmar si no puede demostrar su
+  correspondencia. La semántica distingue reemplazo personalizado de eliminación
+  pura de `{contenido}`; solo la segunda se reconstruye, una vez y en su posición,
+  al preparar un envío/reenvío nuevo.
+- Trazas: `REG-02`/`REG-03`/`REG-09`/`REG-10`, `CON-08`, `PLT-08`,
+  `SAL-01`–`SAL-03`, `SYN-04`–`SYN-10`; E-06/E-08/E-09/E-10;
+  ADR-001/004/005/006/007. Sin backend, migración ni infraestructura; queda
+  pendiente la validación física iOS/Android.
+
 ## Exclusiones del plan V1
 
 No existen fases Basic E2E, capability Basic/Pro, Pro E2E, transcripción Pro ni

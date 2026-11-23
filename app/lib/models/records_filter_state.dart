@@ -10,7 +10,7 @@ import 'session_lead.dart';
 class RecordsFilterState {
   const RecordsFilterState({
     this.eventIds = const {},
-    this.directLeadIds = const {},
+    this.directPlaces = const {},
     this.onlyDirect = false,
     this.leadTypes = const {},
     this.interests = const {},
@@ -22,7 +22,9 @@ class RecordsFilterState {
   });
 
   final Set<String> eventIds;
-  final Set<String> directLeadIds;
+
+  /// Canonical capture-place keys selected for direct leads (REG-02/REG-09).
+  final Set<String> directPlaces;
   final bool onlyDirect;
   final Set<LeadType> leadTypes;
   final Set<InterestLevel> interests;
@@ -33,7 +35,7 @@ class RecordsFilterState {
   final Set<String> contentIds;
 
   bool get hasOriginFilter =>
-      eventIds.isNotEmpty || directLeadIds.isNotEmpty || onlyDirect;
+      eventIds.isNotEmpty || directPlaces.isNotEmpty || onlyDirect;
   bool get isActive =>
       hasOriginFilter ||
       leadTypes.isNotEmpty ||
@@ -56,7 +58,7 @@ class RecordsFilterState {
 
   RecordsFilterState copyWith({
     Set<String>? eventIds,
-    Set<String>? directLeadIds,
+    Set<String>? directPlaces,
     bool? onlyDirect,
     Set<LeadType>? leadTypes,
     Set<InterestLevel>? interests,
@@ -69,7 +71,7 @@ class RecordsFilterState {
     Set<String>? contentIds,
   }) => RecordsFilterState(
     eventIds: eventIds ?? this.eventIds,
-    directLeadIds: directLeadIds ?? this.directLeadIds,
+    directPlaces: directPlaces ?? this.directPlaces,
     onlyDirect: onlyDirect ?? this.onlyDirect,
     leadTypes: leadTypes ?? this.leadTypes,
     interests: interests ?? this.interests,
@@ -95,16 +97,17 @@ class RecordsFilterState {
       final lead = record.lead;
       if (hasOriginFilter) {
         final isDirect = lead.originKind == LeadOriginKind.direct;
-        final selectedDirect =
-            isDirect && directLeadIds.contains(record.localId);
+        final selectedDirectPlace =
+            isDirect &&
+            directPlaces.contains(canonicalDirectLeadPlace(lead.place));
         final selectedEvent =
             !onlyDirect &&
             lead.originKind == LeadOriginKind.event &&
             lead.eventLocalId != null &&
             eventIds.contains(lead.eventLocalId);
         final originMatches = onlyDirect
-            ? isDirect && (directLeadIds.isEmpty || selectedDirect)
-            : selectedDirect || selectedEvent;
+            ? isDirect && (directPlaces.isEmpty || selectedDirectPlace)
+            : selectedDirectPlace || selectedEvent;
         if (!originMatches) return false;
       }
       if (leadTypes.isNotEmpty && !leadTypes.contains(lead.type)) return false;
@@ -138,6 +141,8 @@ class RecordsFilterState {
 }
 
 String canonicalCompanyName(String value) => _canonical(value);
+
+String canonicalDirectLeadPlace(String? value) => _canonical(value ?? '');
 
 String _canonical(String value) =>
     value.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();

@@ -54,9 +54,13 @@ class EmailSemanticDocument {
       _mergeLiterals(
         raw.map((item) {
           final value = item as Map<String, dynamic>;
-          return value['kind'] == 'token'
-              ? _SemanticSegment.token(value['value'] as String)
-              : _SemanticSegment.literal(value['value'] as String);
+          return switch (value['kind']) {
+            'token' => _SemanticSegment.token(value['value'] as String),
+            'suppressedToken' => _SemanticSegment.suppressedToken(
+              value['value'] as String,
+            ),
+            _ => _SemanticSegment.literal(value['value'] as String),
+          };
         }).toList(),
       ),
     );
@@ -66,8 +70,11 @@ class EmailSemanticDocument {
 
   String render(Map<String, String> values) => _effectiveSegments(values)
       .map(
-        (segment) =>
-            segment.isToken ? values[segment.value] ?? '' : segment.value,
+        (segment) => segment.isToken
+            ? values[segment.value] ?? ''
+            : segment.isSuppressedToken
+            ? ''
+            : segment.value,
       )
       .join();
 
@@ -76,7 +83,11 @@ class EmailSemanticDocument {
     'segments': _segments
         .map(
           (segment) => {
-            'kind': segment.isToken ? 'token' : 'literal',
+            'kind': segment.isToken
+                ? 'token'
+                : segment.isSuppressedToken
+                ? 'suppressedToken'
+                : 'literal',
             'value': segment.value,
           },
         )
@@ -117,6 +128,7 @@ class EmailSemanticDocument {
     final newRunes = editedConcrete.runes.toList();
     final differences = _myersDiff(oldRunes, newRunes);
     final dirtyTokens = <int>{};
+    final insertionPositions = <int>[];
     var oldPosition = 0;
     for (final difference in differences) {
       if (difference.kind == _DiffKind.delete) {
@@ -130,6 +142,7 @@ class EmailSemanticDocument {
         }
         oldPosition = end;
       } else if (difference.kind == _DiffKind.insert) {
+        insertionPositions.add(oldPosition);
         for (final segment in renderedSegments) {
           if (segment.segment.isToken &&
               oldPosition > segment.start &&
@@ -141,6 +154,21 @@ class EmailSemanticDocument {
         oldPosition += difference.runes.length;
       }
     }
+    final restorableDeletedTokens = <int>{
+      for (final segment in renderedSegments)
+        if (dirtyTokens.contains(segment.index) &&
+            !insertionPositions.any(
+              (position) =>
+                  position >= segment.start && position <= segment.end,
+            ) &&
+            _preservesLineAnchors(
+              oldRunes: oldRunes,
+              newRunes: newRunes,
+              tokenStart: segment.start,
+              tokenEnd: segment.end,
+            ))
+          segment.index,
+    };
 
     final result = <_SemanticSegment>[];
     final emittedTokens = <int>{};
@@ -176,6 +204,17 @@ class EmailSemanticDocument {
         case _DiffKind.insert:
           appendLiteral(difference.runes);
         case _DiffKind.delete:
+          final deleteEnd = oldPosition + difference.runes.length;
+          for (final segment in renderedSegments) {
+            if (restorableDeletedTokens.contains(segment.index) &&
+                oldPosition < segment.end &&
+                deleteEnd > segment.start &&
+                emittedTokens.add(segment.index)) {
+              result.add(
+                _SemanticSegment.suppressedToken(segment.segment.value),
+              );
+            }
+          }
           oldPosition += difference.runes.length;
         case _DiffKind.equal:
           for (final rune in difference.runes) {
@@ -196,6 +235,111 @@ class EmailSemanticDocument {
     }
     emitEmptyTokensAt(oldPosition);
     return EmailSemanticDocument._(_mergeLiterals(result));
+  }
+
+  /// Restores a deliberately deleted generated token line when a fresh Review
+  /// is prepared, without reviving custom replacement prose (PLT-08/SAL-01).
+  EmailSemanticDocument restoreGeneratedTokenLine({
+    required EmailSemanticDocument generated,
+    required String token,
+  }) {
+    if (_segments.any((segment) => segment.isToken && segment.value == token)) {
+      return this;
+    }
+    final suppressedIndex = _segments.indexWhere(
+      (segment) => segment.isSuppressedToken && segment.value == token,
+    );
+    final generatedIndex = generated._segments.indexWhere(
+      (segment) => segment.isToken && segment.value == token,
+    );
+    if (suppressedIndex < 0 || generatedIndex < 0) return this;
+
+    final line = generated._lineAround(generatedIndex);
+    if (line.isEmpty) return this;
+    final generatedPrefix = generated._literalPrefixOnLine(generatedIndex);
+    final generatedSuffix = generated._literalSuffixOnLine(generatedIndex);
+    final previous = suppressedIndex > 0
+        ? _segments[suppressedIndex - 1]
+        : null;
+    final next = suppressedIndex + 1 < _segments.length
+        ? _segments[suppressedIndex + 1]
+        : null;
+    final tokenOnly =
+        previous?.isLiteral == true &&
+        next?.isLiteral == true &&
+        previous!.value.endsWith(generatedPrefix) &&
+        next!.value.startsWith(generatedSuffix);
+    final result = [..._segments];
+    if (tokenOnly) {
+      result[suppressedIndex] = generated._segments[generatedIndex];
+    } else {
+      var displaced = '';
+      if (previous?.isLiteral == true) {
+        final newline = previous!.value.lastIndexOf('\n');
+        displaced = previous.value.substring(newline + 1);
+        result[suppressedIndex - 1] = _SemanticSegment.literal(
+          previous.value.substring(0, newline + 1),
+        );
+      }
+      result.replaceRange(suppressedIndex, suppressedIndex + 1, [
+        ...line,
+        if (displaced.isNotEmpty) _SemanticSegment.literal(displaced),
+      ]);
+    }
+    return EmailSemanticDocument._(_mergeLiterals(result));
+  }
+
+  String _literalPrefixOnLine(int targetIndex) {
+    if (targetIndex == 0 || !_segments[targetIndex - 1].isLiteral) return '';
+    final value = _segments[targetIndex - 1].value;
+    return value.substring(value.lastIndexOf('\n') + 1);
+  }
+
+  String _literalSuffixOnLine(int targetIndex) {
+    if (targetIndex + 1 >= _segments.length ||
+        !_segments[targetIndex + 1].isLiteral) {
+      return '';
+    }
+    final value = _segments[targetIndex + 1].value;
+    final newline = value.indexOf('\n');
+    return newline < 0 ? value : value.substring(0, newline);
+  }
+
+  List<_SemanticSegment> _lineAround(int targetIndex) {
+    final before = <_SemanticSegment>[];
+    for (var index = targetIndex - 1; index >= 0; index--) {
+      final segment = _segments[index];
+      if (!segment.isLiteral) {
+        before.insert(0, segment);
+        continue;
+      }
+      final newline = segment.value.lastIndexOf('\n');
+      final fragment = newline < 0
+          ? segment.value
+          : segment.value.substring(newline + 1);
+      if (fragment.isNotEmpty) {
+        before.insert(0, _SemanticSegment.literal(fragment));
+      }
+      if (newline >= 0) break;
+    }
+    final after = <_SemanticSegment>[];
+    for (var index = targetIndex + 1; index < _segments.length; index++) {
+      final segment = _segments[index];
+      if (!segment.isLiteral) {
+        after.add(segment);
+        continue;
+      }
+      final newline = segment.value.indexOf('\n');
+      if (newline < 0) {
+        after.add(segment);
+      } else {
+        after.add(
+          _SemanticSegment.literal(segment.value.substring(0, newline + 1)),
+        );
+        break;
+      }
+    }
+    return [...before, _segments[targetIndex], ...after];
   }
 
   /// Omits the generated Content sentence for an empty selection while
@@ -266,13 +410,48 @@ class EmailSemanticDocument {
   }
 }
 
-class _SemanticSegment {
-  const _SemanticSegment.literal(this.value) : isToken = false;
-  const _SemanticSegment.token(this.value) : isToken = true;
-
-  final bool isToken;
-  final String value;
+bool _preservesLineAnchors({
+  required List<int> oldRunes,
+  required List<int> newRunes,
+  required int tokenStart,
+  required int tokenEnd,
+}) {
+  const newline = 0x0A;
+  var lineStart = tokenStart;
+  while (lineStart > 0 && oldRunes[lineStart - 1] != newline) {
+    lineStart--;
+  }
+  var lineEnd = tokenEnd;
+  while (lineEnd < oldRunes.length && oldRunes[lineEnd] != newline) {
+    lineEnd++;
+  }
+  if (lineEnd < oldRunes.length) lineEnd++;
+  if (lineStart == 0 || lineEnd >= oldRunes.length) return false;
+  final prefixStart = lineStart > 16 ? lineStart - 16 : 0;
+  final suffixEnd = lineEnd + 16 < oldRunes.length
+      ? lineEnd + 16
+      : oldRunes.length;
+  final prefix = oldRunes.sublist(prefixStart, lineStart);
+  final suffix = oldRunes.sublist(lineEnd, suffixEnd);
+  final prefixAt = _indexOfRunes(newRunes, prefix);
+  final suffixAt = _indexOfRunes(newRunes, suffix);
+  return prefixAt >= 0 && suffixAt >= prefixAt + prefix.length;
 }
+
+class _SemanticSegment {
+  const _SemanticSegment.literal(this.value) : kind = _SegmentKind.literal;
+  const _SemanticSegment.token(this.value) : kind = _SegmentKind.token;
+  const _SemanticSegment.suppressedToken(this.value)
+    : kind = _SegmentKind.suppressedToken;
+
+  final _SegmentKind kind;
+  final String value;
+  bool get isToken => kind == _SegmentKind.token;
+  bool get isSuppressedToken => kind == _SegmentKind.suppressedToken;
+  bool get isLiteral => kind == _SegmentKind.literal;
+}
+
+enum _SegmentKind { literal, token, suppressedToken }
 
 class _RenderedSegment {
   const _RenderedSegment(this.index, this.segment, this.start, this.end);
@@ -286,8 +465,8 @@ class _RenderedSegment {
 List<_SemanticSegment> _mergeLiterals(List<_SemanticSegment> source) {
   final result = <_SemanticSegment>[];
   for (final segment in source) {
-    if (!segment.isToken && segment.value.isEmpty) continue;
-    if (!segment.isToken && result.isNotEmpty && !result.last.isToken) {
+    if (segment.isLiteral && segment.value.isEmpty) continue;
+    if (segment.isLiteral && result.isNotEmpty && result.last.isLiteral) {
       final previous = result.removeLast();
       result.add(_SemanticSegment.literal(previous.value + segment.value));
     } else {

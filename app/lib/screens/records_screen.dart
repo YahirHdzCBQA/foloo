@@ -639,9 +639,7 @@ class _RecordsScreenState extends State<RecordsScreen>
           currentEventName: currentEventName,
           audioPlayingListenable: _detailAudioPlaying,
           onToggleAudio: (note) => _toggleAudioPath(note.localPath),
-          onEdit: widget.onLeadUpdated == null
-              ? null
-              : (updated) => widget.onLeadUpdated!(record, updated),
+          onEdit: widget.onLeadUpdated,
           events: widget.events,
           onAddReferenceImage: widget.onReferenceImageAdded == null
               ? null
@@ -659,7 +657,7 @@ class _RecordsScreenState extends State<RecordsScreen>
           onRetryEmail: _retryEmail,
           isEmailConnectionMissing: widget.isEmailConnectionMissing,
           onResendEmail: _resendEmail,
-          onEmail: () => _openEmailReview(record),
+          onEmail: _openEmailReview,
           onDelete: () => _confirmDelete(record, closeDetail: true),
         ),
       ),
@@ -749,7 +747,16 @@ class _RecordsScreenState extends State<RecordsScreen>
     final request = widget.onEmailReviewRequested;
     final confirm = widget.onEmailReviewConfirmed;
     if (request == null || confirm == null) return;
-    final draft = await request(record);
+    late final EmailReviewDraft? draft;
+    try {
+      draft = await request(record);
+    } on EmailAttachmentResolutionException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.emailAttachmentsUnavailable)),
+      );
+      return;
+    }
     if (!mounted) return;
     if (draft == null) {
       ScaffoldMessenger.of(
@@ -757,13 +764,14 @@ class _RecordsScreenState extends State<RecordsScreen>
       ).showSnackBar(SnackBar(content: Text(context.l10n.leadEmailRequired)));
       return;
     }
+    final resolvedDraft = draft;
     setState(() => _openSwipeLeadId = null);
     var reviewRecord = record;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => EmailReviewScreen(
           record: record,
-          draft: draft,
+          draft: resolvedDraft,
           onConfirm: confirm,
           onConnectionRequired: () =>
               widget.onDestinationSelected(AppDestination.email),
@@ -1194,7 +1202,7 @@ class _RecordsFilterBar extends StatelessWidget {
         _FilterButton(
           key: const Key('recordsDirectFilter'),
           label: context.l10n.directLeads,
-          count: filters.directLeadIds.length + (filters.onlyDirect ? 1 : 0),
+          count: filters.directPlaces.length + (filters.onlyDirect ? 1 : 0),
           icon: Icons.person_add_alt_1_outlined,
           onTap: () => onOpen(RecordsFilterCategory.direct),
         ),
@@ -1563,7 +1571,8 @@ class ConnectionDetailScreen extends StatefulWidget {
   final Future<void> Function(LeadVoiceNote note) onToggleAudio;
   final String? currentEventName;
   final List<AppEvent> events;
-  final Future<SessionLead> Function(LeadDraft updated)? onEdit;
+  final Future<SessionLead> Function(SessionLead record, LeadDraft updated)?
+  onEdit;
   final Future<SessionLead?> Function()? onAddReferenceImage;
   final Future<SessionLead?> Function()? onAddVoiceNote;
   final Future<SessionLead> Function(LeadVoiceNote note)? onDeleteVoiceNote;
@@ -1581,7 +1590,7 @@ class ConnectionDetailScreen extends StatefulWidget {
     StoredEmailSendIntent intent,
   )?
   onResendEmail;
-  final VoidCallback? onEmail;
+  final ValueChanged<SessionLead>? onEmail;
   final VoidCallback? onDelete;
 
   @override
@@ -1645,7 +1654,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
       ],
     );
     try {
-      final refreshed = await save(updated);
+      final refreshed = await save(_record, updated);
       if (mounted) setState(() => _record = refreshed);
     } on Object {
       if (!mounted) return;
@@ -1915,7 +1924,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
                     builder: (_) => _LeadEditScreen(
                       lead: lead,
                       events: events,
-                      onSave: onEdit,
+                      onSave: (updated) => onEdit(record, updated),
                     ),
                   ),
                 );
@@ -2348,7 +2357,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
             const SizedBox(height: 16),
             OutlinedButton.icon(
               key: const Key('detailEmailAction'),
-              onPressed: onEmail,
+              onPressed: onEmail == null ? null : () => onEmail(record),
               icon: const Icon(Icons.outgoing_mail),
               label: Text(
                 emailIntent == null

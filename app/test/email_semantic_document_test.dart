@@ -72,4 +72,34 @@ void main() {
       reason: edited.toJson(),
     );
   });
+
+  test('QA-29 restores a deleted generated Content line exactly once', () {
+    final generated = EmailSemanticDocument.fromTemplate(
+      'Hola.\nTe comparto {contenido}.\nFirma personalizada.',
+    );
+    final edited = generated.captureEdit(
+      previousConcrete: 'Hola.\nTe comparto Ficha A.\nFirma personalizada.',
+      editedConcrete: 'Hola.\nFirma personalizada.',
+      values: const {'contenido': 'Ficha A'},
+    );
+
+    expect(
+      edited.render(const {'contenido': 'Ficha B'}),
+      'Hola.\nFirma personalizada.',
+    );
+    final restored = edited.restoreGeneratedTokenLine(
+      generated: generated,
+      token: 'contenido',
+    );
+    expect(
+      restored.render(const {'contenido': 'Ficha B'}),
+      'Hola.\nTe comparto Ficha B.\nFirma personalizada.',
+    );
+    expect(
+      restored
+          .restoreGeneratedTokenLine(generated: generated, token: 'contenido')
+          .render(const {'contenido': 'Ficha B'}),
+      'Hola.\nTe comparto Ficha B.\nFirma personalizada.',
+    );
+  });
 }

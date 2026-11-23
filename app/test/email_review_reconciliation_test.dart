@@ -14,6 +14,7 @@ import 'package:foloo/data/local/app_database.dart';
 import 'package:foloo/data/repositories/local_repositories.dart';
 import 'package:foloo/models/app_event.dart';
 import 'package:foloo/models/email_template.dart';
+import 'package:foloo/models/email_review.dart';
 import 'package:foloo/models/lead_draft.dart';
 
 const _owner = 'seller-a';
@@ -346,6 +347,63 @@ void main() {
   });
 
   test(
+    'QA-29 restores a deleted Content sentence on the next preparation',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      await _seed(database);
+      final repository = EmailDeliveryRepository(database);
+      final prepared = await repository.prepareForLead(
+        owner: _owner,
+        leadId: _leadId,
+        lead: _lead(),
+        seller: _seller,
+        language: 'es',
+      );
+      final withoutGeneratedSentence = prepared!.plainBody
+          .split('\n')
+          .where((line) => !line.contains('Ficha A'))
+          .join('\n');
+      await repository.updatePreparation(
+        owner: _owner,
+        followUpId: prepared.localId,
+        subject: prepared.subject,
+        plainBody: '$withoutGeneratedSentence\nPárrafo manual.',
+        lead: _lead(),
+        seller: _seller,
+      );
+
+      final restored = await repository.prepareForLead(
+        owner: _owner,
+        leadId: _leadId,
+        lead: _lead(
+          contentIds: const ['content-b'],
+          contentNames: const ['Ficha B'],
+        ),
+        seller: _seller,
+        language: 'es',
+        reconcileExisting: true,
+      );
+      expect(RegExp('Ficha B').allMatches(restored!.plainBody), hasLength(1));
+      expect(restored.plainBody, isNot(contains('Ficha A')));
+      expect(restored.plainBody, contains('Párrafo manual.'));
+
+      final repeated = await repository.prepareForLead(
+        owner: _owner,
+        leadId: _leadId,
+        lead: _lead(
+          contentIds: const ['content-b'],
+          contentNames: const ['Ficha B'],
+        ),
+        seller: _seller,
+        language: 'es',
+        reconcileExisting: true,
+      );
+      expect(repeated!.plainBody, restored.plainBody);
+    },
+  );
+
+  test(
     'QA-27 successive Content selections are canonical and idempotent',
     () async {
       final database = AppDatabase(NativeDatabase.memory());
@@ -406,7 +464,20 @@ void main() {
       expect(repeated!.plainBody, onlyB.plainBody);
       expect(repeated.bodySemanticJson, onlyB.bodySemanticJson);
 
-      await repository.confirm(owner: _owner, followUpId: repeated.localId);
+      await expectLater(
+        repository.confirm(
+          owner: _owner,
+          followUpId: repeated.localId,
+          expectedContentIds: const ['content-a'],
+        ),
+        throwsA(isA<EmailAttachmentResolutionException>()),
+      );
+      expect(await repository.intents(_owner), isEmpty);
+      await repository.confirm(
+        owner: _owner,
+        followUpId: repeated.localId,
+        expectedContentIds: const ['content-b'],
+      );
       final followUpOperations = (await database.syncDao.forEntity(
         _owner,
         'emailFollowUp',

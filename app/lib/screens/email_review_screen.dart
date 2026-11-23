@@ -98,6 +98,13 @@ class _EmailReviewScreenState extends State<EmailReviewScreen> {
     late final EmailReviewOutcome outcome;
     try {
       outcome = await widget.onConfirm(reviewed);
+    } on EmailAttachmentResolutionException {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.emailAttachmentsUnavailable)),
+      );
+      return;
     } catch (_) {
       outcome = EmailReviewOutcome.error;
     }
