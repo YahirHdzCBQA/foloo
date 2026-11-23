@@ -213,7 +213,13 @@ decisión explícita; no describen el proveedor External ID actualmente desplega
 6. Probar en DEV con una cuenta personal antes de activar
    `--dart-define=FOLOO_MICROSOFT_SIGNIN=true`.
 
-## Orden de activación y TestFlight V4
+## Orden de activación y TestFlight Build 7
+
+Estado revalidado el 2026-11-23: los pasos 1–3 ya están materializados en AWS
+DEV. El IdP Apple existe, el cliente móvil lo habilita y los guards permiten
+Google/Apple. No repetirlos ni crear otro proveedor; conservarlos como
+procedimiento histórico/recuperación. El gate vigente inicia en la comprobación
+Apple Developer y el E2E del paso 4.
 
 1. Usar exclusivamente el recurso declarativo opt-in aprobado por ADR-009; no
    crear el IdP manualmente. Confirmar el secreto dedicado por canal seguro sin
@@ -233,7 +239,7 @@ decisión explícita; no describen el proveedor External ID actualmente desplega
    agregar `Microsoft` al cliente objetivo y, en otro cambio auditable, a los
    guards. El cliente web requiere además adaptar su UX/BFF: hoy solo implementa
    email/password y Google.
-6. Solo tras la evidencia E2E de cada proveedor compilar `1.0.0+4` con su flag
+6. Solo tras la evidencia E2E de cada proveedor compilar `1.0.0+7` con su flag
    correspondiente. Si Google aparece en iOS, Apple debe estar configurado y
    habilitado para la entrega aprobada (D-21).
 7. Archivar con Team `PU238KF2F9`, verificar el perfil/capacidades y subir a

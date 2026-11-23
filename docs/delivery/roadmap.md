@@ -578,7 +578,7 @@ R8 en solución permanente.
 
 ## FL-025A — Correcciones UX posteriores al evento
 
-**Estado:** **IMPLEMENTADA LOCALMENTE; validación automatizada pendiente.**
+**Estado:** **IMPLEMENTADA Y VALIDADA LOCALMENTE.**
 
 - Trazas: `AUT-07`, `EVT-01`, `EVT-11`, `PLT-06`, `PLT-11`–`PLT-13`,
   `NAV-04`; E-01/E-02/E-08; ADR-001/004/006/007.
@@ -594,6 +594,9 @@ R8 en solución permanente.
   volver y reutiliza la persistencia/selección de contenido existente sin
   cambios backend ni migraciones.
 - Esta FL no incluye ninguna corrección funcional del bloque FL-025B.
+- Corte 2026-11-23: `flutter analyze` limpio y suite Flutter completa 406/406;
+  la validación física de los casos que dependen de proveedor externo conserva
+  sus gates propios.
 
 ## FL-025B — Correcciones funcionales posteriores al evento
 
@@ -727,6 +730,25 @@ R8 en solución permanente.
   `SAL-01`–`SAL-03`, `SYN-04`–`SYN-10`; E-06/E-08/E-09/E-10;
   ADR-001/004/005/006/007. Sin backend, migración ni infraestructura; queda
   pendiente la validación física iOS/Android.
+
+## REL-06 — Homologación TestFlight 1.0.0 Build 7
+
+**Estado:** **CANDIDATO LOCAL; APPLE DEVELOPER Y E2E PENDIENTES.**
+
+- `app/config/testflight-dev-build7.json` fija AWS DEV Release, elimina
+  Unlimited QA, habilita STORE-02D y Apple, y conserva Microsoft, enlace web y
+  diagnósticos OCR desactivados. No contiene secretos.
+- Cognito DEV fue revalidado en lectura: Apple existe y está habilitado en el
+  cliente móvil con OAuth code, callbacks y guards Google/Apple. La activación
+  del flag no sustituye la verificación del App ID, Services ID, key y retorno
+  en Apple Developer ni el E2E real.
+- Runner conserva Hosted UI con `foloo://callback/`; no se añade entitlement
+  nativo porque el código no usa `AuthenticationServices`. El App ID remoto sí
+  debe estar habilitado como principal para asociar el Services ID.
+- El permiso de fototeca queda localizado ES/EN e incluye tarjeta, imágenes de
+  referencia y perfil. Build name/number quedan `1.0.0+7`.
+- No generar ni distribuir IPA hasta confirmar el siguiente build disponible
+  en App Store Connect, firma/provisioning y el E2E Apple completo.
 
 ## Exclusiones del plan V1
 

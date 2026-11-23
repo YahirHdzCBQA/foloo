@@ -4,6 +4,7 @@
 /// provider secrets remain external to the application bundle.
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -20,9 +21,39 @@ void main() {
     );
   });
 
-  test('REL-01 TestFlight V4 uses the next approved iOS build number', () {
+  test('REL-06 TestFlight Build 7 keeps one explicit DEV configuration', () {
     final pubspec = File('pubspec.yaml').readAsStringSync();
+    final configuration = jsonDecode(
+      File('config/testflight-dev-build7.json').readAsStringSync(),
+    ) as Map<String, Object?>;
 
-    expect(pubspec, contains('version: 1.0.0+4'));
+    expect(pubspec, contains('version: 1.0.0+7'));
+    expect(configuration, {
+      'FOLOO_ENVIRONMENT': 'dev',
+      'FOLOO_ALLOW_DEV_RELEASE': true,
+      'FOLOO_UNLIMITED_QA_MODE': false,
+      'FOLOO_ACCOUNT_DELETION_ENABLED': true,
+      'FOLOO_APPLE_SIGNIN': true,
+      'FOLOO_MICROSOFT_SIGNIN': false,
+      'FOLOO_WEB_ACCOUNT_LINK': false,
+      'FOLOO_OCR_QA_DIAGNOSTICS': false,
+    });
+  });
+
+  test('REL-06 photo permission describes every current gallery use', () {
+    final plist = File('ios/Runner/Info.plist').readAsStringSync();
+    final english = File('ios/Runner/en.lproj/InfoPlist.strings')
+        .readAsStringSync();
+    final spanish = File('ios/Runner/es.lproj/InfoPlist.strings')
+        .readAsStringSync();
+
+    for (final value in [plist, english]) {
+      expect(value, contains('business cards'));
+      expect(value, contains('contact reference images'));
+      expect(value, contains('profile photo'));
+    }
+    expect(spanish, contains('tarjetas de presentación'));
+    expect(spanish, contains('imágenes de referencia'));
+    expect(spanish, contains('foto de perfil'));
   });
 }

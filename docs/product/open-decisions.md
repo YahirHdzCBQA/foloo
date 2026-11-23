@@ -150,18 +150,24 @@ evidencia técnica DEV ni permite omitir la eliminación exigida por tiendas.
 
 ### `D-21` · Alternativa equivalente para Google Sign-In en iOS
 
-**Estado 2026-10-21:** aprobado Sign in with Apple vía Cognito (ADR-009).
-Falta la configuración en Apple Developer y Cognito y su verificación E2E; el
-botón permanece detrás de `FOLOO_APPLE_SIGNIN=false` hasta completarlas.
+**Estado 2026-11-23:** aprobado Sign in with Apple vía Cognito (ADR-009). Una
+auditoría AWS DEV de solo lectura confirmó el IdP `SignInWithApple`, su
+habilitación en el App Client móvil, OAuth code, scopes `email name`, callbacks
+`foloo://` y guards para Google/Apple. Falta comprobar en Apple Developer la
+asociación App ID/Services ID/key y ejecutar el E2E de cuenta nueva, existente,
+relay privado, restore y logout. El default continúa
+`FOLOO_APPLE_SIGNIN=false`; la configuración candidata de TestFlight Build 7
+lo activa explícitamente, pero no puede distribuirse hasta cerrar ese gate.
 
-**Pregunta:** aprobar Sign in with Apple mediante Cognito o retirar Google
-Sign-In de iOS. La lectura conservadora de Apple 4.8 no considera suficiente el
-login email/password mientras Google autentique la cuenta primaria; las
-excepciones publicadas no describen claramente el producto actual.
+**Pregunta restante:** confirmar en Apple Developer que `com.foloo.foloo` es
+el App ID principal habilitado, que el Services ID configurado en Cognito está
+asociado a él y que dominio/return URL corresponden al dominio DEV; después,
+aceptar evidencia E2E. La lectura conservadora de Apple 4.8 no considera
+suficiente email/password mientras Google autentique la cuenta primaria.
 
-**Bloquea:** configuración/implementación de la alternativa, account linking y
-submission pública iOS. No cambia `sub` como owner, no autoriza unir cuentas por
-email y no afecta el OAuth de sender.
+**Bloquea:** distribución del candidato con Apple activo y submission pública
+iOS. No cambia `sub` como owner, no autoriza unir cuentas por email y no afecta
+el OAuth de sender.
 
 ## FL-019 · Decisiones resueltas el 2026-09-18
 

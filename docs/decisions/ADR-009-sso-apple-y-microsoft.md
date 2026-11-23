@@ -55,10 +55,21 @@ el IdP desde la consola ni combinar su alta con cambios de App Clients o
 Registration Guards. Microsoft continúa como recurso externo preexistente y no
 debe recrearse.
 
+## Estado operativo DEV (revalidado, 2026-11-23)
+
+La consulta AWS de solo lectura confirmó que la enmienda Apple ya está
+materializada en DEV: el IdP `SignInWithApple` existe, el App Client móvil lo
+incluye junto con Cognito y Google, y los guards efectivos permiten
+`Google,SignInWithApple`. También coinciden OAuth code, scopes, callbacks y los
+mapeos de identidad previstos. Esto reemplaza únicamente el diagnóstico
+operativo anterior de “IdP pendiente”; no cierra `D-21`: Apple Developer y el
+E2E real siguen siendo gates obligatorios antes de distribuir un build con el
+flag activo.
+
 ## Consecuencias y límites
 
-- Tener Services ID, clave `.p8` y secreto no constituye evidencia de login
-  Apple: falta crear el IdP mediante un Change Set aislado y ejecutar E2E.
+- Tener Services ID, clave `.p8`, IdP y App Client configurados no constituye
+  evidencia de login Apple: falta verificar Apple Developer y ejecutar E2E.
 - Los flags de Apple y Microsoft permanecen desactivados por defecto; conservar
   el código no constituye disponibilidad pública ni verificación E2E.
 - No se despliega nada en Cognito sin `describe-user-pool` previo y sin
