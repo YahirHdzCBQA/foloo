@@ -554,6 +554,12 @@ abstract class AppLocalizations {
   /// **'Esto va en cada lead que captures. Se guarda en tu teléfono.'**
   String get profileHelp;
 
+  /// No description provided for @profileResolutionError.
+  ///
+  /// In es, this message translates to:
+  /// **'No pudimos recuperar tu perfil. Revisa tu conexión e inténtalo de nuevo.'**
+  String get profileResolutionError;
+
   /// No description provided for @profilePhoto.
   ///
   /// In es, this message translates to:

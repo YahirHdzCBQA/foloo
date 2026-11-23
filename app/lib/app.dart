@@ -146,6 +146,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   late final bool _ownsAuthRepository;
   bool _appInitialized = false;
   String? _resolvedOwnerSub;
+  String? _observedAuthenticatedSub;
+  String? _ownerResolutionErrorSub;
+  int _ownerResolutionGeneration = 0;
   Timer? _eventDayTimer;
   Timer? _syncRetryTimer;
   DateTime? _scheduledSyncAt;
@@ -269,6 +272,16 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
   }
 
   void _onAuthStateChanged() {
+    final state = _authRepository.state;
+    final authenticatedSub = state.status == AuthStatus.authenticated
+        ? state.user?.id
+        : null;
+    if (authenticatedSub != _observedAuthenticatedSub) {
+      _observedAuthenticatedSub = authenticatedSub;
+      _ownerResolutionGeneration += 1;
+      _ownerResolutionErrorSub = null;
+      if (authenticatedSub == null) _resolvedOwnerSub = null;
+    }
     if (mounted) setState(() {});
   }
 
@@ -304,7 +317,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
         _showAccountDeletionPendingMessage = true;
         user = null;
       }
-      if (user != null) await _loadUserState(user.id);
+      if (user != null) {
+        await _loadUserState(user.id, generation: _ownerResolutionGeneration);
+      }
       if (mounted) setState(() => _appInitialized = true);
       if (_showAccountDeletionPendingMessage) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -322,13 +337,29 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _loadUserState(String userId) async {
+  Future<bool> _loadUserState(String userId, {required int generation}) async {
     // A locale chosen on Login applies immediately to the session. A stored
     // user preference takes precedence when one already exists.
     final sessionLocale = _locale;
     await widget.userStateLoadGate?.call(userId);
+    if (!_isCurrentOwnerResolution(userId, generation)) return false;
     await _persistence.syncStore.prepareOwner(userId);
-    final storedProfile = await _persistence.profiles.load(userId);
+    var storedProfile = await _persistence.profiles.load(userId);
+    if (storedProfile == null && _syncEngine != null) {
+      final resolution = await _syncEngine!.resolveRemoteProfile(userId);
+      if (!_isCurrentOwnerResolution(userId, generation)) return false;
+      if (resolution == RemoteProfileResolution.unavailable) {
+        _markOwnerResolutionFailed(userId, generation);
+        return false;
+      }
+      if (resolution == RemoteProfileResolution.found) {
+        storedProfile = await _persistence.profiles.load(userId);
+        if (storedProfile == null) {
+          _markOwnerResolutionFailed(userId, generation);
+          return false;
+        }
+      }
+    }
     var storedEvents = await _persistence.events.list(userId);
     if (storedEvents.isEmpty && widget.useDemoFixtures) {
       for (final event in DemoAppData.events) {
@@ -387,7 +418,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     final storedLeads = await _persistence.leads.listAll(userId);
     final storedContent = await _persistence.content.list(userId);
     final entitlement = await _persistence.entitlements.load(userId);
-    if (!mounted || _authRepository.state.user?.id != userId) return;
+    if (!_isCurrentOwnerResolution(userId, generation)) return false;
     setState(() {
       _profile = storedProfile ?? DemoProfile.empty;
       _profileCompleted = storedProfile != null;
@@ -419,8 +450,33 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           ? Locale(storedLocale)
           : sessionLocale;
       _resolvedOwnerSub = userId;
+      _ownerResolutionErrorSub = null;
     });
     unawaited(_showPendingTrialMilestone(userId));
+    return true;
+  }
+
+  bool _isCurrentOwnerResolution(String userId, int generation) =>
+      mounted &&
+      _ownerResolutionGeneration == generation &&
+      _authRepository.state.status == AuthStatus.authenticated &&
+      _authRepository.state.user?.id == userId;
+
+  void _markOwnerResolutionFailed(String userId, int generation) {
+    if (!_isCurrentOwnerResolution(userId, generation)) return;
+    setState(() => _ownerResolutionErrorSub = userId);
+  }
+
+  Future<void> _retryOwnerResolution() async {
+    final user = _authRepository.state.user;
+    if (user == null) return;
+    final generation = ++_ownerResolutionGeneration;
+    setState(() {
+      _ownerResolutionErrorSub = null;
+      _resolvedOwnerSub = null;
+    });
+    final loaded = await _loadUserState(user.id, generation: generation);
+    if (loaded) unawaited(_synchronize(trigger: SyncTrigger.startup));
   }
 
   /// Stores the submitted draft before navigating to confirmation.
@@ -698,7 +754,11 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       }
       return false;
     }
-    await _loadUserState(user.id);
+    final loaded = await _loadUserState(
+      user.id,
+      generation: _ownerResolutionGeneration,
+    );
+    if (!loaded) return false;
     _resumeAccountDeletionAfterReauthentication(user.id);
     unawaited(_synchronize(trigger: SyncTrigger.startup));
     return true;
@@ -708,7 +768,11 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     final authenticated = await _authRepository.signInWithProvider(provider);
     final user = _authRepository.state.user;
     if (!authenticated || user == null) return false;
-    await _loadUserState(user.id);
+    final loaded = await _loadUserState(
+      user.id,
+      generation: _ownerResolutionGeneration,
+    );
+    if (!loaded) return false;
     _resumeAccountDeletionAfterReauthentication(user.id);
     unawaited(_synchronize(trigger: SyncTrigger.startup));
     return true;
@@ -915,6 +979,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       _pendingConfirmationEmail = null;
       _accountJustConfirmed = false;
       _resolvedOwnerSub = null;
+      _ownerResolutionErrorSub = null;
       if (!preserveDeletionReauthentication) {
         _accountDeletionReauthenticationOwner = null;
       }
@@ -1416,6 +1481,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
         authState.status == AuthStatus.authenticated &&
         authenticatedUser != null &&
         _resolvedOwnerSub != authenticatedUser.id;
+    final ownerResolutionFailed =
+        authenticatedUser != null &&
+        _ownerResolutionErrorSub == authenticatedUser.id;
     final accountDeletionPending =
         authenticatedUser != null &&
         _accountDeletionPendingOwner == authenticatedUser.id;
@@ -1469,10 +1537,41 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           ),
         ),
       ),
-      home: !_appInitialized || resolvingAuthenticatedOwner
+      home:
+          !_appInitialized ||
+              (resolvingAuthenticatedOwner && !ownerResolutionFailed)
           ? const Scaffold(
               key: ValueKey('authenticatedStateLoading'),
               body: Center(child: CircularProgressIndicator()),
+            )
+          : ownerResolutionFailed
+          ? Scaffold(
+              key: const ValueKey('profileResolutionError'),
+              body: SafeArea(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.cloud_off_outlined, size: 48),
+                        const SizedBox(height: 20),
+                        Text(
+                          lookupAppLocalizations(_locale)
+                              .profileResolutionError,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 20),
+                        FilledButton(
+                          key: const Key('retryProfileResolutionButton'),
+                          onPressed: _retryOwnerResolution,
+                          child: Text(lookupAppLocalizations(_locale).retry),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             )
           : accountDeletionPending
           ? Scaffold(

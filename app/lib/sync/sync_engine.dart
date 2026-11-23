@@ -15,6 +15,12 @@ import 'media_binary_transfer.dart';
 import 'sync_models.dart';
 import 'sync_store.dart';
 
+/// Authoritative outcome of resolving the current owner's remote profile.
+///
+/// `absent` is distinct from `unavailable`: only an explicit successful
+/// response without a profile may start first-profile onboarding (AUT-07).
+enum RemoteProfileResolution { found, absent, unavailable }
+
 class SyncEngine extends ChangeNotifier {
   SyncEngine(
     this._store,
@@ -42,6 +48,46 @@ class SyncEngine extends ChangeNotifier {
   Future<void>? _activeRun;
 
   bool get running => _running;
+
+  /// Resolves only the authenticated owner's profile before route selection.
+  ///
+  /// This read does not drain the outbox. It exists so application bootstrap
+  /// never treats a transport/authentication failure as a missing profile.
+  Future<RemoteProfileResolution> resolveRemoteProfile(String ownerSub) async {
+    if (_accountDeletionPendingOwners.contains(ownerSub)) {
+      return RemoteProfileResolution.unavailable;
+    }
+    String? token;
+    try {
+      token = await _sessions.accessTokenFor(ownerSub);
+    } on Object {
+      return RemoteProfileResolution.unavailable;
+    }
+    if (token == null) return RemoteProfileResolution.unavailable;
+    try {
+      final profile = _data(
+        await _send(
+          ownerSub,
+          token,
+          const SyncRequest(method: 'GET', path: '/v1/profile'),
+        ),
+      );
+      if (profile == null) return RemoteProfileResolution.absent;
+      if (profile is! Map<String, Object?>) {
+        return RemoteProfileResolution.unavailable;
+      }
+      await _store.applyRemoteProfile(ownerSub, profile);
+      return RemoteProfileResolution.found;
+    } on SyncHttpException {
+      return RemoteProfileResolution.unavailable;
+    } on SyncTransportException {
+      return RemoteProfileResolution.unavailable;
+    } on FormatException {
+      return RemoteProfileResolution.unavailable;
+    } on _AccountDeletionPendingSync {
+      return RemoteProfileResolution.unavailable;
+    }
+  }
 
   /// Permanently fences one owner after backend acceptance on this device.
   ///

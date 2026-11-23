@@ -29,6 +29,11 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   perfil incompleto abre Tu perfil vacío, sin Yahir/CBQA u otra identidad demo,
   y un perfil completo abre directamente la selección de evento/origen, sin
   parpadeos ni redirecciones duplicadas.
+- Al cambiar A → logout → B, la ausencia en caché local no prueba que B esté
+  incompleta: Foloo mantiene la transición hasta resolver el perfil remoto. Una
+  respuesta explícita sin perfil habilita onboarding; un fallo de red muestra
+  reintento y una respuesta tardía de A o de una sesión cancelada no puede
+  cambiar la navegación de B (`AUT-07`, FL-025/QA-30).
 - En identidad Google federada, `username` técnico, atributo `email` y `sub`
   permanecen separados: la UI muestra `email`, nunca `google_*`, mientras
   ownership continúa usando exclusivamente `sub`.

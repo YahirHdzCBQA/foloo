@@ -84,6 +84,16 @@ class _Api implements SyncApi {
   }
 }
 
+class _UnavailableProfileApi extends _Api {
+  @override
+  Future<SyncResponse> send(String accessToken, SyncRequest request) async {
+    if (request.path == '/v1/profile') {
+      throw const SyncTransportException();
+    }
+    return super.send(accessToken, request);
+  }
+}
+
 class _LeadRevisionApi extends _Api {
   _LeadRevisionApi(this.leadId);
   final String leadId;
@@ -341,6 +351,42 @@ Map<String, Object?> _remoteLead(
 void main() {
   const owner = 'cognito-sub-a';
   const profile = DemoProfile(name: 'Seller', company: 'Foloo');
+
+  test('AUT-07 remote profile resolution distinguishes all outcomes', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final store = SyncStore(database);
+    final api = _Api();
+    final engine = SyncEngine(store, api, _Session('token'));
+
+    expect(
+      await engine.resolveRemoteProfile(owner),
+      RemoteProfileResolution.absent,
+    );
+
+    api.remoteProfile = {
+      'name': 'Remote Seller',
+      'company': 'Foloo',
+      'updatedAt': '2026-11-23T12:00:00.000Z',
+    };
+    expect(
+      await engine.resolveRemoteProfile(owner),
+      RemoteProfileResolution.found,
+    );
+    expect(
+      (await ProfileRepository(database).load(owner))?.name,
+      'Remote Seller',
+    );
+
+    expect(
+      await SyncEngine(
+        store,
+        _UnavailableProfileApi(),
+        _Session('token'),
+      ).resolveRemoteProfile(owner),
+      RemoteProfileResolution.unavailable,
+    );
+  });
 
   test(
     'SYN-10 API client centralizes bearer, JSON and idempotency headers',

@@ -77,6 +77,7 @@
   "online": "EN LÍNEA",
   "profileTitle": "Antes de\ntu primer lead",
   "profileHelp": "Esto va en cada lead que captures. Se guarda en tu teléfono.",
+  "profileResolutionError": "No pudimos recuperar tu perfil. Revisa tu conexión e inténtalo de nuevo.",
   "profilePhoto": "Foto de perfil",
   "profileTakePhoto": "Tomar foto",
   "profileGallery": "Elegir de galería",

@@ -750,6 +750,26 @@ R8 en solución permanente.
 - No generar ni distribuir IPA hasta confirmar el siguiente build disponible
   en App Store Connect, firma/provisioning y el E2E Apple completo.
 
+### FL-025 / QA-30 — Onboarding transitorio al cambiar de cuenta
+
+**Estado:** **CORREGIDA Y VALIDADA LOCALMENTE; QA FÍSICO PENDIENTE.**
+
+- Causa confirmada: FL-025A bloqueaba durante la lectura local, pero una cuenta
+  existente sin perfil aún cacheado se clasificaba incompleta antes de que el
+  pull remoto recuperara su perfil.
+- La resolución inicial consulta únicamente el perfil owner-scoped cuando no
+  hay copia local, distingue perfil remoto presente, ausencia confirmada y
+  servicio no disponible. El último caso conserva una pantalla recuperable y
+  nunca abre onboarding.
+- Un contador de generación invalida cargas iniciadas por una sesión anterior;
+  logout, cambio A→B o respuesta tardía no pueden actualizar la ruta vigente.
+- Cobertura automatizada: demora remota de tres segundos sin un frame de
+  onboarding, ausencia confirmada, error/reintento, cambio A→B y respuesta
+  posterior al logout. Validación local: análisis limpio, 75/75 pruebas
+  focalizadas y suite Flutter 413 PASS/1 SKIP; el test del contrato Build 7
+  pasó por separado con sus defines. Falta confirmar el caso original en
+  iPhone antes de marcar QA-30 como validada físicamente.
+
 ## Exclusiones del plan V1
 
 No existen fases Basic E2E, capability Basic/Pro, Pro E2E, transcripción Pro ni

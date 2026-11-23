@@ -260,6 +260,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'This appears on every lead you capture. It is saved on your phone.';
 
   @override
+  String get profileResolutionError =>
+      'We could not retrieve your profile. Check your connection and try again.';
+
+  @override
   String get profilePhoto => 'Profile photo';
 
   @override
