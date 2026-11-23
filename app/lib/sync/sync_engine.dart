@@ -600,11 +600,13 @@ class SyncEngine extends ChangeNotifier {
         payload['eventId'] as String? ?? '',
       ),
       SyncEntityType.emailFollowUp => switch (payload['leadId']) {
-        final String leadId => _store.hasPending(
-          operation.ownerUserId,
-          SyncEntityType.lead,
-          leadId,
-        ),
+        final String leadId =>
+          await _store.hasPending(
+                operation.ownerUserId,
+                SyncEntityType.lead,
+                leadId,
+              ) ||
+              await _hasEarlierOpenEntityOperation(operation),
         _ => false,
       },
       SyncEntityType.emailSendIntent => switch (payload['followUpId']) {
@@ -616,6 +618,26 @@ class SyncEngine extends ChangeNotifier {
         _ => false,
       },
     };
+  }
+
+  Future<bool> _hasEarlierOpenEntityOperation(
+    StoredSyncOperation operation,
+  ) async {
+    final operations = await _store.database.syncDao.forEntity(
+      operation.ownerUserId,
+      operation.entityType,
+      operation.entityId,
+    );
+    return operations.any((candidate) {
+      if (candidate.operationId == operation.operationId ||
+          candidate.status == SyncOperationStatus.failed.name) {
+        return false;
+      }
+      final byTime = candidate.createdAt.compareTo(operation.createdAt);
+      return byTime < 0 ||
+          (byTime == 0 &&
+              candidate.operationId.compareTo(operation.operationId) < 0);
+    });
   }
 
   Future<bool> _hasPendingLeadCreate(StoredSyncOperation event) async {

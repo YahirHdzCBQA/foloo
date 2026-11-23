@@ -688,6 +688,28 @@ R8 en solución permanente.
   ADR-001/004/005/006/007. No requiere backend, migración ni infraestructura;
   validación física iOS/Android queda pendiente.
 
+### Corte QA-22–QA-27 aprobado (2026-11-23)
+
+- QA-22/24 corrigen las etiquetas localizadas “Nivel de Interés” y “Nombre de
+  lead” sin cambiar sus predicados.
+- QA-23 lista Leads directos owner-scoped por ID estable, permite selección
+  individual/múltiple y conserva un switch independiente “Solo leads directos”.
+  Eventos dormidos se restauran al apagarlo; lista y exportación comparten el
+  mismo `RecordsFilterState` sin duplicados.
+- QA-25 fija Contacto → Nota de voz → Imágenes de referencia → Nota escrita →
+  Contenido → Registro y retira únicamente “Contenido adjunto”.
+- QA-26 añade regreso circular a Inicio en los cuatro módulos, sin apilar otra
+  captura y conservando el gate de cambios pendientes de Correo.
+- QA-27 normaliza asociaciones Content por ID en Drift, UI, Review, export y
+  pull; la reconciliación semántica es idempotente y preserva literales. La
+  confirmación actualiza/coalesce el snapshot de preparación y el motor ordena
+  Lead → follow-up → intención, por lo que una mutación pendiente nunca permite
+  enviar adjuntos anteriores bajo un cuerpo nuevo. No cambia backend, esquema,
+  Gmail/Graph ni infraestructura.
+- Trazas: `REG-02`–`REG-11`, `CON-08`, `PLT-08`, `SAL-01`–`SAL-03`,
+  `SYN-01`–`SYN-09`, `NAV-01`; E-06/E-08/E-10/E-12;
+  ADR-001/004/006/007. Validación física iOS/Android queda pendiente.
+
 ## Exclusiones del plan V1
 
 No existen fases Basic E2E, capability Basic/Pro, Pro E2E, transcripción Pro ni

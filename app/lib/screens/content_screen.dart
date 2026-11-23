@@ -200,6 +200,8 @@ class _ContentScreenState extends State<ContentScreen> {
                 ? context.l10n.noFiles
                 : context.l10n.fileCount(widget.files.length),
             onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+            onBackToHome: () =>
+                widget.onDestinationSelected(AppDestination.home),
           ),
           Divider(height: 1, color: palette.line),
           Padding(

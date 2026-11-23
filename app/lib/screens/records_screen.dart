@@ -1034,6 +1034,8 @@ class _RecordsScreenState extends State<RecordsScreen>
             subtitle:
                 '${context.l10n.leadCount(records.length)} · ${context.l10n.pendingCount(pending)}',
             onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+            onBackToHome: () =>
+                widget.onDestinationSelected(AppDestination.home),
           ),
           Container(
             color: palette.card,
@@ -1192,7 +1194,7 @@ class _RecordsFilterBar extends StatelessWidget {
         _FilterButton(
           key: const Key('recordsDirectFilter'),
           label: context.l10n.directLeads,
-          count: filters.includeDirect ? 1 : 0,
+          count: filters.directLeadIds.length + (filters.onlyDirect ? 1 : 0),
           icon: Icons.person_add_alt_1_outlined,
           onTap: () => onOpen(RecordsFilterCategory.direct),
         ),
@@ -1622,14 +1624,14 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
     final availableById = {
       for (final file in widget.contentFiles) file.id: file,
     };
-    final orderedIds = <String>[
+    final orderedIds = <String>{
       for (final id in _record.lead.contentFileIds)
         if (selected.contains(id)) id,
       for (final file in _availableContent)
         if (selected.contains(file.id) &&
             !_record.lead.contentFileIds.contains(file.id))
           file.id,
-    ];
+    }.toList();
     final oldNames = <String, String>{
       for (var index = 0; index < _record.lead.contentFileIds.length; index++)
         if (index < _record.lead.contentNames.length)
@@ -2048,7 +2050,6 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
               label: context.l10n.contactRole,
               value: lead.role.isEmpty ? '—' : lead.role,
             ),
-            _contentSection(palette),
             if (record.effectiveVoiceNotes.isNotEmpty ||
                 onAddVoiceNote != null) ...[
               const SizedBox(height: 18),
@@ -2309,28 +2310,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
                 ),
               ),
             ],
-            const SizedBox(height: 18),
-            Text(
-              context.l10n.sentContentDemo,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 8),
-            if (lead.contentNames.isEmpty)
-              Text(
-                context.l10n.noContentAttached,
-                key: const Key('detailNoAttachedContent'),
-                style: TextStyle(color: palette.inkSecondary),
-              )
-            else ...[
-              ...lead.contentNames.map(
-                (name) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.picture_as_pdf_outlined),
-                  title: Text(name),
-                  subtitle: Text(context.l10n.frozenAttachment),
-                ),
-              ),
-            ],
+            _contentSection(palette),
             const SizedBox(height: 22),
             Text(
               context.l10n.recordDetails,

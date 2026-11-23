@@ -25,6 +25,8 @@ LeadDraft lead({
   String eventId = 'expo-alimentaria',
   String eventName = DemoEventData.eventName,
   String name = 'Mariana',
+  String note = '',
+  List<String> contentIds = const [],
   List<String> contentNames = const [],
   List<String> referenceImagePaths = const [],
   LeadOriginKind originKind = LeadOriginKind.event,
@@ -38,11 +40,12 @@ LeadDraft lead({
   phone: '',
   type: LeadType.customer,
   interest: InterestLevel.high,
-  note: '',
+  note: note,
   originKind: originKind,
   eventLocalId: originKind == LeadOriginKind.event ? eventId : null,
   eventName: originKind == LeadOriginKind.event ? eventName : null,
   place: place,
+  contentFileIds: contentIds,
   contentNames: contentNames,
   audioLocalPath: audioPath,
   audioSeconds: audioSeconds,
@@ -679,6 +682,8 @@ void main() {
 
     await tester.tap(find.byKey(const Key('recordsEventsFilter')));
     await tester.pumpAndSettle();
+    expect(find.text('Nivel de Interés'), findsOneWidget);
+    expect(find.text('Nombre de lead'), findsOneWidget);
     await tester.tap(
       find.byKey(const Key('recordsFilterEvent-expo-alimentaria')),
     );
@@ -689,11 +694,21 @@ void main() {
 
     await tester.tap(find.byKey(const Key('recordsDirectFilter')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('recordsFilterDirect')));
+    await tester.tap(
+      find.byKey(const Key('recordsFilterDirectLead-direct-lead')),
+    );
     await tester.tap(find.byKey(const Key('applyRecordsFilters')));
     await tester.pumpAndSettle();
     expect(find.text('Evento Sandoval Ruiz'), findsOneWidget);
     expect(find.text('Directo Sandoval Ruiz'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('recordsDirectFilter')));
+    await tester.pumpAndSettle();
+    expect(find.text('Solo leads directos'), findsOneWidget);
+    expect(
+      find.byKey(const Key('recordsFilterDirectLead-direct-lead')),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
@@ -703,7 +718,10 @@ void main() {
         localId: 'lead-content',
         folio: null,
         capturedAt: DateTime(2026, 9, 22),
-        lead: lead(contentNames: const ['Ficha A.pdf', 'Ficha B.pdf']),
+        lead: lead(
+          contentIds: const ['content-a', 'content-b'],
+          contentNames: const ['Ficha A.pdf', 'Ficha B.pdf'],
+        ),
       );
       await tester.pumpWidget(
         recordsApp(FakeVoiceNoteService(), records: [record]),
@@ -716,6 +734,41 @@ void main() {
       expect(find.text('Ficha B.pdf'), findsOneWidget);
     },
   );
+
+  testWidgets('QA-25 detail keeps the approved section order', (tester) async {
+    final record = SessionLead(
+      localId: 'lead-section-order',
+      folio: null,
+      capturedAt: DateTime(2026, 11, 22),
+      lead: lead(
+        audioPath: '/private/voice.m4a',
+        audioSeconds: 2,
+        referenceImagePaths: const ['/private/reference.jpg'],
+        note: 'Nota QA',
+        contentIds: const ['content-a'],
+        contentNames: const ['Ficha A'],
+      ),
+    );
+    await tester.pumpWidget(
+      recordsApp(FakeVoiceNoteService(), records: [record]),
+    );
+    await tester.tap(find.text('Mariana Sandoval Ruiz'));
+    await tester.pumpAndSettle();
+
+    final sections = [
+      'Contacto',
+      'Nota de voz',
+      'Imágenes de referencia',
+      'Nota escrita',
+      'Contenido',
+      'Registro',
+    ];
+    final positions = sections
+        .map((label) => tester.getTopLeft(find.text(label).first).dy)
+        .toList();
+    expect(positions, orderedEquals([...positions]..sort()));
+    expect(find.text('Contenido adjunto'), findsNothing);
+  });
 
   testWidgets('SYN-07 failed media is never described as waiting for signal', (
     tester,
@@ -1098,7 +1151,7 @@ void main() {
     );
     await tester.tap(find.text('Mariana Sandoval Ruiz'));
     await tester.pumpAndSettle();
-    expect(find.text('Sin contenido adjunto'), findsOneWidget);
+    expect(find.text('Este lead no tiene contenido asociado.'), findsOneWidget);
     expect(find.textContaining('demo', findRichText: true), findsNothing);
     await tester.tap(find.byKey(const Key('editLeadButton')));
     await tester.pumpAndSettle();
@@ -1172,7 +1225,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('recordsDirectFilter')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('recordsFilterDirect')));
+    await tester.tap(
+      find.byKey(const Key('recordsFilterDirectLead-direct-lead')),
+    );
     await tester.tap(find.byKey(const Key('applyRecordsFilters')));
     await tester.pumpAndSettle();
 

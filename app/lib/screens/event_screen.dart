@@ -232,6 +232,8 @@ class _EventScreenState extends State<EventScreen> {
             subtitle:
                 '${context.l10n.eventCount(widget.events.length)} · ${context.l10n.leadCount(total)}',
             onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+            onBackToHome: () =>
+                widget.onDestinationSelected(AppDestination.home),
           ),
           Divider(height: 1, color: palette.line),
           Expanded(

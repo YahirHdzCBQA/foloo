@@ -345,6 +345,80 @@ void main() {
     expect(reconciled.plainBody, isNot(contains('Ficha C')));
   });
 
+  test(
+    'QA-27 successive Content selections are canonical and idempotent',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      await _seed(database);
+      final repository = EmailDeliveryRepository(database);
+
+      final initial = await repository.prepareForLead(
+        owner: _owner,
+        leadId: _leadId,
+        lead: _lead(),
+        seller: _seller,
+        language: 'es',
+      );
+      final onlyA = await repository.prepareForLead(
+        owner: _owner,
+        leadId: _leadId,
+        lead: _lead(
+          contentIds: const ['content-a'],
+          contentNames: const ['Ficha A'],
+        ),
+        seller: _seller,
+        language: 'es',
+        reconcileExisting: true,
+      );
+      expect(onlyA!.plainBody, contains('Ficha A'));
+      expect(onlyA.plainBody, isNot(contains('Ficha B')));
+
+      final onlyB = await repository.prepareForLead(
+        owner: _owner,
+        leadId: _leadId,
+        lead: _lead(
+          contentIds: const ['content-b', 'content-b'],
+          contentNames: const ['Ficha B', 'Ficha B obsoleta'],
+        ),
+        seller: _seller,
+        language: 'es',
+        reconcileExisting: true,
+      );
+      expect(onlyB!.localId, initial!.localId);
+      expect(onlyB.plainBody, contains('Ficha B'));
+      expect(onlyB.plainBody, isNot(contains('Ficha A')));
+      expect(RegExp('Ficha B').allMatches(onlyB.plainBody), hasLength(1));
+      expect(jsonDecode(onlyB.contentFileIdsJson), ['content-b']);
+      expect(jsonDecode(onlyB.contentNamesJson), ['Ficha B']);
+
+      final repeated = await repository.prepareForLead(
+        owner: _owner,
+        leadId: _leadId,
+        lead: _lead(
+          contentIds: const ['content-b'],
+          contentNames: const ['Ficha B'],
+        ),
+        seller: _seller,
+        language: 'es',
+        reconcileExisting: true,
+      );
+      expect(repeated!.plainBody, onlyB.plainBody);
+      expect(repeated.bodySemanticJson, onlyB.bodySemanticJson);
+
+      await repository.confirm(owner: _owner, followUpId: repeated.localId);
+      final followUpOperations = (await database.syncDao.forEntity(
+        _owner,
+        'emailFollowUp',
+        repeated.localId,
+      ));
+      expect(followUpOperations, hasLength(1));
+      final payload = jsonDecode(followUpOperations.single.payloadJson) as Map;
+      expect(payload['contentFileIds'], ['content-b']);
+      expect(payload['plainBody'], repeated.plainBody);
+    },
+  );
+
   test('semantic Review metadata survives database close and reopen', () async {
     final directory = await Directory.systemTemp.createTemp(
       'foloo_email_review_',

@@ -15,12 +15,14 @@ class ModuleHeader extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onMenuPressed,
+    this.onBackToHome,
     super.key,
   });
 
   final String title;
   final String subtitle;
   final VoidCallback onMenuPressed;
+  final VoidCallback? onBackToHome;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +35,20 @@ class ModuleHeader extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
           child: Row(
             children: [
+              if (onBackToHome != null) ...[
+                IconButton.filled(
+                  key: const Key('moduleHomeButton'),
+                  tooltip: context.l10n.back,
+                  onPressed: onBackToHome,
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                    backgroundColor: FolooColors.lime,
+                    foregroundColor: FolooColors.ink,
+                  ),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                ),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

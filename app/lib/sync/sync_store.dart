@@ -15,6 +15,7 @@ import '../data/local/app_database.dart';
 import '../data/local/private_media_storage.dart';
 import '../data/repositories/entitlement_repository.dart';
 import '../models/email_delivery_error.dart';
+import '../models/lead_draft.dart';
 import 'sync_models.dart';
 
 class LegacyMediaRepairResult {
@@ -747,6 +748,18 @@ class SyncStore {
       } else {
         await _markEntity(operation, 'synced');
       }
+      if (operation.entityType == SyncEntityType.emailFollowUp.name) {
+        for (final older in await database.syncDao.forEntity(
+          operation.ownerUserId,
+          operation.entityType,
+          operation.entityId,
+        )) {
+          if (older.operationId != operation.operationId &&
+              older.status == SyncOperationStatus.failed.name) {
+            await database.syncDao.complete(older.operationId);
+          }
+        }
+      }
       await database.syncDao.complete(operation.operationId);
     });
   }
@@ -1356,6 +1369,18 @@ class SyncStore {
       final event = eventId == null
           ? null
           : await database.eventDao.byId(ownerSub, eventId);
+      final content = normalizeLeadContentSelection(
+        (lead['contentFileIds'] is List
+                ? (lead['contentFileIds'] as List).whereType<String>()
+                : (jsonDecode(existing?.contentFileIdsJson ?? '[]') as List)
+                      .whereType<String>())
+            .toList(),
+        (lead['contentNames'] is List
+                ? (lead['contentNames'] as List).whereType<String>()
+                : (jsonDecode(existing?.contentNamesJson ?? '[]') as List)
+                      .whereType<String>())
+            .toList(),
+      );
       final now = DateTime.now().toUtc();
       await database.localLeads.insertOnConflictUpdate(
         LocalLeadsCompanion.insert(
@@ -1383,20 +1408,8 @@ class SyncStore {
           note: (lead['writtenNote'] as String?) ?? '',
           place: Value(lead['place'] as String?),
           commercialFolio: Value(lead['commercialFolio'] as String?),
-          contentFileIdsJson: Value(
-            jsonEncode(
-              lead['contentFileIds'] is List
-                  ? lead['contentFileIds']
-                  : jsonDecode(existing?.contentFileIdsJson ?? '[]'),
-            ),
-          ),
-          contentNamesJson: Value(
-            jsonEncode(
-              lead['contentNames'] is List
-                  ? lead['contentNames']
-                  : jsonDecode(existing?.contentNamesJson ?? '[]'),
-            ),
-          ),
+          contentFileIdsJson: Value(jsonEncode(content.ids)),
+          contentNamesJson: Value(jsonEncode(content.names)),
           transcription: Value(existing?.transcription),
           syncState: const Value('synced'),
           remoteRevision: Value(_requiredRemoteRevision(lead['revision'])),

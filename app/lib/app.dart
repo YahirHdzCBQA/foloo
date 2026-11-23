@@ -452,6 +452,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
 
   Future<EmailReviewDraft?> _emailReviewForLead(SessionLead record) async {
     if (record.lead.email.trim().isEmpty) return null;
+    final content = record.lead.normalizedContentSelection;
     await _persistence.emailDelivery.prepareForLead(
       owner: _userId,
       leadId: record.localId,
@@ -471,8 +472,8 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
       recipientAddress: followUp.recipientAddress,
       subject: followUp.subject,
       message: followUp.plainBody,
-      attachmentIds: record.lead.contentFileIds,
-      attachmentNames: record.lead.contentNames,
+      attachmentIds: content.ids,
+      attachmentNames: content.names,
     );
   }
 
@@ -520,15 +521,10 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
 
   Future<SessionLead> _updateLead(SessionLead record, LeadDraft updated) async {
     await _persistence.leads.updateDraft(_userId, record, updated);
-    await _persistence.emailDelivery.prepareForLead(
-      owner: _userId,
-      leadId: record.localId,
-      lead: updated,
-      seller: _profile,
-      language: _locale.languageCode == 'en' ? 'en' : 'es',
-      reconcileExisting: true,
-    );
     final leads = await _persistence.leads.listAll(_userId);
+    final refreshed = leads.firstWhere(
+      (item) => item.localId == record.localId,
+    );
     if (mounted) {
       setState(() {
         _sessionLeads
@@ -539,7 +535,21 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     if (_isOnline) {
       unawaited(_synchronize(trigger: SyncTrigger.postSave));
     }
-    return leads.firstWhere((item) => item.localId == record.localId);
+    try {
+      await _persistence.emailDelivery.prepareForLead(
+        owner: _userId,
+        leadId: record.localId,
+        lead: refreshed.lead,
+        seller: _profile,
+        language: _locale.languageCode == 'en' ? 'en' : 'es',
+        reconcileExisting: true,
+      );
+    } on Object {
+      // The Lead association is already durable and remains authoritative.
+      // Review retries this derived reconciliation before any confirmation.
+      debugPrint('Email preparation reconciliation deferred.');
+    }
+    return refreshed;
   }
 
   Future<SessionLead> _appendLeadReferenceImage(

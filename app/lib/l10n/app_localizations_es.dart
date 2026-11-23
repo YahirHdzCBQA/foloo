@@ -575,7 +575,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get client => 'Cliente';
 
   @override
-  String get interestLevel => 'NIVEL DE INTERÉS';
+  String get interestLevel => 'Nivel de Interés';
 
   @override
   String get interestLow => 'Bajo';
@@ -639,14 +639,17 @@ class AppLocalizationsEs extends AppLocalizations {
   String get eventsFilter => 'Eventos';
 
   @override
-  String get includeDirectLeads => 'Incluir leads directos';
+  String get onlyDirectLeads => 'Solo leads directos';
 
   @override
-  String get includeDirectLeadsHelp =>
-      'Se combinan con los eventos seleccionados sin duplicar resultados.';
+  String get onlyDirectLeadsHelp =>
+      'Excluye los leads de eventos sin perder sus selecciones.';
 
   @override
-  String get nameFilter => 'Nombre';
+  String get noDirectLeadsAvailable => 'No hay leads directos disponibles.';
+
+  @override
+  String get nameFilter => 'Nombre de lead';
 
   @override
   String get searchLeadName => 'Buscar por nombre';

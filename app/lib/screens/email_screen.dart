@@ -969,6 +969,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
                 FocusManager.instance.primaryFocus?.unfocus();
                 _scaffoldKey.currentState?.openEndDrawer();
               },
+              onBackToHome: () => unawaited(_navigateTo(AppDestination.home)),
             ),
             Divider(height: 1, color: FolooPalette.of(context).line),
             Expanded(

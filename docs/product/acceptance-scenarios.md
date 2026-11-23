@@ -125,15 +125,19 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 **Trazas:** `REG-01`–`REG-08`, `REG-15`–`REG-18`, `SAL-10`.
 
 - La barra horizontal Eventos / Leads directos / Tipo / Filtros abre un único
-  panel inferior. Eventos y Directos forman una unión; valores de la misma
-  categoría usan OR y categorías distintas AND, sin cambiar el evento activo.
+  panel inferior. Directos lista registros owner-scoped por identidad estable;
+  seleccionados y Eventos forman una unión. “Solo leads directos” excluye
+  Eventos sin olvidar su selección. Valores de una categoría usan OR y
+  categorías distintas AND, sin cambiar el evento activo.
 - Evento, directo, tipo, interés, empresa normalizada, nombre parcial, fechas
   inclusivas y Content funcionan offline sobre Drift. Ambos lados del panel
   tienen scroll independiente; acciones quedan fijas y el estado vacío permite
   limpiar filtros. Ningún Lead aparece duplicado.
 - El renglón comunica interés, voz, correo y sync; correo usa icono accesible
   entre voz y sync para no enviado/pendiente/enviando/enviado/error/por confirmar.
-- El detalle reproduce voz, abre tarjeta/referencias completas y muestra
+- El detalle reproduce voz, abre tarjeta/referencias completas y ordena
+  Contacto → Nota de voz → Imágenes de referencia → Nota escrita → Contenido →
+  Registro; no muestra el bloque redundante Contenido adjunto. Registro muestra
   fecha/hora, origen y capturó.
 - Tras renombrar un evento, el detalle de sus Leads muestra el nombre vigente
   desde la relación local, no un snapshot antiguo; también resuelve el nombre
@@ -235,9 +239,11 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   el foco (y en el último campo activo si el teclado perdió foco), sin borrar
   texto adyacente ni moverlo siempre al final. Unicode, saltos y chips mantienen
   offsets visuales exactos al tocar o borrar desde una posición intermedia.
-- Agregar o quitar Content desde el detalle del Lead actualiza la preparación
-  pendiente y su segmento `{contenido}`; Review/Reenviar solo consume esa
-  asociación vigente. Asunto, firma, párrafos y literales manuales permanecen;
+- Agregar o quitar Content desde el detalle actualiza Drift y la UI sin pulsar
+  Sincronizar, deduplica por ID y reconcilia idempotentemente la preparación
+  pendiente y `{contenido}`; Review/Reenviar solo consume esa asociación vigente
+  y su outbox espera la mutación del Lead antes de confirmar. Asunto, firma,
+  párrafos y literales manuales permanecen;
   un segmento convertido en literal no se sobrescribe y activa la advertencia
   existente. No aparece otra vista previa y los snapshots enviados continúan
   congelados.
@@ -463,7 +469,9 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Desde “¿Dónde estás conectado hoy?” el Drawer permite consultar Registros,
   Contenido, Mis eventos o Correo sin seleccionar Evento/Lead Directo ni iniciar
   captura. Esos cuatro módulos usan título izquierdo y el mismo Drawer a la
-  derecha; alternarlos repetidamente reutiliza el shell sin apilar rutas.
+  derecha, además de una flecha circular lima que vuelve directamente a Inicio;
+  alternarlos repetidamente reutiliza el shell sin apilar rutas. Correo conserva
+  su confirmación de cambios pendientes al usar esa flecha.
 - ES↔EN y claro↔oscuro actualizan todas las superficies con contraste y estado
   no dependiente solo de color.
 - El estado En línea muestra punto verde y Sin conexión punto rojo; ambos

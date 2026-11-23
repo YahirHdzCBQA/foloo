@@ -10,7 +10,8 @@ import 'session_lead.dart';
 class RecordsFilterState {
   const RecordsFilterState({
     this.eventIds = const {},
-    this.includeDirect = false,
+    this.directLeadIds = const {},
+    this.onlyDirect = false,
     this.leadTypes = const {},
     this.interests = const {},
     this.companies = const {},
@@ -21,7 +22,8 @@ class RecordsFilterState {
   });
 
   final Set<String> eventIds;
-  final bool includeDirect;
+  final Set<String> directLeadIds;
+  final bool onlyDirect;
   final Set<LeadType> leadTypes;
   final Set<InterestLevel> interests;
   final Set<String> companies;
@@ -30,7 +32,8 @@ class RecordsFilterState {
   final DateTime? toDate;
   final Set<String> contentIds;
 
-  bool get hasOriginFilter => eventIds.isNotEmpty || includeDirect;
+  bool get hasOriginFilter =>
+      eventIds.isNotEmpty || directLeadIds.isNotEmpty || onlyDirect;
   bool get isActive =>
       hasOriginFilter ||
       leadTypes.isNotEmpty ||
@@ -53,7 +56,8 @@ class RecordsFilterState {
 
   RecordsFilterState copyWith({
     Set<String>? eventIds,
-    bool? includeDirect,
+    Set<String>? directLeadIds,
+    bool? onlyDirect,
     Set<LeadType>? leadTypes,
     Set<InterestLevel>? interests,
     Set<String>? companies,
@@ -65,7 +69,8 @@ class RecordsFilterState {
     Set<String>? contentIds,
   }) => RecordsFilterState(
     eventIds: eventIds ?? this.eventIds,
-    includeDirect: includeDirect ?? this.includeDirect,
+    directLeadIds: directLeadIds ?? this.directLeadIds,
+    onlyDirect: onlyDirect ?? this.onlyDirect,
     leadTypes: leadTypes ?? this.leadTypes,
     interests: interests ?? this.interests,
     companies: companies ?? this.companies,
@@ -89,11 +94,17 @@ class RecordsFilterState {
       if (!seen.add(record.localId)) return false;
       final lead = record.lead;
       if (hasOriginFilter) {
-        final originMatches =
-            (includeDirect && lead.originKind == LeadOriginKind.direct) ||
-            (lead.originKind == LeadOriginKind.event &&
-                lead.eventLocalId != null &&
-                eventIds.contains(lead.eventLocalId));
+        final isDirect = lead.originKind == LeadOriginKind.direct;
+        final selectedDirect =
+            isDirect && directLeadIds.contains(record.localId);
+        final selectedEvent =
+            !onlyDirect &&
+            lead.originKind == LeadOriginKind.event &&
+            lead.eventLocalId != null &&
+            eventIds.contains(lead.eventLocalId);
+        final originMatches = onlyDirect
+            ? isDirect && (directLeadIds.isEmpty || selectedDirect)
+            : selectedDirect || selectedEvent;
         if (!originMatches) return false;
       }
       if (leadTypes.isNotEmpty && !leadTypes.contains(lead.type)) return false;

@@ -128,9 +128,10 @@ void main() {
     );
     expect(find.text('Seguimiento concreto'), findsNothing);
     expect(find.text('Hola Mariana'), findsNothing);
+    expect(find.text('Contenido adjunto'), findsNothing);
     expect(
       tester.getTopLeft(find.byKey(const Key('leadFollowUpSection'))).dy,
-      greaterThan(tester.getTopLeft(find.text('Contenido adjunto')).dy),
+      greaterThan(tester.getTopLeft(find.text('Registro')).dy),
     );
 
     await tester.ensureVisible(find.byKey(const Key('leadFollowUpCard')));

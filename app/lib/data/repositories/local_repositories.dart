@@ -31,18 +31,20 @@ typedef LocalIdFactory = String Function();
 
 String _defaultLocalId() => const Uuid().v4();
 
-Map<String, String> _emailTemplateValues(LeadDraft lead, DemoProfile seller) =>
-    {
-      'nombre': lead.name,
-      'apellido': lead.lastName,
-      'empresa': lead.company,
-      'puesto': lead.role,
-      'evento': lead.eventName ?? '',
-      'lugar': lead.place ?? '',
-      'contenido': lead.contentNames.join(', '),
-      'nombreVendedor': seller.name,
-      'empresaVendedor': seller.company,
-    };
+Map<String, String> _emailTemplateValues(LeadDraft lead, DemoProfile seller) {
+  final content = lead.normalizedContentSelection;
+  return {
+    'nombre': lead.name,
+    'apellido': lead.lastName,
+    'empresa': lead.company,
+    'puesto': lead.role,
+    'evento': lead.eventName ?? '',
+    'lugar': lead.place ?? '',
+    'contenido': content.names.where((name) => name.isNotEmpty).join(', '),
+    'nombreVendedor': seller.name,
+    'empresaVendedor': seller.company,
+  };
+}
 
 EmailSemanticDocument _reconciledDocument({
   required String? storedJson,
@@ -349,6 +351,7 @@ class EmailDeliveryRepository {
     bool reconcileExisting = false,
   }) async {
     if (lead.email.trim().isEmpty) return null;
+    final content = lead.normalizedContentSelection;
     final templates = await _database.emailTemplateDao.listForOwner(owner);
     final origin = lead.originKind.name;
     final stored = templates.where(
@@ -401,7 +404,7 @@ class EmailDeliveryRepository {
           )
           .join('\n');
     }
-    if (lead.contentNames.isEmpty) {
+    if (content.names.every((name) => name.isEmpty)) {
       effectiveBodyTemplate = effectiveBodyTemplate
           .split('\n')
           .where(
@@ -445,8 +448,8 @@ class EmailDeliveryRepository {
             subject: renderedSubject,
             plainBody: renderedBody,
             htmlBody: renderPlainTextEmailHtml(renderedBody),
-            contentFileIdsJson: Value(jsonEncode(lead.contentFileIds)),
-            contentNamesJson: Value(jsonEncode(lead.contentNames)),
+            contentFileIdsJson: Value(jsonEncode(content.ids)),
+            contentNamesJson: Value(jsonEncode(content.names)),
             languageCode: language,
             preparedAt: now,
             subjectSemanticJson: Value(generatedSubjectDocument.toJson()),
@@ -486,8 +489,8 @@ class EmailDeliveryRepository {
           subject: concreteSubject,
           plainBody: concretePlain,
           htmlBody: concreteHtml,
-          contentFileIdsJson: jsonEncode(lead.contentFileIds),
-          contentNamesJson: jsonEncode(lead.contentNames),
+          contentFileIdsJson: jsonEncode(content.ids),
+          contentNamesJson: jsonEncode(content.names),
           languageCode: language,
           preparedAt: now,
           subjectSemanticJson: subjectDocument.toJson(),
@@ -518,6 +521,7 @@ class EmailDeliveryRepository {
     );
     if (existing == null) throw StateError('Email follow-up not found.');
     final values = _emailTemplateValues(lead, seller);
+    final content = lead.normalizedContentSelection;
     final concreteSubject = subject.trim();
     final concreteBody = plainBody.trim();
     final previousSubjectDocument = existing.subjectSemanticJson == null
@@ -552,8 +556,8 @@ class EmailDeliveryRepository {
       bodySemanticJson: bodyDocument.toJson(),
       subjectManuallyEdited: existing.subjectManuallyEdited || subjectChanged,
       bodyManuallyEdited: existing.bodyManuallyEdited || bodyChanged,
-      contentFileIdsJson: jsonEncode(lead.contentFileIds),
-      contentNamesJson: jsonEncode(lead.contentNames),
+      contentFileIdsJson: jsonEncode(content.ids),
+      contentNamesJson: jsonEncode(content.names),
     );
   }
 
@@ -579,6 +583,17 @@ class EmailDeliveryRepository {
     final finalSubject = (subject ?? followUp.subject).trim();
     final finalPlainBody = (plainBody ?? followUp.plainBody).trim();
     final finalHtmlBody = renderPlainTextEmailHtml(finalPlainBody);
+    final followUpPayload = <String, Object?>{
+      'id': followUpId,
+      'leadId': followUp.leadLocalId,
+      'language': followUp.languageCode,
+      'contentFileIds': (jsonDecode(followUp.contentFileIdsJson) as List)
+          .whereType<String>()
+          .toList(),
+      'subject': finalSubject,
+      'plainBody': finalPlainBody,
+      'htmlBody': finalHtmlBody,
+    };
     await _database.transaction(() async {
       await _database.emailDeliveryDao.updatePreparedFollowUp(
         owner,
@@ -587,27 +602,30 @@ class EmailDeliveryRepository {
         plainBody: finalPlainBody,
         htmlBody: finalHtmlBody,
       );
-      if (followUp.syncState != 'synced' &&
-          !await _syncStore.hasPending(
-            owner,
-            SyncEntityType.emailFollowUp,
-            followUpId,
-          )) {
+      final operations = await _database.syncDao.forEntity(
+        owner,
+        SyncEntityType.emailFollowUp.name,
+        followUpId,
+      );
+      var queuedLatestSnapshot = false;
+      for (final operation in operations.where(
+        (item) => item.status == 'pending' && item.action == 'create',
+      )) {
+        queuedLatestSnapshot = await _database.syncDao.replacePendingPayload(
+          operation.operationId,
+          operation.payloadJson,
+          jsonEncode(followUpPayload),
+          now,
+        );
+        if (queuedLatestSnapshot) break;
+      }
+      if (!queuedLatestSnapshot) {
         await _syncStore.enqueue(
           ownerSub: owner,
           entityType: SyncEntityType.emailFollowUp,
           entityId: followUpId,
           action: 'create',
-          payload: {
-            'id': followUpId,
-            'leadId': followUp.leadLocalId,
-            'language': followUp.languageCode,
-            'contentFileIds': (jsonDecode(followUp.contentFileIdsJson) as List)
-                .cast<String>(),
-            'subject': finalSubject,
-            'plainBody': finalPlainBody,
-            'htmlBody': finalHtmlBody,
-          },
+          payload: followUpPayload,
           now: now,
         );
       }
@@ -1182,6 +1200,7 @@ class LeadRepository {
     required DemoProfile capturedBy,
   }) async {
     final localId = _idFactory();
+    final content = draft.normalizedContentSelection;
     String? cardPath;
     String? audioPath;
     final referencePaths = <String>[];
@@ -1250,8 +1269,8 @@ class LeadRepository {
             interestLevel: draft.interest.name,
             note: draft.note,
             place: Value(draft.place),
-            contentFileIdsJson: Value(jsonEncode(draft.contentFileIds)),
-            contentNamesJson: Value(jsonEncode(draft.contentNames)),
+            contentFileIdsJson: Value(jsonEncode(content.ids)),
+            contentNamesJson: Value(jsonEncode(content.names)),
             syncState: const Value('local'),
             createdAt: now,
             updatedAt: now,
@@ -1309,7 +1328,7 @@ class LeadRepository {
             'leadType': draft.type.name,
             'interest': draft.interest.name,
             'writtenNote': draft.note.isEmpty ? null : draft.note,
-            'contentFileIds': draft.contentFileIds,
+            'contentFileIds': content.ids,
           },
           now: now,
         );
@@ -1352,6 +1371,8 @@ class LeadRepository {
           clearCardImage: cardPath == null,
           clearAudio: audioPath == null,
           referenceImageLocalPaths: referencePaths,
+          contentFileIds: content.ids,
+          contentNames: content.names,
         ),
         uploadState: SessionUploadState.local,
         mediaIncomplete: mediaIncomplete,
@@ -1472,6 +1493,7 @@ class LeadRepository {
     SessionLead session,
     LeadDraft draft,
   ) async {
+    final content = draft.normalizedContentSelection;
     final name = draft.name.trim();
     final email = draft.email.trim();
     final phone = draft.phone.trim();
@@ -1518,7 +1540,7 @@ class LeadRepository {
       'place': stored.originKind == LeadOriginKind.direct.name
           ? draft.place
           : null,
-      'contentFileIds': draft.contentFileIds,
+      'contentFileIds': content.ids,
     };
     await _database.transaction(() async {
       await _database.leadDao.updateLead(
@@ -1532,8 +1554,8 @@ class LeadRepository {
           leadType: draft.type.name,
           interestLevel: draft.interest.name,
           note: draft.note,
-          contentFileIdsJson: jsonEncode(draft.contentFileIds),
-          contentNamesJson: jsonEncode(draft.contentNames),
+          contentFileIdsJson: jsonEncode(content.ids),
+          contentNamesJson: jsonEncode(content.names),
           eventLocalId: Value(
             stored.originKind == LeadOriginKind.event.name
                 ? draft.eventLocalId
@@ -1885,6 +1907,10 @@ class LeadRepository {
       }
     }
     final stored = bundle.lead;
+    final content = normalizeLeadContentSelection(
+      (jsonDecode(stored.contentFileIdsJson) as List<dynamic>).cast<String>(),
+      (jsonDecode(stored.contentNamesJson) as List<dynamic>).cast<String>(),
+    );
     final voice = voices.firstOrNull;
     final mediaStates = bundle.media.map((item) => item.uploadState).toSet();
     final leadState = switch (stored.syncState) {
@@ -1940,13 +1966,8 @@ class LeadRepository {
         audioLocalPath: voice?.localPath,
         audioSeconds: voice?.durationSeconds ?? 0,
         place: stored.place,
-        contentFileIds: List<String>.from(
-          (jsonDecode(stored.contentFileIdsJson) as List<dynamic>)
-              .cast<String>(),
-        ),
-        contentNames: List<String>.from(
-          (jsonDecode(stored.contentNamesJson) as List<dynamic>).cast<String>(),
-        ),
+        contentFileIds: content.ids,
+        contentNames: content.names,
         referenceImageLocalPaths: references
             .map((media) => media.localPath)
             .toList(),

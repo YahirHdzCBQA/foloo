@@ -476,6 +476,7 @@ class EmailDeliveryDao extends DatabaseAccessor<AppDatabase>
               bodyManuallyEdited: Value(bodyManuallyEdited),
               contentFileIdsJson: Value(contentFileIdsJson),
               contentNamesJson: Value(contentNamesJson),
+              syncState: const Value('local'),
             ),
           );
 
@@ -512,6 +513,7 @@ class EmailDeliveryDao extends DatabaseAccessor<AppDatabase>
               bodySemanticJson: Value(bodySemanticJson),
               subjectManuallyEdited: Value(subjectManuallyEdited),
               bodyManuallyEdited: Value(bodyManuallyEdited),
+              syncState: const Value('local'),
             ),
           );
 

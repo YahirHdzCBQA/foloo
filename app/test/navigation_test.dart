@@ -161,7 +161,7 @@ void main() {
       await selectDrawerDestination(tester, destination);
       final module = find.byKey(screen);
       expect(module, findsOneWidget);
-      expect(find.byKey(const Key('moduleBackButton')), findsNothing);
+      expect(find.byKey(const Key('moduleHomeButton')), findsOneWidget);
       expect(find.byKey(const Key('eventsBackButton')), findsNothing);
       expect(find.byKey(const Key('hamburgerMenuButton')), findsOneWidget);
       final titleFinder = find.descendant(
@@ -169,7 +169,7 @@ void main() {
         matching: find.text(title),
       );
       expect(titleFinder, findsOneWidget);
-      expect(tester.getTopLeft(titleFinder).dx, lessThan(30));
+      expect(tester.getTopLeft(titleFinder).dx, greaterThan(60));
       expect(
         tester.getTopLeft(find.byKey(const Key('hamburgerMenuButton'))).dx,
         greaterThan(300),
@@ -178,6 +178,9 @@ void main() {
       expect(find.byKey(const Key('appDrawer')), findsOneWidget);
       await tester.tapAt(const Offset(8, 300));
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('moduleHomeButton')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('leadCaptureScreen')), findsOneWidget);
     }
   });
 

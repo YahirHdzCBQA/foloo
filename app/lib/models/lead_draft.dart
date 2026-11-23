@@ -63,6 +63,13 @@ class LeadDraft {
   String get fullName => '$name $lastName'.trim();
   bool get hasVoiceNote => audioLocalPath?.isNotEmpty ?? false;
 
+  /// Returns the current Content selection once per stable file identifier.
+  ///
+  /// Names remain aligned with their identifiers so a stale duplicate cannot
+  /// leak into Review, exports or the outbox (CON-08, PLT-08, SYN-09).
+  LeadContentSelection get normalizedContentSelection =>
+      normalizeLeadContentSelection(contentFileIds, contentNames);
+
   LeadDraft copyWith({
     String? name,
     String? lastName,
@@ -107,4 +114,32 @@ class LeadDraft {
     referenceImageLocalPaths:
         referenceImageLocalPaths ?? this.referenceImageLocalPaths,
   );
+}
+
+/// Canonical, order-preserving Content association for one Lead.
+class LeadContentSelection {
+  const LeadContentSelection({required this.ids, required this.names});
+
+  final List<String> ids;
+  final List<String> names;
+}
+
+LeadContentSelection normalizeLeadContentSelection(
+  Iterable<String> sourceIds,
+  Iterable<String> sourceNames,
+) {
+  final namesByIndex = sourceNames.toList();
+  final seen = <String>{};
+  final ids = <String>[];
+  final names = <String>[];
+  var index = 0;
+  for (final sourceId in sourceIds) {
+    final id = sourceId.trim();
+    if (id.isNotEmpty && seen.add(id)) {
+      ids.add(id);
+      names.add(index < namesByIndex.length ? namesByIndex[index].trim() : '');
+    }
+    index++;
+  }
+  return LeadContentSelection(ids: ids, names: names);
 }

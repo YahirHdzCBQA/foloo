@@ -654,6 +654,95 @@ void main() {
     );
   });
 
+  test('QA-27 pending lead content blocks follow-up and send intent until recovery', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final store = SyncStore(database);
+    const leadId = '89898989-8989-4989-8989-898989898989';
+    const followUpId = '90909090-9090-4090-8090-909090909090';
+    const intentId = '91919191-9191-4191-8191-919191919191';
+    await store.enqueue(
+      ownerSub: owner,
+      entityType: SyncEntityType.lead,
+      entityId: leadId,
+      action: 'update',
+      payload: {
+        ..._remoteLead(leadId),
+        'contentFileIds': ['content-current'],
+        'contentNames': ['Ficha vigente'],
+      },
+    );
+    await store.enqueue(
+      ownerSub: owner,
+      entityType: SyncEntityType.emailFollowUp,
+      entityId: followUpId,
+      action: 'prepare',
+      payload: const {
+        'id': followUpId,
+        'leadId': leadId,
+        'contentFileIds': ['content-current'],
+        'contentNames': ['Ficha vigente'],
+        'plainBody': 'Te comparto Ficha vigente.',
+      },
+    );
+    await store.enqueue(
+      ownerSub: owner,
+      entityType: SyncEntityType.emailSendIntent,
+      entityId: intentId,
+      action: 'confirm',
+      payload: const {
+        'intentId': intentId,
+        'followUpId': followUpId,
+        'omittedContentIds': <String>[],
+      },
+    );
+    final api = _Api()..failures.add(const SyncTransportException());
+    final engine = SyncEngine(store, api, _Session('token'));
+
+    await engine.synchronize(owner);
+
+    expect(
+      api.calls.where((call) => call.request.method != 'GET'),
+      hasLength(1),
+    );
+    expect(
+      (await store.all(owner))
+          .singleWhere((item) => item.entityId == followUpId)
+          .status,
+      'pending',
+    );
+    expect(
+      (await store.all(owner))
+          .singleWhere((item) => item.entityId == intentId)
+          .status,
+      'pending',
+    );
+
+    await engine.synchronize(owner, trigger: SyncTrigger.manual);
+
+    expect(
+      api.calls
+          .where((call) => call.request.method != 'GET')
+          .map((call) => call.request.path),
+      [
+        '/v1/leads/$leadId',
+        '/v1/leads/$leadId',
+        '/v1/email/follow-ups',
+        '/v1/email/follow-ups/$followUpId/confirm',
+      ],
+    );
+    final followUpRequest = api.calls.singleWhere(
+      (call) =>
+          call.request.method == 'POST' &&
+          call.request.path == '/v1/email/follow-ups',
+    );
+    expect(followUpRequest.request.body?['contentFileIds'], [
+      'content-current',
+    ]);
+    expect(followUpRequest.request.body?['plainBody'], contains('vigente'));
+    expect(await store.all(owner), isEmpty);
+  });
+
   test('SYN-06 response loss retries with the same logical key', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);

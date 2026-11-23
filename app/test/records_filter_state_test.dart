@@ -66,10 +66,10 @@ void main() {
     ),
   ];
 
-  test('QA-20 unions origins and intersects independent categories', () {
+  test('QA-23 unions selected direct leads and events', () {
     final result = RecordsFilterState(
       eventIds: const {'event-a'},
-      includeDirect: true,
+      directLeadIds: const {'direct-partner'},
       leadTypes: const {LeadType.customer, LeadType.partner},
       interests: const {InterestLevel.high, InterestLevel.medium},
     ).apply(records);
@@ -78,6 +78,45 @@ void main() {
       'event-a-customer',
       'direct-partner',
     ]);
+  });
+
+  test(
+    'QA-23 direct-only ignores dormant events and can select individuals',
+    () {
+      final allDirect = RecordsFilterState(
+        eventIds: const {'event-a'},
+        onlyDirect: true,
+      ).apply(records);
+      expect(allDirect.map((item) => item.localId), ['direct-partner']);
+
+      final selected = RecordsFilterState(
+        eventIds: const {'event-a'},
+        directLeadIds: const {'direct-partner'},
+        onlyDirect: true,
+      ).apply(records);
+      expect(selected.map((item) => item.localId), ['direct-partner']);
+
+      final restoredUnion = RecordsFilterState(
+        eventIds: const {'event-a'},
+        directLeadIds: const {'direct-partner'},
+      ).apply(records);
+      expect(restoredUnion.map((item) => item.localId), [
+        'event-a-customer',
+        'direct-partner',
+      ]);
+    },
+  );
+
+  test('QA-23 ignores a selected lead after it is reassigned to an event', () {
+    final reassigned = _record(
+      id: 'direct-partner',
+      capturedAt: DateTime(2026, 11, 11),
+      origin: LeadOriginKind.event,
+      eventId: 'event-b',
+    );
+    final result = RecordsFilterState(directLeadIds: const {'direct-partner'})
+        .apply([reassigned]);
+    expect(result, isEmpty);
   });
 
   test('QA-20 normalizes Company and keeps date boundaries inclusive', () {

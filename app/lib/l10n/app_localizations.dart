@@ -1145,7 +1145,7 @@ abstract class AppLocalizations {
   /// No description provided for @interestLevel.
   ///
   /// In es, this message translates to:
-  /// **'NIVEL DE INTERÉS'**
+  /// **'Nivel de Interés'**
   String get interestLevel;
 
   /// No description provided for @interestLow.
@@ -1268,22 +1268,28 @@ abstract class AppLocalizations {
   /// **'Eventos'**
   String get eventsFilter;
 
-  /// No description provided for @includeDirectLeads.
+  /// No description provided for @onlyDirectLeads.
   ///
   /// In es, this message translates to:
-  /// **'Incluir leads directos'**
-  String get includeDirectLeads;
+  /// **'Solo leads directos'**
+  String get onlyDirectLeads;
 
-  /// No description provided for @includeDirectLeadsHelp.
+  /// No description provided for @onlyDirectLeadsHelp.
   ///
   /// In es, this message translates to:
-  /// **'Se combinan con los eventos seleccionados sin duplicar resultados.'**
-  String get includeDirectLeadsHelp;
+  /// **'Excluye los leads de eventos sin perder sus selecciones.'**
+  String get onlyDirectLeadsHelp;
+
+  /// No description provided for @noDirectLeadsAvailable.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay leads directos disponibles.'**
+  String get noDirectLeadsAvailable;
 
   /// No description provided for @nameFilter.
   ///
   /// In es, this message translates to:
-  /// **'Nombre'**
+  /// **'Nombre de lead'**
   String get nameFilter;
 
   /// No description provided for @searchLeadName.
