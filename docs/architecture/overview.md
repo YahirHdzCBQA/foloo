@@ -15,10 +15,10 @@
 para tests/desarrollo controlado. Cognito DEV usa región `us-east-1`, User Pool
 `us-east-1_QVm3dWe4O` y App Client público
 `6jong3atp2crqcsde6g215ant8` sin Client Secret. Self sign-up es email/password,
-con código por email, y Google usa federación Cognito. Apple y Microsoft tienen
-adaptadores móviles reutilizables, pero permanecen fuera de la UI publicada y
-apagados por defecto hasta validar sus proveedores externos, el App Client y
-los Registration Guards según ADR-009. El App Client móvil continúa sin secret.
+con código por email, y Google usa federación Cognito. Apple también la usa en
+el Build 7 privado homologado contra DEV. Apple y Microsoft siguen apagados
+por defecto; Microsoft Sign-In no está habilitado en Build 7 (ADR-009). El App
+Client móvil continúa sin secret.
 MFA de usuario y passwordless están fuera. El `sub` Cognito es ownership
 estable. Perfil Foloo no es un atributo Cognito. Auth social y OAuth sender son
 boundaries independientes.
@@ -133,8 +133,8 @@ conserva. La retención/borrado definitivo continúa abierta en D-13.
   y metadata sin binarios.
 - Autoridad actual del trial y estado comercial en PostgreSQL. `GET
   /v1/workspace` entrega el snapshot; `POST /v1/leads` bloquea el account row y
-  consume históricamente en la misma transacción idempotente. Webhooks y
-  transiciones producidas por pagos quedan para FL-021.
+  consume históricamente en la misma transacción idempotente. FL-021 habilita
+  PRO administrativo; la activación de pagos públicos queda para FL-022.
 - Storage S3 protegido, retención y URLs no públicas.
 - Sync reanudable de Leads y medios con colas independientes.
 - Plantillas server-side, sustitución, adjuntos y correo mediante la identidad
@@ -152,7 +152,7 @@ No forman parte de V1 Google Sheets, Transcribe/IA, QR, Teams o HQ dashboard.
 4. Guardar confirma Drift y medios privados.
 5. El contador remoto autoriza la nueva captura o conserva el borrador y abre
    paywall al sexto Lead.
-6. La futura sync envía operaciones idempotentes y medios por colas separadas.
+6. Sync envía operaciones idempotentes y medios por colas separadas.
 7. Guardar prepara un follow-up local y abre “Revisar”; no sincroniza todavía
    ese follow-up ni crea intención. El CTA `foloo` congela la edición concreta,
    encola follow-up + intención en orden y dispara sync cuando hay conectividad.

@@ -65,3 +65,39 @@ propio. No se agrega ninguna dependencia de compras ahora.
 - Un build sin aprobación explícita conserva el paywall informativo, pero no
   presenta el enlace externo.
 - Secretos de Stripe viven en Secrets Manager, nunca en Git ni en Flutter.
+
+## Evidencia técnica histórica de billing (octubre de 2026)
+
+Implementación anterior (entonces denominada FL-021 Billing) y migración
+`011_billing_stripe.sql` aplicada aisladamente en DEV el 2026-10-23.
+El código es evidencia de capacidad, no permiso para activar Stripe. En el
+roadmap vigente pago público y lifecycle corresponden a FL-022; el grant
+administrativo FL-021 no depende de este contrato.
+
+- Titularidad server-side por access JWT. Create Customer usa accountId
+  idempotente; se relee binding ganador con `stripe_customer_id IS NULL`.
+  Checkout/Portal ignoran owner, precio y URLs del cuerpo. Una suscripción
+  viva (active/trialing/past_due) evita un segundo Checkout; Portal sin
+  customer devuelve 404. Sin configuración se mantiene fallo seguro.
+- Webhook verifica firma SDK sobre body crudo antes de conceder acceso.
+  `event.id` y mutación comparten transacción; row lock y timestamp evitan
+  replay/fuera de orden. Timestamp empatado no revive un expired de la
+  misma suscripción. Metadatos owner y Price deben corresponder; solo
+  paid/no_payment_required conceden al confirmar Checkout. Unpaid espera
+  evento. Customer conocido aún sin vínculo puede requerir 503/retry;
+  eventos ajenos o mode=payment no conceden ni crean identidades.
+- Active/trialing habilitan; canceled/unpaid/deleted vencen. `past_due` o
+  `invoice.payment_failed` aislados no vencen ni prueban fin de reintentos.
+  No se aprueban gracia, reembolsos ni reconciliación periódica aquí.
+  `billing_events` conserva deduplicación con SELECT/INSERT, no
+  UPDATE/DELETE de la app; no sustituye retención contable legal.
+- Secretos por nombre exacto o ARN completo, nunca ARN parcial; solo lectura
+  scoped; en el corte histórico cache exitoso 5 min y throttling webhook
+  10/s, burst 20. El proveedor no accede a PostgreSQL. Conservar la
+  dependencia del stage con su ruta; un intento sin ella falló el 2026-10-22.
+- D-02 actualizó el precio **de prueba** del corte a anual: USD 89 y
+  MXN 1,780 con impuesto incluido para MXN. El antiguo mensual era de
+  prueba y queda superado; no usar IDs/URLs históricas en PROD. Evidencia
+  local original: 154/154, incluido PostgreSQL descartable, e
+  infraestructura con fixtures. Revalidar runtime y políticas al retomar
+  FL-022; no activar `BILLING_ENABLED` a partir de este registro.

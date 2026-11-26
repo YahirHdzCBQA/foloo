@@ -124,7 +124,7 @@ El inventario preliminar está en
 contrato técnico, matriz y decisiones que necesitan aprobación están en
 [`../delivery/account-deletion-contract.md`](../delivery/account-deletion-contract.md).
 El registro posterior a revisión y la agenda de validaciones pendientes están en
-[`../delivery/account-deletion-cbqa-approval-agenda.md`](../delivery/account-deletion-cbqa-approval-agenda.md).
+[`../delivery/account-deletion-contract.md#registro-de-acuerdos-cbqa--2026-10-20`](../delivery/account-deletion-contract.md#registro-de-acuerdos-cbqa--2026-10-20).
 STORE-02E-01 formaliza el comportamiento estable en `AUT-18`–`AUT-21`,
 `SYN-11`–`SYN-12`, `MON-13`, `INF-15`–`INF-21`, `RNF-09`–`RNF-10`,
 `RC-06`–`RC-10` y E-14; su matriz de criterios, decisiones y gates está en
@@ -153,20 +153,18 @@ evidencia técnica DEV ni permite omitir la eliminación exigida por tiendas.
 **Estado 2026-11-23:** aprobado Sign in with Apple vía Cognito (ADR-009). Una
 auditoría AWS DEV de solo lectura confirmó el IdP `SignInWithApple`, su
 habilitación en el App Client móvil, OAuth code, scopes `email name`, callbacks
-`foloo://` y guards para Google/Apple. Falta comprobar en Apple Developer la
-asociación App ID/Services ID/key y ejecutar el E2E de cuenta nueva, existente,
-relay privado, restore y logout. El default continúa
-`FOLOO_APPLE_SIGNIN=false`; la configuración candidata de TestFlight Build 7
-lo activa explícitamente, pero no puede distribuirse hasta cerrar ese gate.
+`foloo://` y guards para Google/Apple. La configuración Apple Developer
+quedó homologada para DEV y el operador confirmó login Apple en iPhone.
+El default continúa `FOLOO_APPLE_SIGNIN=false`; el IPA local Build 7 lo
+activa explícitamente. Véase la [evidencia y alcance](../delivery/ios-testflight-distribution.md).
 
-**Pregunta restante:** confirmar en Apple Developer que `com.foloo.foloo` es
-el App ID principal habilitado, que el Services ID configurado en Cognito está
-asociado a él y que dominio/return URL corresponden al dominio DEV; después,
-aceptar evidencia E2E. La lectura conservadora de Apple 4.8 no considera
-suficiente email/password mientras Google autentique la cuenta primaria.
+**Pendiente:** evidencia individual de la matriz ampliada (incluidos relay,
+cancelación, restore y logout), configuración de producción y autorización
+de distribución. Login funcional en DEV no demuestra aceptación de Apple
+ni cumplimiento comercial/de privacidad.
 
-**Bloquea:** distribución del candidato con Apple activo y submission pública
-iOS. No cambia `sub` como owner, no autoriza unir cuentas por email y no afecta
+**Bloquea:** declarar cerrado el gate de distribución/publicación. No bloquea
+la exportación local ya autorizada, no cambia `sub` como owner y no afecta
 el OAuth de sender.
 
 ## FL-019 · Decisiones resueltas el 2026-09-18

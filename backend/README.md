@@ -5,7 +5,7 @@ modular serverless monolith: API Gateway HTTP API validates Cognito JWTs, one
 application Lambda derives ownership from `sub`, and PostgreSQL runs privately
 on RDS. Flutter stays write-first in Drift and synchronizes through the outbox.
 
-## Estado vigente WEB-01 / WEB-02 en AWS DEV
+## Evidencia de cierre WEB-01 / WEB-02 en AWS DEV
 
 WEB-01 está publicado y aprobado en QA manual sin Overrides. WEB-02 está publicado
 pasivamente y cerrado funcional y administrativamente en DEV: la única eliminación
@@ -16,20 +16,21 @@ La reconciliación de WEB-01 y las dos etapas de desacoplamiento/limpieza termin
 con CloudFormation `UPDATE_COMPLETE`. Permanecen tres identidades web QA; QA
 destructivo está deshabilitado y su allowlist vacía. Runtime, intake, barreras y
 procesamiento de trabajo aceptado siguen habilitados; acceso normal y
-`storeEnabled` público permanecen en `false`. No se deben restaurar contextos
+`storeEnabled` público permanecían en `false` en ese corte; no es una
+revalidación del estado remoto actual. No se deben restaurar contextos
 privados históricos con autorizaciones retiradas.
 
 Trazas AUT-18/AUT-19, INF-15–INF-21, RNF-09/RNF-10, E-14. Véase
-[desacoplamiento y evidencias de las dos etapas](../docs/delivery/web-02-admission-decoupling.md).
+[desacoplamiento y evidencias de las dos etapas](../docs/delivery/store-02-account-deletion-closure.md#web-02--adaptador-oauth-inventario-y-retiro-de-qa-octubre-de-2026).
 D-13, gates de tiendas/producción y presentación del recibo/logout siguen siendo
 pendientes independientes. La ausencia de una auditoría por llamada OAuth y la
 consulta manual del recibo no realizada después del logout limitan la evidencia;
 no invalidan la verificación del procesamiento real.
 
-Un synth completo aún requiere reconciliar el helper opcional `qa-inventory` y
-revisar assets incidentales. El código versionado no autoriza `cdk deploy`.
-La propuesta mínima y su gate están en
-[el registro del inventario](../docs/delivery/web-02-qa-inventory-preparation.md#propuesta-pendiente-del-helper-cdk).
+Un synth completo requiere auditar assets incidentales y la configuración
+privada del helper `qa-inventory`. El código no autoriza `cdk deploy`.
+El selector independiente y sus límites están en
+[el registro del inventario](../docs/delivery/account-deletion-operations.md#selector-operativo-independiente-y-extensión-store-02d).
 Las notas de preparación posteriores son históricas y no sustituyen este estado.
 
 ## Boundaries
@@ -38,7 +39,8 @@ Implemented: account/workspace bootstrap, seller profile, events, leads, lead
 media metadata, validation, idempotent creates, safe errors, migrations,
 structured logging, private S3 media/Content transfer, Event/Lead sync, the
 FL-019 Google/Microsoft email boundary, and FL-020 server-authoritative trial
-enforcement, plus FL-021 web Checkout/Portal and signed billing webhooks. Mobile sync uses the Flutter outbox. Not implemented: payment
+enforcement, plus FL-021 administrative PRO. Existing Checkout/Portal and signed billing
+webhooks are retained as technical evidence for FL-022; no public payments. Mobile sync uses the Flutter outbox. Not implemented: payment
 processing configuration in Stripe, Teams, transcription or
 later phases.
 
@@ -193,7 +195,7 @@ was already applied, fails with `does not exist` for an unknown name, and never 
 other pending files. A later `{"action":"apply"}` without `only` applies the
 rest in order. DEV applied 011 this way on 2026-10-23.
 
-See [DECISIONES.md](DECISIONES.md) for lifecycle limits and acceptance coverage.
+See [ADR-008](../docs/decisions/ADR-008-cobro-web-stripe-checkout.md#evidencia-técnica-histórica-de-billing-octubre-de-2026) for the historical billing lifecycle and its limits. Public activation stays in FL-022.
 
 
 ### WEB-01 — Registration Guard: empaquetado y despliegue limitado

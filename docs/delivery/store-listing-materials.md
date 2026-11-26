@@ -6,7 +6,7 @@
 - Tipo: inventario, propuesta y checklist. No publica, no cambia el producto y
   no autoriza reemplazar iconos o splash.
 - Trazas: `REL-06`, `REL-07`, `RNF-02`, `RNF-06`, E-12 y `f5-08`.
-- Dependencias: [`store-readiness.md`](store-readiness.md), `D-01`–`D-04`,
+- Dependencias: [gates de tiendas](roadmap.md#gates-de-publicación-de-tiendas), `D-01`–`D-04`,
   `D-11` y `D-13`.
 
 Este documento es el paquete operativo de STORE-02B. Las propuestas describen
@@ -308,7 +308,7 @@ la ficha.
 ### Antes de producir assets
 
 - [ ] CBQA aprueba marca, icono base, paleta, tipografía y derechos.
-- [ ] Se cierran o separan todos los P0 de `store-readiness.md`.
+- [ ] Se cierran o separan los [gates de tiendas](roadmap.md#gates-de-publicación-de-tiendas).
 - [ ] Producto congela las funcionalidades que sí aparecerán en la ficha.
 - [ ] FL-021 y la comunicación del trial tienen decisión aprobada.
 - [ ] Se valida soporte iPad/large screen o se aprueba una decisión técnica

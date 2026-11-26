@@ -607,7 +607,7 @@ Estados usados:
 | `DEC-AD-14` | Foloo es multirregión; no asumir lanzamiento exclusivo en México                                                                                                                      | Dirección comunicada; alcance de lanzamiento pendiente                      | Dirección/Producto/Legal confirman países, idiomas, edad mínima y controles                 |
 
 La agenda y espacio de minuta están en
-[`account-deletion-cbqa-approval-agenda.md`](account-deletion-cbqa-approval-agenda.md).
+[Registro de acuerdos CBQA](#registro-de-acuerdos-cbqa--2026-10-20).
 `D-13` permanece abierta hasta que las validaciones aplicables tengan respuesta,
 responsable, fecha y evidencia y exista autorización formal para implementar.
 Un acuerdo de Producto no aprueba por sí solo retenciones, controles de
@@ -676,3 +676,47 @@ implementación**, cuando:
 - roadmap/traceability enlazan este contrato;
 - no se han creado endpoints, DDL, recursos AWS ni borrados;
 - `D-13` continúa abierta hasta aprobación expresa.
+
+## Registro de acuerdos CBQA · 2026-10-20
+
+La comunicación de Producto del 2026-10-20 es la fuente del registro. No
+constan fecha de reunión, participantes ni responsable de minuta. La Entrega C
+cerró reglas de producto, no validaciones legales, técnicas u operativas de
+PROD. La tabla conserva el grado de aprobación al corte; no sustituye
+`D-13` ni la evidencia DEV posterior.
+
+### Registro de decisiones y acciones pendientes
+
+| ID          | Acuerdo o propuesta comunicada                                                                                         | Estado actual                      | Pregunta/acción de cierre                                                                                | Responsable                 | Fecha/evidencia                               |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------- | --------------------------------------------- |
+| `DEC-AD-01` | Borrar datos personales/operativos; retener solo categorías administrativas, contables o legales realmente exigidas    | Acuerdo Producto/CBQA              | Legal/Contabilidad: enumerar categoría, base, región y plazo; descartar retención indefinida por defecto | Pendiente                   | Comunicación 2026-10-20; validación pendiente |
+| `DEC-AD-02` | Backups ordinarios por 15 días y restore con protección anti-resurrección                                              | Aprobado para copia ordinaria      | Infra/Seguridad: validar efectividad y runbook; Legal: separar legal hold                                | TI CBQA / pendiente nominal | STORE-02D C; `PEND-INFRA-02`/`PEND-LEGAL-01`  |
+| `DEC-AD-03` | Solo registros mínimos seudonimizados con propósito y plazo válidos                                                    | Acuerdo Producto/CBQA              | Legal/Seguridad: definir campos, HMAC, finalidad, acceso y expiración                                    | Pendiente                   | Comunicación 2026-10-20; diseño pendiente     |
+| `DEC-AD-04` | Máximo operativo de 15 días naturales; iniciar y completar cuanto antes                                                | Aprobado                           | Operación: validar destinatarios; Legal: validar alcance regional                                        | TI CBQA / pendiente nominal | STORE-02D C; alertas días 10/13/15            |
+| `DEC-AD-05` | Irreversible tras aceptación; nuevo registro con el mismo correo después de 30 días como cuenta nueva                  | Regla Producto/CBQA                | Seguridad/Legal: aprobar enforcement mínimo, federados, normalización y PII; confirmar excepciones       | Pendiente                   | Comunicación 2026-10-20; mecanismo pendiente  |
+| `DEC-AD-06` | Ofrecer sync y permitir continuar con advertencia irreversible y consentimiento explícito                              | Acuerdo Producto/CBQA              | Producto/Legal: aprobar copy; QA: cubrir outbox online/offline                                           | Pendiente                   | Comunicación 2026-10-20                       |
+| `DEC-AD-07` | Retry, registro de fallos y escalamiento                                                                               | Aprobado                           | Asignar personas/destinos de alertas dentro de TI de CBQA                                                | TI CBQA                     | STORE-02D C; `PEND-OPS-01`                    |
+| `DEC-AD-08` | Purga local selectiva por owner; cifrado se revisa aparte                                                              | Acuerdo Producto/CBQA              | Seguridad/Legal: revisar protección; QA: multi-owner y archivos                                          | Pendiente                   | Comunicación 2026-10-20                       |
+| `DEC-AD-09` | Reautenticación server-side con ventana máxima de cinco minutos                                                        | Aprobado                           | Seguridad: validar operación PROD y recuperación asistida reforzada                                      | TI CBQA / Seguridad         | STORE-02D C                                   |
+| `DEC-AD-10` | Stripe; aceptar primero, cancelar renovación y comprobar resultado; sin gracia ni reembolso automático, respetando ley | Aprobado para eliminación          | Legal: categorías contables y derechos regionales; Operación: validar SES                                | TI CBQA / Legal pendiente   | STORE-02D A/C                                 |
+| `DEC-AD-11` | Exportación previa voluntaria, nunca requisito                                                                         | Acuerdo Producto/CBQA              | Legal: confirmar portabilidad; Producto: copy                                                            | Pendiente                   | Comunicación 2026-10-20                       |
+| `DEC-AD-12` | `foloo.io` como punto principal; ruta candidata `foloo.io/delete-account`; mismo backend app/web                       | Dirección Producto/CBQA            | TI: hosting, TLS, publicación, owner, monitoreo y soporte; Legal: contenido                              | Pendiente                   | Comunicación 2026-10-20; URL no publicada     |
+| `DEC-AD-13` | Mantener abierta la definición de roles sobre datos de terceros                                                        | Decisión Legal/operativa pendiente | Legal: controlador/encargado por mercado y proceso; CBQA: designar owner                                 | **No designado**            | Comunicación 2026-10-20                       |
+| `DEC-AD-14` | Producto multirregión; no asumir México como único mercado                                                             | Dirección Producto/CBQA            | Dirección/Producto/Legal: países, idiomas, edad mínima y controles                                       | Pendiente                   | Comunicación 2026-10-20                       |
+
+### Validaciones por área
+
+| Área               | Confirmaciones necesarias                                                 | Responsable nominal | Fecha compromiso | Evidencia/enlace |
+| ------------------ | ------------------------------------------------------------------------- | ------------------- | ---------------- | ---------------- |
+| Legal/Contabilidad | Retenciones AD-01/02/03, terceros AD-13, portabilidad, regiones y menores | Pendiente           | Pendiente        | Pendiente        |
+| Seguridad          | Barrier de 30 días, HMAC/PII, reautenticación, receipts y revocación      | Pendiente           | Pendiente        | Pendiente        |
+| Infra/TI           | Backup/restore, `foloo.io/delete-account`, hosting, monitoreo y soporte   | Pendiente           | Pendiente        | Pendiente        |
+| Operación          | Owner de incidentes, retry/escalamiento y techo de 15 días                | Pendiente           | Pendiente        | Pendiente        |
+| Payments/FL-021    | Proveedor, cancelación, pagos/reembolsos y políticas de tiendas           | Pendiente           | Pendiente        | Pendiente        |
+| Producto/Dirección | Países, idiomas, menores, copy final y autorización de implementación     | Pendiente           | Pendiente        | Pendiente        |
+
+STORE-02E-01 promovió el contrato a requisitos y escenario E-14; la
+[matriz verificable](account-deletion-requirements-traceability.md) conserva
+criterios y trazas. Para publicar todavía se requieren responsables,
+fechas, evidencia por área y copy ES/EN aprobado. Los cuatro pendientes
+`PEND-*` se mantienen en [Operación](account-deletion-operations.md#pendientes-de-lanzamiento).

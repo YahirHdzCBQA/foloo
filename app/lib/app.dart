@@ -1847,12 +1847,9 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
               ? null
               : _emailConnectionService,
           active: _destination == AppDestination.email,
-          onSendQueued: () =>
-              unawaited(_synchronize(trigger: SyncTrigger.postSave)),
           recordsCount: _sessionLeads.length,
           contentCount: _contentFiles.length,
           records: List.unmodifiable(_sessionLeads),
-          contentFiles: List.unmodifiable(_contentFiles),
           profile: _profile,
           darkMode: darkMode,
           onDestinationSelected: _selectDestination,

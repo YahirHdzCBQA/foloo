@@ -1,6 +1,6 @@
 # ADR-009 — Sign in with Apple y retoma de Microsoft Sign-In vía Cognito
 
-- Estado: Aceptado por Producto el 2026-10-21 (resuelve `D-21`), con enmienda
+- Estado: Aceptado por Producto el 2026-10-21 (decisión de proveedor de `D-21`), con enmienda
   operativa Apple aceptada el 2026-11-03; la configuración de Microsoft queda
   **Proposed** hasta validar correo verificado y E2E en DEV.
 - Fecha: 2026-10-21.
@@ -62,14 +62,15 @@ materializada en DEV: el IdP `SignInWithApple` existe, el App Client móvil lo
 incluye junto con Cognito y Google, y los guards efectivos permiten
 `Google,SignInWithApple`. También coinciden OAuth code, scopes, callbacks y los
 mapeos de identidad previstos. Esto reemplaza únicamente el diagnóstico
-operativo anterior de “IdP pendiente”; no cierra `D-21`: Apple Developer y el
-E2E real siguen siendo gates obligatorios antes de distribuir un build con el
-flag activo.
+operativo anterior de “IdP pendiente”. El operador confirmó la homologación
+Apple Developer y un login correcto en iPhone para el corte DEV. La
+[evidencia del Build 7](../delivery/ios-testflight-distribution.md) no acredita
+la matriz ampliada ni la distribución; su alcance sigue en `D-21`.
 
 ## Consecuencias y límites
 
-- Tener Services ID, clave `.p8`, IdP y App Client configurados no constituye
-  evidencia de login Apple: falta verificar Apple Developer y ejecutar E2E.
+- La configuración por sí sola no demuestra login Apple; la evidencia de
+  dispositivo y sus límites quedan en el corte de release, no en esta ADR.
 - Los flags de Apple y Microsoft permanecen desactivados por defecto; conservar
   el código no constituye disponibilidad pública ni verificación E2E.
 - No se despliega nada en Cognito sin `describe-user-pool` previo y sin

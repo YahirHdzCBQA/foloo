@@ -34,6 +34,21 @@ No historical SDD is kept in the operational documentation tree. Git history
 is the audit source for removed Basic/Pro documents; never reconstruct them as
 current requirements.
 
+## Mantenimiento y gobernanza documental
+
+- Actualizar primero los documentos canónicos. Crear uno nuevo solo si tiene
+  un propósito independiente y justificado, no por cada rama, build, corrección
+  QA, auditoría o actividad de mantenimiento.
+- Consolidar información redundante y retirar instrucciones superadas. Mantener
+  actualizados el roadmap, la trazabilidad, la especificación del producto y
+  las decisiones abiertas.
+- Preservar las decisiones arquitectónicas, las aprobaciones y la evidencia de
+  seguridad y cumplimiento. El historial de Git no sustituye la evidencia
+  obligatoria de auditoría o cumplimiento.
+- Documentar los nuevos builds en las guías de distribución existentes.
+  Entregar los reportes de actividad en la conversación, salvo que el usuario
+  solicite conservarlos.
+
 ## Implementation Rules
 
 1. Do not implement behavior without a current `AUT-*`, `EVT-*`, `CAP-*`,

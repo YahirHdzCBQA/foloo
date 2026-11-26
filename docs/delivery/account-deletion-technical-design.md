@@ -409,7 +409,7 @@ sintéticos y autorización por ejecución. Ningún test usa usuarios reales.
 | Subtarea                      | Objetivo y módulos probables                                                                          | Dependencias/riesgo                                         | Criterio/pruebas                                                | ¿Puede iniciar?                                                                                                    |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `02E-01` Aprobaciones/trazas  | `product-spec`, E-14, D-13, roadmap, traceability, OpenAPI                                            | Legal/Seguridad/Infra/Payments y owners                     | IDs canónicos, criterios y matriz; autorización sigue pendiente | **Completada documentalmente**                                                                                     |
-| `02E-02` DDL/barrera          | nuevas migraciones; `migration_runner`; wrapper de `resolvePrincipal`; ledger externo/trigger Cognito | Retención, HMAC, 30 días, restore, fail-closed              | concurrencia, restore y no reprovisión                          | Revisión arquitectura/seguridad completada en `account-deletion-architecture-security-review.md`; código bloqueado |
+| `02E-02` DDL/barrera          | nuevas migraciones; `migration_runner`; wrapper de `resolvePrincipal`; ledger externo/trigger Cognito | Retención, HMAC, 30 días, restore, fail-closed              | concurrencia, restore y no reprovisión                          | Revisión arquitectura/seguridad completada en `account-deletion-technical-design.md#store-02e-02ab--diseño-y-revisión-de-seguridad-al-2026-10-2021`; código bloqueado |
 | `02E-03` API/request          | `router`, schemas, application/ports, repository, OpenAPI/error envelope                              | Reauth, receipt, estados y máximo operativo                 | preflight/confirm idempotentes; token viejo bloqueado           | Tests/contrato ahora; código bloqueado                                                                             |
 | `02E-04` Orquestación/workers | CDK state machine, DB/S3/provider/Cognito workers, IAM/logs/runbooks                                  | owner operativo, retention, Payments, permisos destructivos | retries por stage, no cross-owner, alarmas                      | Diagramas/spikes; recursos bloqueados                                                                              |
 | `02E-05` Flutter              | Cuenta UI, auth repository, sync lifecycle, Drift cleanup DAO, filesystem manifest, l10n              | copy/reautenticación/seguridad                              | ES/EN, light/dark, offline, multi-device/owner                  | Prototipos/tests; código bloqueado                                                                                 |
@@ -537,3 +537,140 @@ workspace personal, estado Free/trial y ausencia de una suscripción Stripe
 activa. El `sub` se lee internamente y su hash
 `base64url(SHA-256("foloo-account-deletion-qa\\0" + sub))` se custodia sin
 imprimir correo, `sub`, credenciales ni hash. D no se agrega a Web Sessions.
+
+## STORE-02E-02A/B · Diseño y revisión de seguridad al 2026-10-20/21
+
+Las alternativas `ADR-AD-01`–`ADR-AD-06` no se aprobaron mediante la
+revisión. Se recomendó revisar 01/02/03/05, aceptar 04 solo si incluye fence
+PostgreSQL, callback previo al intercambio OAuth y reconciliación de carreras,
+y mantener 06 condicionada a Seguridad. La implementación y el PASS sintético
+DEV son evidencia técnica, no aprobación de las propuestas ni permiso PROD.
+
+### Regla de 30 días validada
+
+| Momento/canal                           | Resultado requerido                                                                                      |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Cuenta eliminada, token viejo           | `subject_hash` bloquea API aunque Unlimited esté activo                                                  |
+| Email/password antes del día 30         | Pre Sign-up compara candidato y rechaza genéricamente                                                    |
+| Google antes del día 30                 | primer acceso federado compara atributo mapeado y rechaza; no crea/linkea perfil                         |
+| Ledger/TTL retrasado después del día 30 | `blockedUntil <= now` permite el alta aunque el item siga presente                                       |
+| Alta después del día 30                 | Cognito emite `sub` nuevo; backend crea account/workspace nuevos; no restaura datos/PRO                  |
+| Restore posterior                       | tombstone del `sub` viejo sigue filtrando sus datos; blocker de email expirado no afecta la cuenta nueva |
+| Error del ledger                        | no se crea identidad ni workspace; alarma/retry evita convertirlo en bloqueo permanente silencioso       |
+
+La concesión o no de un trial nuevo después de 30 días permanece pendiente de
+FL-021. La barrera no consulta ni modifica `trial_leads_used`.
+
+### IAM mínimo propuesto al corte
+
+| Componente                   | Permisos nuevos propuestos                                                     | Prohibiciones explícitas                              |
+| ---------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| Guard Lambda                 | operaciones item-scoped DynamoDB; `kms:GenerateMac`/`VerifyMac`; logs          | sin Scan/export, sin RDS/S3, sin borrar Cognito       |
+| ApiFunction                  | `lambda:InvokeFunction` solo Guard; DB actual                                  | sin DynamoDB/KMS directo si se adopta guard aislado   |
+| Cognito                      | resource policy para invocar Guard desde User Pool exacto                      | ningún wildcard de principal/source ARN               |
+| Deletion orchestrator futuro | invocar workers exactos y escribir estado/request                              | sin credenciales DB/S3/Cognito directas               |
+| DB worker futuro             | Secrets scoped + conexión DB                                                   | sin S3/Cognito/KMS email                              |
+| S3 worker futuro             | List/Get/Delete solo prefijo derivado server-side del owner                    | sin bucket wildcard ajeno ni key recibida del cliente |
+| Cognito finalizer futuro     | AdminDisableUser, AdminUserGlobalSignOut y AdminDeleteUser en User Pool exacto | sin crear/linkear usuarios                            |
+| Restore reconciler           | lectura ledger y acceso DB restaurada temporal                                 | sin abrir tráfico ni mutar ledger autoritativo        |
+
+Los permisos destructivos pertenecen a `02E-04`, no al primer incremento de
+`02E-02`.
+
+**Política y rotación.** `foloo-email-v1-provisional` requiere correo verificado
+server-side; trim, NFC, IDNA y minúsculas del correo; conserva puntos y tags
+`+`; rechaza controles, whitespace interior, quoting, dominios/labels y
+longitudes inválidos. No pliega aliases ni usa DNS. La colisión teórica por
+case del local-part requiere validación; cambiar equivalencia exige nueva
+versión y lectura multiversión. El `sub` verificado preserva bytes/case y se
+hashea en dominio separado `foloo-cognito-sub-v1`. El generador produce
+32 bytes HMAC-SHA-256; dominios, versión de política/clave y digests no son
+identidad de autorización. Se lee cada versión configurada y solo se escribe
+con la activa; no reinterpretar registros ni exponerlos en logs.
+
+**Ledger y despacho.** Lecturas consistentes y transacciones condicionales
+DynamoDB vinculan request, blocker con expiración lógica y tombstone del
+subject sin TTL. El TTL solo limpia el blocker; a los 30 días exactos el
+reingreso no resucita el owner. Fallos de KMS/DynamoDB cierran el guard.
+La confirmación conserva `Idempotency-Key`, índice de receipt y
+`OUTBOX#<requestId>`; vault con `attribute_not_exists(pk)` no sustituye
+un receipt en carrera. Si SQS falla, el recuperador usa el GSI
+`entity_type-created_at-index` y reintenta el mismo `requestId`
+como ID de deduplicación FIFO. No hay transacción distribuida con PostgreSQL;
+reconciliar el fence antes de tráfico. SES es independiente de ese despacho.
+
+**Borrado verificable.** Congelar user/account/workspace y el manifest de la
+unión de PostgreSQL con los dos prefijos S3 canónicos. Manifest ordenado,
+deduplicado, conteo/SHA-256, shards de 100, `DeleteObjects` hasta 1,000
+por lote y `HeadObject` posterior sobre el inventario original. Fallos
+parciales detienen el checkpoint; se reintenta el mismo manifest y se validan
+todas las tablas owner-scoped. La cobertura sintética incluyó 1,005 objetos,
+dos owners, rollback SQL y borrado parcial S3. TTL de manifest 31 días al
+corte, no política aprobada. Si cambia versionado S3, exigir otro análisis
+antes de garantizar borrado físico.
+
+## WEB-02 · Separación de admisión y autorización
+
+| Runtime | Normal | QA | New private deletion requests |
+|---|---|---|---|
+| off | off | off | Runtime unavailable |
+| on | off | off | Denied; receipt lookup, barriers and processing of accepted work remain operational |
+| on | off | on | Allowlist DEV de un único subject sintético |
+| on | on | off | Explicit DEV self-service admission, followed by all existing workflow controls |
+| off | either on | any | Invalid configuration |
+| any | on | on | Invalid configuration |
+
+`FOLOO_ACCOUNT_DELETION_ENABLED` compone el runtime;
+`FOLOO_ACCOUNT_DELETION_NORMAL_ACCESS_ENABLED` y
+`FOLOO_ACCOUNT_DELETION_QA_ENABLED` admiten nuevas solicitudes por modos
+mutuamente excluyentes. Pin de runtime explícito antes de retirar el hash QA
+en configuraciones legacy. El acceso normal no permite borrar otra cuenta:
+JWT access, `sub` verificado, binding HMAC owner-scoped, correo Cognito
+verificado, `auth_time`, preflight, consentimiento e idempotencia. El BFF
+mantiene cookie, Origin y CSRF; móvil mantiene bearer. Cerrar admisión no
+quita receipts, fences ni recuperación de trabajos aceptados. El modo
+normal requiere autorización independiente y no habilita por sí solo PROD
+ni `storeEnabled`.
+
+## WEB-02 · Contratos web y frontera de sesión
+
+Fuente HTTP: [OpenAPI de eliminación](account-deletion-openapi.yaml)
+y [contrato](account-deletion-contract.md). Web y móvil comparten owner y
+workflow, no comparten credenciales de sesión. El cliente web Cognito es
+separado, público y sin secreto. Mantener audience móvil; verificar access
+JWT con issuer, expiración, token_use, sub y client_id. El cliente web
+requiere además sesión habilitada y allowlist QA mientras aplique su política;
+no confiar en aud, headers o cuerpos como sustituto de client_id. Receipt
+público y callback OAuth de correo conservan sus contratos sin JWT.
+
+- FOL-AUTH-02/05: SRP entrega refresh al BFF solo al crear sesión; Google usa
+  code/PKCE S256 y state de un uso. `/api/auth/session`,
+  `/api/auth/session/refresh`, `/api/auth/logout` y el proxy de rutas
+  STORE-02 (no genérico) conservan aislamiento. Cookie
+  `__Host-foloo_session; Secure; HttpOnly; SameSite=Lax; Path=/`; digest
+  SHA-256, secretos cifrados con contexto KMS y expiración lógica. Respuestas
+  no-store; no persistir tokens o recibos en localStorage ni URLs.
+- Restauración devuelve identity/sub verificado, email solo si verificado,
+  displayName nullable desde perfil owner-scoped, CSRF y expiraciones. SRP
+  usa GetUser; OAuth usa userInfo y exige coincidencia de sub. No devuelve
+  credenciales Cognito. Valores históricos DEV: 12 h absoluta y 30 min idle;
+  refresh no extiende la absoluta ni satisface reautenticación interactiva.
+- FOL-AUTH-08/09A: callback BFF `/api/auth/google/callback` bajo behavior
+  `/api/*` sin caché, conserva query, cookies y Set-Cookie; distinto de
+  `/auth/callback` legacy. Termina en `/dashboard`. Allowlist DEV
+  `SHA-256("foloo-web-session\0" + sub)` base64url se aplica al crear y
+  restaurar; quitar entrada invalida acceso, sin exponer pertenencia.
+  Las mutaciones exigen Origin autorizado y CSRF. CORS allowlist no es
+  autenticación. Falta validar dueño Apple también en web antes de publicar.
+
+### Semántica HTTP para consumidores
+
+Preflight, confirmación y verificación de reautenticación usan access JWT; conservar la misma clave opaca
+8–128 caracteres al repetir una mutación. Confirmar retorna 202 con receipt.
+`428` exige reautenticación; `409` se interpreta por código, sin
+reiniciar a ciegas; `410` exige preflight nuevo; respetar
+`429`/`Retry-After`. `503 account_deletion_unavailable` si
+el servicio está apagado. Estado público por POST con receipt en body: 404
+no revela si existió la cuenta. Receipt de 256 bits, persistencia en hash,
+vigencia 30 días; no confundir con ventana de reingreso. Si se pierde,
+usar soporte sin exigir PII innecesaria, no repetir confirmación.

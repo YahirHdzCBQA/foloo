@@ -4,7 +4,7 @@
 asesoría legal, no autoriza llenar formularios de tienda y no resuelve `D-13`.
 
 Esta es la fuente operativa consolidada de STORE-02C. Complementa, sin
-duplicar, la auditoría general de [`store-readiness.md`](store-readiness.md) y
+duplicar, los [gates de tiendas](roadmap.md#gates-de-publicación-de-tiendas) y
 los materiales de [`store-listing-materials.md`](store-listing-materials.md).
 Su alcance se traza a `AUT-*`, `CAP-*`, `OCR-*`, `VOZ-*`, `SYN-*`, `REG-*`,
 `CON-*`, `PLT-*`, `SAL-*`, `MON-*`, `INF-*`, `RNF-*`, `RC-*`, `REL-*`, E-01,
@@ -440,3 +440,25 @@ declaraciones completas, incluidas prácticas de SDKs/terceros.
 - No se cambió Flutter, backend, infraestructura, manifests ni consolas.
 - Antes de STORE-03/04: Legal/PO deben resolver decisiones, ingeniería debe
   implementar P0 y QA debe validar RC/Privacy Report/formularios.
+
+## Fuentes oficiales consultadas
+
+Consulta histórica STORE-01: **2026-10-08**. Revalidar las políticas aplicables antes de STORE-04; esta lista no acredita cumplimiento.
+
+- Apple: [Account deletion 5.1.1(v)](https://developer.apple.com/help/app-review/guideline-reference/5-1-1-account-deletion),
+  [App Review Guidelines, incl. 3.1 y 4.8](https://developer.apple.com/app-store/review/guidelines/),
+  [App Privacy](https://developer.apple.com/help/app-store-connect/manage-app-information/manage-app-privacy/),
+  [privacy manifests](https://developer.apple.com/documentation/bundleresources/adding-a-privacy-manifest-to-your-app-or-third-party-sdk),
+  [organization enrollment](https://developer.apple.com/help/account/membership/enrolling-in-the-app/),
+  [review access](https://developer.apple.com/help/app-review/before-submitting-for-review/complete-review),
+  [export compliance](https://developer.apple.com/help/app-store-connect/manage-app-information/overview-of-export-compliance/),
+  [publishing workflow](https://developer.apple.com/help/app-store-connect/manage-your-apps-availability/overview-of-publishing-your-app-on-the-app-store/).
+- Google Play: [account deletion](https://support.google.com/googleplay/android-developer/answer/13327111),
+  [Data Safety](https://support.google.com/googleplay/android-developer/answer/10787469),
+  [target API levels](https://support.google.com/googleplay/android-developer/answer/11926878),
+  [payments policy](https://support.google.com/googleplay/android-developer/answer/9858738),
+  [Organization account type](https://support.google.com/googleplay/android-developer/answer/13634885),
+  [required account information](https://support.google.com/googleplay/android-developer/answer/13628312),
+  [testing tracks](https://support.google.com/googleplay/android-developer/answer/9845334),
+  [App Bundles](https://developer.android.com/guide/app-bundle),
+  [Play App Signing](https://developer.android.com/studio/publish/app-signing).

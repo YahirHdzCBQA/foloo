@@ -133,7 +133,6 @@ class _LeadConfirmationScreenState extends State<LeadConfirmationScreen> {
                 const SizedBox(height: 30),
               ] else
                 const SizedBox(height: 30),
-              // TODO(PRODUCTION): Replace demo statuses with truthful backend state.
               Container(
                 key: const Key('confirmationStatusCard'),
                 padding: const EdgeInsets.symmetric(horizontal: 14),

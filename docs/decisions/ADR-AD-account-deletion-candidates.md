@@ -12,7 +12,7 @@ ADR-001–007, no selecciona servicios AWS y no autoriza migraciones, triggers,
 IAM, endpoints o pruebas destructivas.
 
 La revisión de viabilidad contra HEAD está en
-[`../delivery/account-deletion-architecture-security-review.md`](../delivery/account-deletion-architecture-security-review.md).
+[`../delivery/account-deletion-technical-design.md#store-02e-02ab--diseño-y-revisión-de-seguridad-al-2026-10-2021`](../delivery/account-deletion-technical-design.md#store-02e-02ab--diseño-y-revisión-de-seguridad-al-2026-10-2021).
 Su resultado no acepta estas ADR: recomienda **modificar** AD-01, AD-02, AD-03
 y AD-05, y aceptar AD-04 únicamente con condiciones adicionales. En particular,
 separa el blocker de correo de 30 días del tombstone durable del `sub` anterior.
@@ -112,3 +112,21 @@ skew/replay y la propuesta de cinco minutos de `DEC-AD-09`.
 
 Hasta entonces STORE-02E-02 permanece bloqueada para código. Solo se permiten
 revisión documental y spikes no destructivos expresamente autorizados.
+
+## Disposición tras la evidencia DEV
+
+- **ADR-AD-01/02:** ledger y HMAC multiversión tienen evidencia técnica;
+  siguen pendientes el plazo, la canonicalización y el alcance de IAM.
+- **ADR-AD-03:** guards en DEV no cierran la validación federada y la política
+  de alta posterior en PROD.
+- **ADR-AD-04:** la evidencia respalda guard previo al provisioning, fence
+  PostgreSQL y callback protegido; la recomendación de aceptación fue
+  condicional, no una aceptación arquitectónica registrada.
+- **ADR-AD-05:** la reconciliación simulada no sustituye el restore aislado
+  real ni la política de copias/tombstones.
+- **ADR-AD-06:** cinco minutos es regla funcional aprobada por Producto;
+  la alternativa arquitectónica y sus pruebas PROD no se aprueban aquí.
+
+Ninguna candidata se marca sustituida o aprobada sin una decisión registrada.
+Ver [cierre DEV](../delivery/store-02-account-deletion-closure.md) y
+[gates de operación](../delivery/account-deletion-operations.md#prod-04--gates-por-responsable-corte-2026-11-10).

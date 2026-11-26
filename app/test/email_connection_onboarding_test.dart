@@ -424,7 +424,6 @@ void main() {
         recordsCount: 0,
         contentCount: 0,
         records: const [],
-        contentFiles: const [],
         profile: const DemoProfile(name: 'Seller', company: 'Foloo'),
         darkMode: false,
         ownerSub: 'seller-a',
@@ -446,6 +445,11 @@ void main() {
       api.requests.where((request) => request.method == 'GET'),
       isNotEmpty,
     );
+    final initialConnection = await persistence.emailDelivery.connection(
+      'seller-a',
+    );
+    expect(initialConnection?.provider, 'google');
+    expect(initialConnection?.status, 'connected');
 
     await tester.pumpWidget(screen(false));
     await tester.pump();
@@ -471,6 +475,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Necesita reconexión'), findsNothing);
     expect(find.byKey(const Key('emailConnectionCard')), findsNothing);
+    final refreshedConnection = await persistence.emailDelivery.connection(
+      'seller-a',
+    );
+    expect(refreshedConnection?.connectionId, 'connection-b');
+    expect(refreshedConnection?.provider, 'microsoft');
+    expect(refreshedConnection?.status, 'reconnect_required');
+    expect(
+      await persistence.emailDelivery.connection('seller-b'),
+      equals(null),
+    );
   });
 
   testWidgets('Correo no longer duplicates follow-up history', (tester) async {
@@ -540,7 +554,6 @@ void main() {
           recordsCount: 1,
           contentCount: 0,
           records: [lead],
-          contentFiles: const [],
           profile: const DemoProfile(name: 'Seller', company: 'Foloo'),
           darkMode: false,
           ownerSub: 'seller-a',

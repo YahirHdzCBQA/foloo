@@ -5,18 +5,14 @@
 library;
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../models/app_destination.dart';
 import '../models/app_event.dart';
 import '../models/lead_draft.dart';
-import '../models/content_file.dart';
 import '../models/session_lead.dart';
 import '../models/email_template.dart';
-import '../models/email_delivery_error.dart';
 import '../data/repositories/local_repositories.dart';
 import '../theme/foloo_theme.dart';
 import '../widgets/app_drawer.dart';
@@ -26,7 +22,6 @@ import '../widgets/module_header.dart';
 import '../widgets/segmented_bubble.dart';
 import '../widgets/email_template_field_editor.dart';
 import '../services/email_connection_service.dart';
-import '../data/local/app_database.dart';
 
 enum _TemplateKind { event, direct }
 
@@ -46,10 +41,8 @@ class EmailScreen extends StatefulWidget {
     this.onTemplateSaved,
     this.deliveryRepository,
     this.connectionService,
-    this.onSendQueued,
     required this.contentCount,
     required this.records,
-    required this.contentFiles,
     this.active = true,
     super.key,
   });
@@ -64,10 +57,8 @@ class EmailScreen extends StatefulWidget {
   final VoidCallback? onTemplateSaved;
   final EmailDeliveryRepository? deliveryRepository;
   final EmailConnectionService? connectionService;
-  final VoidCallback? onSendQueued;
   final int contentCount;
   final List<SessionLead> records;
-  final List<ContentFile> contentFiles;
   final bool active;
 
   @override
@@ -86,13 +77,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
   _TemplateKind _kind = _TemplateKind.event;
   String? _error;
   String? _languageCode;
-  EmailConnectionView? _connection;
-  List<StoredEmailFollowUp> _followUps = const [];
-  List<StoredEmailSendIntent> _intents = const [];
-  int _deliveryRequestGeneration = 0;
   int _templateEditorRevision = 0;
-  StreamSubscription<List<StoredEmailFollowUp>>? _followUpsSubscription;
-  StreamSubscription<List<StoredEmailSendIntent>>? _intentsSubscription;
 
   TextEditingController get _subject =>
       _kind == _TemplateKind.event ? _eventSubject : _directSubject;
@@ -124,8 +109,7 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadTemplates();
-    _watchDelivery();
-    _loadDelivery();
+    unawaited(_refreshConnection());
   }
 
   @override
@@ -133,19 +117,17 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.ownerSub != widget.ownerSub) {
       _stored.clear();
-      _connection = null;
       _loadTemplates();
-      _watchDelivery();
-      _loadDelivery();
+      unawaited(_refreshConnection());
     } else if (!oldWidget.active && widget.active) {
-      unawaited(_loadDelivery());
+      unawaited(_refreshConnection());
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && widget.active) {
-      unawaited(_loadDelivery());
+      unawaited(_refreshConnection());
     }
   }
 
@@ -163,15 +145,11 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> _loadDelivery() async {
+  Future<void> _refreshConnection() async {
     final owner = widget.ownerSub;
     if (owner == null) return;
-    final generation = ++_deliveryRequestGeneration;
-    final followUps = await widget.deliveryRepository?.list(owner) ?? const [];
-    final intents = await widget.deliveryRepository?.intents(owner) ?? const [];
-    EmailConnectionView? connection;
     try {
-      connection = await widget.connectionService?.status(owner);
+      final connection = await widget.connectionService?.status(owner);
       if (connection != null) {
         await widget.deliveryRepository?.saveConnection(
           owner: owner,
@@ -182,402 +160,8 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
         );
       }
     } on Object {
-      connection = null;
+      // An unavailable sender must not prevent editing local templates.
     }
-    if (!mounted ||
-        owner != widget.ownerSub ||
-        generation != _deliveryRequestGeneration) {
-      return;
-    }
-    setState(() {
-      if (widget.deliveryRepository == null) {
-        _followUps = followUps;
-        _intents = intents;
-      }
-      _connection = connection;
-    });
-  }
-
-  void _watchDelivery() {
-    unawaited(_followUpsSubscription?.cancel());
-    unawaited(_intentsSubscription?.cancel());
-    final owner = widget.ownerSub;
-    final repository = widget.deliveryRepository;
-    if (owner == null || repository == null) return;
-    _followUpsSubscription = repository.watchFollowUps(owner).listen((value) {
-      if (mounted && owner == widget.ownerSub) {
-        setState(() => _followUps = value);
-      }
-    });
-    _intentsSubscription = repository.watchIntents(owner).listen((value) {
-      if (mounted && owner == widget.ownerSub) {
-        setState(() => _intents = value);
-      }
-    });
-  }
-
-  bool get _english => (_languageCode ?? 'es') == 'en';
-
-  Future<void> _queueSend(StoredEmailFollowUp followUp) async {
-    final owner = widget.ownerSub;
-    if (owner == null || widget.deliveryRepository == null) return;
-    await widget.deliveryRepository!.confirm(
-      owner: owner,
-      followUpId: followUp.localId,
-    );
-    widget.onSendQueued?.call();
-    await _loadDelivery();
-  }
-
-  List<String> _attachmentDecisionIds(StoredEmailSendIntent intent) {
-    const prefix = 'attachment_decision:';
-    final value = intent.errorCode;
-    if (value == null || !value.startsWith(prefix)) return const [];
-    try {
-      return (jsonDecode(value.substring(prefix.length)) as List)
-          .whereType<String>()
-          .toList();
-    } on Object {
-      return const [];
-    }
-  }
-
-  Future<void> _resolveAttachmentDecision(
-    StoredEmailFollowUp followUp,
-    StoredEmailSendIntent intent,
-  ) async {
-    final ids = _attachmentDecisionIds(intent);
-    final contentIds = (jsonDecode(followUp.contentFileIdsJson) as List)
-        .whereType<String>()
-        .toList();
-    final contentNames = (jsonDecode(followUp.contentNamesJson) as List)
-        .whereType<String>()
-        .toList();
-    final names = <String>[
-      for (var index = 0; index < contentIds.length; index++)
-        if (ids.contains(contentIds[index]))
-          index < contentNames.length ? contentNames[index] : contentIds[index],
-    ];
-    final omit = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          _english ? 'Attachment cannot be sent' : 'No se puede adjuntar',
-        ),
-        content: Text(
-          _english
-              ? '${names.join(', ')} is unavailable or exceeds the provider limit. Send without it?'
-              : '${names.join(', ')} no está disponible o supera el límite del proveedor. ¿Enviar sin adjuntarlo?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(_english ? 'Cancel' : 'Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(_english ? 'Send without it' : 'Enviar sin adjunto'),
-          ),
-        ],
-      ),
-    );
-    final owner = widget.ownerSub;
-    final repository = widget.deliveryRepository;
-    if (owner == null || repository == null) return;
-    if (omit == true) {
-      await repository.confirm(
-        owner: owner,
-        followUpId: followUp.localId,
-        omittedContentIds: {
-          ...ids,
-          ...jsonDecode(intent.omittedContentIdsJson),
-        }.whereType<String>().toList(),
-        intentId: intent.localId,
-      );
-      widget.onSendQueued?.call();
-    } else {
-      await repository.cancelAttachmentDecision(owner: owner, intent: intent);
-    }
-    await _loadDelivery();
-  }
-
-  Future<void> _retry(StoredEmailSendIntent intent) async {
-    final owner = widget.ownerSub;
-    if (owner == null) return;
-    await widget.deliveryRepository?.retry(owner: owner, intent: intent);
-    widget.onSendQueued?.call();
-    await _loadDelivery();
-  }
-
-  Future<void> _manualResend(
-    StoredEmailFollowUp followUp,
-    StoredEmailSendIntent previous,
-  ) async {
-    final owner = widget.ownerSub;
-    final repository = widget.deliveryRepository;
-    if (owner == null || repository == null) return;
-    final currentSender = _connection?.senderAddress;
-    final changed =
-        previous.senderAddress != null &&
-        currentSender != null &&
-        previous.senderAddress != currentSender;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(_english ? 'Send again?' : '¿Enviar nuevamente?'),
-        content: Text(
-          changed
-              ? (_english
-                    ? 'The connected sender changed to $currentSender. Confirm this new sender before resending.'
-                    : 'El remitente conectado cambió a $currentSender. Confirma este nuevo remitente antes de reenviar.')
-              : (_english
-                    ? 'The previous result may be unknown. This creates a new manual send and could deliver a duplicate.'
-                    : 'El resultado anterior puede ser desconocido. Esto crea un envío manual nuevo y podría entregar un duplicado.'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(_english ? 'Cancel' : 'Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(_english ? 'Confirm resend' : 'Confirmar reenvío'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    await repository.confirm(
-      owner: owner,
-      followUpId: followUp.localId,
-      parentIntentId: previous.localId,
-    );
-    widget.onSendQueued?.call();
-    await _loadDelivery();
-  }
-
-  StoredEmailSendIntent? _intentFor(String followUpId) {
-    for (final intent in _intents) {
-      if (intent.followUpLocalId == followUpId) return intent;
-    }
-    return null;
-  }
-
-  Future<void> _previewFollowUp(StoredEmailFollowUp followUp) =>
-      showDialog<void>(
-        context: context,
-        builder: (context) {
-          final names = (jsonDecode(followUp.contentNamesJson) as List)
-              .whereType<String>()
-              .toList();
-          return AlertDialog(
-            title: Text(followUp.subject),
-            content: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(followUp.plainBody),
-                  if (names.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      _english ? 'PDF attachments' : 'PDF adjuntos',
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 6),
-                    ...names.map((name) => Text('• $name')),
-                  ],
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(_english ? 'Close' : 'Cerrar'),
-              ),
-            ],
-          );
-        },
-      );
-
-  // Historical renderer retained temporarily for migration evidence; the
-  // active UX now renders this source in Records (REG-16).
-  // ignore: unused_element
-  Widget _followUpList() {
-    final visible = <StoredEmailFollowUp>[];
-    final preparedLeadIds = <String>{};
-    for (final followUp in _followUps) {
-      final hasIntent = _intents.any(
-        (intent) => intent.followUpLocalId == followUp.localId,
-      );
-      if (hasIntent || preparedLeadIds.add(followUp.leadLocalId)) {
-        visible.add(followUp);
-      }
-    }
-    if (visible.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: 20),
-        Text(
-          context.l10n.emailFollowUps,
-          style: const TextStyle(fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 8),
-        ...visible.map((followUp) {
-          final intent = _intentFor(followUp.localId);
-          final status = intent?.status ?? 'ready';
-          final attachmentDecision =
-              intent != null && _attachmentDecisionIds(intent).isNotEmpty;
-          final terminalFailure = isTerminalEmailDeliveryError(
-            intent?.errorCode,
-          );
-          final label = attachmentDecision
-              ? context.l10n.emailFollowUpAttachmentDecision
-              : intent?.errorCode == 'cancelled_by_seller'
-              ? context.l10n.emailFollowUpCancelled
-              : terminalFailure
-              ? context.l10n.emailNotRetryableStatus
-              : switch (status) {
-                  'pending' => context.l10n.emailFollowUpPending,
-                  'sending' => context.l10n.emailFollowUpSending,
-                  'sent' => context.l10n.emailFollowUpSent,
-                  'error' => context.l10n.emailFollowUpError,
-                  'confirmation_required' =>
-                    context.l10n.emailFollowUpConfirmation,
-                  _ => context.l10n.emailFollowUpReady,
-                };
-          final visual = _followUpVisual(
-            status,
-            attachmentDecision: attachmentDecision,
-            terminalFailure: terminalFailure,
-          );
-          final record = _recordForFollowUp(followUp.leadLocalId);
-          final lead = record?.lead;
-          final leadName = lead?.fullName.trim();
-          final contextLabel = lead == null
-              ? null
-              : lead.originKind == LeadOriginKind.event
-              ? lead.eventName?.trim().isNotEmpty == true
-                    ? context.l10n.emailFollowUpEventContext(
-                        lead.eventName!.trim(),
-                      )
-                    : context.l10n.event
-              : lead.place?.trim().isNotEmpty == true
-              ? context.l10n.emailFollowUpDirectContext(lead.place!.trim())
-              : context.l10n.directLead;
-          return Card(
-            key: ValueKey('emailFollowUp-${followUp.localId}'),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: () => _previewFollowUp(followUp),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(visual.$1, color: visual.$2, semanticLabel: label),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            leadName?.isNotEmpty == true
-                                ? leadName!
-                                : followUp.recipientAddress,
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          Text(
-                            followUp.recipientAddress,
-                            style: TextStyle(
-                              color: FolooPalette.of(context).inkSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                          if (contextLabel != null) Text(contextLabel),
-                          Text(
-                            DateFormat.yMMMd(
-                              Localizations.localeOf(context).toLanguageTag(),
-                            ).add_Hm().format(followUp.preparedAt.toLocal()),
-                            style: TextStyle(
-                              color: FolooPalette.of(context).inkSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(followUp.subject),
-                          const SizedBox(height: 7),
-                          Semantics(
-                            label: label,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 9,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: visual.$2.withValues(alpha: .14),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                label,
-                                style: TextStyle(
-                                  color: visual.$2,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (attachmentDecision)
-                      IconButton(
-                        tooltip: _english
-                            ? 'Resolve attachment'
-                            : 'Resolver adjunto',
-                        onPressed: () =>
-                            _resolveAttachmentDecision(followUp, intent),
-                        icon: const Icon(Icons.attachment_outlined),
-                      )
-                    else if (status == 'ready')
-                      IconButton(
-                        tooltip: _english ? 'Confirm send' : 'Confirmar envío',
-                        onPressed: _connection?.status == 'connected'
-                            ? () => _queueSend(followUp)
-                            : null,
-                        icon: const Icon(Icons.send_outlined),
-                      )
-                    else if (status == 'error' &&
-                        intent?.errorCode != 'cancelled_by_seller' &&
-                        !terminalFailure &&
-                        !requiresManualEmailResend(intent?.errorCode))
-                      IconButton(
-                        key: ValueKey('emailRetry-${intent!.localId}'),
-                        tooltip: _english ? 'Retry safely' : 'Reintentar',
-                        onPressed: _connection?.status == 'connected'
-                            ? () => _retry(intent)
-                            : null,
-                        icon: const Icon(Icons.refresh),
-                      )
-                    else if (requiresManualEmailResend(intent?.errorCode) ||
-                        status == 'confirmation_required' ||
-                        status == 'sent')
-                      IconButton(
-                        tooltip: _english ? 'Resend manually' : 'Reenviar',
-                        onPressed: _connection?.status == 'connected'
-                            ? () => _manualResend(followUp, intent!)
-                            : null,
-                        icon: const Icon(Icons.forward_to_inbox_outlined),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }),
-      ],
-    );
   }
 
   void _applyLanguage(AppLocalizations l10n) {
@@ -661,9 +245,6 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    _deliveryRequestGeneration++;
-    unawaited(_followUpsSubscription?.cancel());
-    unawaited(_intentsSubscription?.cancel());
     WidgetsBinding.instance.removeObserver(this);
     for (final controller in [
       _eventSubject,
@@ -676,33 +257,6 @@ class _EmailScreenState extends State<EmailScreen> with WidgetsBindingObserver {
       controller.dispose();
     }
     super.dispose();
-  }
-
-  SessionLead? _recordForFollowUp(String localId) {
-    for (final record in widget.records) {
-      if (record.localId == localId) return record;
-    }
-    return null;
-  }
-
-  (IconData, Color) _followUpVisual(
-    String status, {
-    required bool attachmentDecision,
-    required bool terminalFailure,
-  }) {
-    final palette = FolooPalette.of(context);
-    if (attachmentDecision) return (Icons.attach_file, Colors.orange.shade800);
-    if (status == 'sent') return (Icons.check_circle, Colors.green.shade700);
-    if (status == 'error' || terminalFailure) {
-      return (Icons.error_outline, palette.error);
-    }
-    if (status == 'pending' || status == 'sending') {
-      return (Icons.schedule, Colors.orange.shade800);
-    }
-    if (status == 'confirmation_required') {
-      return (Icons.help_outline, palette.inkSecondary);
-    }
-    return (Icons.drafts_outlined, palette.inkSecondary);
   }
 
   Future<bool> _saveKinds(

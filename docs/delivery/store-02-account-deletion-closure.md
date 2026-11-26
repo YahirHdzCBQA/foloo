@@ -7,9 +7,8 @@
 - Decisión abierta: `D-13`
 - ADR: ADR-001–ADR-007 vigentes; `ADR-AD-01`–`ADR-AD-06` continúan candidatas
 
-Este documento consolida el estado final comprobado de STORE-02. Sustituye como
-fuente de estado a los reportes de preparación que conservan el corte histórico
-de cada incremento. La validación en DEV demuestra el flujo técnico, pero no
+Este documento conserva resultados y límites de las pruebas STORE-02 y WEB-02.
+Cada resultado describe su corte, no una consulta del estado actual. La validación en DEV demuestra el flujo técnico, pero no
 resuelve políticas legales ni autoriza producción.
 
 ## 1. Implementación entregada
@@ -132,3 +131,78 @@ Resultados observados en la revisión de cierre:
 - CDK synth completado con contextos efectivos de DEV. `cdk diff
 --no-change-set` contra `FolooBackend-dev` reportó cero diferencias.
 - Referencias documentales verificadas y `git diff --check` aprobado.
+
+## Evidencia adicional por corte (no es un estado remoto actualizado)
+
+### WEB-02 · Adaptador OAuth, inventario y retiro de QA (octubre de 2026)
+
+- `web-02-disconnected-oauth-fix-dev` terminó correctamente; un borrado
+  sintético autorizado posterior llegó a `completed`. El sender fue
+  desconectado manualmente y se confirmó recepción del seguimiento previo.
+  Los registros locales y credenciales cifradas se retiraron; el checkpoint
+  `oauth_revoked` **no audita cada llamada externa** ni permite afirmar
+  revocación del permiso externo u observar su ausencia de manera independiente.
+- El adaptador decide por estado PostgreSQL, no por payload:
+  `disconnected` omite revocación externa para no revocar permisos
+  compartidos; `connected`/`reconnect_required` exigen confirmación
+  fiable y desconocidos fallan antes de efectos. SQL owner-scoped elimina
+  estados OAuth, intents y credenciales con rollback/retry. No altera
+  retención de backups ni la semántica de desconectar. Evidencia local:
+  17 pruebas de adaptadores y 37 de regresión, sin proveedor en vivo.
+- `web-02-qa-inventory-dev`: EXECUTE_COMPLETE; inventario READ ONLY antes y
+  cero registros owner-scoped después. 17/17 pruebas focalizadas; consultas
+  parametrizadas, rollback y separación de migraciones. Evidencia privada en
+  `backend/.env.web02-inventory-20261028T193128/` y
+  `backend/.env.web02-oauth-*`; no copiar datos operativos al repositorio.
+- `web-02-store-qa-decoupling-dev` (compatibilidad) y
+  `web-02-destructive-qa-cleanup-dev` (retiro) terminaron
+  EXECUTE_COMPLETE / UPDATE_COMPLETE. Stack IN_SYNC antes de ejecución;
+  solo API/worker sin reemplazo, compatibles primero, luego QA=false y hash
+  vacío sin cambio de código. Al cierre de **ese corte** normal=false,
+  runtime/recuperación activos, tres entradas Web QA y storeEnabled=false;
+  no es una medición de Build 7. 130/130 focalizadas, 15/15 workflow y
+  30/30 de retiro; no hubo nueva invocación destructiva en esas etapas.
+  Backups, eventos, hashes y RECOVERY.txt privados:
+  `backend/.env.web02-decouple-dev/` y
+  `backend/.env.web02-destructive-cleanup/`.
+- STORE-02.5/FOL-AUTH-09A: la revisión de
+  `fol-auth-09-passive-qa-guard` identificó una integración SRP y diez
+  permisos reevaluados por ARN sin diferencia estructural. Ese candidato no
+  se autoriza: para la barrera de acceso web debía incluir el API. Se
+  conserva el hallazgo para no volver a ejecutar un plan incompleto.
+
+### STORE-02D · Entrega E · 2026-11-02
+
+Corte Foloo A `0f7772a`/B `2d389e0`/C `06a9716` y landing
+D `8c8dde8`. 346 backend PASS distintos tras repetir el caso HTTP
+local que falló por sandbox; 1 PostgreSQL NOT RUN. Typecheck/build/lint
+PASS; Flutter 78/78 y analyze PASS; landing 55/55 y tres comprobaciones
+Chrome simuladas PASS, typecheck limitado a presentación. No se ejecutó
+Stripe, SES, restore real ni E2E móvil/web contra DEV para ese conjunto;
+PR #5 no identificada en ese corte. No extrapolar el borrado DEV del
+26 de octubre a Apple, producción, cobertura física ni activación A–E.
+
+#### Matriz de cobertura
+
+| Área | Resultado | Tipo y evidencia / límite |
+| --- | --- | --- |
+| Free/trial y PRO inactiva | PASS | Unitarias: stripe_subscription_cancellation; contrato web no pide cancelación |
+| PRO activa | PASS | Billing provider, staged executor y UI web: acknowledgement, binding propietario, cancelación antes de borrado |
+| Stripe timeout, fallo, recuperación | PASS | Simulado: clave estable, bloqueo sin éxito falso, reintento de etapa |
+| Webhooks duplicados/fuera de orden | PASS | billing.test: entrega concurrente, deleted seguido de active atrasado, rollback/retry |
+| Reautenticación 5 minutos | PASS | API declara 300 segundos; workflow/BFF validan auth_time; refresh no renueva evidencia; UI vuelve a pedir consentimiento |
+| Preflight, confirmación concurrente e idempotencia | PASS | workflow, DynamoDB simulado, BFF y navegador; una aceptación/receipt |
+| Receipt/status sin sesión, logout fallido y respuesta tardía | PASS | Flutter service y Chrome; receipt en memoria, POST, sin URL/storage; polling no oculta aceptación |
+| requested/blocked/completed | PASS | Contratos, UI y executor; no equiparar aceptación a terminación |
+| 423 y segundo dispositivo | PASS | Sync/widget simulados, detención concurrente y purga owner-scoped con manifiesto |
+| Android/iOS y dispositivo secundario físicos | NOT RUN | Requiere dispositivos y entorno QA autorizado |
+| SES fallo, duplicados y concurrencia | PASS | Claims y retry con mocks, no prueba entrega real ni ausencia absoluta de duplicados ante fallo incierto del proveedor |
+| Deadline 15 días, días 10/13/15 y reconciliador | PASS | Reloj simulado, lease y métricas; alarmas en pruebas de plantilla CDK |
+| Restore/tombstones | PASS | Adaptadores simulados y contratos de fences; no prueba restore de backup real |
+| Ownership/OAuth desconectado | PASS | erasure inventory, guard, BFF y oauth_disconnected_erasure: cleanup local sin revocación externa |
+| Seguridad receipt/CSRF/identidad/flags | PASS | Tests de contratos/BFF/Chrome, sin secretos en URLs o almacenamiento web |
+| Auth, sync, Billing, WEB-01/02 | PASS | Suites anteriores y regresiones focalizadas |
+| PR #5 específica | BLOCKED | No se identificó commit/alcance en historial y documentación locales; se necesita enlace o SHA, no se asume cubierta |
+| PostgreSQL Billing real | NOT RUN | Suite omitida sin BILLING_TEST_DATABASE_URL desechable |
+| Stripe test mode, SES y pipeline AWS reales | NOT RUN | No se autorizó ejecución remota ni destrucción |
+| Conservación contable/legal integral | BLOCKED | D-13: falta aprobar categorías, base, acceso, región y plazo; no se inventa política fiscal |

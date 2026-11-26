@@ -426,6 +426,10 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   pagar/comprar/upgrade/suscribirse. Por defecto y sin aprobación regional el
   enlace está oculto; solo `FOLOO_WEB_ACCOUNT_LINK=true` muestra el botón. En
   caso contrario queda Ver registros.
+
+**Contratos de billing reservados para FL-022:** las comprobaciones
+`MON-15`–`MON-20` no implican activar checkout ni pagos públicos en Build 7.
+
 - (`MON-15`) Checkout con JWT válido crea la sesión para la cuenta del `sub`;
   cuenta, precio o URLs enviados en el cuerpo se ignoran. Dos intentos
   concurrentes reutilizan un solo customer de Stripe.
@@ -447,6 +451,9 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   estado local esté atrasado, recibe 409 con indicación de Portal en vez de
   otro Checkout.
 - (`MON-20`) No existe compra nativa en la app; la variante queda Proposed.
+
+**FL-021, sin pagos públicos:**
+
 - (`MON-21`) Una operación administrativa resuelve un correo verificado a su
   `Cognito sub`, concede PRO una sola vez y deja actor/motivo/auditoría. La
   revocación restaura FREE con el contador histórico intacto. Una identidad

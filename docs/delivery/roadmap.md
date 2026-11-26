@@ -202,7 +202,9 @@ FL-020. FREE y PRO difieren solo en nuevas capturas.
   CTA/destino y requisitos de comunicación. El evento y retry sí se preparan.
 - El aviso 5/5 se presenta después del resumen al volver a Captura y no ofrece
   reenvío mientras la entrega promocional siga deshabilitada.
-- No concede grants reales ni depende de Unlimited QA.
+- DEV tiene el procesamiento de preautorizaciones activo y Unlimited QA
+  desactivado en el corte homologado. El E2E informó un grant automático
+  sintético; no se conceden grants indiscriminados ni se heredan a PROD.
 - Preautorización privada: selector HMAC KMS, carga IAM/MFA auditable, cola y
   worker separados del login, revalidación Cognito para nativo/Google/Apple e
   invalidación transaccional de selectores activos/consumidos al revocar o
@@ -237,7 +239,7 @@ publicación ni implementación.**
 
 - Matriz Apple/Google, inventario de privacidad, eliminación de cuenta,
   dependencias FL-021, checklist empresarial y plan STORE-02–04:
-  [`store-readiness.md`](store-readiness.md).
+  [gates de publicación consolidados](#gates-de-publicación-de-tiendas).
 - Publisher confirmado: CBQA Solutions. Se reutiliza la cuenta Apple existente;
   Google Play Console Organization ya existe; quedan pendientes la aceptación
   de acceso corporativo y verificaciones de identidad, sitio y teléfono.
@@ -286,11 +288,11 @@ validado en AWS DEV. D-13 y producción permanecen abiertos.**
   borrados reales.
 - El registro posterior a revisión, acciones pendientes y espacio de validación
   están en
-  [`account-deletion-cbqa-approval-agenda.md`](account-deletion-cbqa-approval-agenda.md).
+  [`account-deletion-contract.md#registro-de-acuerdos-cbqa--2026-10-20`](account-deletion-contract.md#registro-de-acuerdos-cbqa--2026-10-20).
   Producto definió un máximo operativo de eliminación de 15 días y una espera
   de 30 días antes de permitir un alta nueva con el mismo correo; la cuenta
-  anterior nunca se recupera. Backups ordinarios de 15 días y reautenticación
-  de cinco minutos siguen como propuestas sujetas a validación.
+  anterior nunca se recupera. La Entrega C aprobó como reglas de producto backups ordinarios de 15 días
+  y reautenticación de cinco minutos; su validación en PROD sigue abierta.
 - `D-13` permanece abierta hasta cerrar categorías/base/plazos de retención,
   backups/restore, registro mínimo y barrera de 30 días, reautenticación,
   operación/escalamiento, suscripciones, rol legal sobre terceros, alcance
@@ -335,11 +337,11 @@ para producción por D-13 y aprobaciones externas pendientes.**
   aceptar AD-04 solo con condiciones; separa blocker de email 30 días de
   tombstone durable de subject, confirma el gap de ownership Cognito y que RDS
   conserva actualmente solo un día de backup automático:
-  [`account-deletion-architecture-security-review.md`](account-deletion-architecture-security-review.md).
+  [`account-deletion-technical-design.md#store-02e-02ab--diseño-y-revisión-de-seguridad-al-2026-10-2021`](account-deletion-technical-design.md#store-02e-02ab--diseño-y-revisión-de-seguridad-al-2026-10-2021).
 - STORE-02E-02A añade solo primitivas aisladas de canonicalización y HMAC con
   fixtures sintéticos; no están conectadas a Cognito, rutas ni AWS y no aceptan
   ninguna ADR:
-  [`account-deletion-pseudonymous-identity.md`](account-deletion-pseudonymous-identity.md).
+  [`account-deletion-technical-design.md#store-02e-02ab--diseño-y-revisión-de-seguridad-al-2026-10-2021`](account-deletion-technical-design.md#store-02e-02ab--diseño-y-revisión-de-seguridad-al-2026-10-2021).
 - STORE-02E-02B añade contrato de ledger, guard fail-closed y adaptador
   DynamoDB. STORE-02 prepara además la infraestructura CDK, KMS HMAC, workflow
   durable, cola/DLQ, checkpoints, OAuth, SES transaccional independiente y
@@ -348,7 +350,7 @@ para producción por D-13 y aprobaciones externas pendientes.**
   composición real detrás de flags. PreSignUp federado y PostAuthentication
   común a email/Google se sintetizan con permisos, sin attachment; el
   reconciliador de restores tampoco se ejecuta. Todo permanece en `false`:
-  [`account-deletion-ledger-guard.md`](account-deletion-ledger-guard.md).
+  [`account-deletion-technical-design.md#store-02e-02ab--diseño-y-revisión-de-seguridad-al-2026-10-2021`](account-deletion-technical-design.md#store-02e-02ab--diseño-y-revisión-de-seguridad-al-2026-10-2021).
 - El incremento funcional añade contrato HTTP, verificación de `auth_time`,
   preflight/confirmación idempotentes, receipt hasheado, workflow reanudable,
   executor ordenado, puertos PostgreSQL/S3/OAuth/Cognito/Stripe, correos ES/EN,
@@ -384,7 +386,7 @@ para producción por D-13 y aprobaciones externas pendientes.**
   Client CDK y proporcionar el output `WebUserPoolClientId`.
 - El handoff web y el runbook de despliegue pasivo/migración 010 quedan
   consolidados en
-  [`store-02-web-handoff-deploy-readiness.md`](store-02-web-handoff-deploy-readiness.md).
+  [`account-deletion-technical-design.md#web-02--contratos-web-y-frontera-de-sesión`](account-deletion-technical-design.md#web-02--contratos-web-y-frontera-de-sesión).
   STORE-02.4 prepara localmente un App Client web público Cognito+Google con
   code grant, segunda audiencia JWT, CORS exacto para `foloo.io` y un modo
   explícito `disabled|ses`. En modo deshabilitado receipt/status no invocan
@@ -733,26 +735,26 @@ R8 en solución permanente.
 
 ## REL-06 — Homologación TestFlight 1.0.0 Build 7
 
-**Estado:** **CANDIDATO LOCAL; APPLE DEVELOPER Y E2E PENDIENTES.**
+**Estado:** **IPA LOCAL EXPORTADO Y FIRMADO; SIN DISTRIBUCIÓN CONFIRMADA.**
 
 - `app/config/testflight-dev-build7.json` fija AWS DEV Release, elimina
   Unlimited QA, habilita STORE-02D y Apple, y conserva Microsoft, enlace web y
   diagnósticos OCR desactivados. No contiene secretos.
-- Cognito DEV fue revalidado en lectura: Apple existe y está habilitado en el
-  cliente móvil con OAuth code, callbacks y guards Google/Apple. La activación
-  del flag no sustituye la verificación del App ID, Services ID, key y retorno
-  en Apple Developer ni el E2E real.
+- Cognito DEV y la configuración Apple Developer quedaron verificados para la
+  homologación. El operador confirmó Sign in with Apple en iPhone; la matriz
+  ampliada de casos no se declara aprobada sin evidencia individual.
 - Runner conserva Hosted UI con `foloo://callback/`; no se añade entitlement
   nativo porque el código no usa `AuthenticationServices`. El App ID remoto sí
   debe estar habilitado como principal para asociar el Services ID.
 - El permiso de fototeca queda localizado ES/EN e incluye tarjeta, imágenes de
   referencia y perfil. Build name/number quedan `1.0.0+7`.
-- No generar ni distribuir IPA hasta confirmar el siguiente build disponible
-  en App Store Connect, firma/provisioning y el E2E Apple completo.
+- El 2026-11-23 se exportó el IPA local con Xcode y firma Cloud Managed Apple
+  Distribution. El [procedimiento canónico y evidencia del Build 7](ios-testflight-distribution.md)
+  registran comando, hash, firma y límites. No acreditan publicación ni PROD.
 
 ### FL-025 / QA-30 — Onboarding transitorio al cambiar de cuenta
 
-**Estado:** **CORREGIDA Y VALIDADA LOCALMENTE; QA FÍSICO PENDIENTE.**
+**Estado:** **CORREGIDA; QA FÍSICO EN IPHONE CONFIRMADO POR EL OPERADOR.**
 
 - Causa confirmada: FL-025A bloqueaba durante la lectura local, pero una cuenta
   existente sin perfil aún cacheado se clasificaba incompleta antes de que el
@@ -767,8 +769,8 @@ R8 en solución permanente.
   onboarding, ausencia confirmada, error/reintento, cambio A→B y respuesta
   posterior al logout. Validación local: análisis limpio, 75/75 pruebas
   focalizadas y suite Flutter 413 PASS/1 SKIP; el test del contrato Build 7
-  pasó por separado con sus defines. Falta confirmar el caso original en
-  iPhone antes de marcar QA-30 como validada físicamente.
+  pasó por separado con sus defines. El operador confirmó el caso original en
+  iPhone para la homologación de Build 7.
 
 ## Exclusiones del plan V1
 
@@ -785,3 +787,30 @@ cuenta/región aprobada aloja stacks independientes `FolooIdentity-prod` y
 faltan prefijo Cognito, secretos/identificadores OAuth, cuota/presupuesto,
 triggers Cognito declarativos, gates D-13/RC, Change Sets, migraciones, carga
 privada de preautorizaciones, E2E/restore y publicación web.
+
+## Gates de publicación de tiendas
+
+STORE-01 (2026-10-08/09) confirmó con Producto el publisher CBQA Solutions, su
+cuenta Apple existente y Play Console Organization. No recrear cuentas.
+Antes de STORE-04, CBQA debe verificar titularidad de ambos app records,
+representante/roles corporativos, nombre legal, D-U-N-S, domicilio, contacto,
+sitio, acuerdos y vigencia. Revalidar cumplimiento, pistas de pruebas,
+acceso de revisión con cuenta controlada e instrucciones, y disponibilidad
+de versión/build. Paid Apps, tax/banking y perfil de pagos solo cuando el
+alcance de FL-022 y el representante autorizado lo demanden.
+
+- **Ingeniería:** outputs PROD independientes y QA del candidato firmado;
+  en iOS iPhone/iPad y orientación donde aplique, permisos ES/EN, Apple/Google,
+  Privacy Report y export compliance (no inferirlo del plist). En Android:
+  custodia/respaldo de firma, Play App Signing, SDK exigido, AAB firmado y
+  validado, y pista interna/cerrada según la cuenta. Crashes, alertas y
+  recuperación se validan con TI. Una beta privada no acredita publicación.
+- **Legal/Producto:** aviso, soporte, términos, rol sobre datos de contactos,
+  mercados/idiomas/menores, consentimiento, retenciones, transferencias y
+  formularios App Privacy/Data Safety; `D-13` y `D-21` tienen sus propios
+  gates. Validar eliminación in-app y URL pública en el entorno aprobado.
+- **Entrega:** [iOS/TestFlight](ios-testflight-distribution.md),
+  [Android privado](android-private-distribution.md),
+  [materiales ES/EN](store-listing-materials.md),
+  [privacidad](privacy-compliance.md) y [preparación PROD](prod-environment-readiness.md).
+  Sin checkout público en 1.0; `D-01`–`D-04` y FL-022 siguen separados.

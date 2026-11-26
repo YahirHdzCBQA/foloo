@@ -55,16 +55,19 @@ HMAC aun si Cognito todavía no contiene la cuenta. `grant` continúa exigiendo
 un `sub` habilitado, confirmado y verificado. Ninguna operación imprime correo,
 `sub` o selector.
 
-El comando privado recibe `DB_ENTITLEMENT_OPERATOR_SECRET_ARN`, `DB_HOST`,
-`DB_NAME`, `COGNITO_USER_POOL_ID`, `AWS_REGION`,
-`ENTITLEMENT_PREAUTHORIZATION_HMAC_KEY_ARN`, `FOLOO_ENTITLEMENT_EMAIL`,
-`FOLOO_ADMIN_REASON` y `FOLOO_ENTITLEMENT_ACTION`. No acepta actor libre ni
-`DATABASE_URL`: requiere `sts:GetCallerIdentity`, lectura del secreto
-operativo y `cognito-idp:ListUsers` limitado al pool aprobado. Identidades
-nativas confirmadas y padres federados verificados de Google/Apple son válidos;
-Microsoft y proveedores desconocidos fallan cerrados.
+Para inputs, identidad del operador, IAM/MFA y reversión, usar el
+[runbook administrativo](fl021-administrative-entitlement-operations.md).
+La identidad sigue resolviéndose server-side: Microsoft y proveedores
+no reconocidos fallan cerrados.
 
-## Despliegue pendiente de autorización
+## Estado DEV y secuencia para otro entorno
+
+La activación en DEV y la concesión automática sintética fueron verificadas
+en el E2E operativo informado de FL-021. No se debe repetir esa activación
+como paso de Build 7. El [runbook administrativo](fl021-administrative-entitlement-operations.md)
+es la guía operativa; PROD conserva sus propios gates y no hereda selectores
+ni datos DEV. La siguiente secuencia queda como referencia de despliegue,
+no como autorización.
 
 1. Probar 013 y 014 en PostgreSQL 16 descartable, respaldar y verificar
    PostgreSQL y ejecutarlas en orden después de 012. El runner mantiene
@@ -99,7 +102,8 @@ Microsoft y proveedores desconocidos fallan cerrados.
 
 ## Pendientes que bloquean activación externa
 
-- Aprobar el rol/entorno operativo que podrá ejecutar el comando de grants.
+- Autorizar y verificar el rol/entorno de operación para PROD; el rol DEV no
+  se reutiliza para operar en PROD.
 - Contenido final ES/EN, requisitos de comunicación y URL válida del CTA.
 - Adaptador SES con deduplicación verificable y observabilidad. El worker y la
   plantilla local no equivalen a entrega real.

@@ -15,13 +15,14 @@ el runtime no contiene selector ni gating por edición.
 
 ## Límites actuales
 
-FL-020 aporta el trial histórico de cinco Leads, enforcement offline/server y
-paywall informativo. Compra, precio y transiciones producidas por un proveedor
-de pago pertenecen a FL-021. Google Sheets y transcripción automática no
-pertenecen a V1. Consulta `../docs/delivery/traceability.md`.
+FREE conserva cinco capturas históricas; FL-021 habilita captura ilimitada por
+entitlement PRO administrativo, sin cambiar las demás capacidades. Los pagos
+públicos quedan para FL-022. Google Sheets y transcripción automática siguen
+fuera de V1. Véase la [trazabilidad](../docs/delivery/traceability.md).
 
-La URL DEV está centralizada en `FolooApiConfiguration.dev` y puede sustituirse
-sin cambiar código mediante `--dart-define=FOLOO_API_BASE_URL=https://...`.
+Para QA iOS privado, usar la [configuración homologada de Build 7](../docs/delivery/ios-testflight-distribution.md).
+Un Release DEV requiere opt-in explícito; un Release público requiere
+[configuración PROD independiente](../docs/delivery/prod-environment-readiness.md).
 
 ## Validación local
 

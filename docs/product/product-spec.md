@@ -25,11 +25,13 @@
 Foloo permite que una persona vendedora capture, conserve, consulte y dé
 seguimiento a contactos en eventos o encuentros directos, incluso sin señal.
 
-No existen ediciones Basic/Pro. Una cuenta nueva puede guardar cinco leads. Al
-intentar guardar el sexto, Foloo conserva el formulario y presenta el paywall.
-Una suscripción activa habilita captura ilimitada. Un estado comercial
-inactivo nunca elimina ni oculta datos existentes y no impide consulta,
-edición, exportación o reintentos pendientes.
+No existen ediciones Basic/Pro. FREE permite cinco capturas históricas por
+cuenta; borrar un lead no devuelve cupo. Al intentar guardar el sexto, Foloo
+conserva el formulario. FL-021 habilita PRO administrativo y captura
+ilimitada por identidad autorizada; no cambia las demás capacidades ni
+habilita pagos públicos, reservados para FL-022. Un estado comercial inactivo
+nunca elimina ni oculta datos ni impide consulta, edición, exportación o
+reintentos pendientes.
 
 ## 2. Alcance
 
@@ -46,9 +48,9 @@ edición, exportación o reintentos pendientes.
 - Exportación XLSX y CSV por evento, incluida operación sobre datos locales.
 - Tema claro/oscuro, ES/EN y navegación móvil.
 - Trial histórico de cinco leads, paywall informativo y base de suscripción.
-- Solicitud de eliminación integral desde Android/iOS y recurso web público,
-  sujeta a los gates Legal/Seguridad/Infra/Payments de `D-13` antes de
-  implementación.
+- Solicitud de eliminación integral desde Android/iOS y recurso web público.
+  Hay evidencia técnica del flujo en AWS DEV; producción queda sujeta a los
+  gates Legal/Seguridad/Infra/Payments de `D-13`.
 
 ### 2.2 Fuera de V1
 

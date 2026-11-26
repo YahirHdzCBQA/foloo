@@ -177,3 +177,22 @@ queue is empty, disable the event source mapping. Do not revoke
 preauthorizations or grants as an infrastructure rollback, and do not restore
 Unlimited QA unless the Product Owner authorizes that separate temporary
 control.
+
+## Corte FL-023 y lista operativa
+
+El corte Build 5 evaluó tres candidatas adicionales sin registrar correos en
+Git. La consulta IAM en ese corte no se pudo completar, por lo que no existe
+evidencia de alta ni de duplicados para esas tres. No reemplazar ni mezclar
+el inventario aprobado de 17. Tras verificar MFA, consultar cada estado;
+preautorizar solo ausentes con autorización separada. Active/consumed no se
+duplican; revoked/error se escalan. Un relay Apple distinto solo se evalúa
+por la identidad verificada, sin vinculación de cuentas.
+
+## Unlimited QA temporal en DEV
+
+El bypass requiere opt-in cliente y backend, no concede PRO. Una ventana
+autorizada usa plantilla efectiva y Change Set aislado de la variable de API,
+sin cambiar otros recursos. Antes de apagarla, detener nuevas capturas
+temporales, sincronizar pendientes y revisar rechazos; luego restablecer flag
+y contexto CDK DEV mediante otro cambio auditado y verificar cliente FREE y
+PRO. No restaurar una plantilla antigua ni reutilizar flags de Build 5.
