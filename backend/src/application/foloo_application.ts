@@ -299,6 +299,7 @@ export class FolooApplication {
     mediaId: string,
     key: string,
     hash: string,
+    kind?: "reference_image",
   ) {
     const principal = await this.repository.resolvePrincipal(subject);
     return this.repository.deleteLeadMedia(
@@ -307,6 +308,7 @@ export class FolooApplication {
       mediaId,
       key,
       hash,
+      kind,
     );
   }
 

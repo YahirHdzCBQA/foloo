@@ -533,12 +533,16 @@ export function createRouter(
       const leadId = uuidSchema.parse(mediaDeleteMatch[1]);
       const mediaId = uuidSchema.parse(mediaDeleteMatch[2]);
       const key = idempotencyKey(event);
+      const { kind } = z.strictObject({
+        kind: z.literal("reference_image").optional(),
+      }).parse(body(event));
       const result = await application.deleteLeadMedia(
         subject,
         leadId,
         mediaId,
         key,
-        requestHash({ leadId, mediaId }),
+        requestHash(kind ? { leadId, mediaId, kind } : { leadId, mediaId }),
+        kind,
       );
       return json(
         200,

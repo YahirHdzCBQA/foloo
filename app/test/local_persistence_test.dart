@@ -690,6 +690,69 @@ void main() {
     },
   );
 
+  test('IMG-D09–14/16/17/19/20: reference tombstone survives reopen and stale pulls', () async {
+    final source = File('${temporary.path}/reference-source.jpg');
+    await source.writeAsBytes(testJpeg());
+    var db = openDatabase();
+    final storage = PrivateMediaStorage(mediaRoot);
+    var leads = LeadRepository(db, storage);
+    await EventRepository(db).save(userId, event(), makeActive: true);
+    final saved = await leads.saveDraft(
+      userId,
+      draft(cardPath: source.path, referencePaths: [source.path, source.path]),
+      capturedBy: const DemoProfile(name: 'QA', company: 'Synthetic'),
+    );
+    final media = (await db.leadDao.mediaFor(saved.localId))
+        .where((row) => row.mediaType == LocalMediaType.referenceImage.name)
+        .toList();
+    final target = media.first;
+    await expectLater(
+      leads.deleteReferenceImage('other-owner', saved, target.localPath),
+      throwsStateError,
+    );
+    await db.leadDao.markMediaSyncState(target.localId, 'syncing');
+    await leads.deleteReferenceImage(userId, saved, target.localPath);
+    await leads.deleteReferenceImage(userId, saved, target.localPath);
+    final ops = await db.syncDao.forEntity(
+      userId,
+      SyncEntityType.leadMedia.name,
+      target.localId,
+    );
+    expect(ops.single.action, 'delete');
+    expect(jsonDecode(ops.single.payloadJson)['kind'], 'reference_image');
+    expect(await File(target.localPath).exists(), isFalse);
+    expect(await File(source.path).exists(), isTrue);
+    await db.close();
+
+    db = openDatabase();
+    leads = LeadRepository(db, storage);
+    final store = SyncStore(db, mediaStorage: storage);
+    await store.applyRemoteMedia(
+      userId,
+      saved.localId,
+      [
+        {
+          'id': target.localId,
+          'kind': 'reference_image',
+          'uploadStatus': 'available',
+          'download': {'url': 'https://example.invalid/image'},
+          'contentType': 'image/jpeg',
+        },
+      ],
+      download: (_, _) async =>
+          throw StateError('Stale media must not download'),
+    );
+    final reopened = (await leads.listAll(userId)).single;
+    expect(reopened.lead.referenceImageLocalPaths, [media.last.localPath]);
+    expect(reopened.lead.cardImageLocalPath, saved.lead.cardImageLocalPath);
+    expect(reopened.lead.eventLocalId, saved.lead.eventLocalId);
+    expect(
+      (await db.leadDao.mediaById(target.localId))?.uploadState,
+      'deleted',
+    );
+    await db.close();
+  });
+
   test('failed lead transaction removes newly copied media', () async {
     final source = File('${temporary.path}/picker-card.jpg');
     await source.writeAsBytes([1, 2, 3]);

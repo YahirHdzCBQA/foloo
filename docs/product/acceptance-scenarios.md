@@ -129,17 +129,21 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 
 **Trazas:** `REG-01`–`REG-08`, `REG-15`–`REG-18`, `SAL-10`.
 
-- La barra horizontal Eventos / Leads directos / Tipo / Filtros abre un único
-  panel inferior. Directos lista lugares de captura owner-scoped distintos,
-  preserva su texto visible y omite de la lista los valores ausentes; lugares
-  seleccionados y Eventos forman una unión. “Solo leads directos” excluye
-  Eventos sin olvidar su selección y sin lugar elegido incluye todos los
-  Directos, incluso los que no tienen lugar. Valores de una categoría usan OR y
-  categorías distintas AND, sin cambiar el evento activo.
-- Evento, directo, tipo, interés, empresa normalizada, nombre parcial, fechas
-  inclusivas y Content funcionan offline sobre Drift. Ambos lados del panel
-  tienen scroll independiente; acciones quedan fijas y el estado vacío permite
-  limpiar filtros. Ningún Lead aparece duplicado.
+- Eventos y Leads directos son universos excluyentes. El selector busca y
+  confirma varios eventos, incluye eventos sin leads y conserva selecciones
+  ocultas por la búsqueda. Todos incluye los históricos; confirmación vacía
+  muestra cero. Alternar mantiene la selección y rango independientes.
+- Nombre o empresa busca dentro del universo vigente; cerrar limpia la
+  consulta. Los chips de tipo e interés y el historial de adjuntos aceptados
+  combinan OR dentro de su dimensión y AND entre dimensiones. Omitidos,
+  borradores, pendientes y fallidos no cuentan. Se compara por UUID, incluso
+  tras renombrar o eliminar un documento; no se acredita entrega al buzón.
+- Las hojas actualizan el conteo con el borrador, confirman explícitamente y
+  cancelan sin aplicar. Limpiar en Más filtros solo quita interés/adjuntos.
+  Directos admite los cuatro presets y rango inclusivo por fecha de captura
+  local, sin aplicar fechas a Eventos. No hay duplicados, filtros invisibles
+  ni transferencia de estado entre cuentas; el contador visible no limita la
+  sincronización global.
 - El renglón comunica interés, voz, correo y sync; correo usa icono accesible
   entre voz y sync para no enviado/pendiente/enviando/enviado/error/por confirmar.
 - El detalle reproduce voz, abre tarjeta/referencias completas y ordena
@@ -158,9 +162,12 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
   instantánea outbox obtenida antes de la última edición no se envía ni elimina
   el cambio nuevo; pull remoto conserva la edición abierta y actualiza el
   nombre snapshot cuando el `eventId` remoto realmente cambió.
-- Agregar imágenes de referencia a un Lead existente desde Registros las copia
-  al storage privado y encola su media sin reemplazar o borrar las anteriores,
-  hasta seis en total; Captura conserva su máximo de tres.
+- Agregar imágenes de referencia mantiene el pipeline privado y un tope de
+  seis en Registros y tres en Captura. El visor elimina solo una imagen
+  confirmada, conserva las restantes y vuelve al detalle al borrar la última.
+  Offline, reinicio, pull obsoleto y subida pendiente o concurrente no
+  resucitan un UUID borrado. Otra cuenta, tarjeta, voz y datos del Lead
+  permanecen intactos; la limpieza física remota sigue `D-13`.
 - El detalle permite agregar hasta tres Voice Notes. Deslizar una nota a la
   derecha pide confirmación y elimina solo esa nota mediante tombstone
   owner-scoped; repetir alta o baja no duplica ni afecta otra media.
@@ -375,10 +382,11 @@ Cada escenario cubre el producto unificado. No existe una variante por edición.
 - Exportar abre XLSX/CSV con XLSX inicial.
 - Exportar toma exactamente el conjunto owner-scoped filtrado en Registros,
   incluidos pendientes y todos los resultados locales aunque la UI pagine.
-  Sin filtros incluye todos los Leads accesibles; con filtros puede mezclar
-  eventos y Directos. No presenta un segundo selector de alcance o Content.
+  Incluye únicamente la modalidad activa, con sus filtros completos. No
+  presenta un segundo selector de fechas, evento, origen o contenido.
 - La salida conserva orden determinista y no duplica Leads. Cero resultados no
-  genera archivo; Limpiar filtros devuelve lista y exportación al alcance total.
+  genera archivo; limpiar devuelve lista y exportación al alcance sin filtros
+  de la modalidad activa.
 - Las quince columnas aparecen en el orden de `REG-11`, con vacíos como celda
   vacía, encabezados ES/EN y fecha local con offset. Contenido compartido toma
   los nombres visibles vigentes del Lead; Archivo original resuelve la metadata

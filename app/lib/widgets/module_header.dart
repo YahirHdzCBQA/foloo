@@ -62,14 +62,16 @@ class ModuleHeader extends StatelessWidget {
                         letterSpacing: -.45,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: palette.inkSecondary,
-                        fontSize: 10.5,
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          color: palette.inkSecondary,
+                          fontSize: 10.5,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

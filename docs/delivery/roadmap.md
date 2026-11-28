@@ -733,6 +733,23 @@ R8 en solución permanente.
   ADR-001/004/005/006/007. Sin backend, migración ni infraestructura; queda
   pendiente la validación física iOS/Android.
 
+## FL-025.1 — Registros y referencias (2026-11-27)
+
+- A: Eventos/Directos excluyentes, selector múltiple, fechas de captura de
+  Directos y combinación por tipo, interés y adjuntos aceptados. Sustituye
+  la unión por lugares de QA-28 exclusivamente en Registros. Exportación
+  reutiliza el resultado aplicado sin otro selector.
+- B: el visor elimina una referencia confirmada; Drift/outbox y el endpoint
+  de media mantienen tombstones e impiden reabrir un UUID eliminado.
+  Extensión compatible de API, sin migración; requiere desplegarla en DEV
+  antes de probar sincronización física. D-13 conserva limpieza física.
+- C: DELETE de una referencia desconocida no crea filas ni reserva claves de
+  idempotencia. Las referencias ya preparadas conservan su marca remota; el
+  outbox termina un DELETE ausente sin borrar la marca local. El GET conserva
+  el historial real sin truncarlo. Queda el preflight del bundle efectivo DEV.
+- `REG-01`–`REG-10`, `SYN-04`–`SYN-10`, E-06/E-09/E-10;
+  ADR-001/004/005. Build 8 no generado.
+
 ## REL-06 — Homologación TestFlight 1.0.0 Build 7
 
 **Estado:** **IPA LOCAL EXPORTADO Y FIRMADO; SIN DISTRIBUCIÓN CONFIRMADA.**

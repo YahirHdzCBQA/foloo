@@ -664,6 +664,24 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
     return leads.firstWhere((item) => item.localId == record.localId);
   }
 
+  Future<SessionLead> _deleteLeadReferenceImage(
+    SessionLead record,
+    String path,
+  ) async {
+    final owner = _userId;
+    await _persistence.leads.deleteReferenceImage(owner, record, path);
+    final leads = await _persistence.leads.listAll(owner);
+    if (mounted && _authRepository.state.user?.id == owner) {
+      setState(() {
+        _sessionLeads
+          ..clear()
+          ..addAll(leads);
+      });
+      if (_isOnline) unawaited(_synchronize(trigger: SyncTrigger.postSave));
+    }
+    return leads.firstWhere((item) => item.localId == record.localId);
+  }
+
   Future<SessionLead> _deleteLeadVoiceNote(
     SessionLead record,
     LeadVoiceNote note,
@@ -1768,6 +1786,7 @@ class _FolooAppState extends State<FolooApp> with WidgetsBindingObserver {
           syncing: _syncEngine?.running ?? false,
           onLeadUpdated: _updateLead,
           onReferenceImageAdded: _appendLeadReferenceImage,
+          onReferenceImageDeleted: _deleteLeadReferenceImage,
           onVoiceNoteAdded: _appendLeadVoiceNote,
           onVoiceNoteDeleted: _deleteLeadVoiceNote,
           contactImagePickerService: widget.contactImagePickerService,

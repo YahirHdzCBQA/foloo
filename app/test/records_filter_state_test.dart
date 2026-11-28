@@ -69,111 +69,145 @@ void main() {
     ),
   ];
 
-  test('QA-28 unions selected direct places and events', () {
-    final result = RecordsFilterState(
-      eventIds: const {'event-a'},
-      directPlaces: const {'expo industrial'},
-      leadTypes: const {LeadType.customer, LeadType.partner},
-      interests: const {InterestLevel.high, InterestLevel.medium},
-    ).apply(records);
+  List<String> ids(
+    RecordsFilterState state, {
+    Map<String, Set<String>> sent = const {},
+  }) => state.apply(records, sentByLead: sent).map((r) => r.localId).toList();
 
-    expect(result.map((item) => item.localId), [
-      'event-a-customer',
-      'direct-partner',
-    ]);
+  test('REG-F01–08: exclusive modes, multi-event, all and explicit none', () {
+    const events = RecordsFilterState();
+    expect(ids(events), ['event-b-supplier', 'event-a-customer']);
+    expect(ids(events.copyWith(eventIds: {'event-a'})), ['event-a-customer']);
+    expect(ids(events.copyWith(eventIds: {'event-a', 'event-b'})), ids(events));
+    expect(ids(events.copyWith(eventIds: {})), isEmpty);
+    expect(ids(events.copyWith(mode: RecordsMode.direct)), ['direct-partner']);
+    expect(events.apply([...records, records.first]).length, 2);
   });
 
-  test(
-    'QA-28 direct-only ignores dormant events and optionally filters places',
-    () {
-      final allDirect = RecordsFilterState(
-        eventIds: const {'event-a'},
-        onlyDirect: true,
-      ).apply(records);
-      expect(allDirect.map((item) => item.localId), ['direct-partner']);
-
-      final selected = RecordsFilterState(
-        eventIds: const {'event-a'},
-        directPlaces: const {'expo industrial'},
-        onlyDirect: true,
-      ).apply(records);
-      expect(selected.map((item) => item.localId), ['direct-partner']);
-
-      final restoredUnion = RecordsFilterState(
-        eventIds: const {'event-a'},
-        directPlaces: const {'expo industrial'},
-      ).apply(records);
-      expect(restoredUnion.map((item) => item.localId), [
-        'event-a-customer',
-        'direct-partner',
-      ]);
-    },
-  );
-
-  test(
-    'QA-28 excludes reassigned event leads from a selected direct place',
-    () {
-      final reassigned = _record(
-        id: 'direct-partner',
-        capturedAt: DateTime(2026, 11, 11),
-        origin: LeadOriginKind.event,
-        eventId: 'event-b',
-      );
-      final result = RecordsFilterState(directPlaces: const {'expo industrial'})
-          .apply([reassigned]);
-      expect(result, isEmpty);
-    },
-  );
-
-  test('QA-28 normalizes place case and spaces and handles missing place', () {
-    final samePlace = _record(
-      id: 'direct-office',
-      capturedAt: DateTime(2026, 11, 13),
-      origin: LeadOriginKind.direct,
-      place: 'EXPO industrial',
-    );
-    final noPlace = _record(
-      id: 'direct-no-place',
-      capturedAt: DateTime(2026, 11, 14),
-      origin: LeadOriginKind.direct,
-    );
-
-    final byPlace = RecordsFilterState(directPlaces: const {'expo industrial'})
-        .apply([...records, samePlace, noPlace]);
-    expect(byPlace.map((item) => item.localId), [
-      'direct-partner',
-      'direct-office',
-    ]);
-
-    final allDirect = const RecordsFilterState(onlyDirect: true)
-        .apply([...records, samePlace, noPlace]);
-    expect(allDirect.map((item) => item.localId), [
-      'direct-partner',
-      'direct-office',
-      'direct-no-place',
-    ]);
-  });
-
-  test('QA-20 normalizes Company and keeps date boundaries inclusive', () {
-    final result = RecordsFilterState(
-      companies: const {'cbqa solutions'},
-      fromDate: DateTime(2026, 11, 10),
-      toDate: DateTime(2026, 11, 10),
-    ).apply(records);
-
-    expect(result.single.localId, 'event-a-customer');
-  });
-
-  test('QA-20 content values are OR and duplicated records stay unique', () {
-    final result = RecordsFilterState(
-      contentIds: const {'catalogue', 'presentation'},
-    ).apply([...records, records.first]);
-
-    expect(result.map((item) => item.localId).toSet(), {
-      'event-a-customer',
-      'direct-partner',
+  test('REG-F09–15: name and company search with other filters', () {
+    expect(ids(const RecordsFilterState(query: 'mariana qa')), [
       'event-b-supplier',
-    });
-    expect(result, hasLength(3));
+      'event-a-customer',
+    ]);
+    expect(
+      ids(
+        const RecordsFilterState(
+          query: ' cbqa  solutions ',
+          eventIds: {'event-a'},
+          leadTypes: {LeadType.customer, LeadType.partner},
+          interests: {InterestLevel.high, InterestLevel.medium},
+        ),
+      ),
+      ['event-a-customer'],
+    );
+    expect(
+      ids(const RecordsFilterState(query: 'ÁNGEL', mode: RecordsMode.direct)),
+      ['direct-partner'],
+    );
+    expect(ids(const RecordsFilterState(query: 'not-found')), isEmpty);
+  });
+
+  test(
+    'REG-F16–19/30: sent UUIDs OR with no sent content; not associations',
+    () {
+      const filter = RecordsFilterState(
+        contentIds: {'catalogue', 'other'},
+        leadTypes: {LeadType.customer, LeadType.supplier},
+        interests: {InterestLevel.high},
+        query: 'cbqa',
+      );
+      const sent = {
+        'event-a-customer': {'other'},
+        'direct-partner': {'catalogue'},
+      };
+      expect(ids(filter, sent: sent), ['event-a-customer']);
+      expect(ids(filter.copyWith(withoutContent: true), sent: sent), [
+        'event-b-supplier',
+        'event-a-customer',
+      ]);
+      expect(
+        ids(filter.copyWith(contentIds: {}, withoutContent: true), sent: sent),
+        ['event-b-supplier'],
+      );
+      expect(ids(filter, sent: {}), isEmpty);
+    },
+  );
+
+  test('REG-F23–29: civil dates through month/year and inclusive midnight', () {
+    final now = DateTime(2026, 1, 2, 17);
+    final month = RecordsDateRange.preset(RecordsDatePreset.thisMonth, now);
+    expect(month.from, DateTime(2026, 1, 1));
+    expect(month.to, DateTime(2026, 1, 2));
+    expect(month.contains(DateTime(2026, 1, 1).toUtc()), isTrue);
+    expect(month.contains(DateTime(2026, 1, 2, 23, 59, 59).toUtc()), isTrue);
+    expect(month.contains(DateTime(2026, 1, 3).toUtc()), isFalse);
+    final last = RecordsDateRange.preset(RecordsDatePreset.lastMonth, now);
+    expect(last.from, DateTime(2025, 12, 1));
+    expect(last.to, DateTime(2025, 12, 31));
+    final ninety = RecordsDateRange.preset(RecordsDatePreset.last90Days, now);
+    expect(ninety.from, DateTime(2025, 10, 5));
+    expect(ninety.to, DateTime(2026, 1, 2));
+    expect(const RecordsDateRange().contains(DateTime(2000)), isTrue);
+    expect(RecordsDateRange(month.to, month.from).valid, isFalse);
+    expect(RecordsDateRange(month.from, month.from).valid, isTrue);
+  });
+
+  test('REG-03 QA-V06: local weeks start Monday and include today', () {
+    for (final (today, monday) in [
+      (DateTime(2026, 1, 5), DateTime(2026, 1, 5)),
+      (DateTime(2026, 1, 11), DateTime(2026, 1, 5)),
+      (DateTime(2026, 5, 2), DateTime(2026, 4, 27)),
+      (DateTime(2026, 1, 2), DateTime(2025, 12, 29)),
+    ]) {
+      final range = RecordsDateRange.preset(
+        RecordsDatePreset.thisWeek,
+        DateTime(today.year, today.month, today.day, 17).toUtc(),
+      );
+      expect(range.from, monday);
+      expect(range.to, today);
+      expect(range.contains(monday.toUtc()), isTrue);
+      expect(
+        range.contains(monday.subtract(const Duration(seconds: 1))),
+        isFalse,
+      );
+      expect(
+        range.contains(
+          DateTime(today.year, today.month, today.day, 23, 59, 59),
+        ),
+        isTrue,
+      );
+      expect(
+        range.contains(DateTime(today.year, today.month, today.day + 1)),
+        isFalse,
+      );
+    }
+  });
+
+  test(
+    'REG-03 QA-V06: identical weekly/monthly bounds retain explicit selection',
+    () {
+      final now = DateTime(2026, 6, 3, 12);
+      final week = RecordsDateRange.preset(RecordsDatePreset.thisWeek, now);
+      final month = RecordsDateRange.preset(RecordsDatePreset.thisMonth, now);
+      expect(week.from, month.from);
+      expect(week.to, month.to);
+      expect(week.matchingPreset(now), RecordsDatePreset.thisWeek);
+      expect(month.matchingPreset(now), RecordsDatePreset.thisMonth);
+      expect(
+        RecordsDateRange(month.from, DateTime(2026, 6, 2)).matchingPreset(now),
+        isNull,
+      );
+    },
+  );
+
+  test('REG-F33: switching modes preserves independent date/event scope', () {
+    final state = RecordsFilterState(
+      eventIds: const {'event-a'},
+      dates: RecordsDateRange(DateTime(2026, 11, 11), DateTime(2026, 11, 11)),
+    );
+    expect(ids(state), ['event-a-customer']);
+    final direct = state.copyWith(mode: RecordsMode.direct);
+    expect(ids(direct), ['direct-partner']);
+    expect(ids(direct.copyWith(mode: RecordsMode.events)), ids(state));
   });
 }

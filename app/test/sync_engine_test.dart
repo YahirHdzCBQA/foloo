@@ -252,6 +252,22 @@ class _MediaTransfer implements MediaBinaryTransfer {
   }
 }
 
+class _BlockingMediaTransfer extends _MediaTransfer {
+  final started = Completer<void>();
+  final released = Completer<void>();
+
+  @override
+  Future<void> upload({
+    required Uri url,
+    required Map<String, String> headers,
+    required String localPath,
+  }) async {
+    await super.upload(url: url, headers: headers, localPath: localPath);
+    started.complete();
+    await released.future;
+  }
+}
+
 class _BlockingApi implements SyncApi {
   final calls = <_Call>[];
   final postStarted = Completer<void>();
@@ -2433,6 +2449,130 @@ void main() {
       );
       expect(confirmation.request.body?['id'], mediaId);
       expect(confirmation.request.idempotencyKey, operation.idempotencyKey);
+    },
+  );
+
+  test(
+    'IMG-D19 deletion during PUT skips confirmation and syncs DELETE',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'foloo_reference_race_',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      final source = _writeTestJpeg('${root.path}/reference.jpg');
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final storage = PrivateMediaStorage(
+        Directory('${root.path}/foloo_media'),
+      );
+      final store = SyncStore(db, mediaStorage: storage);
+      const leadId = '6470b0c1-1ed2-43bf-9b57-9db9f2da7597';
+      final leads = LeadRepository(
+        db,
+        storage,
+        syncStore: store,
+        idFactory: () => leadId,
+      );
+      final saved = await leads.saveDraft(
+        owner,
+        _draft(referencePaths: [source.path]),
+        capturedBy: profile,
+      );
+      await store.complete(
+        (await store.all(owner)).singleWhere((op) => op.entityType == 'lead'),
+      );
+      final media = (await db.leadDao.mediaFor(leadId)).single;
+      final api = _MediaApi();
+      final transfer = _BlockingMediaTransfer();
+      final engine = SyncEngine(
+        store,
+        api,
+        _Session('token'),
+        mediaTransfer: transfer,
+      );
+      final firstSync = engine.synchronize(owner, trigger: SyncTrigger.manual);
+      try {
+        await transfer.started.future.timeout(const Duration(seconds: 5));
+        await leads.deleteReferenceImage(owner, saved, media.localPath);
+      } finally {
+        transfer.released.complete();
+        await firstSync;
+      }
+      await engine.synchronize(owner, trigger: SyncTrigger.manual);
+      expect(api.authorizationCount, 1);
+      expect(
+        api.calls.where(
+          (call) =>
+              call.request.path == '/v1/leads/$leadId/media' &&
+              call.request.method == 'POST',
+        ),
+        isEmpty,
+      );
+      final deletion = api.calls.singleWhere(
+        (call) => call.request.method == 'DELETE',
+      );
+      expect(deletion.request.path, '/v1/leads/$leadId/media/${media.localId}');
+      expect(deletion.request.body, {'kind': 'reference_image'});
+      expect(await db.leadDao.mediaFor(leadId), isEmpty);
+      expect(await store.all(owner), isEmpty);
+    },
+  );
+
+  test(
+    'FL-025.1-C unsent reference stays deleted when API returns absent',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'foloo_absent_reference_',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      final source = _writeTestJpeg('${root.path}/reference.jpg');
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final storage = PrivateMediaStorage(
+        Directory('${root.path}/foloo_media'),
+      );
+      final store = SyncStore(db, mediaStorage: storage);
+      const leadId = '6470b0c1-1ed2-43bf-9b57-9db9f2da7597';
+      final leads = LeadRepository(
+        db,
+        storage,
+        syncStore: store,
+        idFactory: () => leadId,
+      );
+      final saved = await leads.saveDraft(
+        owner,
+        _draft(referencePaths: [source.path]),
+        capturedBy: profile,
+      );
+      await store.complete(
+        (await store.all(owner)).singleWhere((op) => op.entityType == 'lead'),
+      );
+      final media = (await db.leadDao.mediaFor(leadId)).single;
+      await leads.deleteReferenceImage(owner, saved, media.localPath);
+      final api = _PathFailApi(
+        failurePath: '/v1/leads/$leadId/media/${media.localId}',
+        failure: const SyncHttpException(404, errorCode: 'not_found'),
+      );
+      final transfer = _MediaTransfer();
+      final engine = SyncEngine(
+        store,
+        api,
+        _Session('token'),
+        mediaTransfer: transfer,
+      );
+      await engine.synchronize(owner);
+      await engine.synchronize(owner);
+      expect(
+        api.calls.where((call) => call.request.method == 'DELETE'),
+        hasLength(1),
+      );
+      expect(transfer.uploads, isEmpty);
+      expect(await store.all(owner), isEmpty);
+      expect(
+        (await db.leadDao.mediaById(media.localId))?.uploadState,
+        'deleted',
+      );
+      expect(await db.leadDao.mediaFor(leadId), isEmpty);
     },
   );
 

@@ -877,9 +877,9 @@ export class PostgresFolooRepository implements FolooRepository {
          duration_ms = EXCLUDED.duration_ms, sha256 = EXCLUDED.sha256,
          storage_object_key = EXCLUDED.storage_object_key,
          upload_status = CASE WHEN lead_media.upload_status = 'available'
-           THEN 'available' ELSE 'pending' END,
-         deleted_at = NULL
-       WHERE lead_media.lead_id = $3
+           THEN 'available' ELSE 'pending' END
+       WHERE lead_media.lead_id = $3 AND lead_media.deleted_at IS NULL
+         AND lead_media.kind = EXCLUDED.kind
        RETURNING id`,
       [
         input.id,
@@ -910,13 +910,24 @@ export class PostgresFolooRepository implements FolooRepository {
     mediaId: string,
     key: string,
     hash: string,
+    kind?: "reference_image",
   ): Promise<IdempotentResult<unknown>> {
+    let transitioned = false;
     return this.idempotent(
       principal.workspaceId,
       "delete-lead-media",
       key,
       hash,
       async (db) => {
+        if (kind === "reference_image") {
+          // Serialize with prepareLeadMedia. An unknown UUID is not evidence
+          // of preparation and must never create media or idempotency records.
+          const lead = await db.query(
+            "SELECT id FROM leads WHERE workspace_id=$1 AND id=$2 AND deleted_at IS NULL FOR UPDATE",
+            [principal.workspaceId, leadId],
+          );
+          if (!lead.rows[0]) throw notFound("Lead");
+        }
         const found = await db.query<{
           id: string;
           kind: string;
@@ -925,16 +936,16 @@ export class PostgresFolooRepository implements FolooRepository {
           `SELECT m.id,m.kind,m.deleted_at AS "deletedAt"
            FROM lead_media m JOIN leads l ON l.id=m.lead_id AND l.workspace_id=m.workspace_id
            WHERE m.workspace_id=$1 AND m.lead_id=$2 AND m.id=$3
-             AND l.deleted_at IS NULL FOR UPDATE`,
+             AND l.deleted_at IS NULL FOR UPDATE OF m`,
           [principal.workspaceId, leadId, mediaId],
         );
         const media = found.rows[0];
         if (!media) throw notFound("Media");
-        if (media.kind !== "voice_note") {
+        if (media.kind !== (kind ?? "voice_note")) {
           throw new ApplicationError(
             "media_delete_not_allowed",
             409,
-            "Only saved voice notes can be deleted from Lead detail.",
+            "The requested media type cannot be deleted from Lead detail.",
           );
         }
         if (!media.deletedAt) {
@@ -943,10 +954,12 @@ export class PostgresFolooRepository implements FolooRepository {
              WHERE workspace_id=$1 AND lead_id=$2 AND id=$3`,
             [principal.workspaceId, leadId, mediaId],
           );
+          transitioned = true;
         }
         return { id: mediaId, deleted: true };
       },
       200,
+      () => kind !== "reference_image" || transitioned,
     );
   }
 
@@ -1007,6 +1020,7 @@ export class PostgresFolooRepository implements FolooRepository {
     hash: string,
     execute: (db: Queryable) => Promise<T>,
     responseStatus = 201,
+    shouldRecordResponse = () => true,
   ): Promise<IdempotentResult<T>> {
     const client = await this.pool.connect();
     try {
@@ -1034,19 +1048,21 @@ export class PostgresFolooRepository implements FolooRepository {
         return { value: stored.response_body, replayed: true };
       }
       const value = await execute(client);
-      await client.query(
-        `INSERT INTO idempotency_records
-          (workspace_id, operation, idempotency_key, request_hash, response_status, response_body)
-         VALUES ($1,$2,$3,$4,$5,$6::jsonb)`,
-        [
-          workspaceId,
-          operation,
-          key,
-          hash,
-          responseStatus,
-          JSON.stringify(value),
-        ],
-      );
+      if (shouldRecordResponse()) {
+        await client.query(
+          `INSERT INTO idempotency_records
+            (workspace_id, operation, idempotency_key, request_hash, response_status, response_body)
+           VALUES ($1,$2,$3,$4,$5,$6::jsonb)`,
+          [
+            workspaceId,
+            operation,
+            key,
+            hash,
+            responseStatus,
+            JSON.stringify(value),
+          ],
+        );
+      }
       await client.query("COMMIT");
       return { value, replayed: false };
     } catch (error) {

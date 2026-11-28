@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:excel_community/excel_community.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foloo/data/repositories/local_repositories.dart';
@@ -13,8 +15,10 @@ import 'package:foloo/models/session_lead.dart';
 import 'package:foloo/screens/records_screen.dart';
 import 'package:foloo/services/records_export_service.dart';
 import 'package:foloo/theme/foloo_theme.dart';
+import 'package:foloo/widgets/segmented_bubble.dart';
 import 'package:foloo/widgets/voice_playback_waveform.dart';
 import 'package:image/image.dart' as image_codec;
+import 'package:intl/intl.dart';
 
 import 'support/fake_voice_note_service.dart';
 
@@ -67,9 +71,11 @@ Widget recordsApp(
   Future<SessionLead> Function(SessionLead, LeadDraft)? onLeadUpdated,
   Future<String?> Function(String eventId)? eventNameForId,
   Locale locale = const Locale('es'),
+  double textScale = 1,
   Future<void> Function(SessionLead)? onDelete,
   Future<SessionLead> Function(SessionLead, String, int)? onVoiceNoteAdded,
   Future<SessionLead> Function(SessionLead, LeadVoiceNote)? onVoiceNoteDeleted,
+  Future<SessionLead> Function(SessionLead, String)? onReferenceImageDeleted,
   Future<EmailReviewDraft?> Function(SessionLead)? onEmailReviewRequested,
   Future<EmailReviewOutcome> Function(EmailReviewDraft)? onEmailReviewConfirmed,
   Future<void> Function(EmailReviewDraft, LeadDraft)? onEmailReviewUpdated,
@@ -81,6 +87,11 @@ Widget recordsApp(
   darkTheme: FolooTheme.dark,
   themeMode: darkMode ? ThemeMode.dark : ThemeMode.light,
   locale: locale,
+  builder: (context, child) => MediaQuery(
+    data: MediaQuery.of(context)
+        .copyWith(textScaler: TextScaler.linear(textScale)),
+    child: child!,
+  ),
   localizationsDelegates: AppLocalizations.localizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   home: RecordsScreen(
@@ -102,6 +113,7 @@ Widget recordsApp(
     onDelete: onDelete,
     onVoiceNoteAdded: onVoiceNoteAdded,
     onVoiceNoteDeleted: onVoiceNoteDeleted,
+    onReferenceImageDeleted: onReferenceImageDeleted,
     onEmailReviewRequested: onEmailReviewRequested,
     onEmailReviewConfirmed: onEmailReviewConfirmed,
     onEmailReviewUpdated: onEmailReviewUpdated,
@@ -647,7 +659,9 @@ void main() {
     },
   );
 
-  testWidgets('QA-28 unions selected events and direct places', (tester) async {
+  testWidgets('REG-F01–03/33/35 keeps event and direct modes exclusive', (
+    tester,
+  ) async {
     final event = SessionLead(
       localId: 'event-lead',
       folio: null,
@@ -679,35 +693,31 @@ void main() {
       ),
     );
     expect(find.text('Evento Sandoval Ruiz'), findsOneWidget);
-    expect(find.text('Directo Sandoval Ruiz'), findsOneWidget);
-
+    expect(find.text('Directo Sandoval Ruiz'), findsNothing);
     await tester.tap(find.byKey(const Key('recordsEventsFilter')));
     await tester.pumpAndSettle();
-    expect(find.text('Nivel de Interés'), findsOneWidget);
-    expect(find.text('Nombre de lead'), findsOneWidget);
-    await tester.tap(
-      find.byKey(const Key('recordsFilterEvent-expo-alimentaria')),
-    );
-    await tester.tap(find.byKey(const Key('applyRecordsFilters')));
+    expect(find.text('Elige el evento'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('recordsSelectAllEvents')));
+    await tester.tap(find.byKey(const Key('recordsApplyFilters')));
     await tester.pumpAndSettle();
-    expect(find.text('Evento Sandoval Ruiz'), findsOneWidget);
-    expect(find.text('Directo Sandoval Ruiz'), findsNothing);
+    expect(find.text('Evento Sandoval Ruiz'), findsNothing);
 
-    await tester.tap(find.byKey(const Key('recordsDirectFilter')));
+    await tester.tap(find.byKey(const Key('recordsModeDirect')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('recordsFilterDirectPlace-león')));
-    await tester.tap(find.byKey(const Key('applyRecordsFilters')));
-    await tester.pumpAndSettle();
-    expect(find.text('Evento Sandoval Ruiz'), findsOneWidget);
     expect(find.text('Directo Sandoval Ruiz'), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('recordsDirectFilter')));
+    expect(find.textContaining('León'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('recordsDatesFilter')));
     await tester.pumpAndSettle();
-    expect(find.text('Solo leads directos'), findsOneWidget);
-    expect(
-      find.byKey(const Key('recordsFilterDirectPlace-león')),
-      findsOneWidget,
-    );
+    expect(find.text('¿De qué fechas?'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('recordsDatePreset-thisMonth')));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(4, 4));
+    await tester.pumpAndSettle();
+    expect(find.text('Directo Sandoval Ruiz'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('recordsModeEvents')));
+    await tester.pumpAndSettle();
+    expect(find.text('Ningún evento'), findsOneWidget);
+    expect(find.text('Evento Sandoval Ruiz'), findsNothing);
   });
 
   testWidgets(
@@ -872,17 +882,28 @@ void main() {
 
     await tester.tap(find.byKey(const Key('recordsEventsFilter')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('recordsFilterEvent-event-a')));
-    await tester.tap(find.byKey(const Key('applyRecordsFilters')));
+    await tester.tap(find.byKey(const Key('recordsEvent-event-b')));
+    await tester.tap(find.byKey(const Key('recordsApplyFilters')));
     await tester.pumpAndSettle();
     expect(find.text('Ana Sandoval Ruiz'), findsOneWidget);
     expect(find.text('Beatriz Sandoval Ruiz'), findsNothing);
 
     await tester.tap(find.byKey(const Key('recordsEventsFilter')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('recordsFilterEvent-event-a')));
-    await tester.tap(find.byKey(const Key('recordsFilterEvent-event-b')));
-    await tester.tap(find.byKey(const Key('applyRecordsFilters')));
+    await tester.enterText(
+      find.byKey(const Key('recordsEventSearch')),
+      'Evento B',
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('recordsEvent-event-a')), findsNothing);
+    await tester.tap(find.byKey(const Key('recordsEvent-event-b')));
+    await tester.enterText(
+      find.byKey(const Key('recordsEventSearch')),
+      'Evento A',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('recordsEvent-event-a')));
+    await tester.tap(find.byKey(const Key('recordsApplyFilters')));
     await tester.pumpAndSettle();
 
     expect(find.text('Ana Sandoval Ruiz'), findsNothing);
@@ -891,8 +912,8 @@ void main() {
 
     await tester.tap(find.byKey(const Key('recordsEventsFilter')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('clearRecordsFilters')));
-    await tester.tap(find.byKey(const Key('applyRecordsFilters')));
+    await tester.tap(find.byKey(const Key('recordsSelectAllEvents')));
+    await tester.tap(find.byKey(const Key('recordsApplyFilters')));
     await tester.pumpAndSettle();
 
     expect(find.text('Ana Sandoval Ruiz'), findsOneWidget);
@@ -988,6 +1009,63 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byKey(const Key('detailReferenceImageDialog')), findsNothing);
   });
+
+  testWidgets(
+    'IMG-D01–08/15/16: confirm, cancel, retry error and close on last',
+    (tester) async {
+      final service = FakeVoiceNoteService();
+      var paths = ['/private/reference-a.jpg', '/private/reference-b.jpg'];
+      SessionLead snapshot() => SessionLead(
+        localId: 'image-owner-lead',
+        folio: null,
+        capturedAt: DateTime(2026, 9),
+        lead: lead(referenceImagePaths: paths, note: 'Keep the written note'),
+      );
+      var calls = 0;
+      await tester.pumpWidget(
+        recordsApp(
+          service,
+          records: [snapshot()],
+          onReferenceImageDeleted: (_, path) async {
+            calls++;
+            if (calls == 1) throw StateError('fixture failure');
+            paths = paths.where((item) => item != path).toList();
+            return snapshot();
+          },
+        ),
+      );
+      await tester.tap(find.text('Mariana Sandoval Ruiz'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('detailReferenceImage-0')),
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byKey(const Key('detailReferenceImage-0')));
+      await tester.pumpAndSettle();
+      final remove = find.byKey(const Key('detailDeleteReferenceImage'));
+      final confirm = find.byKey(const Key('confirmDeleteReferenceImage'));
+      await tester.tap(remove);
+      await tester.pumpAndSettle();
+      expect(find.text('¿Eliminar imagen?'), findsOneWidget);
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      expect(calls, 0);
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(remove);
+        await tester.pumpAndSettle();
+        await tester.tap(confirm);
+        await tester.pumpAndSettle();
+        if (i < 2) expect(find.byType(InteractiveViewer), findsOneWidget);
+      }
+      expect(calls, 3);
+      expect(find.byKey(const Key('detailReferenceImageDialog')), findsNothing);
+      expect(find.byKey(const Key('detailReferenceImage-0')), findsNothing);
+      expect(find.byKey(const Key('detailBackButton')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('export dialog opens and switches format without layout errors', (
     tester,
@@ -1167,91 +1245,502 @@ void main() {
     expect(find.text('María José Sandoval Ruiz'), findsWidgets);
   });
 
-  testWidgets('QA-21 export uses the exact mixed filtered result set', (
+  for (final width in [320.0, 375.0, 390.0, 402.0, 430.0]) {
+    for (final language in ['es', 'en']) {
+      testWidgets('REG-02/03 QA-V02/V05: filters fit ${width}px $language', (
+        tester,
+      ) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = Size(width, 760);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
+        await tester.pumpWidget(
+          recordsApp(
+            FakeVoiceNoteService(),
+            records: const [],
+            locale: Locale(language),
+          ),
+        );
+        Finder byKey(String key) => find.byKey(Key(key));
+        final types = [
+          for (final type in ['all', 'customer', 'partner', 'supplier'])
+            byKey('recordsType-$type'),
+        ];
+        for (final type in types) {
+          expect(type.hitTestable(), findsOneWidget);
+          expect(tester.getSize(type).height, greaterThanOrEqualTo(44));
+        }
+        if (width >= 375) {
+          final top = tester.getTopLeft(types.first).dy;
+          for (final type in types.skip(1)) {
+            expect(tester.getTopLeft(type).dy, top);
+          }
+          expect(
+            tester.getCenter(byKey('recordsAllFilters')).dy,
+            closeTo(tester.getCenter(types.first).dy, 2),
+          );
+        }
+        Color? background(Finder choice) => tester
+            .widget<TextButton>(
+              find.descendant(of: choice, matching: find.byType(TextButton)),
+            )
+            .style
+            ?.backgroundColor
+            ?.resolve({});
+        expect(background(types.first), FolooColors.limeTint);
+        await tester.tap(types[1]);
+        await tester.tap(types[2]);
+        await tester.pumpAndSettle();
+        expect(background(types[0]), isNot(FolooColors.limeTint));
+        expect(background(types[1]), FolooColors.limeTint);
+        expect(background(types[2]), FolooColors.limeTint);
+        await tester.tap(byKey('recordsModeDirect'));
+        await tester.pumpAndSettle();
+        await tester.tap(byKey('recordsDatesFilter'));
+        await tester.pumpAndSettle();
+        final presets = [
+          for (final name in [
+            'thisWeek',
+            'thisMonth',
+            'lastMonth',
+            'last90Days',
+            'all',
+          ])
+            byKey('recordsDatePreset-$name'),
+        ];
+        final top = tester.getTopLeft(presets[0]).dy;
+        expect(tester.getTopLeft(presets[1]).dy, top);
+        expect(tester.getTopLeft(presets[2]).dy, top);
+        expect(tester.getTopLeft(presets[3]).dy, greaterThan(top));
+        expect(
+          tester.getTopLeft(presets[4]).dy,
+          tester.getTopLeft(presets[3]).dy,
+        );
+        for (final preset in presets) {
+          expect(preset.hitTestable(), findsOneWidget);
+        }
+        expect(background(presets[4]), FolooColors.limeTint);
+        await tester.tap(presets[0]);
+        await tester.pumpAndSettle();
+        expect(background(presets[0]), FolooColors.limeTint);
+        expect(background(presets[4]), isNot(FolooColors.limeTint));
+        expect(
+          find.text(language == 'es' ? 'Esta semana' : 'This week'),
+          findsOneWidget,
+        );
+        expect(
+          find.text(
+            language == 'es'
+                ? 'Selecciona el rango de fechas para mostrar y exportar tus leads'
+                : 'Select the date range to view and export your leads',
+          ),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
+  testWidgets(
+    'REG-03 QA-V02/V03: interest reuses Captura and toggles independently',
+    (tester) async {
+      await tester.pumpWidget(
+        recordsApp(FakeVoiceNoteService(), records: const []),
+      );
+      await tester.tap(find.byKey(const Key('recordsAllFilters')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('recordsInterest-low')));
+      await tester.tap(find.byKey(const Key('recordsInterest-high')));
+      await tester.pumpAndSettle();
+      final interest = tester.widget<SegmentedBubble<InterestLevel>>(
+        find.byType(SegmentedBubble<InterestLevel>),
+      );
+      expect(interest.selectedValues, {InterestLevel.low, InterestLevel.high});
+      expect(interest.selectedColor, FolooColors.limeTint);
+      expect(find.text('CONTENIDO ENVIADO'), findsOneWidget);
+      expect(find.text('Leads con envío aceptado'), findsNothing);
+    },
+  );
+
+  testWidgets('REG-02/03 QA-V02 accessibility: filters safely reflow at 320', (
     tester,
   ) async {
-    final sharer = _CapturingRecordsFileSharer();
-    final records = [
-      SessionLead(
-        localId: 'event-a-lead',
-        folio: null,
-        capturedAt: DateTime(2026, 9, 1),
-        lead: lead(eventId: 'event-a', eventName: 'Evento A', name: 'Ana'),
-      ),
-      SessionLead(
-        localId: 'direct-lead',
-        folio: null,
-        capturedAt: DateTime(2026, 9, 2),
-        lead: lead(
-          originKind: LeadOriginKind.direct,
-          place: 'León',
-          name: 'Diana',
-        ),
-      ),
-      SessionLead(
-        localId: 'event-b-lead',
-        folio: null,
-        capturedAt: DateTime(2026, 9, 3),
-        lead: lead(eventId: 'event-b', eventName: 'Evento B', name: 'Beto'),
-      ),
-    ];
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 568);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pumpWidget(
+      recordsApp(FakeVoiceNoteService(), records: const [], textScale: 1.8),
+    );
+    final all = find.byKey(const Key('recordsType-all'));
+    final supplier = find.byKey(const Key('recordsType-supplier'));
+    expect(
+      tester.getTopLeft(supplier).dy,
+      greaterThan(tester.getTopLeft(all).dy),
+    );
+    await tester.ensureVisible(supplier);
+    await tester.pumpAndSettle();
+    expect(supplier.hitTestable(), findsOneWidget);
+    final filters = find.byKey(const Key('recordsAllFilters'));
+    await tester.ensureVisible(filters);
+    await tester.pumpAndSettle();
+    await tester.tap(filters);
+    await tester.pumpAndSettle();
+    final high = find.byKey(const Key('recordsInterest-high'));
+    await tester.ensureVisible(high);
+    await tester.pumpAndSettle();
+    expect(high.hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('REG-F06 compact event search fits with the keyboard open', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 568);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetViewInsets);
     await tester.pumpWidget(
       recordsApp(
         FakeVoiceNoteService(),
-        records: records,
+        records: const [],
         events: [
           AppEvent(
-            id: 'event-a',
-            name: 'Evento A',
-            startsOn: DateTime(2026, 9, 1),
-            endsOn: DateTime(2026, 9, 2),
-          ),
-          AppEvent(
-            id: 'event-b',
-            name: 'Evento B',
-            startsOn: DateTime(2026, 9, 3),
-            endsOn: DateTime(2026, 9, 4),
+            id: 'compact',
+            name: 'Evento extraordinariamente largo para una pantalla compacta',
+            startsOn: DateTime(2026, 11, 1),
+            endsOn: DateTime(2026, 11, 2),
           ),
         ],
-        fileSharer: sharer,
       ),
     );
-
     await tester.tap(find.byKey(const Key('recordsEventsFilter')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('recordsFilterEvent-event-a')));
-    await tester.tap(find.byKey(const Key('applyRecordsFilters')));
+    final field = find.byKey(const Key('recordsEventSearch'));
+    final search = tester.widget<TextField>(field);
+    expect(tester.getSize(field).height, inInclusiveRange(44, 48));
+    expect(
+      (search.decoration!.enabledBorder! as OutlineInputBorder).borderRadius,
+      BorderRadius.circular(FolooRadii.xl),
+    );
+    final eventDividers = find.byWidgetPredicate(
+      (widget) => widget is Divider && widget.color == FolooColors.line,
+    );
+    expect(eventDividers, findsWidgets);
+    await tester.enterText(field, 'Extraordinariamente');
+    tester.view.viewInsets = const FakeViewPadding(bottom: 280);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('recordsDirectFilter')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('recordsFilterDirectPlace-león')));
-    await tester.tap(find.byKey(const Key('applyRecordsFilters')));
-    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(
+      find.byKey(const Key('recordsApplyFilters')).hitTestable(),
+      findsOneWidget,
+    );
+  });
 
-    expect(find.text('Ana Sandoval Ruiz'), findsOneWidget);
-    expect(find.text('Diana Sandoval Ruiz'), findsOneWidget);
-    expect(find.text('Beto Sandoval Ruiz'), findsNothing);
+  testWidgets(
+    'REG-03/09 QA-V06: weekly preview, list and both file formats agree',
+    (tester) async {
+      final sharer = _CapturingRecordsFileSharer();
+      final now = DateTime.now();
+      DateTime day(int offset) =>
+          DateTime(now.year, now.month, now.day + offset);
+      final monday = day(1 - now.weekday);
+      SessionLead capture(String name, DateTime at) => SessionLead(
+        localId: name,
+        folio: null,
+        capturedAt: at,
+        lead: lead(name: name, originKind: LeadOriginKind.direct),
+      );
+      await tester.pumpWidget(
+        recordsApp(
+          FakeVoiceNoteService(),
+          records: [
+            capture('Antes', monday.subtract(const Duration(seconds: 1))),
+            capture('Límite inicial', monday),
+            capture(
+              'Límite final',
+              day(1).subtract(const Duration(seconds: 1)),
+            ),
+            capture('Después', day(1)),
+          ],
+          fileSharer: sharer,
+        ),
+      );
+      Finder key(String value) => find.byKey(Key(value));
+      Future<void> tap(String value) async {
+        await tester.tap(key(value));
+        await tester.pumpAndSettle();
+      }
 
+      await tap('recordsDatesFilter');
+      expect(find.text('Ver 4 leads'), findsOneWidget);
+      await tap('recordsDatePreset-thisWeek');
+      final format = DateFormat.yMMMd('es');
+      expect(
+        find.descendant(
+          of: key('recordsDateFrom'),
+          matching: find.text(format.format(monday)),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: key('recordsDateTo'),
+          matching: find.text(format.format(day(0))),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Ver 2 leads'), findsOneWidget);
+      await tap('recordsApplyFilters');
+      expect(find.text('Límite inicial Sandoval Ruiz'), findsOneWidget);
+      expect(find.text('Límite final Sandoval Ruiz'), findsOneWidget);
+      expect(find.text('Antes Sandoval Ruiz'), findsNothing);
+      expect(find.text('Después Sandoval Ruiz'), findsNothing);
+      await tap('exportButton');
+      await tap('confirmExportButton');
+      final rows = Excel.decodeBytes(sharer.file!.bytes)
+          .tables['Records']!
+          .rows;
+      expect(
+        rows.skip(1).map((row) => row[1]?.value.toString()),
+        unorderedEquals(['Límite final', 'Límite inicial']),
+      );
+      await tap('exportButton');
+      await tap('exportCsvOption');
+      await tap('confirmExportButton');
+      final csv = utf8.decode(sharer.file!.bytes.skip(3).toList());
+      expect(csv, contains('Límite inicial'));
+      expect(csv, contains('Límite final'));
+      expect(csv, isNot(contains('Antes')));
+      expect(csv, isNot(contains('Después')));
+    },
+  );
+
+  testWidgets(
+    'REG-03 QA-V07: themed From/To picker cancels and validates dates',
+    (tester) async {
+      await tester.pumpWidget(
+        recordsApp(
+          FakeVoiceNoteService(),
+          records: const [],
+          locale: const Locale('en'),
+        ),
+      );
+      Finder key(String value) => find.byKey(Key(value));
+      final dialog = find.byType(DatePickerDialog);
+      Future<void> open(String field) async {
+        await tester.tap(key(field));
+        await tester.pumpAndSettle();
+        expect(dialog, findsOneWidget);
+        final theme = Theme.of(tester.element(dialog)).datePickerTheme;
+        expect(theme.headerBackgroundColor, FolooColors.ink);
+        expect(theme.todayBorder?.color, FolooColors.ink);
+        expect(
+          theme.dayBackgroundColor?.resolve({WidgetState.selected}),
+          FolooColors.lime,
+        );
+      }
+
+      Future<void> pick(String field, DateTime date) async {
+        await open(field);
+        final strings = MaterialLocalizations.of(tester.element(dialog));
+        await tester.tap(find.byTooltip(strings.inputDateModeButtonLabel));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.descendant(of: dialog, matching: find.byType(TextField)),
+          strings.formatCompactDate(date),
+        );
+        await tester.tap(
+          find.descendant(
+            of: dialog,
+            matching: find.text(strings.okButtonLabel),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(dialog, findsNothing);
+      }
+
+      await tester.tap(key('recordsModeDirect'));
+      await tester.pumpAndSettle();
+      await tester.tap(key('recordsDatesFilter'));
+      await tester.pumpAndSettle();
+      await tester.tap(key('recordsDatePreset-thisWeek'));
+      await tester.pumpAndSettle();
+      final from = key('recordsDateFrom');
+      final oldFrom = tester
+          .widget<Text>(find.descendant(of: from, matching: find.byType(Text)))
+          .data;
+      await open('recordsDateFrom');
+      final strings = MaterialLocalizations.of(tester.element(dialog));
+      await tester.tap(
+        find.descendant(
+          of: dialog,
+          matching: find.text(strings.cancelButtonLabel),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: from, matching: find.text(oldFrom!)),
+        findsOneWidget,
+      );
+
+      await pick('recordsDateTo', DateTime(2025, 12, 20));
+      await pick('recordsDateFrom', DateTime(2025, 12, 21));
+      final apply = key('recordsApplyFilters');
+      expect(tester.widget<FilledButton>(apply).onPressed, isNull);
+      expect(
+        find.text('The start date must not be after the end date.'),
+        findsOneWidget,
+      );
+      await pick('recordsDateFrom', DateTime(2025, 12, 20));
+      expect(tester.widget<FilledButton>(apply).onPressed, isNotNull);
+      final weekly = find.descendant(
+        of: key('recordsDatePreset-thisWeek'),
+        matching: find.byType(TextButton),
+      );
+      expect(
+        tester.widget<TextButton>(weekly).style?.backgroundColor?.resolve({}),
+        isNot(FolooColors.limeTint),
+      );
+      await tester.tap(apply);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: key('recordsDatesFilter'),
+          matching: find.textContaining('2025'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('EXP-F02/04/09/11: XLSX exports the full applied date range', (
+    tester,
+  ) async {
+    final sharer = _CapturingRecordsFileSharer();
+    final now = DateTime.now();
+    final captures = [
+      for (var i = 0; i < 24; i++)
+        SessionLead(
+          localId: 'in-range-$i',
+          folio: null,
+          capturedAt: DateTime(now.year, now.month, 1, 0, i),
+          lead: lead(name: 'Dentro $i', originKind: LeadOriginKind.direct),
+        ),
+      SessionLead(
+        localId: 'outside-range',
+        folio: null,
+        capturedAt: DateTime(now.year, now.month, 0, 23, 59),
+        lead: lead(name: 'Fuera', originKind: LeadOriginKind.direct),
+      ),
+    ];
+    await tester.pumpWidget(
+      recordsApp(FakeVoiceNoteService(), records: captures, fileSharer: sharer),
+    );
+    await tester.tap(find.byKey(const Key('recordsDatesFilter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('recordsDatePreset-thisMonth')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('recordsApplyFilters')));
+    await tester.pumpAndSettle();
+    expect(find.text('Dentro 0 Sandoval Ruiz'), findsNothing);
     await tester.tap(find.byKey(const Key('exportButton')));
     await tester.pumpAndSettle();
-    expect(
-      tester.widget<Text>(find.byKey(const Key('exportLeadSummary'))).data,
-      contains('2 leads'),
-    );
-    expect(
-      find.byKey(const Key('directExportContent-content-burritos')),
-      findsNothing,
-    );
-    await tester.tap(find.byKey(const Key('exportCsvOption')));
     await tester.tap(find.byKey(const Key('confirmExportButton')));
     await tester.pumpAndSettle();
-
-    expect(sharer.file, isNotNull);
-    final csv = String.fromCharCodes(sharer.file!.bytes.skip(3));
-    expect(csv, contains('Ana'));
-    expect(csv, contains('Diana'));
-    expect(csv, isNot(contains('Beto')));
+    final rows = Excel.decodeBytes(sharer.file!.bytes).tables['Records']!.rows;
+    expect(rows.skip(1).map((row) => row[1]?.value.toString()).toSet(), {
+      for (var i = 0; i < 24; i++) 'Dentro $i',
+    });
   });
+
+  testWidgets(
+    'EXP-F01/05/07/08: CSV equals the filtered event mode and query',
+    (tester) async {
+      final sharer = _CapturingRecordsFileSharer();
+      final records = [
+        SessionLead(
+          localId: 'event-a-lead',
+          folio: null,
+          capturedAt: DateTime(2026, 9, 1),
+          lead: lead(eventId: 'event-a', eventName: 'Evento A', name: 'Ana'),
+        ),
+        SessionLead(
+          localId: 'direct-lead',
+          folio: null,
+          capturedAt: DateTime(2026, 9, 2),
+          lead: lead(
+            originKind: LeadOriginKind.direct,
+            place: 'León',
+            name: 'Diana',
+          ),
+        ),
+        SessionLead(
+          localId: 'event-b-lead',
+          folio: null,
+          capturedAt: DateTime(2026, 9, 3),
+          lead: lead(eventId: 'event-b', eventName: 'Evento B', name: 'Beto'),
+        ),
+      ];
+      await tester.pumpWidget(
+        recordsApp(
+          FakeVoiceNoteService(),
+          records: records,
+          events: [
+            AppEvent(
+              id: 'event-a',
+              name: 'Evento A',
+              startsOn: DateTime(2026, 9, 1),
+              endsOn: DateTime(2026, 9, 2),
+            ),
+            AppEvent(
+              id: 'event-b',
+              name: 'Evento B',
+              startsOn: DateTime(2026, 9, 3),
+              endsOn: DateTime(2026, 9, 4),
+            ),
+          ],
+          fileSharer: sharer,
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('recordsOpenSearch')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('recordsNameCompanyQuery')),
+        'Ana',
+      );
+      tester.testTextInput.hide();
+      await tester.pumpAndSettle();
+      expect(find.text('Ana Sandoval Ruiz'), findsOneWidget);
+      expect(find.text('Diana Sandoval Ruiz'), findsNothing);
+      expect(find.text('Beto Sandoval Ruiz'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('exportButton')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.byKey(const Key('exportLeadSummary'))).data,
+        contains('1 lead'),
+      );
+      expect(find.byKey(const Key('recordsDateFrom')), findsNothing);
+      expect(
+        find.byKey(const Key('directExportContent-content-burritos')),
+        findsNothing,
+      );
+      await tester.tap(find.byKey(const Key('exportCsvOption')));
+      await tester.tap(find.byKey(const Key('confirmExportButton')));
+      await tester.pumpAndSettle();
+      final csv = String.fromCharCodes(sharer.file!.bytes.skip(3));
+      expect(csv, contains('Ana'));
+      expect(csv, isNot(contains('Diana')));
+      expect(csv, isNot(contains('Beto')));
+
+      await tester.tap(find.byKey(const Key('recordsCloseSearch')));
+      await tester.pumpAndSettle();
+      expect(find.text('Beto Sandoval Ruiz'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'REG-05 detail prefers renamed local Event over stale Lead snapshot',

@@ -10,6 +10,8 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'private_media_storage.dart';
+
 part 'app_database.g.dart';
 
 @DataClassName('StoredProfile')
@@ -757,7 +759,11 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
 
   Future<List<StoredLeadMedia>> mediaFor(String leadId) =>
       (select(localLeadMedia)
-            ..where((row) => row.leadLocalId.equals(leadId))
+            ..where(
+              (row) =>
+                  row.leadLocalId.equals(leadId) &
+                  row.uploadState.isNotValue('deleted'),
+            )
             ..orderBy([(row) => OrderingTerm.asc(row.createdAt)]))
           .get();
 
@@ -888,9 +894,30 @@ class LeadDao extends DatabaseAccessor<AppDatabase> with _$LeadDaoMixin {
           );
 
   Future<void> markMediaSyncState(String id, String state) =>
-      (update(localLeadMedia)..where((row) => row.localId.equals(id))).write(
-        LocalLeadMediaCompanion(uploadState: Value(state)),
-      );
+      (update(localLeadMedia)..where(
+            (row) =>
+                row.localId.equals(id) & row.uploadState.isNotValue('deleted'),
+          ))
+          .write(LocalLeadMediaCompanion(uploadState: Value(state)));
+
+  /// Keeps the media UUID as a permanent local fence against stale pulls.
+  Future<void> tombstoneReferenceImage(String id) =>
+      (update(localLeadMedia)..where(
+            (row) =>
+                row.localId.equals(id) &
+                row.mediaType.equals(LocalMediaType.referenceImage.name),
+          ))
+          .write(const LocalLeadMediaCompanion(uploadState: Value('deleted')));
+
+  Future<bool> hasOtherLiveMediaAt(String id, String path) async =>
+      await (select(localLeadMedia)..where(
+            (row) =>
+                row.localPath.equals(path) &
+                row.localId.isNotValue(id) &
+                row.uploadState.isNotValue('deleted'),
+          ))
+          .get()
+          .then((rows) => rows.isNotEmpty);
 
   Future<void> markLeadSynced(String userId, String id, int revision) =>
       (update(localLeads)..where(

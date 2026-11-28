@@ -32,19 +32,42 @@ class SegmentedBubble<T> extends StatelessWidget {
     this.height = 44,
     this.selectedHorizontalPadding = 8,
     this.selectedVerticalInset = 2,
+    this.fillSegments = false,
     this.selectedColor,
     this.selectedBorderColor,
+    this.selectedForegroundColor,
+    this.unselectedForegroundColor,
     super.key,
-  });
+  }) : selectedValues = null;
+
+  /// Same visual treatment as the single-choice control, with toggle callbacks.
+  const SegmentedBubble.multiple({
+    required this.options,
+    required Set<T> this.selectedValues,
+    required this.onSelected,
+    this.height = 44,
+    this.selectedHorizontalPadding = 8,
+    this.selectedVerticalInset = 2,
+    this.fillSegments = false,
+    this.selectedColor,
+    this.selectedBorderColor,
+    this.selectedForegroundColor,
+    this.unselectedForegroundColor,
+    super.key,
+  }) : selected = null;
 
   final List<SegmentedBubbleOption<T>> options;
-  final T selected;
+  final T? selected;
+  final Set<T>? selectedValues;
   final ValueChanged<T> onSelected;
   final double height;
   final double selectedHorizontalPadding;
   final double selectedVerticalInset;
+  final bool fillSegments;
   final Color? selectedColor;
   final Color? selectedBorderColor;
+  final Color? selectedForegroundColor;
+  final Color? unselectedForegroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +81,12 @@ class SegmentedBubble<T> extends StatelessWidget {
       ),
       child: Row(
         children: options.map((option) {
-          final isSelected = option.value == selected;
+          final isSelected =
+              selectedValues?.contains(option.value) ??
+              option.value == selected;
+          final foreground = isSelected
+              ? selectedForegroundColor
+              : unselectedForegroundColor;
           return Expanded(
             child: Semantics(
               button: true,
@@ -89,10 +117,15 @@ class SegmentedBubble<T> extends StatelessWidget {
                           : null,
                     ),
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisSize: fillSegments
+                          ? MainAxisSize.max
+                          : MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        option.leading,
+                        IconTheme.merge(
+                          data: IconThemeData(color: foreground),
+                          child: option.leading,
+                        ),
                         const SizedBox(width: 7),
                         Flexible(
                           child: Text(
@@ -100,7 +133,7 @@ class SegmentedBubble<T> extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: palette.ink,
+                              color: foreground ?? palette.ink,
                               fontSize: 13,
                               fontWeight: isSelected
                                   ? FontWeight.w700

@@ -15,6 +15,139 @@ import 'package:foloo/screens/records_screen.dart';
 import 'package:foloo/theme/foloo_theme.dart';
 
 void main() {
+  testWidgets(
+    'REG-F16–22/30/34: accepted snapshot, omitted file and owner filters',
+    (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final repository = EmailDeliveryRepository(db);
+      final now = DateTime(2026, 11, 27);
+      const owner = 'filter-owner-a';
+      final records = <SessionLead>[];
+      for (final (id, status, name) in [
+        ('a', 'sent', 'Accepted'),
+        ('b', 'pending', 'Pending'),
+        ('c', 'error', 'Failed'),
+        ('d', 'draft', 'Draft'),
+      ]) {
+        final lead = LeadDraft(
+          name: name,
+          lastName: '',
+          role: '',
+          company: 'Synthetic',
+          email: 'lead@example.test',
+          phone: '',
+          type: LeadType.customer,
+          interest: InterestLevel.high,
+          note: '',
+          originKind: LeadOriginKind.direct,
+          audioSeconds: 0,
+        );
+        records.add(
+          SessionLead(localId: id, folio: null, capturedAt: now, lead: lead),
+        );
+        await db.leadDao.insertLead(
+          LocalLeadsCompanion.insert(
+            localId: id,
+            ownerUserId: const Value(owner),
+            capturedAt: now,
+            capturedBy: 'QA',
+            originKind: 'direct',
+            name: name,
+            lastName: '',
+            role: '',
+            company: 'Synthetic',
+            email: lead.email,
+            phone: '',
+            leadType: 'customer',
+            interestLevel: 'high',
+            note: '',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+        await db.emailDeliveryDao.saveFollowUp(
+          LocalEmailFollowUpsCompanion.insert(
+            localId: 'follow-$id',
+            ownerUserId: owner,
+            leadLocalId: id,
+            recipientAddress: lead.email,
+            subject: 'Test',
+            plainBody: 'Test',
+            htmlBody: 'Test',
+            languageCode: 'es',
+            preparedAt: now,
+            contentFileIdsJson: const Value('["historical","omitted"]'),
+            contentNamesJson: const Value('["Histórico","Omitido"]'),
+          ),
+        );
+        if (status != 'draft') {
+          await db.emailDeliveryDao.saveIntent(
+            LocalEmailSendIntentsCompanion.insert(
+              localId: 'intent-$id',
+              ownerUserId: owner,
+              followUpLocalId: 'follow-$id',
+              status: Value(status),
+              createdAt: now,
+              updatedAt: now,
+              omittedContentIdsJson: const Value('["omitted"]'),
+            ),
+          );
+        }
+      }
+      Widget screen(String sub, List<SessionLead> entries) => MaterialApp(
+        locale: const Locale('es'),
+        theme: FolooTheme.light,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: RecordsScreen(
+          records: entries,
+          darkMode: false,
+          ownerSub: sub,
+          deliveryRepository: repository,
+          onDestinationSelected: (_) {},
+          onAppearanceChanged: (_) {},
+          onLogout: () {},
+        ),
+      );
+      await tester.pumpWidget(screen(owner, records));
+      await tester.pumpAndSettle();
+      Future<void> tap(String key) async {
+        final finder = find.byKey(Key(key));
+        await tester.ensureVisible(finder);
+        await tester.tap(finder);
+        await tester.pumpAndSettle();
+      }
+
+      await tap('recordsAllFilters');
+      expect(find.byKey(const Key('recordsContent-omitted')), findsNothing);
+      expect(find.text('Ver 4 leads'), findsOneWidget);
+      await tap('recordsContent-historical');
+      expect(find.text('Ver 1 lead'), findsOneWidget);
+      await tap('recordsWithoutContent');
+      expect(find.text('Ver 4 leads'), findsOneWidget);
+      await tap('recordsWithoutContent');
+      await tap('recordsApplyFilters');
+      expect(find.text('Accepted'), findsOneWidget);
+      expect(find.text('Pending'), findsNothing);
+      expect(find.text('Failed'), findsNothing);
+      expect(find.text('Draft'), findsNothing);
+      await tap('recordsAllFilters');
+      await tap('recordsClearAdditional');
+      expect(find.text('Ver 4 leads'), findsOneWidget);
+      await tester.tapAt(const Offset(4, 4));
+      await tester.pumpAndSettle();
+      expect(find.text('Pending'), findsNothing);
+      await tap('recordsAllFilters');
+      await tester.pumpWidget(screen('filter-owner-b', const []));
+      await tester.pumpAndSettle();
+      expect(find.text('Histórico'), findsNothing);
+      expect(find.text('Más filtros'), findsNothing);
+      expect(find.text('Accepted'), findsNothing);
+      expect(tester.takeException(), equals(null));
+    },
+  );
+
   testWidgets('mail status and open detail react to Drift and allow retry', (
     tester,
   ) async {

@@ -36,6 +36,7 @@ import '../widgets/camera_access_dialog.dart';
 import '../widgets/voice_playback_waveform.dart';
 import '../widgets/voice_note_recorder_surface.dart';
 import '../widgets/records_filter_sheet.dart';
+import '../widgets/segmented_bubble.dart';
 import 'email_review_screen.dart';
 
 enum _ExportDelivery { share, saveToDevice }
@@ -292,6 +293,7 @@ class RecordsScreen extends StatefulWidget {
     this.syncing = false,
     this.onLeadUpdated,
     this.onReferenceImageAdded,
+    this.onReferenceImageDeleted,
     this.onVoiceNoteAdded,
     this.onVoiceNoteDeleted,
     this.contactImagePickerService,
@@ -327,6 +329,8 @@ class RecordsScreen extends StatefulWidget {
   onLeadUpdated;
   final Future<SessionLead> Function(SessionLead record, String sourcePath)?
   onReferenceImageAdded;
+  final Future<SessionLead> Function(SessionLead record, String path)?
+  onReferenceImageDeleted;
   final Future<SessionLead> Function(
     SessionLead record,
     String sourcePath,
@@ -365,7 +369,21 @@ class _RecordsScreenState extends State<RecordsScreen>
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final VoiceNoteService _voice;
   late final StreamSubscription<void> _completed;
-  RecordsFilterState _filters = const RecordsFilterState();
+  late RecordsFilterState _filters = _initialFilters();
+  final _searchController = TextEditingController();
+  bool _searchOpen = false;
+  int _filterOwnerGeneration = 0;
+  ModalRoute<RecordsFilterState>? _filterRoute;
+
+  RecordsFilterState _initialFilters() => RecordsFilterState(
+    mode:
+        widget.records.isNotEmpty &&
+            widget.records.every(
+              (record) => record.lead.originKind == LeadOriginKind.direct,
+            )
+        ? RecordsMode.direct
+        : RecordsMode.events,
+  );
   String? _activeAudioPath;
   String? _busyAudioPath;
   bool _audioPlaying = false;
@@ -399,13 +417,18 @@ class _RecordsScreenState extends State<RecordsScreen>
   @override
   void didUpdateWidget(covariant RecordsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final validEvents = widget.events.map((event) => event.id).toSet();
-    final retainedEvents = _filters.eventIds.intersection(validEvents);
-    if (retainedEvents.length != _filters.eventIds.length) {
-      _filters = _filters.copyWith(eventIds: retainedEvents);
+    if (oldWidget.ownerSub != widget.ownerSub) {
+      _filterOwnerGeneration++;
+      _dismissFilterRoute();
+      _filters = _initialFilters();
+      _searchOpen = false;
+      _searchController.clear();
+      _openSwipeLeadId = null;
     }
     if (oldWidget.ownerSub != widget.ownerSub ||
         oldWidget.deliveryRepository != widget.deliveryRepository) {
+      _followUps = const [];
+      _emailIntents = const [];
       _watchEmailDelivery();
     }
   }
@@ -421,12 +444,14 @@ class _RecordsScreenState extends State<RecordsScreen>
 
   @override
   void dispose() {
+    _dismissFilterRoute();
     WidgetsBinding.instance.removeObserver(this);
     _completed.cancel();
     unawaited(_followUpsSubscription?.cancel());
     unawaited(_intentsSubscription?.cancel());
     unawaited(_disposeAudio());
     _detailAudioPlaying.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -594,24 +619,106 @@ class _RecordsScreenState extends State<RecordsScreen>
     }
   }
 
-  /// Applies the complete QA-20 criteria to the owner-scoped local dataset.
-  List<SessionLead> get _visibleRecords => _filters.apply(widget.records);
+  List<SessionLead> get _visibleRecords =>
+      _filters.apply(widget.records, sentByLead: _sentContent.$1);
 
-  Future<void> _openFilters(RecordsFilterCategory category) async {
+  /// SAL-03/REG-03: join accepted intents to frozen attachments, never to
+  /// the Lead's current associations. Omitted attachments were not sent.
+  (Map<String, Set<String>>, Map<String, String>) get _sentContent {
+    final owner = widget.ownerSub;
+    final followUps = {
+      for (final followUp in _followUps)
+        if (followUp.ownerUserId == owner) followUp.localId: followUp,
+    };
+    final byLead = <String, Set<String>>{};
+    final names = {
+      for (final file in widget.contentFiles) file.id: file.displayName,
+    };
+    for (final intent in _emailIntents) {
+      if (intent.ownerUserId != owner || intent.status != 'sent') continue;
+      final sent = followUps[intent.followUpLocalId];
+      if (sent == null) continue;
+      try {
+        final ids = jsonDecode(sent.contentFileIdsJson) as List;
+        final labels = jsonDecode(sent.contentNamesJson) as List;
+        final omitted = (jsonDecode(intent.omittedContentIdsJson) as List)
+            .toSet();
+        for (var i = 0; i < ids.length; i++) {
+          final id = ids[i];
+          if (id is! String || id.isEmpty || omitted.contains(id)) continue;
+          (byLead[sent.leadLocalId] ??= {}).add(id);
+          if (i < labels.length &&
+              labels[i] is String &&
+              (labels[i] as String).trim().isNotEmpty) {
+            names.putIfAbsent(id, () => labels[i] as String);
+          }
+        }
+      } on FormatException {
+        // An unreadable historical snapshot is not evidence of an attachment.
+      } on TypeError {
+        // Legacy malformed rows must not break the Records screen.
+      }
+    }
+    return (byLead, names);
+  }
+
+  Future<void> _openFilters(RecordsFilterPanel panel) async {
+    FocusScope.of(context).unfocus();
+    final generation = _filterOwnerGeneration;
+    final sent = _sentContent;
+    final records = widget.records;
+    final counts = <String, int>{};
+    for (final record in records) {
+      final eventId = record.lead.eventLocalId;
+      if (record.lead.originKind == LeadOriginKind.event && eventId != null) {
+        counts.update(eventId, (count) => count + 1, ifAbsent: () => 1);
+      }
+    }
     final result = await showRecordsFilterSheet(
       context,
       filters: _filters,
-      initialCategory: category,
-      records: widget.records,
+      panel: panel,
       events: widget.events,
-      contentFiles: widget.contentFiles,
+      eventCounts: counts,
+      contentNames: sent.$2,
+      countResults: (draft) => draft.apply(records, sentByLead: sent.$1).length,
+      onRoute: (route) {
+        if (mounted && generation == _filterOwnerGeneration) {
+          _filterRoute = route;
+        }
+      },
     );
-    if (result == null || !mounted) return;
+    if (!mounted || generation != _filterOwnerGeneration) {
+      return;
+    }
+    _filterRoute = null;
+    if (result == null) return;
     unawaited(_stopAudio());
     setState(() {
       _filters = result;
       _openSwipeLeadId = null;
     });
+  }
+
+  void _dismissFilterRoute() {
+    final route = _filterRoute;
+    _filterRoute = null;
+    if (route == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (route.isActive) route.navigator?.removeRoute(route);
+    });
+  }
+
+  void _changeFilters(RecordsFilterState next) {
+    setState(() {
+      _filters = next;
+      _openSwipeLeadId = null;
+    });
+  }
+
+  void _clearFilters() {
+    _searchController.clear();
+    _changeFilters(RecordsFilterState(mode: _filters.mode));
   }
 
   Future<void> _openDetail(SessionLead record) async {
@@ -644,6 +751,9 @@ class _RecordsScreenState extends State<RecordsScreen>
           onAddReferenceImage: widget.onReferenceImageAdded == null
               ? null
               : () => _addReferenceImage(record),
+          onDeleteReferenceImage: widget.onReferenceImageDeleted == null
+              ? null
+              : (path) => widget.onReferenceImageDeleted!(record, path),
           onAddVoiceNote: widget.onVoiceNoteAdded == null
               ? null
               : () => _addVoiceNote(record),
@@ -822,6 +932,7 @@ class _RecordsScreenState extends State<RecordsScreen>
 
   Future<void> _showExportDialog() async {
     final records = _visibleRecords;
+    final generation = _filterOwnerGeneration;
     if (records.isEmpty) {
       ScaffoldMessenger.of(
         context,
@@ -894,6 +1005,10 @@ class _RecordsScreenState extends State<RecordsScreen>
                         key: const Key('saveExportToDeviceButton'),
                         onPressed: () async {
                           Navigator.pop(dialogContext);
+                          if (!mounted ||
+                              generation != _filterOwnerGeneration) {
+                            return;
+                          }
                           await _export(
                             format,
                             _ExportDelivery.saveToDevice,
@@ -909,6 +1024,9 @@ class _RecordsScreenState extends State<RecordsScreen>
                       key: const Key('confirmExportButton'),
                       onPressed: () async {
                         Navigator.pop(dialogContext);
+                        if (!mounted || generation != _filterOwnerGeneration) {
+                          return;
+                        }
                         await _export(
                           format,
                           _ExportDelivery.share,
@@ -1006,6 +1124,181 @@ class _RecordsScreenState extends State<RecordsScreen>
     }
   }
 
+  Widget _filterBar(BuildContext context) {
+    final palette = FolooPalette.of(context);
+    final l10n = context.l10n;
+    final eventMode = _filters.mode == RecordsMode.events;
+    final ids = _filters.eventIds;
+    final single = ids?.length == 1
+        ? widget.events.where((event) => event.id == ids!.single).firstOrNull
+        : null;
+    final eventLabel = ids == null
+        ? l10n.allEvents
+        : single?.name ?? l10n.recordsSelectedEvents(ids.length);
+    final types = {
+      LeadType.customer: l10n.recordsClients,
+      LeadType.partner: l10n.recordsPartners,
+      LeadType.supplier: l10n.recordsSuppliers,
+    };
+    ButtonStyle circle() => IconButton.styleFrom(
+      backgroundColor: palette.paper,
+      foregroundColor: palette.ink,
+      minimumSize: const Size(44, 44),
+    );
+    return Column(
+      key: const Key('recordsFilterBar'),
+      children: [
+        SegmentedBubble<RecordsMode>(
+          height: 52,
+          selectedVerticalInset: 0,
+          fillSegments: true,
+          selectedColor: palette.ink,
+          selectedForegroundColor: palette.card,
+          unselectedForegroundColor: palette.inkSecondary,
+          selected: _filters.mode,
+          onSelected: (mode) => _changeFilters(_filters.copyWith(mode: mode)),
+          options: [
+            SegmentedBubbleOption(
+              key: const Key('recordsModeEvents'),
+              value: RecordsMode.events,
+              label: l10n.eventsFilter,
+              leading: const Icon(Icons.calendar_today_outlined, size: 18),
+            ),
+            SegmentedBubbleOption(
+              key: const Key('recordsModeDirect'),
+              value: RecordsMode.direct,
+              label: l10n.directLeads,
+              leading: const Icon(Icons.person_outline, size: 19),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (_searchOpen)
+          TextField(
+            key: const Key('recordsNameCompanyQuery'),
+            autofocus: true,
+            controller: _searchController,
+            onChanged: (query) =>
+                _changeFilters(_filters.copyWith(query: query)),
+            decoration: InputDecoration(
+              hintText: l10n.recordsNameCompany,
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: IconButton(
+                key: const Key('recordsCloseSearch'),
+                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                icon: const Icon(Icons.close),
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() {
+                    _searchOpen = false;
+                    _filters = _filters.copyWith(query: '');
+                  });
+                },
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(50),
+                borderSide: BorderSide(color: palette.ink, width: 1.6),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(50),
+                borderSide: BorderSide(color: palette.ink, width: 1.6),
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+            ),
+            style: Theme.of(context).textTheme.bodyMedium,
+          )
+        else
+          Row(
+            children: [
+              Expanded(
+                child: _RecordsScopeButton(
+                  key: Key(
+                    eventMode ? 'recordsEventsFilter' : 'recordsDatesFilter',
+                  ),
+                  label: eventMode
+                      ? eventLabel
+                      : recordsDateLabel(context, _filters.dates),
+                  leading: eventMode
+                      ? (single?.active == true
+                            ? Semantics(
+                                label: l10n.active,
+                                child: Icon(
+                                  Icons.circle,
+                                  size: 9,
+                                  color: palette.success,
+                                ),
+                              )
+                            : null)
+                      : const Icon(Icons.calendar_today_outlined, size: 18),
+                  onTap: () => _openFilters(
+                    eventMode
+                        ? RecordsFilterPanel.events
+                        : RecordsFilterPanel.dates,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                key: const Key('recordsOpenSearch'),
+                style: circle(),
+                tooltip: l10n.recordsNameCompany,
+                icon: const Icon(Icons.search, size: 20),
+                onPressed: () => setState(() => _searchOpen = true),
+              ),
+            ],
+          ),
+        const SizedBox(height: 5),
+        Row(
+          children: [
+            Expanded(
+              child: RecordsChoiceLayout(
+                splitWhenExpanded: true,
+                children: [
+                  RecordsChoice(
+                    key: const Key('recordsType-all'),
+                    label: l10n.all,
+                    selected: _filters.leadTypes.isEmpty,
+                    compact: true,
+                    onTap: () =>
+                        _changeFilters(_filters.copyWith(leadTypes: const {})),
+                  ),
+                  for (final item in types.entries)
+                    RecordsChoice(
+                      key: Key('recordsType-${item.key.name}'),
+                      label: item.value,
+                      selected: _filters.leadTypes.contains(item.key),
+                      compact: true,
+                      onTap: () {
+                        final selected = {..._filters.leadTypes};
+                        if (!selected.remove(item.key)) {
+                          selected.add(item.key);
+                        }
+                        _changeFilters(_filters.copyWith(leadTypes: selected));
+                      },
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 5),
+            Semantics(
+              selected: _filters.hasAdditional,
+              child: IconButton(
+                key: const Key('recordsAllFilters'),
+                style: circle(),
+                tooltip: l10n.recordsMoreFilters,
+                icon: Badge(
+                  isLabelVisible: _filters.hasAdditional,
+                  child: const Icon(Icons.tune, size: 20),
+                ),
+                onPressed: () => _openFilters(RecordsFilterPanel.additional),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = FolooPalette.of(context);
@@ -1013,18 +1306,24 @@ class _RecordsScreenState extends State<RecordsScreen>
     final pending = records
         .where((record) => record.uploadState != SessionUploadState.synced)
         .length;
-    final failed = records
+    final globalPending = widget.records
+        .where((record) => record.uploadState != SessionUploadState.synced)
+        .length;
+    final failed = widget.records
         .where((record) => _isFailed(record.uploadState))
         .length;
-    final syncing = records
+    final syncing = widget.records
         .where((record) => record.uploadState == SessionUploadState.syncing)
         .length;
-    final retryable = records
+    final retryable = widget.records
         .where((record) => record.uploadState == SessionUploadState.retryable)
         .length;
-    final merelyPending = pending - failed - syncing - retryable;
+    final merelyPending = globalPending - failed - syncing - retryable;
     return Scaffold(
       key: _scaffoldKey,
+      // Keep the underlying screen stable while the modal search owns the
+      // keyboard; the sheet consumes its own inset.
+      resizeToAvoidBottomInset: false,
       endDrawer: AppDrawer(
         contentCount: widget.contentFiles.length,
         profile: widget.profile,
@@ -1035,221 +1334,246 @@ class _RecordsScreenState extends State<RecordsScreen>
         onAppearanceChanged: widget.onAppearanceChanged,
         onLogout: widget.onLogout,
       ),
-      body: Column(
-        children: [
-          ModuleHeader(
-            title: context.l10n.recordsTitle,
-            subtitle:
-                '${context.l10n.leadCount(records.length)} · ${context.l10n.pendingCount(pending)}',
-            onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
-            onBackToHome: () =>
-                widget.onDestinationSelected(AppDestination.home),
-          ),
-          Container(
-            color: palette.card,
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-            child: _RecordsFilterBar(filters: _filters, onOpen: _openFilters),
-          ),
-          Divider(height: 1, color: palette.line),
-          Expanded(
-            child: records.isEmpty
-                ? _EmptyRecords(
-                    filtered: _filters.isActive,
-                    onClear: _filters.isActive
-                        ? () => setState(
-                            () => _filters = const RecordsFilterState(),
-                          )
-                        : null,
-                  )
-                : ListView.separated(
-                    key: const Key('recordsList'),
-                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-                    itemCount: records.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (_, index) {
-                      final record = records[index];
-                      final followUp = _followUpForLead(record.localId);
-                      final emailIntent = _intentFor(followUp);
-                      return SwipeActionCard(
-                        key: Key('recordSwipe-${record.uiKey}'),
-                        open: _openSwipeLeadId == record.localId,
-                        onOpened: () =>
-                            setState(() => _openSwipeLeadId = record.localId),
-                        onClosed: () {
-                          if (_openSwipeLeadId == record.localId) {
-                            setState(() => _openSwipeLeadId = null);
-                          }
-                        },
-                        startAction: SwipeCardAction(
-                          actionKey: const Key('recordSwipeEmailAction'),
-                          icon: Icons.outgoing_mail,
-                          label: emailIntent == null
-                              ? context.l10n.sendEmail
-                              : context.l10n.resendEmail,
-                          color: FolooColors.lime.withValues(alpha: .32),
-                          foregroundColor: palette.ink,
-                          onTap: () => _openEmailReview(record),
-                        ),
-                        endAction: SwipeCardAction(
-                          actionKey: const Key('recordSwipeDeleteAction'),
-                          icon: Icons.delete_outline,
-                          label: context.l10n.delete,
-                          color: palette.error,
-                          foregroundColor: Colors.white,
-                          onTap: () => _confirmDelete(record),
-                        ),
-                        child: _RecordRow(
-                          record: record,
-                          audioPlaying:
-                              _activeAudioPath == record.lead.audioLocalPath &&
-                              _audioPlaying,
-                          audioBusy:
-                              _busyAudioPath == record.lead.audioLocalPath,
-                          onToggleAudio: () =>
-                              _toggleAudioPath(record.lead.audioLocalPath),
-                          onOpen: () => _openDetail(record),
-                          emailIntent: emailIntent,
-                          hasPreparedEmail: followUp != null,
-                        ),
-                      );
-                    },
+      body: Builder(
+        builder: (context) {
+          final header = <Widget>[
+            ModuleHeader(
+              title: context.l10n.recordsTitle,
+              subtitle: '',
+              onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+              onBackToHome: () =>
+                  widget.onDestinationSelected(AppDestination.home),
+            ),
+            Container(
+              color: palette.card,
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+              child: _filterBar(context),
+            ),
+            Divider(height: 1, color: palette.line),
+            ColoredBox(
+              color: palette.paper,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(22, 9, 22, 3),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    '${context.l10n.leadCount(records.length)} · ${context.l10n.pendingCount(pending)}',
+                    key: const Key('recordsVisibleCount'),
+                    style: TextStyle(color: palette.inkSecondary),
                   ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          color: palette.card,
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.sync, size: 14, color: palette.ink),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      failed > 0
-                          ? context.l10n.syncNeedsAttention(failed)
-                          : syncing > 0
-                          ? context.l10n.syncingRecords(syncing)
-                          : retryable > 0
-                          ? context.l10n.retryScheduledRecords(retryable)
-                          : context.l10n.pendingSyncRecords(merelyPending),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-              const SizedBox(height: 9),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      key: const Key('exportButton'),
-                      onPressed: _showExportDialog,
-                      icon: const Icon(Icons.download_outlined, size: 18),
-                      label: Text(context.l10n.export),
+            ),
+          ];
+          final empty = _EmptyRecords(
+            filtered: _filters.isActive,
+            scopeLabel: _filters.mode == RecordsMode.direct
+                ? context.l10n.noDirectLeadsAvailable
+                : widget.events.isEmpty
+                ? context.l10n.noEventsAvailable
+                : context.l10n.recordsNoEventLeads,
+            onClear: _filters.isActive ? _clearFilters : null,
+          );
+          Widget buildRecord(BuildContext context, int index) {
+            final record = records[index];
+            final followUp = _followUpForLead(record.localId);
+            final emailIntent = _intentFor(followUp);
+            return SwipeActionCard(
+              key: Key('recordSwipe-${record.uiKey}'),
+              open: _openSwipeLeadId == record.localId,
+              onOpened: () => setState(() => _openSwipeLeadId = record.localId),
+              onClosed: () {
+                if (_openSwipeLeadId == record.localId) {
+                  setState(() => _openSwipeLeadId = null);
+                }
+              },
+              startAction: SwipeCardAction(
+                actionKey: const Key('recordSwipeEmailAction'),
+                icon: Icons.outgoing_mail,
+                label: emailIntent == null
+                    ? context.l10n.sendEmail
+                    : context.l10n.resendEmail,
+                color: FolooColors.lime.withValues(alpha: .32),
+                foregroundColor: palette.ink,
+                onTap: () => _openEmailReview(record),
+              ),
+              endAction: SwipeCardAction(
+                actionKey: const Key('recordSwipeDeleteAction'),
+                icon: Icons.delete_outline,
+                label: context.l10n.delete,
+                color: palette.error,
+                foregroundColor: Colors.white,
+                onTap: () => _confirmDelete(record),
+              ),
+              child: _RecordRow(
+                record: record,
+                audioPlaying:
+                    _activeAudioPath == record.lead.audioLocalPath &&
+                    _audioPlaying,
+                audioBusy: _busyAudioPath == record.lead.audioLocalPath,
+                onToggleAudio: () =>
+                    _toggleAudioPath(record.lead.audioLocalPath),
+                onOpen: () => _openDetail(record),
+                emailIntent: emailIntent,
+                hasPreparedEmail: followUp != null,
+              ),
+            );
+          }
+
+          const listPadding = EdgeInsets.fromLTRB(20, 10, 20, 20);
+          Widget separator(BuildContext context, int index) =>
+              const SizedBox(height: 8);
+          if (MediaQuery.textScalerOf(context).scale(12) > 16) {
+            return CustomScrollView(
+              slivers: [
+                for (final part in header) SliverToBoxAdapter(child: part),
+                if (records.isEmpty)
+                  SliverToBoxAdapter(child: empty)
+                else
+                  SliverPadding(
+                    padding: listPadding,
+                    sliver: SliverList.separated(
+                      itemCount: records.length,
+                      itemBuilder: buildRecord,
+                      separatorBuilder: separator,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton.icon(
-                      key: const Key('syncButton'),
-                      onPressed: widget.syncing || widget.onSync == null
-                          ? null
-                          : widget.onSync,
-                      icon: const Icon(Icons.sync, size: 18),
-                      label: Text(context.l10n.sync),
-                    ),
-                  ),
-                ],
+              ],
+            );
+          }
+          return Column(
+            children: [
+              ...header,
+              Expanded(
+                child: records.isEmpty
+                    ? empty
+                    : ListView.separated(
+                        key: const Key('recordsList'),
+                        padding: listPadding,
+                        itemCount: records.length,
+                        itemBuilder: buildRecord,
+                        separatorBuilder: separator,
+                      ),
               ),
             ],
-          ),
-        ),
+          );
+        },
       ),
+      bottomNavigationBar: MediaQuery.viewInsetsOf(context).bottom > 0
+          ? null
+          : SafeArea(
+              top: false,
+              child: Container(
+                color: palette.card,
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.sync, size: 14, color: palette.ink),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            failed > 0
+                                ? context.l10n.syncNeedsAttention(failed)
+                                : syncing > 0
+                                ? context.l10n.syncingRecords(syncing)
+                                : retryable > 0
+                                ? context.l10n.retryScheduledRecords(retryable)
+                                : context.l10n.pendingSyncRecords(
+                                    merelyPending,
+                                  ),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 9),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            key: const Key('exportButton'),
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: palette.paper,
+                              side: BorderSide.none,
+                              minimumSize: const Size(44, 56),
+                            ),
+                            onPressed: _showExportDialog,
+                            icon: const Icon(Icons.download_outlined, size: 18),
+                            label: Text(context.l10n.export),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: FilledButton.icon(
+                            key: const Key('syncButton'),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size(44, 56),
+                            ),
+                            onPressed: widget.syncing || widget.onSync == null
+                                ? null
+                                : widget.onSync,
+                            icon: const Icon(Icons.sync, size: 18),
+                            label: Text(context.l10n.sync),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 }
 
-class _RecordsFilterBar extends StatelessWidget {
-  const _RecordsFilterBar({required this.filters, required this.onOpen});
-
-  final RecordsFilterState filters;
-  final ValueChanged<RecordsFilterCategory> onOpen;
-
-  @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    key: const Key('recordsFilterBar'),
-    scrollDirection: Axis.horizontal,
-    child: Row(
-      children: [
-        _FilterButton(
-          key: const Key('recordsEventsFilter'),
-          label: context.l10n.eventsFilter,
-          count: filters.eventIds.length,
-          icon: Icons.event_outlined,
-          onTap: () => onOpen(RecordsFilterCategory.events),
-        ),
-        _FilterButton(
-          key: const Key('recordsDirectFilter'),
-          label: context.l10n.directLeads,
-          count: filters.directPlaces.length + (filters.onlyDirect ? 1 : 0),
-          icon: Icons.person_add_alt_1_outlined,
-          onTap: () => onOpen(RecordsFilterCategory.direct),
-        ),
-        _FilterButton(
-          key: const Key('recordsTypeFilter'),
-          label: context.l10n.leadType,
-          count: filters.leadTypes.length,
-          icon: Icons.people_outline,
-          onTap: () => onOpen(RecordsFilterCategory.type),
-        ),
-        _FilterButton(
-          key: const Key('recordsAllFilters'),
-          label: context.l10n.recordsFilters,
-          count: filters.activeCategoryCount,
-          icon: Icons.tune,
-          onTap: () => onOpen(RecordsFilterCategory.interest),
-        ),
-      ],
-    ),
-  );
-}
-
-class _FilterButton extends StatelessWidget {
-  const _FilterButton({
+class _RecordsScopeButton extends StatelessWidget {
+  const _RecordsScopeButton({
     required this.label,
-    required this.count,
-    required this.icon,
     required this.onTap,
+    this.leading,
     super.key,
   });
 
   final String label;
-  final int count;
-  final IconData icon;
   final VoidCallback onTap;
+  final Widget? leading;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(right: 8),
-    child: FilterChip(
-      avatar: Icon(icon, size: 17),
-      label: Text(count == 0 ? label : '$label · $count'),
-      selected: count > 0,
-      showCheckmark: false,
-      onSelected: (_) => onTap(),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final palette = FolooPalette.of(context);
+    return OutlinedButton(
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(color: palette.ink, width: 1.6),
+        foregroundColor: palette.ink,
+        padding: const EdgeInsets.symmetric(horizontal: 13),
+        minimumSize: const Size(44, 46),
+        shape: const StadiumBorder(),
+      ),
+      onPressed: onTap,
+      child: Row(
+        children: [
+          if (leading != null) ...[leading!, const SizedBox(width: 8)],
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+          ),
+          const Icon(Icons.keyboard_arrow_down, size: 20),
+        ],
+      ),
+    );
+  }
 }
 
 class _ExportFormatOption extends StatelessWidget {
@@ -1332,14 +1656,19 @@ class _ExportFormatOption extends StatelessWidget {
 }
 
 class _EmptyRecords extends StatelessWidget {
-  const _EmptyRecords({required this.filtered, this.onClear});
+  const _EmptyRecords({
+    required this.filtered,
+    required this.scopeLabel,
+    this.onClear,
+  });
 
   final bool filtered;
+  final String scopeLabel;
   final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Padding(
+    child: SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1363,7 +1692,7 @@ class _EmptyRecords extends StatelessWidget {
           ],
           const SizedBox(height: 6),
           Text(
-            context.l10n.emptyRecordsHelp,
+            filtered ? context.l10n.emptyRecordsHelp : scopeLabel,
             textAlign: TextAlign.center,
             style: TextStyle(color: FolooPalette.of(context).inkSecondary),
           ),
@@ -1422,6 +1751,11 @@ class _RecordRow extends StatelessWidget {
     final palette = FolooPalette.of(context);
     final pending = record.uploadState != SessionUploadState.synced;
     final failed = _isFailed(record.uploadState);
+    final direct = record.lead.originKind == LeadOriginKind.direct;
+    final place = record.lead.place?.trim();
+    final date = DateFormat.MMMd(
+      Localizations.localeOf(context).toLanguageTag(),
+    ).format(record.capturedAt.toLocal());
     return Material(
       color: palette.card,
       borderRadius: BorderRadius.circular(FolooRadii.md),
@@ -1444,7 +1778,7 @@ class _RecordRow extends StatelessWidget {
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(11, 8, 8, 8),
+                  padding: const EdgeInsets.fromLTRB(13, 12, 10, 12),
                   child: Row(
                     children: [
                       Expanded(
@@ -1455,19 +1789,51 @@ class _RecordRow extends StatelessWidget {
                               record.lead.fullName,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 12.5,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${record.lead.company}  ·  ${_leadTypeLabel(context, record.lead.type)}',
+                              [
+                                if (record.lead.company.trim().isNotEmpty)
+                                  record.lead.company,
+                                _leadTypeLabel(context, record.lead.type),
+                              ].join(' · '),
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: palette.inkSecondary,
-                                fontSize: 10.5,
+                                fontSize: 12,
                               ),
                             ),
+                            if (direct) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  if (place != null && place.isNotEmpty) ...[
+                                    Icon(
+                                      Icons.place_outlined,
+                                      size: 14,
+                                      color: palette.inkSecondary,
+                                    ),
+                                    const SizedBox(width: 5),
+                                  ],
+                                  Flexible(
+                                    child: Text(
+                                      place == null || place.isEmpty
+                                          ? date
+                                          : '$place · $date',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: palette.inkSecondary,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -1552,6 +1918,7 @@ class ConnectionDetailScreen extends StatefulWidget {
     this.events = const [],
     this.onEdit,
     this.onAddReferenceImage,
+    this.onDeleteReferenceImage,
     this.onAddVoiceNote,
     this.onDeleteVoiceNote,
     this.followUp,
@@ -1574,6 +1941,7 @@ class ConnectionDetailScreen extends StatefulWidget {
   final Future<SessionLead> Function(SessionLead record, LeadDraft updated)?
   onEdit;
   final Future<SessionLead?> Function()? onAddReferenceImage;
+  final Future<SessionLead> Function(String path)? onDeleteReferenceImage;
   final Future<SessionLead?> Function()? onAddVoiceNote;
   final Future<SessionLead> Function(LeadVoiceNote note)? onDeleteVoiceNote;
   final StoredEmailFollowUp? followUp;
@@ -2278,7 +2646,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
                       label: context.l10n.referenceImagePreview,
                       child: InkWell(
                         key: Key('detailReferenceImage-$index'),
-                        onTap: () => _showReferenceImage(context, path),
+                        onTap: () => _showReferenceImage(index),
                         borderRadius: BorderRadius.circular(FolooRadii.sm),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(FolooRadii.sm),
@@ -2417,38 +2785,137 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
         ),
       );
 
-  static Future<void> _showReferenceImage(
-    BuildContext context,
-    String imagePath,
-  ) => showDialog<void>(
-    context: context,
-    barrierColor: Colors.black.withValues(alpha: .82),
-    builder: (dialogContext) => Dialog(
-      key: const Key('detailReferenceImageDialog'),
-      backgroundColor: Colors.black,
-      insetPadding: const EdgeInsets.all(12),
-      clipBehavior: Clip.antiAlias,
-      child: SizedBox(
-        width: double.infinity,
-        height: MediaQuery.sizeOf(dialogContext).height * .76,
-        child: InteractiveViewer(
-          minScale: 1,
-          maxScale: 4,
-          child: Image.file(
-            File(imagePath),
-            fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => const Center(
-              child: Icon(
-                Icons.broken_image_outlined,
-                color: Colors.white,
-                size: 36,
+  Future<void> _showReferenceImage(int index) {
+    var current = index;
+    var busy = false;
+    final delete = widget.onDeleteReferenceImage;
+    return showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: .82),
+      builder: (_) => StatefulBuilder(
+        builder: (viewer, refreshViewer) {
+          final paths = _record.lead.referenceImageLocalPaths;
+          if (paths.isEmpty) return const SizedBox.shrink();
+          current = current.clamp(0, paths.length - 1);
+          final path = paths[current];
+          final l10n = viewer.l10n;
+
+          Future<void> deleteSelected() async {
+            if (busy || delete == null) return;
+            refreshViewer(() => busy = true);
+            final confirmed = await showDialog<bool>(
+              context: viewer,
+              builder: (confirmation) => AlertDialog(
+                title: Text(l10n.deleteReferenceImageQuestion),
+                content: Text(l10n.deleteReferenceImageWarning),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(confirmation, false),
+                    child: Text(l10n.cancel),
+                  ),
+                  FilledButton(
+                    key: const Key('confirmDeleteReferenceImage'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: FolooPalette.of(confirmation).error,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () => Navigator.pop(confirmation, true),
+                    child: Text(l10n.delete),
+                  ),
+                ],
+              ),
+            );
+            if (!viewer.mounted) return;
+            if (confirmed != true) {
+              refreshViewer(() => busy = false);
+              return;
+            }
+            try {
+              final refreshed = await delete(path);
+              if (!mounted) return;
+              setState(() => _record = refreshed);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(context.l10n.referenceImageDeleted)),
+              );
+              if (!viewer.mounted) return;
+              if (_record.lead.referenceImageLocalPaths.isEmpty) {
+                Navigator.pop(viewer);
+              } else {
+                refreshViewer(() => busy = false);
+              }
+            } on Object {
+              if (!viewer.mounted) return;
+              refreshViewer(() => busy = false);
+              ScaffoldMessenger.of(viewer).showSnackBar(
+                SnackBar(content: Text(l10n.referenceImageDeleteFailed)),
+              );
+            }
+          }
+
+          return Dialog(
+            key: const Key('detailReferenceImageDialog'),
+            backgroundColor: Colors.black,
+            insetPadding: const EdgeInsets.all(12),
+            clipBehavior: Clip.antiAlias,
+            child: SizedBox(
+              width: double.infinity,
+              height: MediaQuery.sizeOf(viewer).height * .76,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  InteractiveViewer(
+                    key: ValueKey(path),
+                    minScale: 1,
+                    maxScale: 4,
+                    child: Image.file(
+                      File(path),
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const Center(
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          color: Colors.white,
+                          size: 36,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Row(
+                      children: [
+                        if (delete != null)
+                          IconButton.filled(
+                            key: const Key('detailDeleteReferenceImage'),
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.black87,
+                              foregroundColor: Colors.white,
+                            ),
+                            tooltip: l10n.deleteReferenceImage,
+                            onPressed: busy ? null : deleteSelected,
+                            icon: const Icon(Icons.delete_outline),
+                          ),
+                        IconButton.filled(
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.black87,
+                            foregroundColor: Colors.white,
+                          ),
+                          tooltip: MaterialLocalizations.of(viewer)
+                              .closeButtonTooltip,
+                          onPressed: busy ? null : () => Navigator.pop(viewer),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _LeadEditScreen extends StatefulWidget {

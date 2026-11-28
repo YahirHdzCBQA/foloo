@@ -1437,8 +1437,43 @@ class SyncStore {
     for (final item in media) {
       final id = item['id'] as String;
       final local = await database.leadDao.mediaById(id);
+      if (local != null &&
+          (local.leadLocalId != leadId || local.uploadState == 'deleted')) {
+        continue;
+      }
       if (item['deletedAt'] != null) {
-        if (local != null) {
+        if (item['kind'] == 'reference_image') {
+          await database.transaction(() async {
+            final latest = await database.leadDao.mediaById(id);
+            if (latest == null) {
+              await database.leadDao.insertMedia(
+                LocalLeadMediaCompanion.insert(
+                  localId: id,
+                  leadLocalId: leadId,
+                  mediaType: LocalMediaType.referenceImage.name,
+                  localPath: '',
+                  uploadState: const Value('deleted'),
+                  createdAt: DateTime.parse(item['capturedAt'] as String)
+                      .toUtc(),
+                ),
+              );
+            } else if (latest.leadLocalId == leadId) {
+              await database.leadDao.tombstoneReferenceImage(id);
+            }
+          });
+          if (local != null &&
+              local.mediaType == LocalMediaType.referenceImage.name &&
+              !await database.leadDao.hasOtherLiveMediaAt(
+                id,
+                local.localPath,
+              )) {
+            try {
+              await mediaStorage?.deleteIfManaged(local.localPath);
+            } on FileSystemException {
+              // Do not undo a durable tombstone when storage is unavailable.
+            }
+          }
+        } else if (local != null) {
           await database.leadDao.deleteMediaMetadata(id);
           await mediaStorage?.deleteIfManaged(local.localPath);
         }
@@ -1472,28 +1507,31 @@ class SyncStore {
       );
       try {
         final type = _localType(item['kind'] as String);
-        final localPath = await storage.persist(
-          sourcePath: temporaryPath,
-          leadLocalId: leadId,
-          type: type,
-          slot: type == LocalMediaType.cardImage ? null : id,
-        );
-        if (localPath == null) continue;
-        await database.leadDao.insertMedia(
-          LocalLeadMediaCompanion.insert(
-            localId: id,
+        await database.transaction(() async {
+          if (await database.leadDao.mediaById(id) != null) return;
+          final localPath = await storage.persist(
+            sourcePath: temporaryPath,
             leadLocalId: leadId,
-            mediaType: type.name,
-            localPath: localPath,
-            durationSeconds: Value(
-              item['durationMs'] is int
-                  ? (item['durationMs'] as int) ~/ 1000
-                  : null,
+            type: type,
+            slot: type == LocalMediaType.cardImage ? null : id,
+          );
+          if (localPath == null) return;
+          await database.leadDao.insertMedia(
+            LocalLeadMediaCompanion.insert(
+              localId: id,
+              leadLocalId: leadId,
+              mediaType: type.name,
+              localPath: localPath,
+              durationSeconds: Value(
+                item['durationMs'] is int
+                    ? (item['durationMs'] as int) ~/ 1000
+                    : null,
+              ),
+              uploadState: const Value('synced'),
+              createdAt: DateTime.parse(item['capturedAt'] as String).toUtc(),
             ),
-            uploadState: const Value('synced'),
-            createdAt: DateTime.parse(item['capturedAt'] as String).toUtc(),
-          ),
-        );
+          );
+        });
       } finally {
         final temporary = File(temporaryPath);
         if (await temporary.exists()) await temporary.delete();

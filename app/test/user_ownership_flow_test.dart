@@ -101,7 +101,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('drawerRecords')));
     await tester.pumpAndSettle();
-    expect(find.text('Aún no hay registros'), findsOneWidget);
+    expect(
+      find.text('No hay leads en los eventos seleccionados.'),
+      findsOneWidget,
+    );
+    expect(find.text('Lead A'), findsNothing);
+    await tester.tap(find.byKey(const Key('recordsModeDirect')));
+    await tester.pumpAndSettle();
+    expect(find.text('No hay leads directos disponibles.'), findsOneWidget);
     expect(find.text('Lead A'), findsNothing);
     await _logout(tester);
 

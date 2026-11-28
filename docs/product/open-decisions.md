@@ -92,7 +92,11 @@ las existentes. Captura conserva tres. También permite hasta tres Voice Notes
 post-guardado y eliminar exactamente una con confirmación, persistencia
 local-first y tombstone sincronizable; la limpieza física se rige por `D-13`.
 
-**Bloquea:** únicamente reemplazo/eliminación post-guardado de imágenes y otros
+FL-025.1 (2026-11-27) autoriza eliminar una referencia guardada desde el visor
+con confirmación, tombstone local-first y sincronización (`REG-06/07`).
+No autoriza reemplazo, eliminación de tarjeta ni borrado físico S3.
+
+**Bloquea:** únicamente reemplazo post-guardado de imágenes y otros
 modelos de edición o historial de Voice Note no aprobados. No bloquea campos
 estructurados, reasignación, append de referencias ni alta/baja de voz aprobada
 en `REG-07`/`REG-08`.

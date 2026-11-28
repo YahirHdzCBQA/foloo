@@ -210,6 +210,16 @@ exportación de Registros, Content/PDF y correo productivo validados. Permanecen
 monetización, hardening, QA E2E y tiendas según FL-020–FL-024; FL-019.5 será
 únicamente polish visual de Review cuando exista mockup aprobado.
 
+## FL-025.1 · Registros y referencias
+
+| Incremento | Contrato | Evidencia local y límite |
+| --- | --- | --- |
+| A | REG-01–04/09–14, E-06/E-10 | `records_filter_state_test.dart`, pruebas widget Registros y `records_export_service_test.dart`. Historial aceptado por UUID; exporta la misma lista owner-scoped, no confirma entrega. |
+| A · QA-V01–V05 | REG-02/03/09, E-06/E-10 | Presentación: buscador y separadores compactos, filtros adaptables con selección de Captura, textos ES/EN y presets 3+1. Sin cambio del criterio de búsqueda, selección, contenido enviado ni exportación. Segunda revisión física pendiente. |
+| A · QA-V06–V07 | REG-03/09, EVT-01, E-06/E-10 | «Esta semana» (lunes a hoy, ambos inclusivos, zona local), presets adaptables 3+2 y reutilización de `showFolooDatePicker` de Eventos para Desde/Hasta. Conteo y CSV/XLSX conservan el mismo rango confirmado. |
+| B | REG-06/07, SYN-04–10, E-06/E-09, ADR-001/004/005 | Pruebas widget, persistencia/outbox, contratos media y PostgreSQL. Pendientes: validación física y backend DEV; no incluye borrado S3. |
+| C | REG-06/07, SYN-04/06/09/10, E-06/E-09, ADR-001/004/005, D-13 | `reference_image_postgres.test.ts`: 40 bajas de UUID ausentes y 40 repeticiones con claves nuevas, concurrentes, no agregan filas ni amplían el GET. `sync_engine_test.dart`: el outbox consume el 404 de referencia ausente sin borrar la marca local. No trunca el historial de medios preparados, sujeto a D-13. Sin migración ni cambio de infraestructura. |
+
 ## Evidencia histórica de mantenimiento y FL-023
 
 - FL-023 (2026-11-11; EVT-09/10, SAL-04/07/08/09, REG-15/16, NAV-06,

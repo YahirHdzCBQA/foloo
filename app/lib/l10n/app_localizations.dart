@@ -98,6 +98,186 @@ abstract class AppLocalizations {
     Locale('es'),
   ];
 
+  /// No description provided for @recordsChooseEvent.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige el evento'**
+  String get recordsChooseEvent;
+
+  /// No description provided for @recordsSearchEvent.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar entre tus {count} eventos'**
+  String recordsSearchEvent(int count);
+
+  /// No description provided for @recordsSelectedEvents.
+  ///
+  /// In es, this message translates to:
+  /// **'{count, plural, =0{Ningún evento} =1{1 evento seleccionado} other{{count} eventos seleccionados}}'**
+  String recordsSelectedEvents(int count);
+
+  /// No description provided for @recordsApplyEvents.
+  ///
+  /// In es, this message translates to:
+  /// **'Aplicar selección'**
+  String get recordsApplyEvents;
+
+  /// No description provided for @recordsNameCompany.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombre o empresa'**
+  String get recordsNameCompany;
+
+  /// No description provided for @recordsMoreFilters.
+  ///
+  /// In es, this message translates to:
+  /// **'Más filtros'**
+  String get recordsMoreFilters;
+
+  /// No description provided for @recordsClear.
+  ///
+  /// In es, this message translates to:
+  /// **'Limpiar'**
+  String get recordsClear;
+
+  /// No description provided for @recordsSentContent.
+  ///
+  /// In es, this message translates to:
+  /// **'Contenido enviado'**
+  String get recordsSentContent;
+
+  /// No description provided for @recordsWithoutSentContent.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin contenido enviado'**
+  String get recordsWithoutSentContent;
+
+  /// No description provided for @recordsSeeLeads.
+  ///
+  /// In es, this message translates to:
+  /// **'{count, plural, =0{Ver 0 leads} =1{Ver 1 lead} other{Ver {count} leads}}'**
+  String recordsSeeLeads(int count);
+
+  /// No description provided for @recordsWhichDates.
+  ///
+  /// In es, this message translates to:
+  /// **'¿De qué fechas?'**
+  String get recordsWhichDates;
+
+  /// No description provided for @recordsDatesHelp.
+  ///
+  /// In es, this message translates to:
+  /// **'Selecciona el rango de fechas para mostrar y exportar tus leads'**
+  String get recordsDatesHelp;
+
+  /// No description provided for @recordsThisWeek.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta semana'**
+  String get recordsThisWeek;
+
+  /// No description provided for @recordsThisMonth.
+  ///
+  /// In es, this message translates to:
+  /// **'Este mes'**
+  String get recordsThisMonth;
+
+  /// No description provided for @recordsLastMonth.
+  ///
+  /// In es, this message translates to:
+  /// **'Mes pasado'**
+  String get recordsLastMonth;
+
+  /// No description provided for @recordsLast90Days.
+  ///
+  /// In es, this message translates to:
+  /// **'Últimos 90 días'**
+  String get recordsLast90Days;
+
+  /// No description provided for @recordsAllDates.
+  ///
+  /// In es, this message translates to:
+  /// **'Todo'**
+  String get recordsAllDates;
+
+  /// No description provided for @recordsDateFrom.
+  ///
+  /// In es, this message translates to:
+  /// **'Desde'**
+  String get recordsDateFrom;
+
+  /// No description provided for @recordsDateTo.
+  ///
+  /// In es, this message translates to:
+  /// **'Hasta'**
+  String get recordsDateTo;
+
+  /// No description provided for @recordsPickDate.
+  ///
+  /// In es, this message translates to:
+  /// **'Seleccionar fecha'**
+  String get recordsPickDate;
+
+  /// No description provided for @recordsInvalidDates.
+  ///
+  /// In es, this message translates to:
+  /// **'La fecha Desde no puede ser posterior a Hasta.'**
+  String get recordsInvalidDates;
+
+  /// No description provided for @recordsClients.
+  ///
+  /// In es, this message translates to:
+  /// **'Clientes'**
+  String get recordsClients;
+
+  /// No description provided for @recordsPartners.
+  ///
+  /// In es, this message translates to:
+  /// **'Partners'**
+  String get recordsPartners;
+
+  /// No description provided for @recordsSuppliers.
+  ///
+  /// In es, this message translates to:
+  /// **'Proveedores'**
+  String get recordsSuppliers;
+
+  /// No description provided for @recordsNoEventLeads.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay leads en los eventos seleccionados.'**
+  String get recordsNoEventLeads;
+
+  /// No description provided for @deleteReferenceImage.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar imagen'**
+  String get deleteReferenceImage;
+
+  /// No description provided for @deleteReferenceImageQuestion.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar imagen?'**
+  String get deleteReferenceImageQuestion;
+
+  /// No description provided for @deleteReferenceImageWarning.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Estás seguro de que quieres eliminar esta imagen de referencia? Esta acción no se puede deshacer.'**
+  String get deleteReferenceImageWarning;
+
+  /// No description provided for @referenceImageDeleted.
+  ///
+  /// In es, this message translates to:
+  /// **'Imagen eliminada.'**
+  String get referenceImageDeleted;
+
+  /// No description provided for @referenceImageDeleteFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo eliminar la imagen.'**
+  String get referenceImageDeleteFailed;
+
   /// No description provided for @languageSpanish.
   ///
   /// In es, this message translates to:

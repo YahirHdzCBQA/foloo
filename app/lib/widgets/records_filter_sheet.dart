@@ -1,585 +1,669 @@
-/// Full owner-scoped filter panel used by Records and its export action.
-///
-/// The sheet keeps a disposable draft until “View results” is confirmed, with
-/// independent category/result scrolling and no persistence side effects.
+/// Records bottom sheets with disposable drafts for event, date and extra filters.
+/// The screen supplies the same evaluator used to render and export results.
 library;
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../l10n/l10n.dart';
 import '../models/app_event.dart';
-import '../models/content_file.dart';
 import '../models/lead_draft.dart';
 import '../models/records_filter_state.dart';
-import '../models/session_lead.dart';
 import '../theme/foloo_theme.dart';
+import 'event_date_field.dart';
+import 'segmented_bubble.dart';
 
-enum RecordsFilterCategory {
-  events,
-  direct,
-  type,
-  interest,
-  company,
-  name,
-  date,
-  content,
+enum RecordsFilterPanel { events, dates, additional }
+
+/// Formats civil dates without depending on the mocked dates in the design.
+String recordsDateLabel(BuildContext context, RecordsDateRange range) {
+  final l10n = context.l10n;
+  if (range.unrestricted) return l10n.recordsAllDates;
+  final format = DateFormat.yMMMd(
+    Localizations.localeOf(context).toLanguageTag(),
+  );
+  final from = range.from;
+  final to = range.to;
+  if (from == null) return '${l10n.recordsDateTo} ${format.format(to!)}';
+  if (to == null) return '${l10n.recordsDateFrom} ${format.format(from)}';
+  final start = from.year == to.year
+      ? DateFormat.MMMd(Localizations.localeOf(context).toLanguageTag())
+            .format(from)
+      : format.format(from);
+  return '$start – ${format.format(to)}';
 }
 
+/// Presents a single filter sheet; dismissal returns null without applying.
 Future<RecordsFilterState?> showRecordsFilterSheet(
   BuildContext context, {
+  required RecordsFilterPanel panel,
   required RecordsFilterState filters,
-  required RecordsFilterCategory initialCategory,
-  required List<SessionLead> records,
   required List<AppEvent> events,
-  required List<ContentFile> contentFiles,
+  required Map<String, int> eventCounts,
+  required Map<String, String> contentNames,
+  required int Function(RecordsFilterState) countResults,
+  required ValueChanged<ModalRoute<RecordsFilterState>?> onRoute,
 }) => showModalBottomSheet<RecordsFilterState>(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
-  backgroundColor: Colors.transparent,
-  builder: (_) => RecordsFilterSheet(
-    filters: filters,
-    initialCategory: initialCategory,
-    records: records,
-    events: events,
-    contentFiles: contentFiles,
-  ),
+  showDragHandle: true,
+  backgroundColor: FolooPalette.of(context).card,
+  builder: (sheetContext) {
+    onRoute(ModalRoute.of<RecordsFilterState>(sheetContext));
+    return _RecordsFilterSheet(
+      panel: panel,
+      filters: filters,
+      events: events,
+      eventCounts: eventCounts,
+      contentNames: contentNames,
+      countResults: countResults,
+    );
+  },
 );
 
-class RecordsFilterSheet extends StatefulWidget {
-  const RecordsFilterSheet({
+class _RecordsFilterSheet extends StatefulWidget {
+  const _RecordsFilterSheet({
+    required this.panel,
     required this.filters,
-    required this.initialCategory,
-    required this.records,
     required this.events,
-    required this.contentFiles,
-    super.key,
+    required this.eventCounts,
+    required this.contentNames,
+    required this.countResults,
   });
 
+  final RecordsFilterPanel panel;
   final RecordsFilterState filters;
-  final RecordsFilterCategory initialCategory;
-  final List<SessionLead> records;
   final List<AppEvent> events;
-  final List<ContentFile> contentFiles;
+  final Map<String, int> eventCounts;
+  final Map<String, String> contentNames;
+  final int Function(RecordsFilterState) countResults;
 
   @override
-  State<RecordsFilterSheet> createState() => _RecordsFilterSheetState();
+  State<_RecordsFilterSheet> createState() => _RecordsFilterSheetState();
 }
 
-class _RecordsFilterSheetState extends State<RecordsFilterSheet> {
-  late RecordsFilterCategory _category;
-  late Set<String> _eventIds;
-  late Set<String> _directPlaces;
-  late bool _onlyDirect;
-  late Set<LeadType> _types;
-  late Set<InterestLevel> _interests;
-  late Set<String> _companies;
-  late Set<String> _contentIds;
-  late DateTime? _fromDate;
-  late DateTime? _toDate;
-  late final TextEditingController _name;
-  final _companySearch = TextEditingController();
+class _RecordsFilterSheetState extends State<_RecordsFilterSheet> {
+  late RecordsFilterState _draft = widget.filters;
+  final DateTime _now = DateTime.now();
+  String _eventQuery = '';
 
-  @override
-  void initState() {
-    super.initState();
-    final source = widget.filters;
-    _category = widget.initialCategory;
-    _eventIds = {...source.eventIds};
-    _directPlaces = {...source.directPlaces};
-    _onlyDirect = source.onlyDirect;
-    _types = {...source.leadTypes};
-    _interests = {...source.interests};
-    _companies = {...source.companies};
-    _contentIds = {...source.contentIds};
-    _fromDate = source.fromDate;
-    _toDate = source.toDate;
-    _name = TextEditingController(text: source.nameQuery);
-    _companySearch.addListener(_refresh);
+  Set<String> get _knownIds => widget.events.map((event) => event.id).toSet();
+
+  void _toggleEvent(String id) {
+    final selected = {...(_draft.eventIds ?? _knownIds)};
+    if (!selected.remove(id)) selected.add(id);
+    setState(() => _draft = _draft.copyWith(eventIds: selected));
   }
 
-  @override
-  void dispose() {
-    _companySearch
-      ..removeListener(_refresh)
-      ..dispose();
-    _name.dispose();
-    super.dispose();
-  }
-
-  void _refresh() {
-    if (mounted) setState(() {});
-  }
-
-  RecordsFilterState get _draft => RecordsFilterState(
-    eventIds: _eventIds,
-    directPlaces: _directPlaces,
-    onlyDirect: _onlyDirect,
-    leadTypes: _types,
-    interests: _interests,
-    companies: _companies,
-    nameQuery: _name.text,
-    fromDate: _fromDate,
-    toDate: _toDate,
-    contentIds: _contentIds,
-  );
-
-  void _clear() {
-    setState(() {
-      _eventIds = {};
-      _directPlaces = {};
-      _onlyDirect = false;
-      _types = {};
-      _interests = {};
-      _companies = {};
-      _contentIds = {};
-      _fromDate = null;
-      _toDate = null;
-      _name.clear();
-      _companySearch.clear();
-    });
+  Future<void> _pickDate(bool start) async {
+    final now = _now;
+    final selected = start ? _draft.dates.from : _draft.dates.to;
+    final first = DateTime(1900);
+    final last = DateTime(now.year + 100, 12, 31);
+    final picked = await showFolooDatePicker(
+      context,
+      firstDate: first,
+      lastDate: last,
+      initialDate:
+          selected == null || selected.isBefore(first) || selected.isAfter(last)
+          ? now
+          : selected,
+    );
+    if (!mounted || picked == null || picked == selected) return;
+    setState(
+      () => _draft = _draft.copyWith(
+        dates: RecordsDateRange(
+          start ? picked : _draft.dates.from,
+          start ? _draft.dates.to : picked,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final palette = FolooPalette.of(context);
-    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
-    final height = MediaQuery.sizeOf(context).height * .88;
+    final eventPanel = widget.panel == RecordsFilterPanel.events;
+    final datePanel = widget.panel == RecordsFilterPanel.dates;
+    final title = switch (widget.panel) {
+      RecordsFilterPanel.events => l10n.recordsChooseEvent,
+      RecordsFilterPanel.dates => l10n.recordsWhichDates,
+      RecordsFilterPanel.additional => l10n.recordsMoreFilters,
+    };
+    final inset = MediaQuery.viewInsetsOf(context).bottom;
+    final expandedText = MediaQuery.textScalerOf(context).scale(12) > 16;
+    final options = eventPanel
+        ? _eventOptions(context)
+        : datePanel
+        ? _dateOptions(context)
+        : _additionalOptions(context);
+    final clear = TextButton(
+      key: const Key('recordsClearAdditional'),
+      onPressed: () => setState(
+        () => _draft = _draft.copyWith(
+          interests: const {},
+          contentIds: const {},
+          withoutContent: false,
+        ),
+      ),
+      child: Text(
+        l10n.recordsClear,
+        style: TextStyle(
+          color: palette.ink,
+          decoration: TextDecoration.underline,
+        ),
+      ),
+    );
     return AnimatedPadding(
-      duration: const Duration(milliseconds: 160),
-      padding: EdgeInsets.only(bottom: keyboard),
-      child: SizedBox(
-        height: height,
-        child: Material(
-          color: palette.card,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
-                child: Row(
+      duration: const Duration(milliseconds: 150),
+      padding: EdgeInsets.only(bottom: inset),
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight:
+                ((MediaQuery.sizeOf(context).height - inset) *
+                        (eventPanel ? .88 : .76))
+                    .clamp(0, double.infinity)
+                    .toDouble(),
+          ),
+          child: Builder(
+            builder: (context) {
+              final children = <Widget>[
+                Row(
                   children: [
                     Expanded(
                       child: Text(
-                        context.l10n.recordsFilters,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                        ),
+                        title,
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
-                    IconButton(
-                      key: const Key('closeRecordsFilters'),
-                      tooltip: MaterialLocalizations.of(context)
-                          .closeButtonLabel,
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
+                    if (eventPanel)
+                      IconButton(
+                        style: IconButton.styleFrom(
+                          backgroundColor: palette.paper,
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        tooltip: MaterialLocalizations.of(context)
+                            .closeButtonTooltip,
+                        icon: const Icon(Icons.close),
+                      ),
+                    if (!eventPanel && !datePanel && !expandedText) clear,
                   ],
                 ),
-              ),
-              Divider(height: 1, color: palette.line),
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(
-                      width: 124,
-                      child: ListView(
-                        key: const Key('recordsFilterCategories'),
-                        children: RecordsFilterCategory.values
-                            .map(_categoryTile)
-                            .toList(),
-                      ),
-                    ),
-                    VerticalDivider(width: 1, color: palette.line),
-                    Expanded(
-                      child: ListView(
-                        key: Key('recordsFilterOptions-${_category.name}'),
-                        padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
-                        children: _categoryContent(),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Divider(height: 1, color: palette.line),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          key: const Key('clearRecordsFilters'),
-                          onPressed: _draft.isActive ? _clear : null,
-                          child: Text(context.l10n.clearFilters),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 2,
-                        child: FilledButton(
-                          key: const Key('applyRecordsFilters'),
-                          onPressed: () {
-                            FocusManager.instance.primaryFocus?.unfocus();
-                            Navigator.pop(context, _draft);
-                          },
-                          child: Text(
-                            context.l10n.viewFilterResults(
-                              _draft.apply(widget.records).length,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                if (!eventPanel && !datePanel && expandedText)
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: clear,
                   ),
+                if (eventPanel)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: TextField(
+                      key: const Key('recordsEventSearch'),
+                      onChanged: (value) => setState(() => _eventQuery = value),
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: palette.ink),
+                      decoration: InputDecoration(
+                        hintText: l10n.recordsSearchEvent(widget.events.length),
+                        isDense: true,
+                        constraints: const BoxConstraints(minHeight: 44),
+                        contentPadding: const EdgeInsetsDirectional.fromSTEB(
+                          0,
+                          9,
+                          12,
+                          9,
+                        ),
+                        prefixIconConstraints: const BoxConstraints(
+                          minWidth: 38,
+                          minHeight: 44,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          size: 17,
+                          color: palette.inkSecondary,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(FolooRadii.xl),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(FolooRadii.xl),
+                          borderSide: BorderSide(color: palette.ink),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (expandedText)
+                  ...options
+                else
+                  Flexible(
+                    child: SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: options,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  key: const Key('recordsApplyFilters'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: palette.ink,
+                    foregroundColor: palette.card,
+                    minimumSize: const Size.fromHeight(56),
+                  ),
+                  onPressed: datePanel && !_draft.dates.valid
+                      ? null
+                      : () => Navigator.pop(context, _draft),
+                  child: Text(
+                    eventPanel
+                        ? l10n.recordsApplyEvents
+                        : l10n.recordsSeeLeads(widget.countResults(_draft)),
+                  ),
+                ),
+              ];
+              final content = Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: children,
+              );
+              return expandedText
+                  ? SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      child: content,
+                    )
+                  : content;
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _eventOptions(BuildContext context) {
+    final l10n = context.l10n;
+    final palette = FolooPalette.of(context);
+    final theme = Theme.of(context).textTheme;
+    final titleStyle = theme.bodyMedium?.copyWith(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+    );
+    final events =
+        widget.events
+            .where(
+              (event) =>
+                  normalizeRecordsQuery(event.name)
+                      .contains(normalizeRecordsQuery(_eventQuery)),
+            )
+            .toList()
+          ..sort(
+            (a, b) => a.active == b.active
+                ? b.startsOn.compareTo(a.startsOn)
+                : a.active
+                ? -1
+                : 1,
+          );
+    return [
+      CheckboxListTile(
+        key: const Key('recordsSelectAllEvents'),
+        contentPadding: EdgeInsets.zero,
+        title: Text(l10n.allEvents, style: titleStyle),
+        value:
+            _draft.eventIds == null ||
+            (_knownIds.isNotEmpty && _draft.eventIds!.containsAll(_knownIds)),
+        onChanged: (value) => setState(
+          () => _draft = value == true
+              ? _draft.copyWith(allEvents: true)
+              : _draft.copyWith(eventIds: const {}),
+        ),
+      ),
+      if (events.isEmpty)
+        Text(
+          widget.events.isEmpty
+              ? l10n.noEventsAvailable
+              : l10n.noFilteredRecords,
+        ),
+      for (final event in events) ...[
+        Divider(height: 1, color: palette.line),
+        CheckboxListTile(
+          key: Key('recordsEvent-${event.id}'),
+          contentPadding: EdgeInsets.zero,
+          value: _draft.eventIds?.contains(event.id) ?? true,
+          onChanged: (_) => _toggleEvent(event.id),
+          title: Wrap(
+            spacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(event.name, style: titleStyle),
+              if (event.active)
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: palette.paper,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    child: Text(l10n.active, style: theme.bodySmall),
+                  ),
+                ),
+            ],
+          ),
+          subtitle: Text(
+            '${recordsDateLabel(context, RecordsDateRange(event.startsOn, event.endsOn))} · '
+            '${l10n.leadCount(widget.eventCounts[event.id] ?? 0)}',
+            style: theme.bodySmall,
+          ),
+        ),
+      ],
+    ];
+  }
+
+  List<Widget> _dateOptions(BuildContext context) {
+    final l10n = context.l10n;
+    final labels = {
+      RecordsDatePreset.thisWeek: l10n.recordsThisWeek,
+      RecordsDatePreset.thisMonth: l10n.recordsThisMonth,
+      RecordsDatePreset.lastMonth: l10n.recordsLastMonth,
+      RecordsDatePreset.last90Days: l10n.recordsLast90Days,
+      RecordsDatePreset.all: l10n.recordsAllDates,
+    };
+    final format = DateFormat.yMMMd(
+      Localizations.localeOf(context).toLanguageTag(),
+    );
+    final secondary = Theme.of(context).textTheme.bodySmall;
+    final selectedPreset = _draft.dates.matchingPreset(_now);
+    RecordsChoice preset(RecordsDatePreset value) => RecordsChoice(
+      key: Key('recordsDatePreset-${value.name}'),
+      label: labels[value]!,
+      selected: selectedPreset == value,
+      onTap: () => setState(
+        () => _draft = _draft.copyWith(
+          dates: RecordsDateRange.preset(value, _now),
+        ),
+      ),
+    );
+    Widget field(bool from, DateTime? date) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          from ? l10n.recordsDateFrom : l10n.recordsDateTo,
+          style: secondary,
+        ),
+        const SizedBox(height: 6),
+        OutlinedButton(
+          key: Key(from ? 'recordsDateFrom' : 'recordsDateTo'),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+            minimumSize: const Size(44, 44),
+            textStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          onPressed: () => _pickDate(from),
+          child: Row(
+            children: [
+              const Icon(Icons.calendar_today_outlined, size: 17),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  date == null ? l10n.recordsPickDate : format.format(date),
                 ),
               ),
             ],
           ),
         ),
-      ),
+      ],
     );
-  }
-
-  Widget _categoryTile(RecordsFilterCategory category) {
-    final selected = category == _category;
-    return Material(
-      color: selected ? FolooSelection.surface(context) : Colors.transparent,
-      child: InkWell(
-        key: Key('recordsFilterCategory-${category.name}'),
-        onTap: () {
-          FocusManager.instance.primaryFocus?.unfocus();
-          setState(() => _category = category);
-        },
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 56),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(
-                color: selected ? FolooColors.lime : Colors.transparent,
-                width: 4,
-              ),
-            ),
-          ),
-          alignment: Alignment.centerLeft,
-          child: Text(
-            _categoryLabel(category),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  List<Widget> _categoryContent() => switch (_category) {
-    RecordsFilterCategory.events => [
-      _heading(context.l10n.eventsFilter),
-      if (widget.events.isEmpty) _empty(context.l10n.noEventsAvailable),
-      for (final event in widget.events)
-        CheckboxListTile(
-          key: Key('recordsFilterEvent-${event.id}'),
-          contentPadding: EdgeInsets.zero,
-          value: _eventIds.contains(event.id),
-          title: Text(event.name),
-          onChanged: (value) => setState(() {
-            value == true
-                ? _eventIds.add(event.id)
-                : _eventIds.remove(event.id);
-          }),
-        ),
-    ],
-    RecordsFilterCategory.direct => [
-      _heading(context.l10n.directLeads),
-      Row(
-        key: const Key('recordsFilterDirect'),
-        children: [
-          Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                context.l10n.onlyDirectLeads,
-                maxLines: 1,
-                style: const TextStyle(fontSize: 16),
-              ),
-            ),
-          ),
-          Switch(
-            value: _onlyDirect,
-            onChanged: (value) => setState(() => _onlyDirect = value),
-          ),
-        ],
-      ),
+    return [
+      Text(l10n.recordsDatesHelp, style: secondary),
       const SizedBox(height: 8),
-      ..._directPlaceWidgets(),
-    ],
-    RecordsFilterCategory.type => [
-      _heading(context.l10n.leadType),
-      _chips<LeadType>(
-        LeadType.values,
-        selected: _types,
-        label: (value) => switch (value) {
-          LeadType.customer => context.l10n.client,
-          LeadType.partner => context.l10n.partner,
-          LeadType.supplier => context.l10n.supplier,
-        },
-        onChanged: (value, selected) => setState(() {
-          selected ? _types.add(value) : _types.remove(value);
-        }),
+      RecordsChoiceLayout(
+        children: [for (final value in labels.keys.take(3)) preset(value)],
       ),
-    ],
-    RecordsFilterCategory.interest => [
-      _heading(context.l10n.interestLevel),
-      _chips<InterestLevel>(
-        InterestLevel.values,
-        selected: _interests,
-        label: (value) => switch (value) {
-          InterestLevel.low => context.l10n.interestLow,
-          InterestLevel.medium => context.l10n.interestMedium,
-          InterestLevel.high => context.l10n.interestHigh,
-        },
-        onChanged: (value, selected) => setState(() {
-          selected ? _interests.add(value) : _interests.remove(value);
-        }),
+      RecordsChoiceLayout(
+        children: [for (final value in labels.keys.skip(3)) preset(value)],
       ),
-    ],
-    RecordsFilterCategory.company => _companyWidgets(),
-    RecordsFilterCategory.name => [
-      _heading(context.l10n.nameFilter),
-      TextField(
-        key: const Key('recordsFilterName'),
-        controller: _name,
-        onChanged: (_) => setState(() {}),
-        decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.search),
-          hintText: context.l10n.searchLeadName,
-        ),
-      ),
-    ],
-    RecordsFilterCategory.date => _dateWidgets(),
-    RecordsFilterCategory.content => [
-      _heading(context.l10n.contentTitle),
-      if (widget.contentFiles.isEmpty)
-        _empty(context.l10n.exportNoContentAvailable),
-      for (final file in widget.contentFiles)
-        CheckboxListTile(
-          key: Key('recordsFilterContent-${file.id}'),
-          contentPadding: EdgeInsets.zero,
-          value: _contentIds.contains(file.id),
-          title: Text(file.displayName),
-          subtitle: file.fileName.isEmpty ? null : Text(file.fileName),
-          onChanged: (value) => setState(() {
-            value == true
-                ? _contentIds.add(file.id)
-                : _contentIds.remove(file.id);
-          }),
-        ),
-    ],
-  };
-
-  List<Widget> _directPlaceWidgets() {
-    final byKey = <String, String>{};
-    for (final record in widget.records) {
-      if (record.lead.originKind != LeadOriginKind.direct) continue;
-      final display = record.lead.place?.trim().replaceAll(RegExp(r'\s+'), ' ');
-      final key = canonicalDirectLeadPlace(display);
-      if (key.isNotEmpty) byKey.putIfAbsent(key, () => display!);
-    }
-    final places = byKey.entries.toList()
-      ..sort(
-        (left, right) =>
-            left.value.toLowerCase().compareTo(right.value.toLowerCase()),
-      );
-    if (places.isEmpty) return [_empty(context.l10n.noDirectPlacesAvailable)];
-    return [
-      for (final place in places)
-        CheckboxListTile(
-          key: Key('recordsFilterDirectPlace-${place.key}'),
-          contentPadding: EdgeInsets.zero,
-          value: _directPlaces.contains(place.key),
-          title: Text(place.value),
-          onChanged: (value) => setState(() {
-            value == true
-                ? _directPlaces.add(place.key)
-                : _directPlaces.remove(place.key);
-          }),
-        ),
-    ];
-  }
-
-  List<Widget> _companyWidgets() {
-    final byKey = <String, String>{};
-    for (final record in widget.records) {
-      final display = record.lead.company.trim().replaceAll(
-        RegExp(r'\s+'),
-        ' ',
-      );
-      if (display.isNotEmpty) {
-        byKey.putIfAbsent(canonicalCompanyName(display), () => display);
-      }
-    }
-    final query = canonicalCompanyName(_companySearch.text);
-    final companies =
-        byKey.entries
-            .where((entry) => query.isEmpty || entry.key.contains(query))
-            .toList()
-          ..sort((left, right) => left.value.compareTo(right.value));
-    return [
-      _heading(context.l10n.company),
-      TextField(
-        key: const Key('recordsFilterCompanySearch'),
-        controller: _companySearch,
-        decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.search),
-          hintText: context.l10n.searchCompany,
-        ),
-      ),
-      const SizedBox(height: 14),
-      if (companies.isEmpty) _empty(context.l10n.noCompaniesAvailable),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
+      const SizedBox(height: 10),
+      Row(
         children: [
-          for (final entry in companies)
-            FilterChip(
-              key: Key('recordsFilterCompany-${entry.key}'),
-              label: Text(entry.value),
-              selected: _companies.any(
-                (value) => canonicalCompanyName(value) == entry.key,
-              ),
-              onSelected: (selected) => setState(() {
-                _companies.removeWhere(
-                  (value) => canonicalCompanyName(value) == entry.key,
-                );
-                if (selected) _companies.add(entry.value);
-              }),
-            ),
+          Expanded(child: field(true, _draft.dates.from)),
+          const SizedBox(width: 8),
+          Expanded(child: field(false, _draft.dates.to)),
         ],
       ),
+      if (!_draft.dates.valid)
+        Text(
+          l10n.recordsInvalidDates,
+          style: TextStyle(color: FolooPalette.of(context).error),
+        ),
     ];
   }
 
-  List<Widget> _dateWidgets() => [
-    _heading(context.l10n.dateFilter),
-    _dateTile(
-      key: const Key('recordsFilterFromDate'),
-      label: context.l10n.startDate,
-      value: _fromDate,
-      onPicked: (value) {
-        if (_toDate != null && value.isAfter(_toDate!)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.invalidDateRange)),
-          );
-          return;
-        }
-        setState(() => _fromDate = value);
-      },
-      onClear: () => setState(() => _fromDate = null),
-    ),
-    const SizedBox(height: 10),
-    _dateTile(
-      key: const Key('recordsFilterToDate'),
-      label: context.l10n.endDate,
-      value: _toDate,
-      onPicked: (value) {
-        if (_fromDate != null && value.isBefore(_fromDate!)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.invalidDateRange)),
-          );
-          return;
-        }
-        setState(() => _toDate = value);
-      },
-      onClear: () => setState(() => _toDate = null),
-    ),
-  ];
+  List<Widget> _additionalOptions(BuildContext context) {
+    final l10n = context.l10n;
+    final palette = FolooPalette.of(context);
+    Widget title(String text) => Text(
+      text.toUpperCase(),
+      style: TextStyle(
+        color: palette.inkSecondary,
+        fontSize: 12,
+        letterSpacing: .7,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+    final interests = {
+      InterestLevel.low: (l10n.interestLow, FolooColors.interestLow),
+      InterestLevel.medium: (l10n.interestMedium, FolooColors.interestMedium),
+      InterestLevel.high: (l10n.interestHigh, FolooColors.interestHigh),
+    };
+    void toggleInterest(InterestLevel value) {
+      final selected = {..._draft.interests};
+      if (!selected.remove(value)) selected.add(value);
+      setState(() => _draft = _draft.copyWith(interests: selected));
+    }
 
-  Widget _dateTile({
-    required Key key,
-    required String label,
-    required DateTime? value,
-    required ValueChanged<DateTime> onPicked,
-    required VoidCallback onClear,
-  }) => ListTile(
+    return [
+      const SizedBox(height: 8),
+      title(l10n.interestLevel),
+      const SizedBox(height: 9),
+      if (MediaQuery.textScalerOf(context).scale(13) <= 17)
+        SegmentedBubble<InterestLevel>.multiple(
+          height: 50,
+          selectedVerticalInset: 3,
+          selectedColor: FolooSelection.surface(context),
+          selectedBorderColor: palette.ink,
+          selectedForegroundColor: FolooSelection.foreground(context),
+          unselectedForegroundColor: palette.inkSecondary,
+          selectedValues: _draft.interests,
+          onSelected: toggleInterest,
+          options: [
+            for (final entry in interests.entries)
+              SegmentedBubbleOption(
+                key: Key('recordsInterest-${entry.key.name}'),
+                value: entry.key,
+                label: entry.value.$1,
+                leading: Icon(Icons.circle, size: 8, color: entry.value.$2),
+              ),
+          ],
+        )
+      else
+        Wrap(
+          spacing: 5,
+          children: [
+            for (final entry in interests.entries)
+              RecordsChoice(
+                key: Key('recordsInterest-${entry.key.name}'),
+                label: entry.value.$1,
+                dot: entry.value.$2,
+                selected: _draft.interests.contains(entry.key),
+                onTap: () => toggleInterest(entry.key),
+              ),
+          ],
+        ),
+      const SizedBox(height: 14),
+      title(l10n.recordsSentContent),
+      if (widget.contentNames.isEmpty)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text(l10n.noFiles),
+        ),
+      for (final item in widget.contentNames.entries)
+        _contentTile(
+          context,
+          item.value,
+          _draft.contentIds.contains(item.key),
+          (checked) {
+            final selected = {..._draft.contentIds};
+            if (checked == true) {
+              selected.add(item.key);
+            } else {
+              selected.remove(item.key);
+            }
+            setState(() => _draft = _draft.copyWith(contentIds: selected));
+          },
+          Key('recordsContent-${item.key}'),
+        ),
+      _contentTile(
+        context,
+        l10n.recordsWithoutSentContent,
+        _draft.withoutContent,
+        (checked) => setState(
+          () => _draft = _draft.copyWith(withoutContent: checked ?? false),
+        ),
+        const Key('recordsWithoutContent'),
+      ),
+    ];
+  }
+
+  Widget _contentTile(
+    BuildContext context,
+    String label,
+    bool value,
+    ValueChanged<bool?> changed,
+    Key key,
+  ) => CheckboxListTile(
     key: key,
     contentPadding: EdgeInsets.zero,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(FolooRadii.md),
-      side: BorderSide(color: FolooPalette.of(context).line),
+    secondary: CircleAvatar(
+      radius: 17,
+      backgroundColor: FolooPalette.of(context).paper,
+      foregroundColor: FolooPalette.of(context).ink,
+      child: const Icon(Icons.description_outlined, size: 17),
     ),
-    leading: const Icon(Icons.calendar_today_outlined),
-    title: Text(label),
-    subtitle: value == null
-        ? Text(context.l10n.notSelected)
-        : Text(MaterialLocalizations.of(context).formatMediumDate(value)),
-    trailing: value == null
-        ? const Icon(Icons.chevron_right)
-        : IconButton(
-            tooltip: context.l10n.clear,
-            onPressed: onClear,
-            icon: const Icon(Icons.close),
+    title: Text(
+      label,
+      style: Theme.of(context).textTheme.bodySmall
+          ?.copyWith(color: FolooPalette.of(context).ink),
+    ),
+    value: value,
+    onChanged: changed,
+  );
+}
+
+/// Accessible Foloo pill shared by quick filters and sheet options.
+class RecordsChoice extends StatelessWidget {
+  const RecordsChoice({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.dot,
+    this.compact = false,
+    super.key,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final Color? dot;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = FolooPalette.of(context);
+    return Semantics(
+      selected: selected,
+      child: TextButton(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(44, 44),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 6 : 9,
+            vertical: 6,
           ),
-    onTap: () async {
-      final picked = await showDatePicker(
-        context: context,
-        initialDate: value ?? DateTime.now(),
-        firstDate: DateTime(2000),
-        lastDate: DateTime.now().add(const Duration(days: 366)),
+          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          backgroundColor: selected
+              ? FolooSelection.surface(context)
+              : palette.paper,
+          foregroundColor: selected
+              ? FolooSelection.foreground(context)
+              : palette.inkSecondary,
+          side: BorderSide(color: selected ? palette.ink : Colors.transparent),
+          shape: const StadiumBorder(),
+        ),
+        onPressed: onTap,
+        child: dot == null
+            ? Text(label, textAlign: TextAlign.center)
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (dot != null) ...[
+                    Icon(Icons.circle, color: dot, size: 10),
+                    const SizedBox(width: 6),
+                  ],
+                  Flexible(child: Text(label, textAlign: TextAlign.center)),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+/// Keeps choices on a row at normal sizes without shrinking or clipping text.
+/// Larger accessibility text gets more room across additional rows.
+class RecordsChoiceLayout extends StatelessWidget {
+  const RecordsChoiceLayout({
+    required this.children,
+    this.splitWhenExpanded = false,
+    super.key,
+  });
+
+  final List<RecordsChoice> children;
+  final bool splitWhenExpanded;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final expanded = MediaQuery.textScalerOf(context).scale(12) > 16;
+      if (!splitWhenExpanded && expanded) {
+        return Wrap(spacing: 4, children: children);
+      }
+      Widget row(List<RecordsChoice> choices) => Row(
+        children: [
+          for (var i = 0; i < choices.length; i++) ...[
+            if (i > 0) const SizedBox(width: 3),
+            Expanded(flex: choices[i].label.length + 5, child: choices[i]),
+          ],
+        ],
       );
-      if (picked != null) onPicked(picked);
+      if (splitWhenExpanded && (expanded || constraints.maxWidth < 260)) {
+        return Column(
+          children: [
+            row(children.take(2).toList()),
+            row(children.skip(2).toList()),
+          ],
+        );
+      }
+      return row(children);
     },
   );
-
-  Widget _chips<T>(
-    Iterable<T> values, {
-    required Set<T> selected,
-    required String Function(T value) label,
-    required void Function(T value, bool selected) onChanged,
-  }) => Wrap(
-    spacing: 8,
-    runSpacing: 8,
-    children: [
-      for (final value in values)
-        FilterChip(
-          label: Text(label(value)),
-          selected: selected.contains(value),
-          onSelected: (active) => onChanged(value, active),
-        ),
-    ],
-  );
-
-  Widget _heading(String value) => Padding(
-    padding: const EdgeInsets.only(bottom: 14),
-    child: Text(
-      value,
-      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-    ),
-  );
-
-  Widget _empty(String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 20),
-    child: Text(
-      value,
-      style: TextStyle(color: FolooPalette.of(context).inkSecondary),
-    ),
-  );
-
-  String _categoryLabel(RecordsFilterCategory category) => switch (category) {
-    RecordsFilterCategory.events => context.l10n.eventsFilter,
-    RecordsFilterCategory.direct => context.l10n.directLeads,
-    RecordsFilterCategory.type => context.l10n.leadType,
-    RecordsFilterCategory.interest => context.l10n.interestLevel,
-    RecordsFilterCategory.company => context.l10n.company,
-    RecordsFilterCategory.name => context.l10n.nameFilter,
-    RecordsFilterCategory.date => context.l10n.dateFilter,
-    RecordsFilterCategory.content => context.l10n.contentTitle,
-  };
 }

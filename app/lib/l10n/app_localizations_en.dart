@@ -10,6 +10,119 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get recordsChooseEvent => 'Choose events';
+
+  @override
+  String recordsSearchEvent(int count) {
+    return 'Search your $count events';
+  }
+
+  @override
+  String recordsSelectedEvents(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count events selected',
+      one: '1 event selected',
+      zero: 'No events',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get recordsApplyEvents => 'Apply selection';
+
+  @override
+  String get recordsNameCompany => 'Name or company';
+
+  @override
+  String get recordsMoreFilters => 'More filters';
+
+  @override
+  String get recordsClear => 'Clear';
+
+  @override
+  String get recordsSentContent => 'Sent content';
+
+  @override
+  String get recordsWithoutSentContent => 'No sent content';
+
+  @override
+  String recordsSeeLeads(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'View $count leads',
+      one: 'View 1 lead',
+      zero: 'View 0 leads',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get recordsWhichDates => 'Which dates?';
+
+  @override
+  String get recordsDatesHelp =>
+      'Select the date range to view and export your leads';
+
+  @override
+  String get recordsThisWeek => 'This week';
+
+  @override
+  String get recordsThisMonth => 'This month';
+
+  @override
+  String get recordsLastMonth => 'Last month';
+
+  @override
+  String get recordsLast90Days => 'Last 90 days';
+
+  @override
+  String get recordsAllDates => 'All dates';
+
+  @override
+  String get recordsDateFrom => 'From';
+
+  @override
+  String get recordsDateTo => 'To';
+
+  @override
+  String get recordsPickDate => 'Select a date';
+
+  @override
+  String get recordsInvalidDates =>
+      'The start date must not be after the end date.';
+
+  @override
+  String get recordsClients => 'Clients';
+
+  @override
+  String get recordsPartners => 'Partners';
+
+  @override
+  String get recordsSuppliers => 'Suppliers';
+
+  @override
+  String get recordsNoEventLeads => 'No leads in the selected events.';
+
+  @override
+  String get deleteReferenceImage => 'Delete image';
+
+  @override
+  String get deleteReferenceImageQuestion => 'Delete image?';
+
+  @override
+  String get deleteReferenceImageWarning =>
+      'Are you sure you want to delete this reference image? This cannot be undone.';
+
+  @override
+  String get referenceImageDeleted => 'Image deleted.';
+
+  @override
+  String get referenceImageDeleteFailed => 'Could not delete the image.';
+
+  @override
   String get languageSpanish => 'ES';
 
   @override

@@ -484,10 +484,20 @@ paths:
         schema: { type: string, format: uuid }
     delete:
       operationId: deleteLeadVoiceNote
-      description: Idempotently tombstones one owner-scoped saved voice note.
+      description: Idempotently tombstones one owner-scoped saved voice note (empty body) or an existing reference image, including prepared uploads. An absent reference returns 404 without creating a tombstone or idempotency record. A stored tombstone blocks late preparation and confirmation; no S3 object is directly deleted.
       parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                kind: { type: string, enum: [reference_image] }
       responses:
         "200": { $ref: "#/components/responses/DataResponse" }
+        "400": { $ref: "#/components/responses/ErrorResponse" }
         "404": { $ref: "#/components/responses/ErrorResponse" }
         "409": { $ref: "#/components/responses/ErrorResponse" }
 components:

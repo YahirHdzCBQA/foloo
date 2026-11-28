@@ -242,6 +242,17 @@ class SyncEngine extends ChangeNotifier {
         );
         _log(operation, 'synced');
       } on SyncHttpException catch (error) {
+        if (error.statusCode == 404 &&
+            error.errorCode == 'not_found' &&
+            operation.entityType == SyncEntityType.leadMedia.name &&
+            operation.action == 'delete' &&
+            _payload(operation)['kind'] == 'reference_image') {
+          // The reference never reached preparation (or its lead is gone).
+          // Keep the local fence, but do not retry a remote no-op.
+          await _store.complete(operation);
+          _log(operation, 'already_absent', httpStatus: 404);
+          continue;
+        }
         if (error.statusCode == 401 || error.statusCode == 403) {
           await _store.pause(operation, _now());
           _log(
@@ -394,6 +405,9 @@ class SyncEngine extends ChangeNotifier {
       throw const FormatException('Media operation has no leadId.');
     }
     final media = await _store.mediaById(operation.entityId);
+    if (media?.uploadState == 'deleted') {
+      return const SyncResponse(statusCode: 200);
+    }
     if (media == null) {
       throw const MediaTransferException(code: 'local_metadata_missing');
     }
@@ -408,6 +422,10 @@ class SyncEngine extends ChangeNotifier {
       ),
     );
     final upload = _uploadTarget(authorization);
+    if ((await _store.mediaById(operation.entityId))?.uploadState ==
+        'deleted') {
+      return const SyncResponse(statusCode: 200);
+    }
     _logMediaAuthorization(operation, payload, upload.headers);
     await mediaTransfer!.upload(
       url: upload.url,
@@ -415,6 +433,10 @@ class SyncEngine extends ChangeNotifier {
       localPath: media.localPath,
     );
     _logMedia(operation, 'upload_success');
+    if ((await _store.mediaById(operation.entityId))?.uploadState ==
+        'deleted') {
+      return const SyncResponse(statusCode: 200);
+    }
     final confirmation = await _send(
       operation.ownerUserId,
       token,
@@ -887,7 +909,11 @@ class SyncEngine extends ChangeNotifier {
         path: operation.action == 'delete'
             ? '/v1/leads/${payload.remove('leadId')}/media/${operation.entityId}'
             : '/v1/leads/${payload.remove('leadId')}/media',
-        body: operation.action == 'delete' ? null : payload,
+        body: operation.action == 'delete'
+            ? (payload['kind'] == 'reference_image'
+                  ? const {'kind': 'reference_image'}
+                  : null)
+            : payload,
         idempotencyKey: operation.idempotencyKey,
       ),
       SyncEntityType.content => SyncRequest(

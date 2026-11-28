@@ -1773,6 +1773,60 @@ class LeadRepository {
     }
   }
 
+  /// Tombstones one owner-scoped reference and retains the UUID across restarts.
+  Future<void> deleteReferenceImage(
+    String userId,
+    SessionLead session,
+    String selectedPath,
+  ) async {
+    final target = await _database.transaction(() async {
+      final lead = await _database.leadDao.byId(userId, session.localId);
+      if (lead == null || lead.deletedAt != null) {
+        throw StateError('Cannot update an unavailable lead.');
+      }
+      final media = (await _database.leadDao.mediaFor(session.localId))
+          .where(
+            (item) =>
+                item.mediaType == LocalMediaType.referenceImage.name &&
+                item.localPath == selectedPath,
+          )
+          .toList();
+      if (media.isEmpty) return null;
+      if (media.length != 1) throw StateError('Ambiguous reference image.');
+      final image = media.single;
+      await _database.syncDao.deleteForEntity(
+        userId,
+        SyncEntityType.leadMedia.name,
+        image.localId,
+      );
+      await _database.leadDao.tombstoneReferenceImage(image.localId);
+      await _syncStore.enqueue(
+        ownerSub: userId,
+        entityType: SyncEntityType.leadMedia,
+        entityId: image.localId,
+        action: 'delete',
+        payload: {
+          'leadId': session.localId,
+          'id': image.localId,
+          'kind': 'reference_image',
+        },
+        now: DateTime.now().toUtc(),
+      );
+      return image;
+    });
+    if (target == null) return;
+    if (!await _database.leadDao.hasOtherLiveMediaAt(
+      target.localId,
+      target.localPath,
+    )) {
+      try {
+        await _mediaStorage.deleteIfManaged(target.localPath);
+      } on FileSystemException {
+        // The durable tombstone has already removed the image from Foloo.
+      }
+    }
+  }
+
   /// Tombstones exactly one owner-scoped voice note and queues remote deletion.
   Future<void> deleteVoiceNote(
     String userId,

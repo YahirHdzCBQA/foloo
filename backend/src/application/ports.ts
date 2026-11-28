@@ -146,5 +146,6 @@ export interface FolooRepository {
     mediaId: string,
     idempotencyKey: string,
     requestHash: string,
+    kind?: "reference_image",
   ): Promise<IdempotentResult<unknown>>;
 }

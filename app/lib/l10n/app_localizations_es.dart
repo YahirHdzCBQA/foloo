@@ -10,6 +10,120 @@ class AppLocalizationsEs extends AppLocalizations {
   AppLocalizationsEs([String locale = 'es']) : super(locale);
 
   @override
+  String get recordsChooseEvent => 'Elige el evento';
+
+  @override
+  String recordsSearchEvent(int count) {
+    return 'Buscar entre tus $count eventos';
+  }
+
+  @override
+  String recordsSelectedEvents(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count eventos seleccionados',
+      one: '1 evento seleccionado',
+      zero: 'Ningún evento',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get recordsApplyEvents => 'Aplicar selección';
+
+  @override
+  String get recordsNameCompany => 'Nombre o empresa';
+
+  @override
+  String get recordsMoreFilters => 'Más filtros';
+
+  @override
+  String get recordsClear => 'Limpiar';
+
+  @override
+  String get recordsSentContent => 'Contenido enviado';
+
+  @override
+  String get recordsWithoutSentContent => 'Sin contenido enviado';
+
+  @override
+  String recordsSeeLeads(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ver $count leads',
+      one: 'Ver 1 lead',
+      zero: 'Ver 0 leads',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get recordsWhichDates => '¿De qué fechas?';
+
+  @override
+  String get recordsDatesHelp =>
+      'Selecciona el rango de fechas para mostrar y exportar tus leads';
+
+  @override
+  String get recordsThisWeek => 'Esta semana';
+
+  @override
+  String get recordsThisMonth => 'Este mes';
+
+  @override
+  String get recordsLastMonth => 'Mes pasado';
+
+  @override
+  String get recordsLast90Days => 'Últimos 90 días';
+
+  @override
+  String get recordsAllDates => 'Todo';
+
+  @override
+  String get recordsDateFrom => 'Desde';
+
+  @override
+  String get recordsDateTo => 'Hasta';
+
+  @override
+  String get recordsPickDate => 'Seleccionar fecha';
+
+  @override
+  String get recordsInvalidDates =>
+      'La fecha Desde no puede ser posterior a Hasta.';
+
+  @override
+  String get recordsClients => 'Clientes';
+
+  @override
+  String get recordsPartners => 'Partners';
+
+  @override
+  String get recordsSuppliers => 'Proveedores';
+
+  @override
+  String get recordsNoEventLeads =>
+      'No hay leads en los eventos seleccionados.';
+
+  @override
+  String get deleteReferenceImage => 'Eliminar imagen';
+
+  @override
+  String get deleteReferenceImageQuestion => '¿Eliminar imagen?';
+
+  @override
+  String get deleteReferenceImageWarning =>
+      '¿Estás seguro de que quieres eliminar esta imagen de referencia? Esta acción no se puede deshacer.';
+
+  @override
+  String get referenceImageDeleted => 'Imagen eliminada.';
+
+  @override
+  String get referenceImageDeleteFailed => 'No se pudo eliminar la imagen.';
+
+  @override
   String get languageSpanish => 'ES';
 
   @override
