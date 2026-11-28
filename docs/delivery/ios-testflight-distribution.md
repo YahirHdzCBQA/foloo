@@ -1,6 +1,6 @@
 # Distribución iOS · TestFlight y preparación de App Store
 
-**Última evidencia registrada (2026-11-23):** IPA 1.0.0 (7) generado y
+**Última evidencia registrada (2026-11-27):** IPA 1.0.0 (8) generado y
 validado localmente para QA privado AWS DEV; sin evidencia de carga,
 aprobación ni distribución.
 **Trazas:** `AUT-01`, `AUT-02`, `AUT-04`, `AUT-10`–`AUT-12`,
@@ -54,6 +54,45 @@ en las rutas de salida habituales; preservar los artefactos antes de repetirlo.
   una prueba destructiva de eliminación con el IPA 7.
 - ML Kit mostró advertencias no bloqueantes de Swift Package Manager y arm64
   en simuladores; no impidieron archive/export para dispositivo.
+
+## Build 8 — FL-025.1 (2026-11-27)
+
+- Fuente: `3c5b353`, rama `feature/FL-025.1/qa-fixes`, con FL-025.1-A/B/C
+  y QA-V01–V07. El propietario confirmó el QA físico previo en iPhone contra
+  la API DEV desplegada; no equivale a validar la instalación por TestFlight.
+- Se preservaron el IPA y el archive del Build 7 antes de sobrescribir las
+  rutas habituales. Los defines de `app/config/testflight-dev-build8.json`
+  son idénticos a los homologados del Build 7, sin secretos. Unlimited QA
+  queda `false` en el cliente; el backend DEV conserva `true`, sin cambios
+  durante la compilación. Este IPA no acredita el límite FREE del servidor.
+
+```bash
+cd /Users/cbqa/Downloads/foloo/app
+flutter build ipa --release \
+  --build-name=1.0.0 --build-number=8 --export-method=app-store \
+  --dart-define-from-file=config/testflight-dev-build8.json
+```
+
+- Xcode 27 / SDK iPhoneOS 27.0: archive completado en 95 s y exportación en
+  34 s (`app-store-connect` en `ExportOptions.plist`). IPA:
+  `app/build/ios/ipa/foloo.ipa`, **49 570 579 bytes**.
+- SHA-256 IPA: `3f661711d76f07df8c5a76d63e42fbb4003a3412295690e7c02a3a18eb17d57a`.
+- IPA verificado: `com.foloo.foloo`, `1.0.0+8`, iOS mínimo 15.5 y Runner
+  arm64. Firma automática Apple Distribution (Cloud Managed), Team
+  `PU238KF2F9`. `codesign --verify --deep --strict` y la prueba de
+  integridad ZIP aprobaron.
+- Perfil embebido `iOS Team Store Provisioning Profile: com.foloo.foloo`,
+  vigente hasta 2027-09-30 15:49:26 UTC, sin lista de dispositivos y con
+  `beta-reports-active=true`. Los entitlements firmados de aplicación y
+  equipo corresponden a Foloo; `get-task-allow=false` en firma y perfil.
+- `flutter analyze` sin incidencias; contrato DEV con los defines del Build 8:
+  1 PASS. Los 18 manifiestos de privacidad dentro del IPA pasaron
+  `plutil -lint`; esto no sustituye el informe consolidado ni App Privacy.
+  Las advertencias de ML Kit sobre SPM y arm64 de simulador no bloquearon
+  la exportación para dispositivo.
+- **Apto localmente para carga manual con Transporter.** No se cargó ni se
+  envió a revisión; App Store Connect debe confirmar disponibilidad del
+  número, aceptación y procesamiento.
 
 ## Frontera Apple → Cognito → Foloo
 
@@ -144,3 +183,5 @@ y autorización separada.
   acredita Apple Distribution aunque su archive intermedio estaba sin firma.
 - **7 / FL-025:** evidencia reproducible arriba; no consta carga ni distribución.
   No se verificó retrospectivamente la disponibilidad de grupos anteriores.
+- **8 / FL-025.1:** IPA DEV firmado y verificado localmente; carga manual
+  mediante Transporter y procesamiento aún pendientes.
